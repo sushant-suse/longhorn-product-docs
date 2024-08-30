@@ -19,3 +19,5 @@ clean:
 environment:
 	npm install && npm update
 
+after_clone:
+	bin/after_clone
