@@ -1,0 +1,144 @@
+= Restore Longhorn System
+:weight: 2
+:current-version: {page-component-version}
+
+* <<longhorn-system-restore-rollouts,What does the Longhorn system restore rollout to the cluster>>
+* <<limitations,What are the limitations>>
+ ** <<restore-path,Restore Path>>
+* <<create-longhorn-system-restore,How to restore from Longhorn system backup>>
+ ** <<prerequisite,Prerequisite>>
+ ** <<using-longhorn-ui,Using Longhorn UI>>
+ ** <<using-kubectl-command,Using kubectl command>>
+* <<delete-longhorn-system-restore,How to delete Longhorn system restore>>
+ ** <<using-longhorn-ui-1,Using Longhorn UI>>
+ ** <<using-kubectl-command-1,Using kubectl command>>
+* <<restart-longhorn-system-restore,How to restart Longhorn System Restore>>
+* <<configurable-settings,What settings are configurable>>
+* <<troubleshoot,How to troubleshoot>>
+* <<history,History>>
+
+== Longhorn System Restore Rollouts
+
+* Longhorn restores the resource from the xref:advanced-resources/system-backup-restore/backup-longhorn-system.adoc#_longhorn_system_backup_bundle[Longhorn System Backup Bundle].
+* Longhorn does not restore existing `Volumes` and their associated `PersistentVolume` and `PersistentVolumeClaim`.
+* Longhorn automatically restores a `Volume` from its latest backup.
+* To prevent overwriting eligible settings, Longhorn does not restore the `ConfigMap/longhorn-default-setting`.
+* Longhorn does not restore <<configurable-settings,configurable settings>>.
+
+== Limitations
+
+=== Restore Path
+
+Longhorn does not support cross-major/minor version system restore except for upgrade failures, ex: 1.4.x \-> 1.5.
+
+== Create Longhorn System Restore
+
+You can restore the Longhorn system using Longhorn UI. Or with the `kubectl` command.
+
+=== Prerequisite
+
+* A running Longhorn cluster for Longhorn to roll out the resources in the system backup bundle.
+* Set up the `Nodes` and disk tags for `StorageClass`.
+* Have a Longhorn system backup.
++
+See xref:advanced-resources/system-backup-restore/backup-longhorn-system.adoc#_create_longhorn_system_backup[Backup Longhorn System - Create Longhorn System Backup] for instructions.
+
+* All existing `Volumes` are detached.
+
+=== Using Longhorn UI
+
+. Go to the `System Backup` page in the `Setting`.
+. Select a system backup to restore.
+. Click `Restore` in the `Operation` drop-down menu.
+. Give a `Name` for the system restore.
+. The system restore starts and show the `Completed` state when done.
+
+== Using `kubectl` Command
+
+. Find the Longhorn `SystemBackup` to restore.
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME     VERSION   STATE   CREATED
+demo     v1.4.0    Ready   2022-11-24T04:23:24Z
+demo-2   v1.4.0    Ready   2022-11-24T05:00:59Z
+----
+
+. Execute `kubectl create` to create a Longhorn `SystemRestore` of the `SystemBackup`.
++
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: SystemRestore
+metadata:
+  name: restore-demo
+  namespace: longhorn-system
+spec:
+  systemBackup: demo
+----
+
+. The system restore starts.
+. The `SystemRestore` change to state `Completed` when done.
++
+----
+> kubectl -n longhorn-system get systemrestore
+NAME           STATE       AGE
+restore-demo   Completed   59s
+----
+
+== Delete Longhorn System Restore
+
+WARNING: Deleting the SystemRestore also deletes the associated job and will abort the remaining resource rollouts. You can <<restart-longhorn-system-restore,Restart the Longhorn System Restore>> to roll out the remaining resources.
+
+You can abort or remove a completed Longhorn system restore using Longhorn UI. Or with the `kubectl` command.
+
+=== Using Longhorn UI
+
+. Go to the `System Backup` page in the `Setting`.
+. Delete a single system restore in the `Operation` drop-down menu next to the system restore. Or delete in batch with the `Delete` button.
+
+=== Using `kubectl` Command
+
+. Execute `kubectl delete` to delete a Longhorn `SystemRestore`.
++
+----
+> kubectl -n longhorn-system get systemrestore
+NAME           STATE       AGE
+restore-demo   Completed   2m37s
+
+> kubectl -n longhorn-system delete systemrestore/restore-demo
+systemrestore.longhorn.io "restore-demo" deleted
+----
+
+== Restart Longhorn System Restore
+
+. <<delete-longhorn-system-restore,Delete Longhorn System Restore>> that is in progress.
+. <<create-longhorn-system-restore,Create Longhorn System Restore>>.
+
+== Configurable Settings
+
+Some settings are excluded as configurable before the Longhorn system restore.
+
+* xref:references/settings.adoc#_concurrent_volume_backup_restore_per_node_limit[Concurrent volume backup restore per node limit]
+* xref:references/settings.adoc#_concurrent_replica_rebuild_per_node_limit[Concurrent replica rebuild per node limit]
+* xref:references/settings.adoc#_backup_target[Backup Target]
+* xref:references/settings.adoc#_backup_target_credential_secret[Backup Target Credential Secret]
+
+== Troubleshoot
+
+=== System Restore Hangs
+
+. Check the longhorn-system-rollout Pod log for any errors.
++
+----
+> kubectl -n longhorn-system logs --selector=job-name=longhorn-system-rollout-<SYSTEM-RESTORE-NAME>
+----
+
+. Resolve if the issue is identifiable, ex: remove the problematic restoring resource.
+. <<restart-longhorn-system-restore,Restart the Longhorn system restore>>.
+
+== History
+
+https://github.com/longhorn/longhorn/issues/1455[Original Feature Request]
+
+Available since v1.4.0
