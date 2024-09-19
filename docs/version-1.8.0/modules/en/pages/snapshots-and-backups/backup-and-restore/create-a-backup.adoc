@@ -1,0 +1,93 @@
+= Create a Backup
+:weight: 2
+:current-version: {page-component-version}
+
+== Incremental Backup
+
+Backups in Longhorn are objects in an off-cluster backupstore. A backup of a snapshot is copied to the backupstore, and the endpoint to access the backupstore is the backup target. For more information, see xref:concepts.adoc#_3_1_how_backups_work[this section.]
+
+____
+*Prerequisite:* A backup target must be set up. For more information, see xref:snapshots-and-backups/backup-and-restore/set-backup-target.adoc[Set the BackupTarget]. If the BackupTarget has not been set, you'll be presented with an error.
+____
+
+=== Create an Incremental Backup Using UI
+
+To create a backup,
+
+. Navigate to the *Volume* menu.
+. Select the volume you wish to back up.
+. Click *Create Backup.*
+. Add any appropriate labels and click OK.
+
+*Result:* The backup is created. To see it, click *Backup* in the top navigation bar.
+
+For information about restoring a volume from a snapshot, see xref:snapshots-and-backups/backup-and-restore/restore-from-a-backup.adoc[Restore from a Backup].
+
+=== Create an Incremental Using YAML Code
+
+. Obtain the name of the snapshot that you want to back up (from either the Longhorn UI or the CR).
+. Apply the YAML.
+
+Example:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Backup
+metadata:
+  name: backup-example
+  namespace: longhorn-system
+spec:
+  backupMode: incremental
+  snapshotName: snapshot-name-example
+  labels:
+    app: test
+----
+
+== Full Backup
+
+By default, Longhorn backs up only data that was changed since the last backup. This approach, known as _delta backup_, enhances time efficiency and conserves network throughput. However, when a data block in the backupstore becomes corrupted, Longhorn does not replace that data block with a healthy one during subsequent backup operations.
+
+Starting with v1.7.0, Longhorn can perform full backups that upload all data blocks in the volume and overwrite existing data blocks in the backupstore.
+
+=== Create a Full Backup Using the Longhorn UI
+
+. Go to the *Volume* screen.
+. Select the volume that you want to back up.
+. Click *Create Backup*.
+. Add appropriate labels.
+. Select Full Backup.
+. Click *OK*.
+
+=== Create a Full Backup Using YAML Code
+
+. Obtain the name of the snapshot that you want to back up (from either the Longhorn UI or the CR).
+. Apply the YAML.
+
+Example:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Backup
+metadata:
+  name: backup-example
+  namespace: longhorn-system
+spec:
+  backupMode: full
+  snapshotName: snapshot-name-example
+  labels:
+    app: test
+----
+
+== Uploaded Data Size
+
+To facilitate collection of data transfer information for each backup, Longhorn records the information using two metrics in the CR status.
+
+=== Newly Uploaded Data Size
+
+`status.newlyUploadDataSize` records the size of data that was uploaded _for the first time_ to the backupstore during the latest backup. In other words, it tracks the size of data blocks that did not previously exist in the backupstore.
+
+=== Re-Uploaded Data Size
+
+`status.reUploadDataSize` records the size of data that was overwritten during the latest full backup. In other words, it tracks the size of data blocks that previously existed in the backupstore.
