@@ -7,7 +7,7 @@ local:
 
 remote:
 	mkdir -p tmp
-	npm install && npm update
+	npm ci
 	npx antora --version
 	npx antora --stacktrace --log-format=pretty --log-level=info \
 		lh-remote-playbook.yml \
@@ -18,6 +18,3 @@ clean:
 
 environment:
 	npm install && npm update
-
-after_clone:
-	bin/after_clone
