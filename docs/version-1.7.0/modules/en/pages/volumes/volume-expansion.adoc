@@ -3,14 +3,14 @@
 
 Volumes are expanded in two stages. First, Longhorn resizes the block device, then it expands the filesystem.
 
-Since v1.4.0, Longhorn supports online expansion. Most of the time Longhorn can directly expand an attached volumes without limitations, no matter if the volume is being R/W or rebuilding.
+Longhorn supports online expansion. Most of the time Longhorn can directly expand an attached volumes without limitations, no matter if the volume is being R/W or rebuilding.
 
 If the volume was not expanded though the CSI interface (e.g. for Kubernetes older than v1.16), the capacity of the corresponding PVC and PV won't change.
 
-== Prerequisite
+== Prerequisites
 
-* For offline expansion, the Longhorn version must be v0.8.0 or higher.
-* For online expansion, the Longhorn version must be v1.4.0 or higher.
+* For offline expansion, the Longhorn version must be v0.8.0 or later.
+* For online expansion, the Longhorn version must be v1.4.0 or later.
 
 == Expand a Longhorn volume
 

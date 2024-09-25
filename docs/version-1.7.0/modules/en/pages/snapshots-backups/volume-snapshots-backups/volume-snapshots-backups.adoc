@@ -2,11 +2,11 @@
 :current-version: {page-component-version}
 
 ____
-Before v1.2.0, Longhorn used a "blocking way" for communication with the remote backup target. Consequently, there are some involuntary factors impacting the functions relying on remote backup target. For example, network latency, listing backups, or causing further cascading problems after the backup target operation.
+In earlier versions, Longhorn used a "blocking way" for communication with the remote backup target. Consequently, there are some involuntary factors impacting the functions relying on remote backup target. For example, network latency, listing backups, or causing further cascading problems after the backup target operation.
 ____
 
 ____
-Since v1.2.0, Longhorn started using an asynchronous backup operations to resolve the aforementioned issues in the previous version.
+In current versions, Longhorn started using an asynchronous backup operations to resolve the aforementioned issues in the previous version.
 
 * To do this, create the backup cluster custom resources first, then perform the following snapshot and backup operations to the remote backup target.
 * Once the backup creation is completed, asynchronously pull the state of backup volumes and backups from the remote backup target. Then, update the status of the corresponding cluster custom resources.
