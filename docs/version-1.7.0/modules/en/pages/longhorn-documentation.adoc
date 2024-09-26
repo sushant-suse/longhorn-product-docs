@@ -1,10 +1,13 @@
-= Longhorn
+include::partial$longhorn-globals.adoc[]
+= {product-name}
 :description: Cloud native distributed block storage for Kubernetes
 :current-version: {page-component-version}
 
-*Longhorn* is a lightweight, reliable, and powerful distributed https://cloudacademy.com/blog/object-storage-block-storage/[block storage] system for Kubernetes.
+*{product-name}* is a lightweight, reliable, and powerful distributed https://cloudacademy.com/blog/object-storage-block-storage/[block storage] system for Kubernetes.
 
-Longhorn implements distributed block storage using containers and microservices. Longhorn creates a dedicated storage controller for each block device volume and synchronously replicates the volume across multiple replicas stored on multiple nodes. The storage controller and replicas are themselves orchestrated using Kubernetes.
+{product-name} is derived from the open source, community, https://www.cncf.io[CNCF] project called https://longhorn.io[Longhorn]. The name Longhorn is used interchangeably with {product-name} in this documentation.
+
+{product-name} implements distributed block storage using containers and microservices. {product-name} creates a dedicated storage controller for each block device volume and synchronously replicates the volume across multiple replicas stored on multiple nodes. The storage controller and replicas are themselves orchestrated using Kubernetes.
 
 == Features
 
@@ -12,5 +15,5 @@ Longhorn implements distributed block storage using containers and microservices
 * Incremental snapshot of block storage
 * Backup to secondary storage (https://www.extrahop.com/resources/protocols/nfs/[NFS] or https://aws.amazon.com/s3/[S3]-compatible object storage) built on efficient change block detection
 * Recurring snapshots and backups
-* Automated, non-disruptive upgrades. You can upgrade the entire Longhorn software stack without disrupting running storage volumes.
+* Automated, non-disruptive upgrades. You can upgrade the entire {product-name} software stack without disrupting running storage volumes.
 * An intuitive GUI dashboard
