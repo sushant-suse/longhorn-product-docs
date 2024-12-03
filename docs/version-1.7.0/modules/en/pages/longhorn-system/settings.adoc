@@ -73,10 +73,7 @@ If disabled, Longhorn will not delete the workload pod that is managed by a cont
 
 [NOTE]
 ====
-This setting doesn't apply to below cases.
-
-* The workload pods don't have a controller; Longhorn never deletes them.
-* Workload pods with _cluster network_ RWX volumes. The setting does not apply to such pods because the Longhorn Share Manager, which provides the RWX NFS service, has its own resilience mechanism. This mechanism ensures availability until the volume is reattached without relying on the pod lifecycle to trigger volume reattachment. The setting does apply, however, to workload pods with _storage network_ RWX volumes. For more information, see xref:volumes/rwx-volumes.adoc[ReadWriteMany (RWX) Volume] and xref:longhorn-system/networking/storage-network.adoc#_limitation[Storage Network].
+This setting does not apply to workload pods without a controller. Longhorn never deletes such pods.
 ====
 
 === Automatic Salvage
