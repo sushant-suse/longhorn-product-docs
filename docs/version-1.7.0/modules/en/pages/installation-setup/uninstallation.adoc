@@ -1,5 +1,4 @@
 = Uninstallation
-:current-version: {page-component-version}
 
 == Prerequisite
 
@@ -21,6 +20,14 @@ Run this command:
 
 ----
 helm uninstall longhorn -n longhorn-system
+----
+
+== Uninstalling Longhorn Using Helm Controller
+
+Run this command:
+
+----
+kubectl delete helmchart <HelmChart name> -n <HelmChart namespace>
 ----
 
 == Uninstalling Longhorn Using Fleet
