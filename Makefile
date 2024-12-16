@@ -17,4 +17,4 @@ clean:
 	rm -rf build
 
 environment:
-	npm install && npm update
+	npm ci
