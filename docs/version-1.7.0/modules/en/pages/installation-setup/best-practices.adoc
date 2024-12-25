@@ -1,7 +1,7 @@
 = Best Practices
 :current-version: {page-component-version}
 
-We recommend the following setup for deploying Longhorn in production.
+The following setup is recommended for production environments.
 
 == Minimum Recommended Hardware
 
@@ -15,7 +15,7 @@ We recommend the following setup for deploying Longhorn in production.
 
 == Architecture
 
-Longhorn supports the following architectures:
+{longhorn-product-name} supports the following architectures:
 
 . AMD64
 . ARM64
@@ -25,7 +25,7 @@ Longhorn supports the following architectures:
 
 NOTE: CentOS Linux has been removed from the verified OS list below, as it has been discontinued in favor of CentOS Stream [https://www.redhat.com/en/blog/faq-centos-stream-updates#Q5[ref]], a rolling-release Linux distribution. Our focus for verifying RHEL-based downstream open source distributions will be enterprise-grade, such as Rocky and Oracle Linux.
 
-The following Linux OS distributions and versions have been verified during the v{current-version} release testing. However, this does not imply that Longhorn exclusively supports these distributions. Essentially, Longhorn should function well on any certified Kubernetes cluster running on Linux nodes with a wide range of general-purpose operating systems, as well as verified container-optimized operating systems like SLE Micro.
+The following Linux OS distributions and versions have been verified during the v{current-version} release testing. However, this does not imply that {longhorn-product-name} exclusively supports these distributions. Essentially, {longhorn-product-name} should function well on any certified Kubernetes cluster running on Linux nodes with a wide range of general-purpose operating systems, as well as verified container-optimized operating systems like SLE Micro.
 
 |===
 | No. | OS | Versions
@@ -63,7 +63,7 @@ The following Linux OS distributions and versions have been verified during the 
 | 113
 |===
 
-Longhorn relies heavily on kernel functionality and performs better on some kernel versions. The following activities,
+{longhorn-product-name} relies heavily on kernel functionality and performs better on some kernel versions. The following activities,
 in particular, benefit from usage of specific kernel versions.
 
 * Optimizing or improving the filesystem: Use a kernel with version `v5.8` or later. See https://github.com/longhorn/longhorn/issues/2507#issuecomment-857195496[Issue
@@ -100,9 +100,9 @@ The list below contains known broken kernel versions that users should avoid usi
 
 == Kubernetes Version
 
-Ensure that your cluster is running Kubernetes v1.21 or later before upgrading Longhorn.
+Ensure that your cluster is running Kubernetes v1.21 or later before upgrading {longhorn-product-name}.
 
-We recommend running your Kubernetes cluster on one of the following versions. These versions are the active supported versions prior to the Longhorn release, and have been tested with Longhorn v{current-version}.
+We recommend running your Kubernetes cluster on one of the following versions. These versions are the active supported versions prior to the {longhorn-product-name} release, and have been tested with {longhorn-product-name} v{current-version}.
 
 |===
 | Release | Released | End-of-life
@@ -128,19 +128,19 @@ We recommend the following setup for nodes and disks.
 
 === Use a Dedicated Disk
 
-It's recommended to dedicate a disk for Longhorn storage for production, instead of using the root disk.
+It's recommended to dedicate a disk for {longhorn-product-name} storage for production, instead of using the root disk.
 
 === Minimal Available Storage and Over-provisioning
 
 If you need to use the root disk, use the default `minimal available storage percentage` setup which is 25%, and set `overprovisioning percentage` to 100% to minimize the chance of DiskPressure.
 
-If you're using a dedicated disk for Longhorn, you can lower the setting `minimal available storage percentage` to 10%.
+If you're using a dedicated disk for {longhorn-product-name}, you can lower the setting `minimal available storage percentage` to 10%.
 
-For the Over-provisioning percentage, it depends on how much space your volume uses on average. For example, if your workload only uses half of the available volume size, you can set the Over-provisioning percentage to `200`, which means Longhorn will consider the disk to have twice the schedulable size as its full size minus the reserved space.
+For the Over-provisioning percentage, it depends on how much space your volume uses on average. For example, if your workload only uses half of the available volume size, you can set the Over-provisioning percentage to `200`, which means {longhorn-product-name} will consider the disk to have twice the schedulable size as its full size minus the reserved space.
 
 === Disk Space Management
 
-Since Longhorn doesn't currently support sharding between the different disks, we recommend using https://en.wikipedia.org/wiki/Logical_Volume_Manager_(Linux)[LVM] to aggregate all the disks for Longhorn into a single partition, so it can be easily extended in the future.
+Since {longhorn-product-name} doesn't currently support sharding between the different disks, we recommend using https://en.wikipedia.org/wiki/Logical_Volume_Manager_(Linux)[LVM] to aggregate all the disks for {longhorn-product-name} into a single partition, so it can be easily extended in the future.
 
 === Setting up Extra Disks
 
@@ -152,7 +152,7 @@ Don't use a symbolic link for the extra disks. Use `mount --bind` instead of `ln
 
 To use a directory other than the default `/var/lib/longhorn` for storage, the `Default Data Path` setting can be changed before installing the system. For details on changing pre-installation settings, refer to xref:longhorn-system/customize-default-settings.adoc[this section.]
 
-The xref:nodes/default-disk-and-node-config.adoc[Default node/disk configuration] feature can be used to customize the default disk after installation. Customizing the default configurations for disks and nodes is useful for scaling the cluster because it eliminates the need to configure Longhorn manually for each new node if the node contains more than one disk, or if the disk configuration is different for new nodes. Remember to enable `Create default disk only on labeled node` if applicable.
+The xref:nodes/default-disk-and-node-config.adoc[Default node/disk configuration] feature can be used to customize the default disk after installation. Customizing the default configurations for disks and nodes is useful for scaling the cluster because it eliminates the need to configure {longhorn-product-name} manually for each new node if the node contains more than one disk, or if the disk configuration is different for new nodes. Remember to enable `Create default disk only on labeled node` if applicable.
 
 == Volume Performance Optimization
 
@@ -160,17 +160,17 @@ Before configuring workloads, ensure that you have set up the following basic re
 
 * SATA/NVMe SSDs or disk drives with similar performance
 * 10 Gbps network bandwidth between nodes
-* Dedicated Priority Class for system-managed and user-deployed Longhorn components. By default, Longhorn installs the default Priority Class `longhorn-critical`.
+* Dedicated Priority Class for system-managed and user-deployed {longhorn-product-name} components. By default, {longhorn-product-name} installs the default Priority Class `longhorn-critical`.
 
 The following sections outline other recommendations for production environments.
 
 === IO Performance
 
 * *Storage network*: Use a xref:longhorn-system/networking/storage-network.adoc#_setting_storage_network[dedicated storage network] to improve IO performance and stability.
-* *Longhorn disk*: Use a xref:nodes/multiple-disks.adoc#_add_a_disk[dedicated disk] for Longhorn storage instead of using the root disk.
+* *{longhorn-product-name} disk*: Use a xref:nodes/multiple-disks.adoc#_add_a_disk[dedicated disk] for {longhorn-product-name} storage instead of using the root disk.
 * *Replica count*: Set the xref:longhorn-system/settings.adoc#_default_replica_count[default replica count] to "2" to achieve data availability with better disk space usage or less impact to system performance. This practice is especially beneficial to data-intensive applications.
 * *Storage tag*: Use xref:nodes/storage-tags.adoc[storage tags] to define storage tiering for data-intensive applications. For example, only high-performance disks can be used for storing performance-sensitive data.
-* *Data locality*: Use `best-effort` as the default xref:high-availability/data-locality.adoc[data locality] of Longhorn StorageClasses.
+* *Data locality*: Use `best-effort` as the default xref:high-availability/data-locality.adoc[data locality] of {longhorn-product-name} StorageClasses.
 +
 For applications that support data replication (for example, a distributed database), you can use the `strict-local` option to ensure that only one replica is created for each volume. This practice prevents the extra disk space usage and IO performance overhead associated with volume replication.
 +
@@ -196,15 +196,15 @@ If you're using `ext4` as the filesystem of the volume, we recommend adding a li
 
 == Volume Maintenance
 
-Using Longhorn's built-in backup feature is highly recommended. You can save backups to an object store such as S3 or to an NFS server. Saving to an object store is preferable because it generally offers better reliability.  Another advantage is that you do not need to mount and unmount the target, which can complicate failover and upgrades.
+Using {longhorn-product-name}'s built-in backup feature is highly recommended. You can save backups to an object store such as S3 or to an NFS server. Saving to an object store is preferable because it generally offers better reliability.  Another advantage is that you do not need to mount and unmount the target, which can complicate failover and upgrades.
 
-For each volume, schedule at least one recurring backup. If you must run Longhorn in production without a backupstore, then schedule at least one recurring snapshot for each volume.
+For each volume, schedule at least one recurring backup. If you must run {longhorn-product-name} in production without a backupstore, then schedule at least one recurring snapshot for each volume.
 
-Longhorn system will create snapshots automatically when rebuilding a replica. Recurring snapshots or backups can also automatically clean up the system-generated snapshot.
+{longhorn-product-name} will create snapshots automatically when rebuilding a replica. Recurring snapshots or backups can also automatically clean up the system-generated snapshot.
 
 === Guaranteed Instance Manager CPU
 
-We recommend setting the CPU request for Longhorn instance manager pods.
+We recommend setting the CPU request for {longhorn-product-name} instance manager pods.
 
 === V1 Data Engine
 

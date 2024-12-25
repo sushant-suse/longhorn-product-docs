@@ -1,11 +1,11 @@
 = Requirements
 :current-version: {page-component-version}
 
-Each node in the Kubernetes cluster where Longhorn is installed must fulfill the following requirements:
+Each node in the Kubernetes cluster where {longhorn-product-name} is installed must fulfill the following requirements:
 
 * A container runtime compatible with Kubernetes (Docker v1.13+, containerd v1.3.7+, etc.)
 * Kubernetes ≥ v1.21
-* `open-iscsi` is installed, and the `iscsid` daemon is running on all the nodes. This is necessary, since Longhorn relies on `iscsiadm` on the host to provide persistent volumes to Kubernetes. For help installing `open-iscsi`, refer to <<_installing_open_iscsi,this section.>>
+* `open-iscsi` is installed, and the `iscsid` daemon is running on all the nodes. This is necessary, since {longhorn-product-name} relies on `iscsiadm` on the host to provide persistent volumes to Kubernetes. For help installing `open-iscsi`, refer to <<_installing_open_iscsi,this section.>>
 * RWX support requires that each node has a NFSv4 client installed.
  ** For installing a NFSv4 client, refer to <<_installing_nfsv4_client,this section.>>
 * The host filesystem supports the `file extents` feature to store the data. Currently we support:
@@ -14,28 +14,28 @@ Each node in the Kubernetes cluster where Longhorn is installed must fulfill the
 * `bash`, `curl`, `findmnt`, `grep`, `awk`, `blkid`, `lsblk` must be installed.
 * https://kubernetes-csi.github.io/docs/deploying.html#enabling-mount-propagation[Mount propagation] must be enabled.
 
-The Longhorn workloads must be able to run as root in order for Longhorn to be deployed and operated properly.
+The {longhorn-product-name} workloads must be able to run as root in order for {longhorn-product-name} to be deployed and operated properly.
 
-<<_using_the_environment_check_script,This script>> can be used to check the Longhorn environment for potential issues.
+<<_using_the_environment_check_script,This script>> can be used to check the {longhorn-product-name} environment for potential issues.
 
 For the minimum recommended hardware, refer to the xref:installation-setup/best-practices.adoc#_minimum_recommended_hardware[best practices guide.]
 
 [discrete]
 == OS/Distro Specific Configuration
 
-You must perform additional setups before using Longhorn with certain operating systems and distributions.
+You must perform additional setups before using {longhorn-product-name} with certain operating systems and distributions.
 
-* Google Kubernetes Engine (GKE): See xref:installation-setup/os-distro/gke.adoc[Longhorn CSI on GKE].
-* K3s clusters: See xref:installation-setup/os-distro/k3s.adoc[Longhorn CSI on K3s].
-* RKE clusters with CoreOS: See xref:installation-setup/os-distro/rke-coreos.adoc[Longhorn CSI on RKE and CoreOS].
-* OCP/OKD clusters: See xref:installation-setup/os-distro/ocp-okd.adoc[OKD Support].
-* Talos Linux clusters: See xref:installation-setup/os-distro/talos-linux.adoc[Talos Linux Support].
-* Container-Optimized OS: See xref:installation-setup/os-distro/container-optimized-os.adoc[Container-Optimized OS Support].
+* Google Kubernetes Engine (GKE): See xref:installation-setup/os-distro/gke.adoc[GKE].
+* K3s clusters: See xref:installation-setup/os-distro/k3s.adoc[K3s].
+* RKE clusters with CoreOS: See xref:installation-setup/os-distro/rke-coreos.adoc[RKE and CoreOS].
+* OCP/OKD clusters: See xref:installation-setup/os-distro/ocp-okd.adoc[OKD].
+* Talos Linux clusters: See xref:installation-setup/os-distro/talos-linux.adoc[Talos Linux].
+* Container-Optimized OS: See xref:installation-setup/os-distro/container-optimized-os.adoc[Container-Optimized OS].
 
 [discrete]
-== Using the Longhorn Command Line Tool
+== Using the {longhorn-product-name} Command Line Tool
 
-The `longhornctl` tool is a CLI for Longhorn operations. For more information, see xref:longhorn-system/system-access/longhorn-cli.adoc[Command Line Tool (longhornctl)].
+The `longhornctl` tool is a CLI for {longhorn-product-name} operations. For more information, see xref:longhorn-system/system-access/longhorn-cli.adoc[Command Line Tool (longhornctl)].
 
 To check the prerequisites and configurations, download the tool and run the `check` sub-command:
 
@@ -74,7 +74,7 @@ worker2:
   - Package open-iscsi is installed
 ----
 
-Use the `install` sub-command to install and set up the preflight dependencies before installing Longhorn.
+Use the `install` sub-command to install and set up the preflight dependencies before installing {longhorn-product-name}.
 
 [subs="+attributes",shell]
 ----
@@ -93,7 +93,7 @@ ____
 
 ____
 *Deprecation Notice* +
-Since Longhorn v1.7.0, we have introduced the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool]. The functionality of the environment check script, https://github.com/longhorn/longhorn/blob/master/scripts/environment_check.sh[environment_check.sh] overlaps with that of the Longhorn Command Line Tool. Therefore, the script has been deprecated in v1.7.0 and is scheduled for removal in v1.8.0.
+The functionality of the environment check script, https://github.com/longhorn/longhorn/blob/master/scripts/environment_check.sh[environment_check.sh] overlaps with that of the {longhorn-product-name} Command Line Tool. Therefore, the script has been deprecated in v1.7.0 and is scheduled for removal in v1.8.0.
 ____
 
 We've written a script to help you gather enough information about the factors.
@@ -128,9 +128,9 @@ Example of result:
 [discrete]
 === Pod Security Policy
 
-Starting with v1.0.2, Longhorn is shipped with a default Pod Security Policy that will give Longhorn the necessary privileges to be able to run properly.
+{longhorn-product-name} is shipped with a default Pod Security Policy that will give {longhorn-product-name} the necessary privileges to be able to run properly.
 
-No special configuration is needed for Longhorn to work properly on clusters with Pod Security Policy enabled.
+No special configuration is needed for {longhorn-product-name} to work properly on clusters with Pod Security Policy enabled.
 
 [discrete]
 === Notes on Mount Propagation
@@ -142,9 +142,9 @@ If MountPropagation is disabled, Base Image feature will be disabled.
 [discrete]
 === Root and Privileged Permission
 
-Longhorn components require root access with privileged permissions to achieve volume operations and management, because Longhorn relies on system resources on the host across different namespaces, for example, Longhorn uses `nsenter` to understand block devices' usage or encrypt/decrypt volumes on the host.
+{longhorn-product-name} components require root access with privileged permissions to achieve volume operations and management, because {longhorn-product-name} relies on system resources on the host across different namespaces. For example, {longhorn-product-name} uses `nsenter` to understand block devices' usage or encrypt/decrypt volumes on the host.
 
-Below are the directories Longhorn components requiring access with root and privileged permissions :
+Below are the directories {longhorn-product-name} components requiring access with root and privileged permissions :
 
 * Longhorn Manager
  ** /dev: Block devices created by Longhorn are under the `/dev` path.
@@ -253,14 +253,14 @@ Created symlink from /etc/systemd/system/multi-user.target.wants/iscsid.service 
 iscsi install successfully
 ----
 
-In rare cases, it may be required to modify the installed SELinux policy to get Longhorn working. If you are running
+In rare cases, it may be required to modify the installed SELinux policy to get {longhorn-product-name} working. If you are running
 an up-to-date version of a Fedora downstream distribution (e.g. Fedora, RHEL, Rocky, CentOS, etc.) and plan to leave
 SELinux enabled, see link:https://longhorn.io/kb/troubleshooting-volume-attachment-fails-due-to-selinux-denials[the KB] for details.
 
 [discrete]
 == Installing NFSv4 client
 
-In Longhorn system, backup feature requires NFSv4, v4.1 or v4.2, and ReadWriteMany (RWX) volume feature requires NFSv4.1. Before installing NFSv4 client userspace daemon and utilities, make sure the client kernel support is enabled on each Longhorn node.
+The backup feature requires NFSv4, v4.1 or v4.2, and ReadWriteMany (RWX) volume feature requires NFSv4.1. Before installing NFSv4 client userspace daemon and utilities, make sure the client kernel support is enabled on each {longhorn-product-name} node.
 
 * Check `NFSv4.1` support is enabled in kernel
 +
@@ -344,7 +344,7 @@ The `Server Version` should be ≥ v1.21.
 [discrete]
 == Installing Cryptsetup and LUKS
 
-https://gitlab.com/cryptsetup/cryptsetup[Cryptsetup] is an open-source utility used to conveniently set up `dm-crypt` based device-mapper targets and Longhorn uses https://gitlab.com/cryptsetup/cryptsetup#luks-design[LUKS2] (Linux Unified Key Setup) format that is the standard for Linux disk encryption to support volume encryption.
+https://gitlab.com/cryptsetup/cryptsetup[Cryptsetup] is an open-source utility used to conveniently set up `dm-crypt` based device-mapper targets and {longhorn-product-name} uses https://gitlab.com/cryptsetup/cryptsetup#luks-design[LUKS2] (Linux Unified Key Setup) format that is the standard for Linux disk encryption to support volume encryption.
 
 The command used to install the cryptsetup tool differs depending on the Linux distribution.
 

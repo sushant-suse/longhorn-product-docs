@@ -1,4 +1,4 @@
-= Install SUSE® Storage Using Helm
+= Install {longhorn-product-name} Using Helm
 :current-version: {page-component-version}
 
 == Prerequisites
@@ -7,7 +7,7 @@
 * Your workstation: Install https://helm.sh/docs/[Helm] v3.0 or later.
 
 ____
-https://github.com/longhorn/longhorn/blob/v{current-version}/scripts/environment_check.sh[This script] can be used to check the Longhorn environment for potential issues.
+https://github.com/longhorn/longhorn/blob/v{current-version}/scripts/environment_check.sh[This script] can be used to check the environment for potential issues.
 ____
 
 == Installation
@@ -15,8 +15,8 @@ ____
 ____
 *Note*:
 
-* The initial settings for Longhorn can be found in xref:../../longhorn-system/customize-default-settings.adoc#_using_helm[customized using Helm options or by editing the deployment configuration file.]
-* For Kubernetes < v1.25, if your cluster still enables Pod Security Policy admission controller, set the helm value `enablePSP` to `true` to install `longhorn-psp` PodSecurityPolicy resource which allows privileged Longhorn pods to start.
+* The initial settings can be found in xref:../../longhorn-system/customize-default-settings.adoc#_using_helm[customized using Helm options or by editing the deployment configuration file.]
+* For Kubernetes v1.25 or earlier, if your cluster still enables Pod Security Policy admission controller, set the helm value `enablePSP` to `true` to install `longhorn-psp` PodSecurityPolicy resource which allows privileged Longhorn pods to start.
 ____
 
 . Add the Longhorn Helm repository:
@@ -33,7 +33,7 @@ helm repo add longhorn https://charts.longhorn.io
 helm repo update
 ----
 
-. Install Longhorn in the `longhorn-system` namespace.
+. Install {longhorn-product-name} in the `longhorn-system` namespace.
 +
 [subs="+attributes",shell]
 ----
@@ -72,5 +72,5 @@ The result should look like the following:
  engine-image-ei-df38d2e5-cv6nc                      1/1     Running   0          114s
 ----
 
-. To enable access to the Longhorn UI, you will need to set up an Ingress controller. Authentication to the Longhorn UI is not enabled by default. For information on creating an NGINX Ingress controller with basic authentication, refer to xref:../../longhorn-system/system-access/create-ingress.adoc[this section.]
-. Access the Longhorn UI using xref:../../longhorn-system/system-access/system-access.adoc[these steps.]
+. To enable access to the UI, you will need to set up an Ingress controller. Authentication to the UI is not enabled by default. For information on creating an NGINX Ingress controller with basic authentication, refer to xref:../../longhorn-system/system-access/create-ingress.adoc[this section.]
+. Access the UI using xref:../../longhorn-system/system-access/system-access.adoc[these steps.]
