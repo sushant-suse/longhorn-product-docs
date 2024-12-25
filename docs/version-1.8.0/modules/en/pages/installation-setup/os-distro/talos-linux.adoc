@@ -1,0 +1,92 @@
+= Talos Linux
+:current-version: {page-component-version}
+
+== Requirements
+
+You must meet the following requirements before installing {longhorn-product-name} on a Talos Linux cluster.
+
+=== System Extensions
+
+Some {longhorn-product-name}-dependent binary executables are not present in the default Talos root filesystem. To have access to these binaries, Talos offers system extension mechanism to extend the installation.
+
+* `siderolabs/iscsi-tools`: this extension enables iscsid daemon and iscsiadm to be available to all nodes for the Kubernetes persistent volumes operations.
+* `siderolabs/util-linux-tools`: this extension enables linux tool to be available to all nodes. For example, the `fstrim` binary is used for {longhorn-product-name} volume trimming.
+
+The most straightforward method is patching the extensions onto existing Talos Linux nodes.
+
+[subs="+attributes",yaml]
+----
+customization:
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/iscsi-tools
+      - siderolabs/util-linux-tools
+----
+
+For detailed instructions, see the Talos documentation on https://www.talos.dev/v1.6/talos-guides/configuration/system-extensions/[System Extensions] and https://www.talos.dev/v1.6/talos-guides/install/boot-assets/[Boot Assets].
+
+=== Pod Security
+
+{longhorn-product-name} requires pod security `enforce: "privileged"`.
+
+By default, Talos Linux applies a `baseline` pod security profile across namespaces, except for the kube-system namespace. This default setting restricts {longhorn-product-name}'s ability to manage and access system resources. For more information, see xref:installation-setup/requirements.adoc#_root_and_privileged_permission[Root and Privileged Permission].
+
+For detailed instructions, see xref:important-notes.adoc#_pod_security_policies_disabled__pod_security_admission_introduction[Pod Security Policies Disabled & Pod Security Admission Introduction] and the Talos documentation on https://www.talos.dev/v1.6/kubernetes-guides/configuration/pod-security/[Pod Security].
+
+=== Data Path Mounts
+
+You need provide additional data path mounts to be accessible to the Kubernetes Kubelet container.
+
+These mounts are necessary to provide access to the host directories, and attach volumes required by {longhorn-product-name} components.
+
+[subs="+attributes",yaml]
+----
+machine:
+  kubelet:
+    extraMounts:
+      - destination: /var/lib/longhorn
+        type: bind
+        source: /var/lib/longhorn
+        options:
+          - bind
+          - rshared
+          - rw
+----
+
+For detailed instructions, see the Talos documentation on https://www.talos.dev/v1.6/talos-guides/configuration/editing-machine-configuration/[Editing Machine Configuration].
+
+== Limitations
+
+* Exclusive to v1 data volume: currently, within a Talos Linux cluster, {longhorn-product-name} only supports v1 data volume. The v2 data volume isn't currently supported in this environment.
+
+== Talos Linux Upgrades
+
+When https://www.talos.dev/v1.7/talos-guides/upgrading-talos/#talosctl-upgrade[upgrading a Talos Linux node], always include the `--preserve` option in the command. This option explicitly tells Talos to keep ephemeral data intact.
+
+Example:
+
+----
+talosctl upgrade --nodes 10.20.30.40 --image ghcr.io/siderolabs/installer:v1.7.6 --preserve
+----
+
+CAUTION: If you do not include the `--preserve` option, Talos wipes `/var/lib/longhorn`, destroying all replicas stored on that node.
+
+=== Recovering from an Upgraded Node without Preserving Data
+
+If you were unable to include the `--preserve` option in the upgrade command, perform the following steps:
+
+. On the {longhorn-product-name} UI, go to the *Node* screen.
+. Select the upgraded node, and then select *Edit node and disks* in the *Operation* menu.
+. On the *Edit Node and Disks* screen, set *Scheduling* to *Disable*, delete the disk, and then click *Save*.
+. Select the upgraded node again, and then select *Edit node and disks* in the *Operation* menu.
+. On the *Edit Node and Disks* screen, add a disk and configure the following settings:
+ ** *Path*: Specify `/var/lib/longhorn/`.
+ ** *Storage Reserved*: Specify a value that matches your requirements. The default value is *30 Gi*.
+ ** *Scheduling*: Select *Enable*.
+. Click *Save*.
+
+{longhorn-product-name} synchronizes the replicas based on the configured settings.
+
+== References
+
+* https://github.com/longhorn/longhorn/issues/3161[[FEATURE\] Talos support]
