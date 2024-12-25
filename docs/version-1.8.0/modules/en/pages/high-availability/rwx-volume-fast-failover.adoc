@@ -1,10 +1,9 @@
 = RWX Volume Fast Failover (Experimental)
-:weight: 1
 :current-version: {page-component-version}
 
-Release 1.7.0 adds a feature that minimizes the downtime for ReadWriteMany volumes when a node fails.  When enabled Longhorn uses a lease-based mechanism to monitor the state of the NFS server pod that exports the volume Longhorn reacts quickly to move it to another node if it becomes unresponsive.  See xref:nodes-and-volumes/volumes/rwx-volumes.adoc[RWX Volumes] for details on how the NFS server works.
+Release 1.7.0 adds a feature that minimizes the downtime for ReadWriteMany volumes when a node fails.  When enabled Longhorn uses a lease-based mechanism to monitor the state of the NFS server pod that exports the volume Longhorn reacts quickly to move it to another node if it becomes unresponsive.  See xref:volumes/rwx-volumes.adoc[RWX Volumes] for details on how the NFS server works.
 
-To enable the feature, you set xref:references/settings.adoc#_rwx_volume_fast_failover_experimental[RWX Volume Fast Failover] to "true".  Existing RWX volumes will need to be restarted to use the feature after the setting is changed.  That is done by scaling the workload down to zero and then back up again.  New volumes will pick up the setting at creation and be configured appropriately.
+To enable the feature, you set xref:longhorn-system/settings.adoc#_rwx_volume_fast_failover_experimental[RWX Volume Fast Failover] to "true".  Existing RWX volumes will need to be restarted to use the feature after the setting is changed.  That is done by scaling the workload down to zero and then back up again.  New volumes will pick up the setting at creation and be configured appropriately.
 
 With the feature enabled, when a pod is created or re-created, Longhorn also creates an associated lease object in the `longhorn-system` namespace, with the same name as the volume.  The NFS server pod keeps the lease renewed as proof of life.  If the renewal stops happening, Longhorn will take steps to create a new NFS server pod on another node and to re-attach the workload, even before the old node is marked as `Not Ready` by Kubernetes.
 
@@ -26,7 +25,7 @@ kubectl -n longhorn-system delete lease pvc-2ce4e82e-7ccc-46c0-90a8-a141501fbf93
 See, for example, https://github.com/longhorn/longhorn/issues/9093.
 ====
 
-=== Resource Consumption and System Performance Impact
+== Resource Consumption and System Performance Impact
 
 The Longhorn team has investigated the impact of RWX volumes on resource consumption and system performance. The benchmarking studies, which were completed using 60 RWX volumes, show that enabling the _RWX Volume Fast Failover_ feature results in the following:
 
@@ -34,12 +33,12 @@ The Longhorn team has investigated the impact of RWX volumes on resource consump
 * More remote procedure calls (RPCs) sent from kube-apiserver to etcd
 * Slight increase in CPU and memory usage
 
-==== *Environment:*
+=== *Environment:*
 
 * *Setup:* 1 Control Node + 3 Worker Nodes (v1.27.15+rke2r1)
 * *Workload:* 60 Deployments with 60 RWX volumes with `soft` mount
 
-==== *Test Results:*
+=== *Test Results:*
 
 |===
 | *Metric* | *Fast Failover Disabled* | *Fast Failover Enabled* | *Difference*

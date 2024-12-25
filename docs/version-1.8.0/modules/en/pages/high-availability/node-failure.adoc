@@ -1,5 +1,4 @@
-= Node Failure Handling with Longhorn
-:weight: 2
+= Node Failure Management
 :current-version: {page-component-version}
 
 == What to expect when a Kubernetes Node fails
@@ -20,7 +19,7 @@ In both cases, Kubernetes will automatically evict the pod (set deletion timesta
 
 Longhorn provides an option to help users automatically force delete terminating pods of StatefulSet/Deployment on the node that is down. After force deleting, Kubernetes will detach the Longhorn volume and spin up replacement pods on a new node.
 
-You can find more detail about the setting options in the `Pod Deletion Policy When Node is Down` in the *Settings* tab in the Longhorn UI or xref:references/settings.adoc#_pod_deletion_policy_when_node_is_down[Settings reference]
+You can find more detail about the setting options in the `Pod Deletion Policy When Node is Down` in the *Settings* tab in the Longhorn UI or xref:longhorn-system/settings.adoc#_pod_deletion_policy_when_node_is_down[Settings reference]
 
 == What to expect when a failed Kubernetes Node recovers
 
