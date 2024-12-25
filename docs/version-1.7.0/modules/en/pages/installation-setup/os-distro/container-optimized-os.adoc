@@ -3,21 +3,21 @@
 
 == Requirements
 
-NOTE: Longhorn currently supports Container-Optimized OS only when used as the base image for Google Kubernetes Engine (GKE), which includes a pre-configured Kubernetes environment. The following information may not apply to manually created Kubernetes environments, including Kubernetes provisioned with other orchestrators.
+{longhorn-product-name} currently supports Container-Optimized OS only when used as the base image for Google Kubernetes Engine (GKE), which includes a pre-configured Kubernetes environment. The following information may not apply to manually created Kubernetes environments, including Kubernetes provisioned with other orchestrators.
 
 The https://cloud.google.com/container-optimized-os/docs[Container-Optimized OS (COS)] does not include a package manager and does not allow non-containerized applications to run. Additionally, its root filesystem is mounted as read-only, which poses a challenge for IO operations.
 
 In GKE, Kubernetes tackles these constraints by housing necessary dependencies in a chroot environment (`/home/kubernetes/containerized_mounter/rootfs`) and mounting directories within it, enabling the execution of required tasks.
 
-Longhorn provides a GKE COS node agent daemonset, which leverages GKE Kubernetes solutions to configure and run necessary dependencies. This agent is responsible for the following operations:
+{longhorn-product-name} provides a GKE COS node agent daemonset, which leverages GKE Kubernetes solutions to configure and run necessary dependencies. This agent is responsible for the following operations:
 
-* Mounting the Longhorn data path.
+* Mounting the data path.
 * Loading the kernel module.
 * Installing and running the iSCSI daemon.
 
 == GKE COS Node Agent Installation
 
-. Configure the Longhorn GKE COS node agent. You can use the default settings, if applicable.
+. Configure the {longhorn-product-name} GKE COS node agent. You can use the default settings, if applicable.
 +
 [TIP]
 ====
@@ -36,7 +36,7 @@ value: /var/lib/longhorn1,/var/lib/longhorn2
 ----
 ====
 
-. Install the Longhorn GKE COS node agent.
+. Install the {longhorn-product-name} GKE COS node agent.
 +
 ----
  kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/deploy/prerequisite/longhorn-gke-cos-node-agent.yaml
@@ -76,7 +76,7 @@ NOTE: The agent installs the iSCSI daemon (iscsid) in a container using a packag
  The iSCSI daemon is running
 ----
 
-. Verify that the Longhorn data path (`/var/lib/longhorn`) is mounted on the host. If you specified multiple Longhorn data paths, run the command for each path on the host.
+. Verify that the data path (`/var/lib/longhorn`) is mounted on the host. If you specified multiple {longhorn-product-name} data paths, run the command for each path on the host.
 +
 ----
  $ findmnt --noheadings "/var/lib/longhorn"
@@ -85,7 +85,7 @@ NOTE: The agent installs the iSCSI daemon (iscsid) in a container using a packag
 
 == Limitations
 
-In COS clusters, Longhorn currently supports only V1 data volumes.
+In COS clusters, {longhorn-product-name} currently supports only V1 data volumes.
 
 == References
 

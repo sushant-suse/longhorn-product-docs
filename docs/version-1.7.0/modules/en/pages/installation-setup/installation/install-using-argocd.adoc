@@ -1,4 +1,4 @@
-= Install SUSE® Storage Using ArgoCD
+= Install {longhorn-product-name} Using ArgoCD
 :current-version: {page-component-version}
 
 == Prerequisites
@@ -17,7 +17,7 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 Allow some time for the deployment of Argo CD components in the `argocd` namespace.
 
 ____
-Use https://github.com/longhorn/longhorn/blob/v{current-version}/scripts/environment_check.sh[this script] to check the Longhorn environment for potential issues.
+Use https://github.com/longhorn/longhorn/blob/v{current-version}/scripts/environment_check.sh[this script] to check the environment for potential issues.
 ____
 
 == Installation
@@ -54,7 +54,7 @@ ____
    sources:
      - chart: longhorn
        repoURL: https://charts.longhorn.io/
-       targetRevision: v{current-version} # Replace with the Longhorn version you'd like to install or upgrade to
+       targetRevision: v{current-version} # Replace with the version you'd like to install or upgrade to
        helm:
          values: |
            preUpgradeChecker:
@@ -66,21 +66,21 @@ ____
  kubectl apply -f longhorn-application.yaml
 ----
 
-. Deploy Longhorn with the configured settings.
+. Deploy {longhorn-product-name} with the configured settings.
 +
 [subs="+attributes",bash]
 ----
  argocd app sync longhorn
 ----
 
-. Verify that Longhorn was installed successfully.
+. Verify that {longhorn-product-name} was installed successfully.
 +
 [subs="+attributes",bash]
 ----
  kubectl -n longhorn-system get pod
 ----
 +
-Example of a successful Longhorn installation:
+Example of a successful installation:
 +
 [subs="+attributes",bash]
 ----
@@ -105,5 +105,5 @@ Example of a successful Longhorn installation:
  engine-image-ei-df38d2e5-cv6nc                      1/1     Running   0          114s
 ----
 
-. xref:../../longhorn-system/system-access/create-ingress.adoc[Create an NGINX Ingress controller with basic authentication] to access the Longhorn UI. Authentication to the Longhorn UI is not enabled by default.
-. xref:../../longhorn-system/system-access/system-access.adoc[Access the Longhorn UI].
+. xref:../../longhorn-system/system-access/create-ingress.adoc[Create an NGINX Ingress controller with basic authentication] to access the UI. Authentication to the UI is not enabled by default.
+. xref:../../longhorn-system/system-access/system-access.adoc[Access the UI].

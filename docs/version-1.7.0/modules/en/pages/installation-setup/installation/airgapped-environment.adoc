@@ -1,12 +1,11 @@
-= Install SUSE® Storage in an Air-Gapped Environment
-:doctype: book
+= Install {longhorn-product-name} in an Air-Gapped Environment
 :current-version: {page-component-version}
 
-Longhorn can be installed in an air gapped environment by using a manifest file, a Helm chart, or the Rancher UI.
+{longhorn-product-name} can be installed in an air gapped environment by using a manifest file, a Helm chart, or the Rancher UI.
 
 == Requirements
 
-* Deploy Longhorn Components images to your own registry.
+* Deploy {longhorn-product-name} components images to your own registry.
 * Deploy Kubernetes CSI driver components images to your own registry.
 
 [NOTE]
@@ -49,7 +48,7 @@ chmod +x load-images.sh
 
 == Using a Manifest File
 
-. Get Longhorn Deployment manifest file
+. Get deployment manifest file
 +
 `+wget https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/deploy/longhorn.yaml+`
 
@@ -183,9 +182,9 @@ spec:
 
 == Using a Helm Chart
 
-In v{current-version}, Longhorn automatically adds +++<REGISTRY_URL>+++prefix to images. You simply need to set the registryUrl parameters to pull images from your private registry.+++</REGISTRY_URL>+++
+{longhorn-product-name} automatically adds +++<REGISTRY_URL>+++prefix to images. You simply need to set the registryUrl parameters to pull images from your private registry.+++</REGISTRY_URL>+++
 
-NOTE: Once you set registryUrl to your private registry, Longhorn tries to pull images from the registry exclusively. Make sure all Longhorn components' images are in the registry otherwise Longhorn will fail to pull images.
+NOTE: Once you set registryUrl to your private registry, {longhorn-product-name} tries to pull images from the registry exclusively. Make sure all component images are in the registry otherwise {longhorn-product-name} will fail to pull images.
 
 === Use default image name
 
@@ -197,7 +196,7 @@ If you keep the images' names as recommended link:./#recommendation[here], you o
 
 . In `chart/values.yaml`
  ** Specify `Private registry URL`. If the registry requires authentication, specify `Private registry user`, `Private registry password`, and `Private registry secret`.
- Longhorn will automatically generate a secret with the those information and use it to pull images from your private registry.
+ {longhorn-product-name} will automatically generate a secret with the those information and use it to pull images from your private registry.
 +
 [subs="+attributes",yaml]
 ----
@@ -223,7 +222,7 @@ If you want to use custom images' names, you can use the following steps:
 +
 NOTE: Do not include the private registry prefix, it will be added automatically. e.g: if your image is `example.com/username/longhorn-manager`, use `username/longhorn-manager` in the following charts.
 
- ** Specify Longhorn images and tag:
+ ** Specify images and tag:
 +
 [subs="+attributes",yaml]
 ----
@@ -269,7 +268,7 @@ NOTE: Do not include the private registry prefix, it will be added automatically
 ----
 
  ** Specify `Private registry URL`. If the registry requires authentication, specify `Private registry user`, `Private registry password`, and `Private registry secret`.
- Longhorn will automatically generate a secret with the those information and use it to pull images from your private registry.
+ {longhorn-product-name} will automatically generate a secret with the those information and use it to pull images from your private registry.
 +
 [subs="+attributes",yaml]
 ----
@@ -282,7 +281,7 @@ NOTE: Do not include the private registry prefix, it will be added automatically
       registryPasswd: <REGISTRY_PASSWORD>
 ----
 
-. Install Longhorn
+. Install {longhorn-product-name}
 
 [subs="+attributes",shell]
 ----
@@ -303,7 +302,7 @@ If you keep the images' names as recommended <<Recommendation, here>>, you only 
  ** Private registry secret name
 
 +
-Longhorn will automatically generate a secret with the those information and use it to pull images from your private registry.
+{longhorn-product-name} will automatically generate a secret with the those information and use it to pull images from your private registry.
 +
 image::screenshots/airgap-deploy/app-default-images.png[images]
 
@@ -317,7 +316,7 @@ NOTE: Do not include the private registry prefix, it will be added automatically
 image::screenshots/airgap-deploy/app-custom-images.png[images]
 
 * Specify `Private registry URL`. If the registry requires authentication, specify `Private registry user`, `Private registry password`, and `Private registry secret name`.
-Longhorn will automatically generate a secret with the those information and use it to pull images from your private registry.
+{longhorn-product-name} will automatically generate a secret with the those information and use it to pull images from your private registry.
 +
 image::screenshots/airgap-deploy/app-custom-images-reg.png[images]
 
@@ -344,7 +343,7 @@ image::screenshots/airgap-deploy/app-custom-images-reg.png[images]
 +
 `kubectl apply -f registry-secret.yml`
 
-. Delete Longhorn and re-install it again.
+. Delete {longhorn-product-name} and re-install it again.
  ** *Helm2*
 +
 `helm uninstall ./chart --name longhorn --namespace longhorn-system`
@@ -359,6 +358,6 @@ image::screenshots/airgap-deploy/app-custom-images-reg.png[images]
 
 == Recommendation
 
-It's highly recommended not to manipulate image tags, especially instance manager image tags such as v1_20200301, because we intentionally use the date to avoid associating it with a Longhorn version.
+It's highly recommended not to manipulate image tags, especially instance manager image tags such as v1_20200301, because we intentionally use the date to avoid associating it with a {longhorn-product-name} version.
 
-The images of Longhorn's components are hosted in Dockerhub under the `longhornio` account. For example, `longhornio/longhorn-manager:v{current-version}`. It's recommended to keep the account name, `longhornio`, the same when you push the images to your private registry. This helps avoid unnecessary configuration issues.
+The component images are hosted in Dockerhub under the `longhornio` account. For example, `longhornio/longhorn-manager:v{current-version}`. It's recommended to keep the account name, `longhornio`, the same when you push the images to your private registry. This helps avoid unnecessary configuration issues.

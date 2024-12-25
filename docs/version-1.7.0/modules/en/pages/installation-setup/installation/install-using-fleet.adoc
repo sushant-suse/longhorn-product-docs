@@ -1,4 +1,4 @@
-= Install SUSE® Storage Using Fleet
+= Install {longhorn-product-name} Using Fleet
 :current-version: {page-component-version}
 
 == Prerequisites
@@ -18,13 +18,13 @@ helm -n cattle-fleet-system install --create-namespace --wait fleet fleet/fleet
 Allow some time for the deployment of Fleet components in the `cattle-fleet-system` namespace.
 
 ____
-Use https://github.com/longhorn/longhorn/blob/v{current-version}/scripts/environment_check.sh[this script] to check the Longhorn environment for potential issues.
+Use https://github.com/longhorn/longhorn/blob/v{current-version}/scripts/environment_check.sh[this script] to check the environment for potential issues.
 ____
 
 == Installation
 
 . In your GitOps repository, create a https://fleet.rancher.io/ref-fleet-yaml[fleet.yaml] file that includes the following:
- ** Parameter for installing Longhorn in the `longhorn-system` namespace
+ ** Parameter for installing {longhorn-product-name} in the `longhorn-system` namespace
 
 +
 [subs="+attributes",yaml]
@@ -74,7 +74,7 @@ ____
      operations:
      - {"op": "replace", "path": "/status"}
 ----
- ** Parameters for specifying the version of the Longhorn Helm chart to be installed
+ ** Parameters for specifying the version of the Helm chart to be installed
 
 +
 [subs="+attributes",yaml]
@@ -82,7 +82,7 @@ ____
  helm:
    repo: https://charts.longhorn.io
    chart: longhorn
-   version: v{current-version} # Replace with the Longhorn version you'd like to install or upgrade to
+   version: v{current-version} # Replace with the version you'd like to install or upgrade to
    releaseName: longhorn
 ----
 +
@@ -146,14 +146,14 @@ Example of a complete `fleet.yaml` file:
  kubectl -n fleet-local get gitrepo -w
 ----
 
-. Verify that Longhorn was installed successfully.
+. Verify that {longhorn-product-name} was installed successfully.
 +
 [subs="+attributes",bash]
 ----
  kubectl -n longhorn-system get pod
 ----
 +
-Example of a successful Longhorn installation:
+Example of a successful installation:
 +
 [subs="+attributes",bash]
 ----
@@ -178,5 +178,5 @@ Example of a successful Longhorn installation:
  engine-image-ei-df38d2e5-cv6nc                      1/1     Running   0          114s
 ----
 
-. xref:../../longhorn-system/system-access/create-ingress.adoc[Create an NGINX Ingress controller with basic authentication] to access the Longhorn UI. Authentication to the Longhorn UI is not enabled by default.
-. xref:../../longhorn-system/system-access/system-access.adoc[Access the Longhorn UI].
+. xref:../../longhorn-system/system-access/create-ingress.adoc[Create an NGINX Ingress controller with basic authentication] to access the UI. Authentication to the UI is not enabled by default.
+. xref:../../longhorn-system/system-access/system-access.adoc[Access the UI].

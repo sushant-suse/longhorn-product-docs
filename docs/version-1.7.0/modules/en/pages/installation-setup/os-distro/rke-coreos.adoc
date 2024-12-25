@@ -1,26 +1,26 @@
 = RKE and CoreOS
 :current-version: {page-component-version}
 
-For minimalist Linux Operating systems, you'll need a little extra configuration to use Longhorn with RKE (Rancher Kubernetes Engine).
+For minimalist Linux Operating systems, you'll need a little extra configuration to use {longhorn-product-name} with RKE (Rancher Kubernetes Engine).
 
 == Background
 
-CSI doesn't work with CoreOS + RKE before Longhorn v0.4.1. The reason is that in the case of CoreOS, RKE sets the argument `root-dir=/opt/rke/var/lib/kubelet` for the kubelet , which is different from the default value `/var/lib/kubelet`.
+CSI doesn't work with CoreOS + RKE in {longhorn-product-name} v0.4.1 and earlier. The reason is that in the case of CoreOS, RKE sets the argument `root-dir=/opt/rke/var/lib/kubelet` for the kubelet , which is different from the default value `/var/lib/kubelet`.
 
-*For k8s v1.12+*, the kubelet will detect the `csi.sock` according to argument `+<--kubelet-registration-path>+` passed in by Kubernetes CSI driver-registrar, and `<drivername>-reg.sock` (for Longhorn, it's `io.rancher.longhorn-reg.sock`) on kubelet path `<root-dir>/plugins`.
+*For Kubernetes v1.12+*, the kubelet will detect the `csi.sock` according to argument `+<--kubelet-registration-path>+` passed in by Kubernetes CSI driver-registrar, and `<drivername>-reg.sock` (for {longhorn-product-name}, it's `io.rancher.longhorn-reg.sock`) on kubelet path `<root-dir>/plugins`.
 
-*For k8s v1.11,* the kubelet will find both sockets on kubelet path `/var/lib/kubelet/plugins`.
+*For Kubernetes v1.11,* the kubelet will find both sockets on kubelet path `/var/lib/kubelet/plugins`.
 
-By default, Longhorn CSI driver creates and expose these two sock files on the host path `/var/lib/kubelet/plugins`. Then the kubelet cannot find `<drivername>-reg.sock`, so CSI driver doesn't work.
+By default, {longhorn-product-name} CSI driver creates and expose these two sock files on the host path `/var/lib/kubelet/plugins`. Then the kubelet cannot find `<drivername>-reg.sock`, so CSI driver doesn't work.
 
-Furthermore, the kubelet will instruct the CSI plugin to mount the Longhorn volume on `<root-dir>/pods/<pod-name>/volumes/kubernetes.io~csi/<volume-name>/mount`. But this path inside the CSI plugin container won't be bind mounted on the host path. And the mount operation for the Longhorn volume is meaningless.
+Furthermore, the kubelet will instruct the CSI plugin to mount the {longhorn-product-name} volume on `<root-dir>/pods/<pod-name>/volumes/kubernetes.io~csi/<volume-name>/mount`. But this path inside the CSI plugin container won't be bind mounted on the host path. And the mount operation for the {longhorn-product-name} volume is meaningless.
 
-Therefore, in this case, Kubernetes cannot connect to Longhorn using the CSI driver without additional configuration.
+Therefore, in this case, Kubernetes cannot connect to {longhorn-product-name} using the CSI driver without additional configuration.
 
 == Requirements
 
-* Kubernetes v1.11 or higher.
-* Longhorn v0.4.1 or higher.
+* Kubernetes v1.11 or later.
+* {longhorn-product-name} v0.4.1 or later.
 
 == 1. Add extra binds for the kubelet
 
@@ -61,7 +61,7 @@ systemctl start iscsid
 
 === Failed to get arg root-dir: Cannot get kubelet root dir, no related proc for root-dir detection ...
 
-This error happens because Longhorn cannot detect the root dir setup for the kubelet, so the CSI plugin installation failed.
+This error happens because {longhorn-product-name} cannot detect the root dir setup for the kubelet, so the CSI plugin installation failed.
 
 You can override the root-dir detection by setting environment variable `KUBELET_ROOT_DIR` in https://github.com/longhorn/longhorn/blob/v{current-version}/deploy/longhorn.yaml.
 
