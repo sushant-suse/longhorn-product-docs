@@ -10,15 +10,13 @@ There are no deprecated or incompatible changes introduced in v{current-version}
 
 Longhorn only allows upgrades from supported versions. When you attempt to upgrade from an unsupported version, the operation automatically fails but you can revert to the previously installed version without any service interruption or downtime.
 
-Moreover, Longhorn does not support downgrades to earlier versions. This restriction helps prevent unexpected system behavior and issues associated with function incompatibility, deprecation, or removal.
+Moreover, Longhorn does not support downgrades. This restriction helps prevent unexpected system behavior and issues associated with function incompatibility, deprecation, or removal.
 
-____
-*Warning*:
-
+[CAUTION]
+====
 * Once you successfully upgrade to v1.7.0, you will not be allowed to revert to the previously installed version.
-* The Downgrade Prevention feature was introduced in v1.5.0 so Longhorn is unable to prevent downgrade attempts in older versions.
-However, downgrading is completely unsupported and is therefore not recommended.
-____
+* Downgrading is completely unsupported and is therefore not recommended.
+====
 
 The following table outlines the supported upgrade paths.
 
@@ -36,7 +34,7 @@ The following table outlines the supported upgrade paths.
 | ✓
 | v1.5.0  to  v1.5.1
 
-| x.yfootnote:lastMinorVersion[Longhorn only allows upgrades from any patch version of the last minor release before the new major version. For example, if v1.3.0 is the last minor version before v2.0, you can upgrade from any patch version of v1.3.0 to any patch version of v2.0.].*
+| x.y[^lastMinorVersion].*
 | (x+1).y.*
 | ✓
 | v1.30.0 to  v2.0.0
@@ -50,17 +48,12 @@ The following table outlines the supported upgrade paths.
 | x.(y+1).*
 | X
 | v1.2.6  to  v1.5.1
-
-| x.y.*
-| x.(y-1).*
-| X
-| v1.6.0  to  v1.5.1
-
-| x.y.*
-| x.y.(*-1)
-| X
-| v1.5.1  to  v1.5.0
 |===
+
+[IMPORTANT]
+====
+Longhorn only allows upgrades from patch versions of the last minor release before the new major version. For example, if v1.8.0 is the last minor version before v2.0, you can upgrade from any patch version of v1.8.0 to any patch version of v2.0.
+====
 
 == Upgrading Longhorn
 
