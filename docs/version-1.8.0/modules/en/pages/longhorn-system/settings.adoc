@@ -373,8 +373,6 @@ The interval in seconds determines how long Longhorn will wait before re-downloa
 
 [NOTE]
 ====
-
-
 * This recovery only works for the backing image of which the creation type is `download`.
 * File state `unknown` means the related manager pods on the pod is not running or the node itself is down/disconnected.
 ====
@@ -387,13 +385,19 @@ ____
 
 The default minimum number of backing image copies Longhorn maintains.
 
-=== Engine to Replica Timeout
+=== Engine Replica Timeout
 
 ____
 Default: `8`
 ____
 
-The value in seconds specifies the timeout of the engine to the replica(s), and the value should be between 8 to 30 seconds.
+Number of seconds a V1 Data Engine waits for a replica to respond before marking it as failed. Values between 8 and 30 are allowed. This setting takes effect only when there are outstanding I/O requests.
+
+This setting only applies to additional replicas. A V1 engine marks the last active replica as failed only after twice the configured number of seconds (timeout value x 2) have passed. This behavior is intended to balance volume responsiveness with volume availability.
+
+The engine can quickly (after the configured timeout) ignore individual replicas that become unresponsive in favor of other available ones. This ensures future I/O will not be held up.
+
+The engine waits on the last replica (until twice the configured timeout) to prevent unnecessarily crashing as a result of having no available backends.
 
 === Support Bundle Manager Image
 
