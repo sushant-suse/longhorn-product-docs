@@ -147,6 +147,10 @@ NOTE: In rare circumstances, it is possible for the failover to become deadlocke
 
 Starting with v1.7.0, Longhorn supports configuration of timeouts for replica rebuilding and snapshot cloning. Before v1.7.0, the replica rebuilding timeout was capped at 24 hours, which could cause failures for large volumes in slow bandwidth environments. The default timeout is still 24 hours but you can adjust it to accommodate different environments. For more information, see xref:longhorn-system/settings.adoc#_long_grpc_timeout[Long gRPC Timeout].
 
+=== Change in Engine Replica Timeout Behavior
+
+In versions earlier than v1.8.0, the xref:longhorn-system/settings.adoc#engine-replica-timeout[Engine Replica Timeout] setting was equally applied to all V1 volume replicas. In v1.8.0, a V1 engine marks the last active replica as failed only after twice the configured number of seconds (timeout value x 2) have passed.
+
 == Data Integrity and Reliability
 
 === Support Periodic and On-Demand Full Backups to Enhance Backup Reliability
