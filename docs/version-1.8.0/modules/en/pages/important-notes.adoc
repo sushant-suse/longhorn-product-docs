@@ -194,14 +194,19 @@ Longhorn v1.8.0 and later versions support usage of V2 volumes in Talos Linux cl
 
 == Backup
 
-=== Related Custom Resources Might Disappear
+=== Backup Data On The Remote Backup Server Might Be Deleted
 
-Longhorn attempts to clean up backup-related custom resources in the following scenarios:
+In releases earlier than v1.8.0, Longhorn may unintentionally delete backup-related custom resources (such as `BackupVolume`, `BackupBackingImage`, `SystemBackup`, and `Backup`) and backup data on the remote backup server in the following scenarios:
 
 * A brief server downtime causes the NFS server to send an empty response.
-* A race condition occurs between related Longhorn backup controllers.
+* A race condition could delete the remote backup volume and its corresponding backups when the backup target is reset within a short period.
 
-The backup information is resynchronized during the next polling interval. For more information, see https://github.com/longhorn/longhorn/issues/9530[Issue #9530].
+Starting with v1.8.0, Longhorn handles backup-related custom resources in the following manner:
+
+* If there are discrepancies between the backup information in the cluster and on the remote backup server, Longhorn deletes only the backup-related custom resources in the cluster.
+* The backup-related custom resources in the cluster may be deleted unintentionally while the remote backup data remains safely stored. The deleted resources are resynchronized from the remote backup server during the next polling period (if the backup target is available).
+
+For more information, see https://github.com/longhorn/longhorn/issues/9530[Issue #9530].
 
 == V2 Data Engine
 
