@@ -2,46 +2,44 @@
 :description: Enable CSI Snapshot Support for Programmatic Creation of SUSE® Storage Snapshots/Backups
 :current-version: {page-component-version}
 
-____
-*Prerequisite*
+== Prerequisites
 
 It is the responsibility of the Kubernetes distribution to deploy the snapshot controller as well as the related custom resource definitions.
 
 For more information, see https://kubernetes.io/docs/concepts/storage/volume-snapshots/[CSI Volume Snapshots].
-____
 
 == If your Kubernetes Distribution Does Not Bundle the Snapshot Controller
 
-You may manually install these components by executing the following steps.
+You may manually install these components.
 
-____
-*Prerequisite*
+=== Prerequisites
 
 Please install the same release version of snapshot CRDs and snapshot controller to ensure that the CRD version is compatible with the snapshot controller.
 
 For general use, update the snapshot controller YAMLs with an appropriate *namespace* prior to installing.
 
 For example, on a vanilla Kubernetes cluster, update the namespace from `default` to `kube-system` prior to issuing the `kubectl create` command.
-____
 
-Install the Snapshot CRDs:
+=== Install the Snapshot CRDs
 
-. Download the files from https://github.com/kubernetes-csi/external-snapshotter/tree/v7.0.2/client/config/crd
-because Longhorn v{current-version} uses https://kubernetes-csi.github.io/docs/external-snapshotter.html[CSI external-snapshotter] v7.0.2
+. Download the files from https://github.com/kubernetes-csi/external-snapshotter/tree/v8.1.0/client/config/crd
+because Longhorn v{current-version} uses https://kubernetes-csi.github.io/docs/external-snapshotter.html[CSI external-snapshotter] v8.1.0
 . Run `kubectl create -k client/config/crd`.
 . Do this once per cluster.
 
-Install the Common Snapshot Controller:
+=== Install the Common Snapshot Controller
 
-. Download the files from https://github.com/kubernetes-csi/external-snapshotter/tree/v7.0.2/deploy/kubernetes/snapshot-controller
-because Longhorn v{current-version} uses https://kubernetes-csi.github.io/docs/external-snapshotter.html[CSI external-snapshotter] v7.0.2
-. Update the namespace to an appropriate value for your environment (e.g. `kube-system`)
+. Download the files from https://github.com/kubernetes-csi/external-snapshotter/tree/v8.1.0/deploy/kubernetes/snapshot-controller because Longhorn v{current-version} uses https://kubernetes-csi.github.io/docs/external-snapshotter.html[CSI external-snapshotter] v8.1.0
+. Update the namespace to an appropriate value for your environment (for example, `kube-system`)
 . Run `kubectl create -k deploy/kubernetes/snapshot-controller`.
 . Do this once per cluster.
 +
-NOTE: previously, the snapshot controller YAML files were deployed into the `default` namespace by default.
+[NOTE]
+====
+Previously, the snapshot controller YAML files were deployed into the `default` namespace by default.
 The updated YAML files are being deployed into `kube-system` namespace by default.
 Therefore, we suggest deleting the previous snapshot controller in the `default` namespace to avoid having multiple snapshot controllers.
+====
 
 See the https://github.com/kubernetes-csi/external-snapshotter#usage[Usage] section from the kubernetes
 external-snapshotter git repo for additional information.
