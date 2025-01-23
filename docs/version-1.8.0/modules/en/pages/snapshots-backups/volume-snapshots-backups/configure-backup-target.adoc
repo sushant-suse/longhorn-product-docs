@@ -9,6 +9,16 @@ For more information about how the backupstore works in Longhorn, see the xref:i
 
 If you don't have access to AWS S3 or want to give the backupstore a try first, we've also provided a way to <<_set_up_a_local_testing_backupstore,setup a local S3 testing backupstore>> using https://minio.io/[MinIO].
 
+[NOTE]
+====
+Longhorn attempts to clean up backup-related custom resources in the following scenarios:
+
+* A brief server downtime causes the NFS server to send an empty response.
+* A race condition occurs between related Longhorn backup controllers.
+
+The backup information is resynchronized during the next polling interval. For more information, see https://github.com/longhorn/longhorn/issues/9530[Issue #9530].
+====
+
 Longhorn also supports setting up recurring snapshot/backup jobs for volumes, via Longhorn UI or Kubernetes Storage Class. See xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[here] for details.
 
 [NOTE]

@@ -135,6 +135,10 @@ From this version, you need to add group id 6 to the security context or run con
 
 Starting with Longhorn v1.7.0, Longhorn supports Container-Optimized OS (COS), providing robust and efficient persistent storage solutions for Kubernetes clusters running on COS. For more information, see xref:installation-setup/os-distro/container-optimized-os.adoc[Container-Optimized OS (COS) Support].
 
+=== Upgrade Check Events
+
+Longhorn performs a pre-upgrade check whenever you upgrade using Helm or the Rancher App Marketplace. If a check fails, the upgrade stops and the reason for the check's failure is recorded. For more information, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrading Longhorn Manager].
+
 == Resilience
 
 === RWX Volumes Fast Failover
@@ -186,11 +190,27 @@ To apply the storage network to existing RWX volumes, you must detach the volume
 
 For more information, see https://github.com/longhorn/longhorn/issues/8184[Issue #8184].
 
-## Operating Systems and Distributions
+== Operating Systems and Distributions
 
-### Talos Linux
+=== Talos Linux
 
 Longhorn v1.8.0 and later versions support usage of V2 volumes in Talos Linux clusters. To use V2 volumes, ensure that all nodes meet the V2 Data Engine prerequisites. For more information, see xref:installation-setup/os-distro/talos-linux.adoc#v2-data-engine[Talos Linux Support: V2 Data Engine].
+
+== Backup
+
+=== Backup Data On The Remote Backup Server Might Be Deleted
+
+In releases earlier than v1.8.0, Longhorn may unintentionally delete backup-related custom resources (such as `BackupVolume`, `BackupBackingImage`, `SystemBackup`, and `Backup`) and backup data on the remote backup server in the following scenarios:
+
+* A brief server downtime causes the NFS server to send an empty response.
+* A race condition could delete the remote backup volume and its corresponding backups when the backup target is reset within a short period.
+
+Starting with v1.8.0, Longhorn handles backup-related custom resources in the following manner:
+
+* If there are discrepancies between the backup information in the cluster and on the remote backup server, Longhorn deletes only the backup-related custom resources in the cluster.
+* The backup-related custom resources in the cluster may be deleted unintentionally while the remote backup data remains safely stored. The deleted resources are resynchronized from the remote backup server during the next polling period (if the backup target is available).
+
+For more information, see https://github.com/longhorn/longhorn/issues/9530[Issue #9530].
 
 == V2 Data Engine
 
