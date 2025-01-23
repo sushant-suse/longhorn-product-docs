@@ -186,11 +186,22 @@ To apply the storage network to existing RWX volumes, you must detach the volume
 
 For more information, see https://github.com/longhorn/longhorn/issues/8184[Issue #8184].
 
-## Operating Systems and Distributions
+== Operating Systems and Distributions
 
-### Talos Linux
+=== Talos Linux
 
 Longhorn v1.8.0 and later versions support usage of V2 volumes in Talos Linux clusters. To use V2 volumes, ensure that all nodes meet the V2 Data Engine prerequisites. For more information, see xref:installation-setup/os-distro/talos-linux.adoc#v2-data-engine[Talos Linux Support: V2 Data Engine].
+
+== Backup
+
+=== Related Custom Resources Might Disappear
+
+Longhorn attempts to clean up backup-related custom resources in the following scenarios:
+
+* A brief server downtime causes the NFS server to send an empty response.
+* A race condition occurs between related Longhorn backup controllers.
+
+The backup information is resynchronized during the next polling interval. For more information, see https://github.com/longhorn/longhorn/issues/9530[Issue #9530].
 
 == V2 Data Engine
 
