@@ -35,7 +35,7 @@ Here is an example of a cluster workload with a bare `Pod` workload. The system 
 
 You can create a Longhorn system backup using the Longhorn UI. Or with the `kubectl` command.
 
-=== Prerequisite
+=== Prerequisites
 
 * xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[]. Longhorn saves the system backups to the remote backup store. You will see an error during creation when the backup target is unset.
 +
@@ -49,11 +49,11 @@ NOTE: Longhorn system restores volume with the latest backup. We recommend updat
 
 ==== Volume Backup Policy
 
-The Longhorn system backup offers the following volume backup policies:
+The Longhorn system backup offers the following volume backup policy options:
 
-* `if-not-present`: Longhorn will create a backup for volumes that currently lack a backup.
-* `always`: Longhorn will create a backup for all volumes, regardless of their existing backups.
-* `disabled`: Longhorn will not create any backups for volumes.
+* `if-not-present`: Longhorn creates a backup for volumes that either lack an existing backup or have an outdated latest backup.
+* `always`: Longhorn creates a backup for all volumes, regardless of their existing backups.
+* `disabled`: Longhorn does not create any backups for volumes.
 
 === Using Longhorn UI
 

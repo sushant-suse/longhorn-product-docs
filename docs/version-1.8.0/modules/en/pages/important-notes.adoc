@@ -30,10 +30,6 @@ The functionality of the https://github.com/longhorn/longhorn/blob/master/script
 
 == General
 
-=== Supported Kubernetes Versions
-
-Ensure that Kubernetes v1.25 or later is running on your cluster before upgrading to Longhorn v{current-version}. v1.25 is the minimum version Longhorn v{current-version} supports.
-
 === Pod Security Policies Disabled & Pod Security Admission Introduction
 
 * Longhorn pods require privileged access to manage nodes' storage. In Longhorn `v1.3.x` or older, Longhorn was shipping some Pod Security Policies by default, (e.g., https://github.com/longhorn/longhorn/blob/4ba39a989b4b482d51fd4bc651f61f2b419428bd/chart/values.yaml#L260[link]).
@@ -139,6 +135,14 @@ Starting with Longhorn v1.7.0, Longhorn supports Container-Optimized OS (COS), p
 
 Longhorn performs a pre-upgrade check whenever you upgrade using Helm or the Rancher App Marketplace. If a check fails, the upgrade stops and the reason for the check's failure is recorded. For more information, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrading Longhorn Manager].
 
+=== Install or Upgrade Using Helm Controller
+
+You can now install and upgrade Longhorn on clusters running RKE2 or K3s using the Helm Controller that is built into those distributions. The Helm Controller manages Helm charts using a HelmChart Custom Resource Definition (CRD), which contains most of the options that would normally be passed to the Helm command-line tool. For more information, see xref:installation-setup/installation/install-using-helm-controller.adoc[Install Using Helm Controller].
+
+=== Automatic Expansion of RWX Volumes
+
+Longhorn v1.8.0 supports fully automatic online expansion of RWX volumes. There is no need to scale down the workload or apply manual commands. For more information, see xref:volumes/volume-expansion.adoc#rwx-volume[RWX Volume].
+
 == Resilience
 
 === RWX Volumes Fast Failover
@@ -153,7 +157,7 @@ Starting with v1.7.0, Longhorn supports configuration of timeouts for replica re
 
 === Change in Engine Replica Timeout Behavior
 
-In versions earlier than v1.8.0, the xref:longhorn-system/settings.adoc#engine-replica-timeout[Engine Replica Timeout] setting was equally applied to all V1 volume replicas. In v1.8.0, a V1 engine marks the last active replica as failed only after twice the configured number of seconds (timeout value x 2) have passed.
+In versions earlier than v1.8.0, the xref:longhorn-system/settings.adoc#_engine_replica_timeout[Engine Replica Timeout] setting was equally applied to all V1 volume replicas. In v1.8.0, a V1 engine marks the last active replica as failed only after twice the configured number of seconds (timeout value x 2) have passed.
 
 == Data Integrity and Reliability
 
@@ -202,7 +206,7 @@ Longhorn v1.8.0 and later versions support usage of V2 volumes in Talos Linux cl
 
 In releases earlier than v1.8.0, Longhorn may unintentionally delete backup-related custom resources (such as `BackupVolume`, `BackupBackingImage`, `SystemBackup`, and `Backup`) and backup data on the remote backup server in the following scenarios:
 
-* A brief server downtime causes the NFS server to send an empty response.
+* The NFS server becomes unavailable and sends an empty response.
 * A race condition could delete the remote backup volume and its corresponding backups when the backup target is reset within a short period.
 
 Starting with v1.8.0, Longhorn handles backup-related custom resources in the following manner:
@@ -211,6 +215,12 @@ Starting with v1.8.0, Longhorn handles backup-related custom resources in the fo
 * The backup-related custom resources in the cluster may be deleted unintentionally while the remote backup data remains safely stored. The deleted resources are resynchronized from the remote backup server during the next polling period (if the backup target is available).
 
 For more information, see https://github.com/longhorn/longhorn/issues/9530[Issue #9530].
+
+== System Backup And Restore
+
+=== Volume Backup Policy
+
+Starting with Longhorn v1.8.0, the `if-not-present` volume backup policy option ensures that the latest backup contains the most recent data. If the latest backup is outdated, Longhorn creates a new backup for the volume.
 
 == V2 Data Engine
 

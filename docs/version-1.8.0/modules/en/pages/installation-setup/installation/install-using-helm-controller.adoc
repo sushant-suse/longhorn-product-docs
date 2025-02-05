@@ -1,7 +1,7 @@
 = Install {longhorn-product-name} Using Helm Controller
 :current-version: {page-component-version}
 
-You can install {longhorn-product-name} using the Helm chart controller built into RKE2 and K3s.
+You can install {longhorn-product-name} using the Helm Controller that is built into RKE2 and K3s.
 
 == Prerequisites
 
@@ -17,7 +17,7 @@ Use https://github.com/longhorn/longhorn/blob/v{current-version}/scripts/environ
 * For Kubernetes v1.25 or earlier, if your cluster still enables Pod Security Policy admission controller, set the helm value `enablePSP` to `true` to install `longhorn-psp` PodSecurityPolicy resource which allows privileged Longhorn pods to start.
 ====
 
-. Create a HelmChart yaml file similar to the following:
+. Create a HelmChart YAML file similar to the following:
 +
 [,yaml]
 ----
@@ -53,7 +53,7 @@ spec:
 For full details see the HelmChart controller docs:  https://docs.rke2.io/helm or https://docs.k3s.io/helm.
 ====
 +
-. Apply it to create the HelmChart CR and an installation job:
+. Apply the YAML to create the HelmChart CR and an installation job.
 +
 [,shell]
 ----
@@ -63,7 +63,7 @@ helmchart.helm.cattle.io/longhorn-install created
 +
 [NOTE]
 ====
-Deleting the helmchart CR will initiate uninstallation of {longhorn-product-name}.
+Deleting the HelmChart CR initiates uninstallation of {longhorn-product-name}.
 ====
 . Check the created resources.
 +

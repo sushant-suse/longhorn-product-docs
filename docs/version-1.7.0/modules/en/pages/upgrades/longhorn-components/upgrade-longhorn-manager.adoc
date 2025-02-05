@@ -52,7 +52,7 @@ On Kubernetes clusters managed by Rancher 2.1 or newer, the steps to upgrade the
 
 === Upgrade with Kubectl
 
-To upgrade with kubectl, run this command:
+Run the following command:
 
 ----
 kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/deploy/longhorn.yaml
@@ -60,15 +60,15 @@ kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{current-v
 
 === Upgrade with Helm
 
-To upgrade with Helm, run this command:
+Run the following command:
 
 ----
 helm upgrade longhorn longhorn/longhorn --namespace longhorn-system --version {current-version}
 ----
 
-Upgrade with Helm Controller
+=== Upgrade with Helm Controller
 
-Update the value of `spec.version` in the `HelmChart` YAML file:
+Update the value of `spec.version` in the `HelmChart` YAML file.
 
 [,yaml]
 ----
@@ -79,29 +79,30 @@ spec:
   failurePolicy: abort
 ----
 
-Alternatively, if using the `spec.chartContent` key, create a patch file with
+Alternatively, if you are using the `spec.chartContent` key, create and apply a patch file.
 
+* Create the file:
 [,yaml]
 ----
 spec:
   chartContent: <base64 content> # tar cz of longhorn charts directory for release | base64 -w 0
 ----
 
-and then apply it with
-
+* Apply the file.
 ----
 kubectl  patch helmchart longhorn -n <namespace> --type merge --patch-file <name of patch file>
 ----
 
 [IMPORTANT]
 ====
-In both cases, ensure that `spec.failurePolicy` is set to "abort".  The only other value is the default: "reinstall", which performs an uninstall of Longhorn if the pre-upgrade check or the upgrade fails.  With "abort", it retries periodically, giving the user a chance to fix the problem.
+In both cases, ensure that `spec.failurePolicy` is set to `abort` so that Longhorn retries periodically, giving you a chance to fix issues. When `spec.failurePolicy` is set to the default value `reinstall`, Longhorn is uninstalled if either the pre-upgrade check or the upgrade itself fails.
 ====
 
 === Upgrade with Fleet
 
 Update the value of `helm.version` in the `fleet` YAML file of your GitOps repository.
 
+[,yaml]
 ----
 helm:
   repo: https://charts.longhorn.io
@@ -114,6 +115,7 @@ helm:
 
 Update the value of `spec.chart.spec.version` in the `HelmRelease` YAML file of your GitOps repository.
 
+[,yaml]
 ----
 spec:
   chart:
@@ -130,6 +132,7 @@ spec:
 
 Update the value of `targetRevision` in the `Application` YAML file of your GitOps repository.
 
+[,yaml]
 ----
 spec:
   project: default
@@ -139,8 +142,10 @@ spec:
       targetRevision: v{current-version} # Replace with the Longhorn version you'd like to upgrade to
 ----
 
-Then wait for all the pods to become running and Longhorn UI working. e.g.:
+Then wait for all the pods to become running and Longhorn UI working.
 
+Example:
+----
  $ kubectl -n longhorn-system get pod
  NAME                                                  READY   STATUS    RESTARTS      AGE
  engine-image-ei-4dbdb778-nw88l                        1/1     Running   0             4m29s
@@ -162,6 +167,7 @@ Then wait for all the pods to become running and Longhorn UI working. e.g.:
  csi-resizer-6d8cf5f99f-7vv89                          1/1     Running   1 (30s ago)   37s
  csi-provisioner-869bdc4b79-sn6zr                      1/1     Running   1 (30s ago)   43s
  longhorn-csi-plugin-b2zzj                             2/2     Running   0             24s
+----
 
 Next, xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[upgrade Longhorn engine.]
 
@@ -173,7 +179,7 @@ If you attempt to upgrade from an unsupported version, the upgrade will fail. Wh
 
 === Upgrade with Kubectl
 
-When you upgrade with kubectl by running this command:
+Run the following command:
 
 [subs="+attributes",shell]
 ----

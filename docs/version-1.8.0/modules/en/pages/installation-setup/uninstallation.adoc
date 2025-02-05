@@ -15,7 +15,7 @@ From Rancher UI, navigate to `Catalog Apps` tab and delete the {longhorn-product
 
 == Uninstalling {longhorn-product-name} using Helm
 
-Run this command:
+Run the following command:
 
 ----
 helm uninstall longhorn -n longhorn-system
@@ -23,7 +23,15 @@ helm uninstall longhorn -n longhorn-system
 
 == Uninstalling {longhorn-product-name} Using Helm Controller
 
-Run this command:
+Run the following command:
+
+----
+kubectl delete helmchart <HelmChart name> -n <HelmChart namespace>
+----
+
+== Uninstalling {longhorn-product-name} Using Helm Controller
+
+Run the following command:
 
 ----
 kubectl delete helmchart <HelmChart name> -n <HelmChart namespace>

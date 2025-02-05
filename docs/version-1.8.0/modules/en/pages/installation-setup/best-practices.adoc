@@ -44,7 +44,7 @@ The following Linux OS distributions and versions have been verified during the 
 
 | 4.
 | Red Hat Enterprise Linux
-| 9.3
+| 9.5
 
 | 5.
 | Oracle Linux
@@ -52,15 +52,15 @@ The following Linux OS distributions and versions have been verified during the 
 
 | 6.
 | Rocky Linux
-| 9.3
+| 9.5
 
 | 7.
 | Talos Linux
-| 1.7
+| 1.8
 
 | 8.
 | Container-Optimized OS (GKE)
-| 113
+| 117
 |===
 
 {longhorn-product-name} relies heavily on kernel functionality and performs better on some kernel versions. The following activities,
@@ -98,7 +98,9 @@ The list below contains known broken kernel versions that users should avoid usi
 | Related to this bug https://longhorn.io/kb/troubleshooting-rwx-volume-fails-to-attached-caused-by-protocol-not-supported/
 |===
 
-== Kubernetes Version
+== Kubernetes
+
+=== Kubernetes Version
 
 Ensure that your cluster is running Kubernetes v1.21 or later before upgrading {longhorn-product-name}.
 
@@ -107,20 +109,24 @@ We recommend running your Kubernetes cluster on one of the following versions. T
 |===
 | Release | Released | End-of-life
 
+| 1.31
+| 13 Aug 2024
+| 28 Oct 2025
+
 | 1.30
 | 17 Apr 2024
 | 28 Jun 2025
 
-| 1.28
-| 15 Aug 2023
-| 28 Oct 2024
-
-| 1.27
-| 11 Apr 2023
-| 28 Jun 2024
+| 1.29
+| 13 Dec 2023
+| 28 Feb 2025
 |===
 
 Referenced to https://endoflife.date/kubernetes.
+
+=== CoreDNS Setup
+
+Ensure that CoreDNS runs with at least two replicas to maintain high availability. This setup minimizes interruptions in the DNS resolution when one CoreDNS pod experiences a temporary disruption.
 
 == Node and Disk Setup
 
