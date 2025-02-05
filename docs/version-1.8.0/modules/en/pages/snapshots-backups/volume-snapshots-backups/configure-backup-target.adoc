@@ -11,9 +11,11 @@ If you don't have access to AWS S3 or want to give the backupstore a try first, 
 
 [NOTE]
 ====
-Longhorn attempts to clean up backup-related custom resources in the following scenarios:
+* The lifecycle of Longhorn backups within the backupstore is managed entirely by Longhorn. *Applying retention policies directly on the backupstore is strictly prohibited*.
 
-* A brief server downtime causes the NFS server to send an empty response.
+* Longhorn attempts to clean up backup-related custom resources in the following scenarios:
+
+* The NFS server becomes unavailable and sends an empty response.
 * A race condition occurs between related Longhorn backup controllers.
 
 The backup information is resynchronized during the next polling interval. For more information, see https://github.com/longhorn/longhorn/issues/9530[Issue #9530].
