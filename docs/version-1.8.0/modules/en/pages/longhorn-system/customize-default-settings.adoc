@@ -166,6 +166,21 @@ spec:
     persistence.defaultClassReplicaCount: "2"
 ----
 
+=== Using Helm Controller
+
+In the HelmChart YAML file, add lines to `spec.set` with the desired settings:
+
+[,yaml]
+----
+spec:
+  ...
+  set:
+    defaultSettings.priorityClass: system-node-critical
+    defaultSettings.replicaAutoBalance: least-effort
+    defaultSettings.storageOverProvisioningPercentage: "200"
+    persistence.defaultClassReplicaCount: "2"
+----
+
 == Update Settings
 
 === Using the Longhorn UI

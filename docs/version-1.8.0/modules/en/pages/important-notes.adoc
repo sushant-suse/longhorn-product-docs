@@ -139,6 +139,10 @@ Starting with Longhorn v1.7.0, Longhorn supports Container-Optimized OS (COS), p
 
 Longhorn performs a pre-upgrade check whenever you upgrade using Helm or the Rancher App Marketplace. If a check fails, the upgrade stops and the reason for the check's failure is recorded. For more information, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrading Longhorn Manager].
 
+=== Install or Upgrade Using Helm Controller
+
+You can now install and upgrade Longhorn on clusters running RKE2 or K3s using the Helm Controller that is built into those distributions. The Helm Controller manages Helm charts using a HelmChart Custom Resource Definition (CRD), which contains most of the options that would normally be passed to the Helm command-line tool. For more information, see xref:installation-setup/installation/install-using-helm-controller.adoc[Install Using Helm Controller].
+
 == Resilience
 
 === RWX Volumes Fast Failover
