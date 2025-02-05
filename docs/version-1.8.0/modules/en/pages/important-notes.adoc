@@ -139,6 +139,10 @@ Longhorn performs a pre-upgrade check whenever you upgrade using Helm or the Ran
 
 You can now install and upgrade Longhorn on clusters running RKE2 or K3s using the Helm Controller that is built into those distributions. The Helm Controller manages Helm charts using a HelmChart Custom Resource Definition (CRD), which contains most of the options that would normally be passed to the Helm command-line tool. For more information, see xref:installation-setup/installation/install-using-helm-controller.adoc[Install Using Helm Controller].
 
+=== Automatic Expansion of RWX Volumes
+
+Longhorn v1.8.0 supports fully automatic online expansion of RWX volumes. There is no need to scale down the workload or apply manual commands. For more information, see xref:volumes/volume-expansion.adoc#rwx-volume[RWX Volume].
+
 == Resilience
 
 === RWX Volumes Fast Failover
@@ -153,7 +157,7 @@ Starting with v1.7.0, Longhorn supports configuration of timeouts for replica re
 
 === Change in Engine Replica Timeout Behavior
 
-In versions earlier than v1.8.0, the xref:longhorn-system/settings.adoc#engine-replica-timeout[Engine Replica Timeout] setting was equally applied to all V1 volume replicas. In v1.8.0, a V1 engine marks the last active replica as failed only after twice the configured number of seconds (timeout value x 2) have passed.
+In versions earlier than v1.8.0, the xref:longhorn-system/settings.adoc#_engine_replica_timeout[Engine Replica Timeout] setting was equally applied to all V1 volume replicas. In v1.8.0, a V1 engine marks the last active replica as failed only after twice the configured number of seconds (timeout value x 2) have passed.
 
 == Data Integrity and Reliability
 
