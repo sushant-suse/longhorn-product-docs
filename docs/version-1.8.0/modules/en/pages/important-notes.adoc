@@ -15,6 +15,14 @@ The functionality of the https://github.com/longhorn/longhorn/blob/master/script
 
 Longhorn performs a pre-upgrade check whenever you upgrade using Helm or the Rancher App Marketplace. If a check fails, the upgrade stops and the reason for the check's failure is recorded. For more information, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrading Longhorn Manager].
 
+== Manual Checks Before Upgrades
+
+Automated checks are only performed on some upgrade paths, and the pre-upgrade checker may not cover some scenarios. Manual checks, performed using either kubectl or the UI, are recommended for these schenarios. You can take mitigating actions or defer the upgrade until issues are addressed.
+
+* Ensure that all V2 Data Engine volumes are detached and the replicas are stopped. The V2 Data Engine currently does not support live upgrades.
+* Avoid upgrading when volumes are in the "Faulted" status. If all the replicas are deemed unusable, they may be deleted and data may be permanently lost (if no usable backups exist).
+* Avoid upgrading if a failed BackingImage exists. For more information, see xref:volumes/backing-images/backing-images.adoc[Backing Image].
+
 === Install or Upgrade Using Helm Controller
 
 You can now install and upgrade Longhorn on clusters running RKE2 or K3s using the Helm Controller that is built into those distributions. The Helm Controller manages Helm charts using a HelmChart Custom Resource Definition (CRD), which contains most of the options that would normally be passed to the Helm command-line tool. For more information, see xref:installation-setup/installation/install-using-helm-controller.adoc[Install Using Helm Controller].
