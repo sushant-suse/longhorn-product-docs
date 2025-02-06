@@ -591,6 +591,22 @@ For more details, see the https://github.com/longhorn/longhorn/blob/master/chart
 | `{}`
 | Annotation for the Longhorn Manager DaemonSet pods. This setting is optional.
 
+| defaultBackupStore
+| `{"backupTarget":null,"backupTargetCredentialSecret":null,"pollInterval":null}`
+| Setting that allows you to update the default backupstore.
+
+| defaultBackupStore.backupTarget
+| `""`
+| Endpoint used to access the default backupstore. (Options: "NFS", "CIFS", "AWS", "GCP", "AZURE")
+
+| defaultBackupStore.backupTargetCredentialSecret
+| `""`
+| Name of the Kubernetes secret associated with the default backup target.
+
+| defaultBackupStore.pollInterval
+| `""`
+| Number of seconds that Longhorn waits before checking the default backupstore for new backups. The default value is "300". When the value is "0", polling is disabled.
+
 | enableGoCoverDir
 | `false`
 | Setting that allows Longhorn to generate code coverage profiles.
@@ -657,15 +673,6 @@ During installation, you can either allow Longhorn to use the default system set
 
 | defaultSettings.backupConcurrentLimit
 | Maximum number of worker threads that can concurrently run for each backup.
-
-| defaultSettings.backupTarget
-| Endpoint used to access the backupstore. (Options: "NFS", "CIFS", "AWS", "GCP", "AZURE")
-
-| defaultSettings.backupTargetCredentialSecret
-| Name of the Kubernetes secret associated with the backup target.
-
-| defaultSettings.backupstorePollInterval
-| Number of seconds that Longhorn waits before checking the backupstore for new backups. The default value is "300". When the value is "0", polling is disabled.
 
 | defaultSettings.concurrentAutomaticEngineUpgradePerNodeLimit
 | Maximum number of engines that are allowed to concurrently upgrade on each node after Longhorn Manager is upgraded. When the value is "0", Longhorn does not automatically upgrade volume engines to the new default engine image version.

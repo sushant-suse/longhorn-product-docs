@@ -16,9 +16,12 @@ Node conditions:
 +
 * `NFSClientInstalled`: Checks if any of the following NFS clients are supported: `v4.2`, `v4.1`, or `v4.0`. NFS client is required for RWX volume and backup.
 +
-* `KernelModulesLoaded`: Checks if the following Kernel modules are loaded:
+* `KernelModulesLoaded`: Checks if the following kernel modules are loaded:
 +
-** `dm_crypt`: Required for the volume and backing image encryption.  
+** `dm_crypt`: Required for volume and backing image encryption.
+** `vfio_pci`: Required for SPDK and PCI device management (V2 Data Engine).
+** `uio_pci_generic`: Required for SPDK UIO support (V2 Data Engine).
+** `nvme_tcp`: Required for NVMe-over-TCP device usage (V2 Data Engine).
 +
 * `HugePagesAvailable`: Indicates whether the node is properly configured with HugePages (2Mi) as required by the Longhorn V2 Data Engine. This includes verifying the following:
 +
