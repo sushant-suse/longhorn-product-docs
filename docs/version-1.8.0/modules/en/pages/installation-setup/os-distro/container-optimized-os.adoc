@@ -85,7 +85,8 @@ NOTE: The agent installs the iSCSI daemon (iscsid) in a container using a packag
 
 == Limitations
 
-In COS clusters, {longhorn-product-name} currently supports only V1 data volumes.
+* {longhorn-product-name} currently supports only V1 data volumes in COS clusters.
+* You can use `pbkdf2` for volume encryption if the built-in `cryptsetup` utility in your COS cluster does not support `argon2i` or `argon2id`. For more information, see https://github.com/longhorn/longhorn/issues/10049[Issue #10049].
 
 == References
 
