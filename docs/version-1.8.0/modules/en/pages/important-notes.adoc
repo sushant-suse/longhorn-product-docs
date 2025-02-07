@@ -68,7 +68,7 @@ Longhorn creates a default backup target (`default`) during installation and upg
 Set the xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_default_backup_target[default backup target] before creating a new one.
 ====
 
-For more information, see xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[Configure a Backup Target], [Issue #5411](https://github.com/longhorn/longhorn/issues/5411) and [Issue #10089](https://github.com/longhorn/longhorn/issues/10089).
+For more information, see xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[Configure a Backup Target], https://github.com/longhorn/longhorn/issues/5411[Issue #5411], and https://github.com/longhorn/longhorn/issues/10089[Issue #10089].
 
 === Backup Data On The Remote Backup Server Might Be Deleted
 
@@ -90,6 +90,8 @@ For more information, see https://github.com/longhorn/longhorn/issues/9530[Issue
 
 Starting with Longhorn v1.8.0, the `if-not-present` volume backup policy option ensures that the latest backup contains the most recent data. If the latest backup is outdated, Longhorn creates a new backup for the volume.
 
+For more information, see https://github.com/longhorn/longhorn/issues/6027[Issue #6027].
+
 == V2 Data Engine
 
 === Longhorn System Upgrade
@@ -109,14 +111,37 @@ If you have existing V2 volumes, perform the following steps:
 5. Add the disk again to `node.spec.disks` with the updated configuration.
 6. Restore the V2 volumes.
 
-=== Disaster Recovery Volumes
+For more information, see https://github.com/longhorn/longhorn/issues/10053[Issue #10053].
 
-Longhorn v1.8.0 supports disaster recovery volumes.
+=== Resolved Potential Volume and Backup Data Corruption Issue
 
-=== Auto-salvage Volumes
+A data corruption https://github.com/longhorn/longhorn/issues/10135[issue] that affects earlier Longhorn releases has been resolved in v1.8.0. The issue involves potential continual changes to the checksum of files in a V2 volume with multiple replicas. This occurs because SPDK allocates clusters without initialization, leading to data inconsistencies across replicas. The varying data read from the volume can result in data corruption and broken backups. 
 
-Longhorn v1.8.0 supports auto-salvage volumes.
+=== Support for Configurable CPU Cores
 
-=== Volume Encryption
+Longhorn v1.8.0 supports xref:longhorn-system/v2-data-engine/features/configurable-cpu-cores.adoc[configurable CPU cores] for the V2 Data Engine. The global and node-specific configuration options provide greater control and flexibility for optimizing performance and resource allocation.
 
-Starting with v1.8.0, Longhorn supports encryption of V1 and V2 volumes.
+=== New Functionalities in Longhorn v1.8.0
+
+==== Scheduling
+
+Data locality: https://github.com/longhorn/longhorn/issues/9371[#9371]
+
+==== Data Recovery
+
+* Disaster recovery volumes: https://github.com/longhorn/longhorn/issues/6613[#6613]
+* Auto-salvage volumes: https://github.com/longhorn/longhorn/issues/8430[#8430]
+* Delta replica rebuilding using snapshot checksum: https://github.com/longhorn/longhorn/issues/9488[#9488]
+
+==== Backing Image
+
+* Uploading: https://github.com/longhorn/longhorn/issues/6341[#6341]
+* Downloading: https://github.com/longhorn/longhorn/issues/6341[#6341]
+
+==== Migration
+
+Live migration: https://github.com/longhorn/longhorn/issues/6361[#6361]
+
+==== Security
+
+* Volume encryption: https://github.com/longhorn/longhorn/issues/7355[#7355]
