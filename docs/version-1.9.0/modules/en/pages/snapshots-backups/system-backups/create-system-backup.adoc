@@ -1,0 +1,118 @@
+= Create a SUSE® Storage System Backup
+:current-version: {page-component-version}
+
+== System Backup Bundle
+
+Longhorn system backup creates a resource bundle and uploads it to the remote backup target.
+
+It includes below resources associating with the Longhorn system:
+
+* BackingImages
+* ClusterRoles
+* ClusterRoleBindings
+* ConfigMaps
+* CustomResourceDefinitions
+* DaemonSets
+* Deployments
+* EngineImages
+* PersistentVolumes
+* PersistentVolumeClaims
+* RecurringJobs
+* Roles
+* RoleBindings
+* Settings
+* Services
+* ServiceAccounts
+* StorageClasses
+* Volumes
+
+[NOTE]
+====
+* The default backup target (`default`) is always used to store system backups.
+* The Longhorn system backup bundle only includes resources operated by Longhorn.
+* Longhorn does not back up the `Nodes` resource. The Longhorn Manager on the target cluster is responsible for creating its own Longhorn `Node` custom resources.
+* Longhorn is unable to back up V2 Data Engine backing images.
+====
+
+== Create a System Backup
+
+You can create a Longhorn system backup using the Longhorn UI. Or with the `kubectl` command.
+
+=== Prerequisites
+
+* xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[]. Longhorn saves the system backups to the remote backup store. You will see an error during creation when the backup target is unset.
++
+NOTE: Unsetting the backup target clears the existing `SystemBackup` custom resource. Longhorn syncs to the remote backup store after setting the backup target. Another cluster can also sync to the same list of system backups when the backup target is the same.
+
+* Create a backup for all volumes (optional).
++
+NOTE: Longhorn system restores volume with the latest backup. We recommend updating the last backup for all volumes. By taking volume backups, you ensure that the data is up-to-date with the system backup. For more information, please refer to the <<_volume_backup_policy,Configuration - Volume Backup Policy>> section.
+
+=== Configuration
+
+==== Volume Backup Policy
+
+The Longhorn system backup offers the following volume backup policy options:
+
+* `if-not-present`: Longhorn creates a backup for volumes that either lack an existing backup or have an outdated latest backup.
+* `always`: Longhorn creates a backup for all volumes, regardless of their existing backups.
+* `disabled`: Longhorn does not create any backups for volumes.
+
+=== Using Longhorn UI
+
+. Go to the `System Backup` page in the `Setting` drop-down list.
+. Click `Create` under `System Backup`.
+. Give a `Name` for the system backup.
+. Select a `Volume Backup Policy` for the system backup.
+. The system backup will be ready to use when the state changes to `Ready`.
+
+=== Using `kubectl` Command
+
+. Execute `kubectl create` to create a Longhorn `SystemBackup` custom resource.
++
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: SystemBackup
+metadata:
+  name: demo
+  namespace: longhorn-system
+spec:
+  volumeBackupPolicy: if-not-present
+----
+
+. The system backup will be ready to use when the state changes to `Ready`.
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME   VERSION   STATE   CREATED
+demo   v1.4.0    Ready   2022-11-24T04:23:24Z
+----
+
+== Delete Longhorn System Backup
+
+You can delete the Longhorn system backup in the remote backup target using the Longhorn UI. Or with the `kubectl` command.
+
+=== Using Longhorn UI
+
+. Go to the `System Backup` page in the `Setting` drop-down list.
+. Delete a single system backup in the `Operation` drop-down menu next to the system backup. Or delete in batch with the `Delete` button.
++
+NOTE: Deleting the system backup will also make a deletion in the backup store.
+
+=== Using `kubectl` Command
+
+. Execute `kubectl delete` to delete a Longhorn `SystemBackup` custom resource.
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME   VERSION   STATE   CREATED
+demo   v1.4.0    Ready   2022-11-24T04:23:24Z
+
+> kubectl -n longhorn-system delete systembackup/demo
+systembackup.longhorn.io "demo" deleted
+----
+
+== History
+
+https://github.com/longhorn/longhorn/issues/1455[Original Feature Request]
