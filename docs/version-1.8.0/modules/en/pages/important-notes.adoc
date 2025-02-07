@@ -3,6 +3,19 @@
 
 Please see https://github.com/longhorn/longhorn/releases/tag/v{current-version}[here] for the full release notes.
 
+[WARNING]
+====
+An incorrect Longhorn image tag (v1.8.x-head) was used in the https://github.com/longhorn/longhorn/blob/v1.8.0/deploy/longhorn.yaml[deployment manifest] and the https://github.com/longhorn/longhorn/blob/v1.8.0/chart/values.yaml#L40-L65[Helm chart]. The correct tag for Longhorn v1.8.0 images is `v1.8.0`. For more information, see https://github.com/longhorn/longhorn/issues/10336[Issue #10336].
+
+If you installed or upgraded Longhorn using the deployment manifest or the Helm chart from the https://github.com/longhorn/longhorn[main Longhorn repository], perform the following actions to resolve the issue:
+
+- **New installations**: Replace `v1.8.x-head` with `v1.8.0` in the deployment manifest or the Helm chart before deploying Longhorn.
+
+- **Upgrades**: Replace `v1.8.x-head` with `v1.8.0` in the deployment manifest or Helm chart. Next, upgrade the Longhorn system and update the engine image for volumes that use `v1.8.x-head`.
+
+This issue does not affect installations and upgrades performed using the charts in the https://charts.longhorn.io/[Longhorn Helm repository]. For more information, see xref:installation-setup/installation/install-using-helm.adoc[Install with Helm].
+====
+
 == Deprecation
 
 === Environment Check Script
@@ -10,6 +23,10 @@ Please see https://github.com/longhorn/longhorn/releases/tag/v{current-version}[
 The functionality of the https://github.com/longhorn/longhorn/blob/master/scripts/environment_check.sh[environment check script] (`environment_check.sh`) overlaps with that of the Longhorn CLI, which is available starting with v1.7.0. Because of this, the script is deprecated in v1.7.0 and is scheduled for removal in v1.9.0.
 
 == General
+
+Kubernetes Version Requirement
+
+The CSI external-snapshotter was upgraded to v8.2.0. Ensure that all clusters are running Kubernetes v1.25 or later before upgrading to Longhorn v1.8.0 or a later version.
 
 === Upgrade Check Events
 
@@ -121,27 +138,26 @@ A data corruption https://github.com/longhorn/longhorn/issues/10135[issue] that 
 
 Longhorn v1.8.0 supports xref:longhorn-system/v2-data-engine/features/configurable-cpu-cores.adoc[configurable CPU cores] for the V2 Data Engine. The global and node-specific configuration options provide greater control and flexibility for optimizing performance and resource allocation.
 
-=== New Functionalities in Longhorn v1.8.0
+=== New Features in v1.8.0
 
 ==== Scheduling
 
-Data locality: https://github.com/longhorn/longhorn/issues/9371[#9371]
+* https://github.com/longhorn/longhorn/issues/9371[Data locality]
 
 ==== Data Recovery
 
-* Disaster recovery volumes: https://github.com/longhorn/longhorn/issues/6613[#6613]
-* Auto-salvage volumes: https://github.com/longhorn/longhorn/issues/8430[#8430]
-* Delta replica rebuilding using snapshot checksum: https://github.com/longhorn/longhorn/issues/9488[#9488]
+* https://github.com/longhorn/longhorn/issues/6613[Disaster recovery volumes]
+* https://github.com/longhorn/longhorn/issues/8430[Auto-salvage volumes]
+* https://github.com/longhorn/longhorn/issues/9488[Delta replica rebuilding using snapshot checksum]
 
 ==== Backing Image
 
-* Uploading: https://github.com/longhorn/longhorn/issues/6341[#6341]
-* Downloading: https://github.com/longhorn/longhorn/issues/6341[#6341]
+* https://github.com/longhorn/longhorn/issues/6341[Uploading and downloading]
 
 ==== Migration
 
-Live migration: https://github.com/longhorn/longhorn/issues/6361[#6361]
+* https://github.com/longhorn/longhorn/issues/6361[Live migration]
 
 ==== Security
 
-* Volume encryption: https://github.com/longhorn/longhorn/issues/7355[#7355]
+* https://github.com/longhorn/longhorn/issues/7355[Volume encryption]
