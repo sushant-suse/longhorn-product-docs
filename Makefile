@@ -17,4 +17,7 @@ clean:
 	rm -rf build
 
 environment:
-	npm ci
+	npm ci || npm in
+
+preview:
+	npx http-server build/site -c-1
