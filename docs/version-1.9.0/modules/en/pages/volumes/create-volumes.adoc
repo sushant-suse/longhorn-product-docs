@@ -54,7 +54,9 @@ The following example StorageClass is created:
 +
 The parameter `mkfsParams` can be used to specify filesystem format options for each StorageClass.
 +
-Starting with v1.8.0, the parameter `backupTargetName` can be used to specify the backup target. The name of the default backup target (`default`) is used if `backupTargetName` is not specified.
+The parameter `backupTargetName` can be used to specify the backup target. The name of the default backup target (`default`) is used if `backupTargetName` is not specified.
++
+Parameters may be omitted from the StorageClass specification. When the storage class is used to create a PV and a volume, parameters that are not specified will generally be set using a default value taken from the global settings. For the full list of global settings, see xref:storageclass-parameters.adoc[StorageClass Parameters] and xref:../longhorn-system/settings.adoc[Settings].
 
 . Create a Pod that uses Longhorn volumes by running this command:
 +
@@ -120,7 +122,7 @@ If the PVC names a StorageClass, Kubernetes will:
 
 == Creating Longhorn Volumes with the Longhorn UI
 
-Since the Longhorn volume already exists while creating PV/PVC, a StorageClass is not needed for dynamically provisioning Longhorn volume. However, the field `storageClassName` should be set in PVC/PV, to be used for PVC bounding purpose. And it's unnecessary for users to create the related StorageClass object.
+Since the Longhorn volume already exists while creating PV/PVC, a StorageClass is not needed for dynamically provisioning Longhorn volume. However, the field `storageClassName` should be set in PVC/PV, to be used for PVC binding purposes. It is not necessary for users to create the related StorageClass object.
 
 By default the StorageClass for Longhorn created PV/PVC is `longhorn-static`. Users can modify it in `Setting - General - Default Longhorn Static StorageClass Name` as they need.
 
