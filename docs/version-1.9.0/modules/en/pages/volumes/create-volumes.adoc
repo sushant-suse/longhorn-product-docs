@@ -1,7 +1,7 @@
 = Create Volumes
 :current-version: {page-component-version}
 
-You can create Kubernetes persistent storage resources of persistent volumes (PVs) and persistent volume claims (PVCs) that correspond to Longhorn volumes. You will use kubectl to dynamically provision storage for workloads using a Longhorn storage class. For help creating volumes from the Longhorn UI, refer to <<_creating_longhorn_volumes_with_the_longhorn_ui,this section.>>
+You can create Kubernetes persistent storage resources of persistent volumes (PVs) and persistent volume claims (PVCs) that correspond to Longhorn volumes. You will use kubectl to dynamically provision storage for workloads using a Longhorn StorageClass. For help creating volumes from the Longhorn UI, refer to <<_creating_longhorn_volumes_with_the_longhorn_ui,this section.>>
 
 ____
 This section assumes that you understand how Kubernetes persistent storage works. For more information, see the https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetes documentation.]
@@ -56,7 +56,7 @@ The parameter `mkfsParams` can be used to specify filesystem format options for 
 +
 The parameter `backupTargetName` can be used to specify the backup target. The name of the default backup target (`default`) is used if `backupTargetName` is not specified.
 +
-Parameters may be omitted from the StorageClass specification. When the storage class is used to create a PV and a volume, parameters that are not specified will generally be set using a default value taken from the global settings. For the full list of global settings, see xref:storageclass-parameters.adoc[StorageClass Parameters] and xref:../longhorn-system/settings.adoc[Settings].
+Parameters may be omitted from the StorageClass specification. When the StorageClass is used to create a PV and a volume, parameters that are not specified will generally be set using a default value taken from the global settings. For the full list of global settings, see xref:storageclass-parameters.adoc[StorageClass Parameters] and xref:../longhorn-system/settings.adoc[Settings].
 
 . Create a Pod that uses Longhorn volumes by running this command:
 +
@@ -111,7 +111,7 @@ More examples are available xref:longhorn-system/examples-resources.adoc[here.]
 
 It is possible to use a Longhorn StorageClass to bind a workload to a PV without creating a StorageClass object in Kubernetes.
 
-Since the Storage Class is also a field used to match a PVC with a PV, which doesn't have to be created by a Provisioner, you can create a PV manually with a custom StorageClass name, then create a PVC asking for the same StorageClass name.
+Since the StorageClass is also a field used to match a PVC with a PV, which doesn't have to be created by a Provisioner, you can create a PV manually with a custom StorageClass name, then create a PVC asking for the same StorageClass name.
 
 When a PVC requests a StorageClass that does not exist as a Kubernetes resource, Kubernetes will try to bind your PVC to a PV with the same StorageClass name. The StorageClass will be used like a label to find the matching PV, and only existing PVs labeled with the StorageClass name will be used.
 
