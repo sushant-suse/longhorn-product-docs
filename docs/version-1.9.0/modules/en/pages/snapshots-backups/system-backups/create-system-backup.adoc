@@ -58,7 +58,9 @@ The Longhorn system backup offers the following volume backup policy options:
 * `always`: Longhorn creates a backup for all volumes, regardless of their existing backups.
 * `disabled`: Longhorn does not create any backups for volumes.
 
-=== Using Longhorn UI
+=== One-Time Backup
+
+==== Create a System Backup Using the Longhorn UI
 
 . Go to the `System Backup` page in the `Setting` drop-down list.
 . Click `Create` under `System Backup`.
@@ -66,7 +68,7 @@ The Longhorn system backup offers the following volume backup policy options:
 . Select a `Volume Backup Policy` for the system backup.
 . The system backup will be ready to use when the state changes to `Ready`.
 
-=== Using `kubectl` Command
+==== Create a System Backup Using `kubectl`
 
 . Execute `kubectl create` to create a Longhorn `SystemBackup` custom resource.
 +
@@ -89,18 +91,61 @@ NAME   VERSION   STATE   CREATED
 demo   v1.4.0    Ready   2022-11-24T04:23:24Z
 ----
 
-== Delete Longhorn System Backup
+=== Recurring Job
+
+==== Create a Recurring Backup Job Using the Longhorn UI
+
+. Go to the **Recurring Job** screen.
+
+. Click **Create Recurring Job**.
+
+. Configure the following settings:
++
+* *Name*: Specify a name for the recurring job.
+* *Task*: Select **System Backup**.
+* *Retain*: Specify the number of system backups that Longhorn must retain.
+* *Cron*: Specify the cron expression (a string consisting of fields separated by whitespace characters) that defines the schedule properties.
+* *Parameters*: Select **volume-backup-policy**.
+
+. Click *OK*.
+
+Longhorn creates system backups according to the schedule defined in the *Cron* field.
+
+==== Create a Recurring Backup Job Using `kubectl`
+
+Run `kubectl create` to create a Longhorn `RecurringJob` custom resource with the task `system-backup`.
+
+Example:
+
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: demo
+  namespace: longhorn-system
+spec:
+  task: system-backup
+  cron: '* * * * *'
+  retain: 1
+  parameters:
+    volume-backup-policy: if-not-present
+----
+
+Longhorn creates system backup according to the schedule defined in the `cron` field.
+
+== Delete System Backups
 
 You can delete the Longhorn system backup in the remote backup target using the Longhorn UI. Or with the `kubectl` command.
 
-=== Using Longhorn UI
+=== Delete a System Backup Using the Longhorn UI
 
 . Go to the `System Backup` page in the `Setting` drop-down list.
 . Delete a single system backup in the `Operation` drop-down menu next to the system backup. Or delete in batch with the `Delete` button.
 +
 NOTE: Deleting the system backup will also make a deletion in the backup store.
 
-=== Using `kubectl` Command
+=== Delete a System Backup Using `kubectl`
 
 . Execute `kubectl delete` to delete a Longhorn `SystemBackup` custom resource.
 +
