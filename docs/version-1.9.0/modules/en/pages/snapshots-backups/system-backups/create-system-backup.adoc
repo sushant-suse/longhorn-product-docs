@@ -1,4 +1,4 @@
-= Create a SUSE® Storage System Backup
+= Create a {longhorn-product-name} System Backup
 :current-version: {page-component-version}
 
 == System Backup Bundle
@@ -60,7 +60,7 @@ The Longhorn system backup offers the following volume backup policy options:
 
 === One-Time Backup
 
-==== Create a System Backup Using the Longhorn UI
+==== Create a System Backup Using the UI
 
 . Go to the `System Backup` page in the `Setting` drop-down list.
 . Click `Create` under `System Backup`.
@@ -70,7 +70,7 @@ The Longhorn system backup offers the following volume backup policy options:
 
 ==== Create a System Backup Using `kubectl`
 
-. Execute `kubectl create` to create a Longhorn `SystemBackup` custom resource.
+. Execute `kubectl create` to create a {longhorn-product-name} `SystemBackup` custom resource.
 +
 [subs="+attributes",yaml]
 ----
@@ -93,7 +93,7 @@ demo   v1.4.0    Ready   2022-11-24T04:23:24Z
 
 === Recurring Job
 
-==== Create a Recurring Backup Job Using the Longhorn UI
+==== Create a Recurring Backup Job Using the UI
 
 . Go to the *Recurring Job* screen.
 
@@ -103,17 +103,17 @@ demo   v1.4.0    Ready   2022-11-24T04:23:24Z
 +
 * *Name*: Specify a name for the recurring job.
 * *Task*: Select *System Backup*.
-* *Retain*: Specify the number of system backups that Longhorn must retain.
+* *Retain*: Specify the number of system backups that {longhorn-product-name} must retain.
 * *Cron*: Specify the cron expression (a string consisting of fields separated by whitespace characters) that defines the schedule properties.
 * *Parameters*: Select *volume-backup-policy*.
 
 . Click *OK*.
 
-Longhorn creates system backups according to the schedule defined in the *Cron* field.
+{longhorn-product-name} creates system backups according to the schedule defined in the *Cron* field.
 
 ==== Create a Recurring Backup Job Using `kubectl`
 
-Run `kubectl create` to create a Longhorn `RecurringJob` custom resource with the task `system-backup`.
+Run `kubectl create` to create a {longhorn-product-name} `RecurringJob` custom resource with the task `system-backup`.
 
 Example:
 
@@ -132,7 +132,7 @@ spec:
     volume-backup-policy: if-not-present
 ----
 
-Longhorn creates system backup according to the schedule defined in the `cron` field.
+{longhorn-product-name} creates system backup according to the schedule defined in the `cron` field.
 
 == Delete System Backups
 
