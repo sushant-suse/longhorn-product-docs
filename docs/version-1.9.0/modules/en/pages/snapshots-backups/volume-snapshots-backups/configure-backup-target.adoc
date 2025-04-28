@@ -242,7 +242,7 @@ The serviceaccount will require the `roles/storage.objectAdmin` role to read, wr
 +
 Here is a reference to the GCP IAM roles you have available for granting access to a serviceaccount https://cloud.google.com/storage/docs/access-control/iam-roles.
 
-NOTE: Consider creating an IAM condition to reduce how many buckets this serviceaccount has object admin access to.
+NOTE: Consider creating an IAM condition to reduce how many buckets this serviceaccount has object admin access to. On the Google Cloud console, go to **Cloud Storage > Buckets**, and select the target bucket. On the **Bucket details** screen, go to the **Permissions** tab, click **Grant Access**, and grant your service account Storage Object Admin permissions for the target bucket.
 
 . Navigate to your https://console.cloud.google.com/storage/browser[buckets in cloud storage] and select your newly created bucket.
 . Go to the cloud storage's settings menu and navigate to the https://console.cloud.google.com/storage/settings;tab=interoperability[interoperability tab]
@@ -291,6 +291,8 @@ NOTE: The secret can be named whatever you like as long as they match what's in 
 Once the secret is created and Longhorn's settings are saved, navigate to the backup tab in Longhorn. If there are any issues, they should pop up as a toast notification.
 
 If you don't get any error messages, try creating a backup and confirm the content is pushed out to your new bucket.
+
+The *Backup Target* screen on the {longhorn-product-name} UI displays the status of each backup target. If the status is *Error* and no other details are provided, you can use your browser's *Inspect* feature to view the response data for `/v1/backuptargets`. Errors from GCP are labeled "AWS Error" (for example, `AWS Error: AccessDenied`). For more information, see link:https://github.com/longhorn/longhorn/issues/10428[Issue #10428].
 
 == Set up a Local Testing Backupstore
 
