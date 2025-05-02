@@ -16,11 +16,13 @@ If you installed or upgraded Longhorn using the deployment manifest or the Helm 
 This issue does not affect installations and upgrades performed using the charts in the https://charts.longhorn.io/[Longhorn Helm repository]. For more information, see xref:installation-setup/installation/install-using-helm.adoc[Install with Helm].
 ====
 
+== Removal
+
+=== Remove Environment Check Script
+
+The environment check script (`environment_check.sh`), which was deprecated in v1.7.0, has been removed in v1.9.0. Use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] to check the Longhorn environment for potential issues.
+
 == Deprecation
-
-=== Environment Check Script
-
-The functionality of the https://github.com/longhorn/longhorn/blob/master/scripts/environment_check.sh[environment check script] (`environment_check.sh`) overlaps with that of the Longhorn CLI, which is available starting with v1.7.0. Because of this, the script is deprecated in v1.7.0 and is scheduled for removal in v1.9.0.
 
 === Deprecate `longhorn.io/v1beta1` API
 

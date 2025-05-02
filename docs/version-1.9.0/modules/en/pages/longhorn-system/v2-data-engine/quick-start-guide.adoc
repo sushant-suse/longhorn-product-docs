@@ -175,14 +175,16 @@ worker1:
   - Module uio_pci_generic is loaded
 ----
 
-==== Using the Script
+==== Use Longhorn Command Line Tool
 
 Make sure everything is correctly configured and installed by
 
 [subs="+attributes", console]
 ----
-bash -c "$(curl -sfL https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/scripts/environment_check.sh)" -s -s
+longhornctl --kube-config ~/.kube/config --image longhornio/longhorn-cli:v{{< current-version >}} install preflight --enable-spdk
 ----
+
+See xref:../system-access/longhorn-cli.adoc[Longhorn Command Line Tool] for more information.
 
 == Installation
 
