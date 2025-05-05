@@ -941,11 +941,16 @@ Longhorn typically purges snapshots during replica rebuilding and user-initiated
 Longhorn coalesces unnecessary snapshots into their newer counterparts, freeing space consumed by historical data.
 
 Allowing snapshot purging during normal operations is ideal, but this process temporarily consumes additional disk
-space. If insufficient disk space prevents the process from continuing, consider temporarily disabling purging while
-data is moved to other disks.
+space. If insufficient disk space prevents the process from continuing, consider temporarily disabling purging while data is moved to other disks.
 
 === Auto Cleanup Snapshot When Delete Backup
 
 *Default value*: `false`
 
 When set to true, the snapshot used by the backup will be automatically cleaned up when the backup is deleted.
+
+=== Auto Cleanup Snapshot After On-Demand Backup Completed
+
+*Default value*: `false`
+
+When set to true, the snapshot used by the backup will be automatically cleaned up after the on-demand backup is completed.
