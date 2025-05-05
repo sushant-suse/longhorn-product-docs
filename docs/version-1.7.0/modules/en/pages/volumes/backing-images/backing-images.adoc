@@ -2,9 +2,14 @@
 :experimental:
 :current-version: {page-component-version}
 
-Longhorn natively supports backing images.
+{longhorn-product-name} natively supports backing images.
 
-A QCOW2 or RAW image can be set as the backing/base image of a Longhorn volume, which allows Longhorn to be integrated with a VM like https://github.com/rancher/harvester[Harvester].
+A QCOW2 or RAW image can be set as the backing/base image of a {longhorn-product-name} volume, which allows {longhorn-product-name} to be integrated with a VM like https://github.com/rancher/harvester[Harvester].
+
+[IMPORTANT]
+====
+The image size must be *a multiple of 512 bytes*. {longhorn-product-name} uses direct I/O, which requires alignment of file sizes with the underlying storage block size.
+====
 
 == Create Backing Image
 
@@ -15,7 +20,7 @@ A QCOW2 or RAW image can be set as the backing/base image of a Longhorn volume, 
 You can prepare a backing image using four different kinds of data sources.
 
 . Download a backing image file (using a URL).
-. Upload a file from your local machine. This option is available to Longhorn UI users.
+. Upload a file from your local machine. This option is available to {longhorn-product-name} UI users.
 . Export an existing in-cluster volume as a backing image.
 . Restore a backing image from the backupstore, For more information, see xref:snapshots-backups/backing-image-backups.adoc[Backing Image Backup].
 . Clone a backing image.
@@ -23,13 +28,13 @@ You can prepare a backing image using four different kinds of data sources.
 ==== The checksum of a backing image
 
 * The checksum of a backing image is *the SHA512 checksum* of the whole backing image *file* rather than that of the actual content.
-What's the difference? When Longhorn calculates the checksum of a qcow2 file, it will read the file as a raw file instead of using the qcow library to read the correct content. In other words, users always get the correct checksum by executing `shasum -a 512 <the file path>` regardless of the file format.
+What's the difference? When {longhorn-product-name} calculates the checksum of a qcow2 file, it will read the file as a raw file instead of using the qcow library to read the correct content. In other words, users always get the correct checksum by executing `shasum -a 512 <the file path>` regardless of the file format.
 * It's recommended to provide the expected checksum during backing image creation.
-Otherwise, Longhorn will consider the checksum of the first file as the correct one. Once there is something wrong with the first file preparation, which then leads to an incorrect checksum as the expected value, this backing image is probably unavailable.
+Otherwise, {longhorn-product-name} will consider the checksum of the first file as the correct one. Once there is something wrong with the first file preparation, which then leads to an incorrect checksum as the expected value, this backing image is probably unavailable.
 
 ==== Scheduling
 
-* Longhorn first prepares and stores the backing image file on a random node and disk, and then duplicates the file to the disks that are storing the replicas.
+* {longhorn-product-name} first prepares and stores the backing image file on a random node and disk, and then duplicates the file to the disks that are storing the replicas.
 * For improved space efficiency, you can add `nodeSelector` and `diskSelector` to force storing of backing image files on a specific set of nodes and disks.
 * The replicas cannot be scheduled on nodes or disks where the backing image cannot be scheduled.
 
@@ -40,7 +45,7 @@ Otherwise, Longhorn will consider the checksum of the first file as the correct 
 
 === The way of creating a backing image
 
-==== Create a backing image via Longhorn UI
+==== Create a backing image via {longhorn-product-name} UI
 
 On menu:Setting[Backing Image] page, users can create backing images with any kinds of data source.
 
@@ -92,8 +97,8 @@ spec:
 ==== Create and use a backing image via StorageClass and PVC
 
 . In a Longhorn StorageClass.
-. Setting parameter `backingImageName` means asking Longhorn to use this backing image during volume creation.
-. If you want to create the backing image as long as it does not exist during the CSI volume creation, parameters `backingImageDataSourceType` and `backingImageDataSourceParameters` should be set as well. Similar to YAML, it's better not to create a backing image via "upload" in StorageClass. Note that if all of these parameters are set and the backing image already exists, Longhorn will validate if the parameters matches the existing one before using it.
+. Setting parameter `backingImageName` means asking {longhorn-product-name} to use this backing image during volume creation.
+. If you want to create the backing image, as long as it does not exist during the CSI volume creation, parameters `backingImageDataSourceType` and `backingImageDataSourceParameters` should be set. Similarly to YAML, it's better not to create a backing image via "upload" in StorageClass. Note that if all of these parameters are set and the backing image already exists, {longhorn-product-name} will validate if the parameters match the existing one before using it.
  ** For `download`:
 +
 [subs="+attributes",yaml]
@@ -140,8 +145,8 @@ parameters:
   backingImageNodeSelector: "node1"
   backingImageDiskSelector: "disk1"
 ----
-. Create a PVC with the StorageClass. Then the backing image will be created (with the Longhorn volume) if it does not exist.
-. Longhorn starts to prepare the backing images to disks for the replicas when a volume using the backing image is attached to a node.
+. Create a PVC with the StorageClass. Then the backing image will be created (with the {longhorn-product-name} volume) if it does not exist.
+. {longhorn-product-name} starts to prepare the backing images to disks for the replicas when a volume using the backing image is attached to a node.
 
 ==== Notice:
 
@@ -158,17 +163,17 @@ or utilize an existing backing image as mentioned below.
 [discrete]
 ===== Use an existing backing Image during volume creation
 
-. Click menu:Setting[Backing Image] in the Longhorn UI.
+. Click menu:Setting[Backing Image] in the {longhorn-product-name} UI.
 . Click *Create Backing Image* to create a backing image with a unique name and a valid URL.
 . During the volume creation, specify the backing image from the backing image list.
-. Longhorn starts to download the backing image to disks for the replicas when a volume using the backing image is attached to a node.
+. {longhorn-product-name} starts to download the backing image to disks for the replicas when a volume using the backing image is attached to a node.
 
 [discrete]
 ===== Use an existing backing Image during volume restore
 
 . Click `Backup` and pick up a backup volume for the restore.
-. As long as the backing image is already set for the backup volume, Longhorn will automatically choose the backing image during the restore.
-. Longhorn allows you to re-specify/override the backing image during the restore.
+. As long as the backing image is already set for the backup volume, {longhorn-product-name} will automatically choose the backing image during the restore.
+. {longhorn-product-name} allows you to re-specify or override the backing image during the restore.
 
 [discrete]
 ==== Download the backing image file to the local machine
@@ -186,8 +191,8 @@ Since v1.3.0, users can download existing backing image files to the local via U
 [discrete]
 ==== Clean up backing images in disks
 
-* Longhorn automatically cleans up the unused backing image files in the disks based on xref:longhorn-system/settings.adoc#_backing_image_cleanup_wait_interval[the setting `Backing Image Cleanup Wait Interval`]. But Longhorn will retain at least one file in a disk for each backing image anyway.
-* You can manually remove backing images from disks using the Longhorn UI. Go to *Setting* > *Backing Image*, and then click the name of a specific backing image. In the window that opens, select one or more disks and then click *Clean Up*.
+* {longhorn-product-name} automatically cleans up the unused backing image files on the disks based on xref:longhorn-system/settings.adoc#_backing_image_cleanup_wait_interval[the setting `Backing Image Cleanup Wait Interval`]. But {longhorn-product-name} will retain at least one file on a disk for each backing image.
+* You can manually remove backing images from disks using the {longhorn-product-name} UI. Go to *Setting* > *Backing Image*, and then click the name of a specific backing image. In the window that opens, select one or more disks and then click *Clean Up*.
 * Once there is one replica in a disk using a backing image, no matter what the replica's current state is, the backing image file in this disk cannot be cleaned up.
 
 [discrete]
@@ -197,31 +202,31 @@ Since v1.3.0, users can download existing backing image files to the local via U
 
 == Backing image recovery
 
-* If there is still a ready backing image file in one disk, Longhorn will automatically clean up the failed backing image files then re-launch these files from the ready one.
+* If there is still a ready backing image file on one disk, {longhorn-product-name} will automatically clean up the failed backing image files, then re-launch these files from the ready one.
 * If somehow all files of a backing image become failed, and the first file is :
- ** downloaded from a URL, Longhorn will restart the downloading.
- ** exported from an existing volume, Longhorn will (attach the volume if necessary then) restart the export.
+ ** downloaded from a URL, {longhorn-product-name} will restart the downloading.
+ ** exported from an existing volume, {longhorn-product-name} will (attach the volume if necessary then) restart the export.
  ** uploaded from user local env, there is no way to recover it. Users need to delete this backing image then re-create a new one by re-uploading the file.
-* When a node is down or the backing image manager pod on the node is unavailable, all backing image files on the node will become `unknown`. Later on if the node is back and the pod is running, Longhorn will detect then reuse the existing files automatically.
+* When a node is down or the backing image manager pod on the node is unavailable, all backing image files on the node will become `unknown`. Later, if the node is back and the pod is running, {longhorn-product-name} will detect that and then reuse the existing files automatically.
 
 == Backing image eviction
 
-* You can manually evict all backing image files from a node or disk by setting `Scheduling` to `Disabled` and `Eviction Requested` to `True` on the Longhorn UI.
-* If only one backing image file exists in the cluster, Longhorn first duplicates the file to another disk and then deletes the file.
-* If the backing image file cannot be duplicated to other disks, Longhorn does not delete the file. You can update the settings to resolve the issue.
+* You can manually evict all backing image files from a node or disk by setting `Scheduling` to `Disabled` and `Eviction Requested` to `True` on the {longhorn-product-name} UI.
+* If only one backing image file exists in the cluster, {longhorn-product-name} first duplicates the file to another disk and then deletes the file.
+* If the backing image file cannot be duplicated to other disks, {longhorn-product-name} does not delete the file. You can update the settings to resolve the issue.
 
 == Backing image Workflow
 
-. To manage all backing image files in a disk, Longhorn will create one backing image manager pod for each disk. Once the disk has no backing image file requirement, the backing image manager will be removed automatically.
+. To manage all backing image files on a disk, {longhorn-product-name} creates a single backing image manager pod for each disk. Once the disk has no backing image file requirement, the backing image manager is removed automatically.
 . Once a backing image file is prepared by the backing image manager for a disk, the file will be shared among all volume replicas in this disk.
-. When a backing image is created, Longhorn will launch a backing image data source pod to prepare the first file. The file data is from the data source users specified (download from remote/upload from local/export from the volume). After the preparation done, the backing image manager pod in the same disk will take over the file then Longhorn will stop the backing image data source pod.
+. When a backing image is created, {longhorn-product-name} launches a backing image data source pod to prepare the initial file. The file data comes from a source specified by the user—such as a download from a remote location, an upload from a local file, or an export from an existing volume. Once preparation is done, the backing image manager pod on the same disk takes over the file, and {longhorn-product-name} stops the data source pod.
 . Once a new backing image is used by a volume, the backing image manager pods in the disks that the volume replicas reside on will be asked to sync the file from the backing image manager pods that already contain the file.
 . As mentioned in the section <<_clean_up_backing_images_in_disks,#clean_up_backing_images_in_disks>>, the file will be cleaned up automatically if all replicas in one disk do not use one backing image file.
 
 == Concurrent limit of backing image syncing
 
 * `Concurrent Backing Image Replenish Per Node Limit` in the global settings controls how many backing images copies on a node can be replenished simultaneously.
-* When set to 0, Longhorn won't replenish the copy automatically event it is less than the `minNumberOfCopies`
+* When set to 0, {longhorn-product-name} does not automatically replenish the copy, even if it is below the `minNumberOfCopies`
 
 == Warning
 
@@ -230,6 +235,6 @@ Since v1.3.0, users can download existing backing image files to the local via U
 
 == History
 
-* https://github.com/Longhorn/Longhorn/issues/2006[Enable backing image feature in Longhorn]
+* https://github.com/Longhorn/Longhorn/issues/2006[Enable backing image feature in {longhorn-product-name}]
 * Support https://github.com/longhorn/longhorn/issues/2404[upload] and https://github.com/longhorn/longhorn/issues/2403[volume exporting]
 * Support https://github.com/longhorn/longhorn/issues/2404[download to local] and https://github.com/longhorn/longhorn/issues/3155[volume exporting]
