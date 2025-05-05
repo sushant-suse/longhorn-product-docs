@@ -28,7 +28,7 @@ The environment check script (`environment_check.sh`), which was deprecated in v
 
 The `v1beta1` version of the Longhorn API is deprecated in v1.9.0 and will be removed in v1.10.0. During Longhorn system upgrades, custom resources using `longhorn.io/v1beta1` are automatically migrated to `longhorn.io/v1beta2`.
 
-Deprecated APIs are no longer served and may cause unexpected or undesirable behavior. Avoid using `longhorn.io/v1beta1` in new code and, if possible, update existing code to exclude this version.
+Deprecated APIs are no longer served and may cause undesirable behavior. Avoid using `longhorn.io/v1beta1` in new code and, if possible, update existing code to exclude this version.
 
 
 == General
@@ -145,7 +145,7 @@ For more information, see https://github.com/longhorn/longhorn/issues/10053[Issu
 
 === Resolved Potential Volume and Backup Data Corruption Issue
 
-A data corruption https://github.com/longhorn/longhorn/issues/10135[issue] that affects earlier Longhorn releases has been resolved in v1.8.0. The issue involves potential continual changes to the checksum of files in a V2 volume with multiple replicas. This occurs because SPDK allocates clusters without initialization, leading to data inconsistencies across replicas. The varying data read from the volume can result in data corruption and broken backups.
+A data corruption https://github.com/longhorn/longhorn/issues/10135[issue] affecting Longhorn releases has been resolved in v1.8.0. The issue involves potential continual changes to the checksum of files in a V2 volume with multiple replicas. This occurs because SPDK allocates clusters without initialization, leading to data inconsistencies across replicas. The varying data read from the volume can result in data corruption and broken backups.
 
 === Support for Configurable CPU Cores
 

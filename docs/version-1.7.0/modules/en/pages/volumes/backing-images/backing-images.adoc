@@ -98,7 +98,7 @@ spec:
 
 . In a Longhorn StorageClass.
 . Setting parameter `backingImageName` means asking {longhorn-product-name} to use this backing image during volume creation.
-. If you want to create the backing image as long as it does not exist during the CSI volume creation, parameters `backingImageDataSourceType` and `backingImageDataSourceParameters` should be set as well. Similar to YAML, it's better not to create a backing image via "upload" in StorageClass. Note that if all of these parameters are set and the backing image already exists, {longhorn-product-name} will validate if the parameters matches the existing one before using it.
+. If you want to create the backing image, as long as it does not exist during the CSI volume creation, parameters `backingImageDataSourceType` and `backingImageDataSourceParameters` should be set. Similarly to YAML, it's better not to create a backing image via "upload" in StorageClass. Note that if all of these parameters are set and the backing image already exists, {longhorn-product-name} will validate if the parameters match the existing one before using it.
  ** For `download`:
 +
 [subs="+attributes",yaml]
@@ -173,7 +173,7 @@ or utilize an existing backing image as mentioned below.
 
 . Click `Backup` and pick up a backup volume for the restore.
 . As long as the backing image is already set for the backup volume, {longhorn-product-name} will automatically choose the backing image during the restore.
-. {longhorn-product-name} allows you to re-specify/override the backing image during the restore.
+. {longhorn-product-name} allows you to re-specify or override the backing image during the restore.
 
 [discrete]
 ==== Download the backing image file to the local machine
@@ -191,7 +191,7 @@ Since v1.3.0, users can download existing backing image files to the local via U
 [discrete]
 ==== Clean up backing images in disks
 
-* {longhorn-product-name} automatically cleans up the unused backing image files in the disks based on xref:longhorn-system/settings.adoc#_backing_image_cleanup_wait_interval[the setting `Backing Image Cleanup Wait Interval`]. But {longhorn-product-name} will retain at least one file in a disk for each backing image anyway.
+* {longhorn-product-name} automatically cleans up the unused backing image files on the disks based on xref:longhorn-system/settings.adoc#_backing_image_cleanup_wait_interval[the setting `Backing Image Cleanup Wait Interval`]. But {longhorn-product-name} will retain at least one file on a disk for each backing image.
 * You can manually remove backing images from disks using the {longhorn-product-name} UI. Go to *Setting* > *Backing Image*, and then click the name of a specific backing image. In the window that opens, select one or more disks and then click *Clean Up*.
 * Once there is one replica in a disk using a backing image, no matter what the replica's current state is, the backing image file in this disk cannot be cleaned up.
 
@@ -202,12 +202,12 @@ Since v1.3.0, users can download existing backing image files to the local via U
 
 == Backing image recovery
 
-* If there is still a ready backing image file in one disk, {longhorn-product-name} will automatically clean up the failed backing image files then re-launch these files from the ready one.
+* If there is still a ready backing image file on one disk, {longhorn-product-name} will automatically clean up the failed backing image files, then re-launch these files from the ready one.
 * If somehow all files of a backing image become failed, and the first file is :
  ** downloaded from a URL, {longhorn-product-name} will restart the downloading.
  ** exported from an existing volume, {longhorn-product-name} will (attach the volume if necessary then) restart the export.
  ** uploaded from user local env, there is no way to recover it. Users need to delete this backing image then re-create a new one by re-uploading the file.
-* When a node is down or the backing image manager pod on the node is unavailable, all backing image files on the node will become `unknown`. Later on if the node is back and the pod is running, {longhorn-product-name} will detect then reuse the existing files automatically.
+* When a node is down or the backing image manager pod on the node is unavailable, all backing image files on the node will become `unknown`. Later, if the node is back and the pod is running, {longhorn-product-name} will detect that and then reuse the existing files automatically.
 
 == Backing image eviction
 
@@ -217,16 +217,16 @@ Since v1.3.0, users can download existing backing image files to the local via U
 
 == Backing image Workflow
 
-. To manage all backing image files in a disk, {longhorn-product-name} will create one backing image manager pod for each disk. Once the disk has no backing image file requirement, the backing image manager will be removed automatically.
+. To manage all backing image files on a disk, {longhorn-product-name} creates a single backing image manager pod for each disk. Once the disk has no backing image file requirement, the backing image manager is removed automatically.
 . Once a backing image file is prepared by the backing image manager for a disk, the file will be shared among all volume replicas in this disk.
-. When a backing image is created, {longhorn-product-name} will launch a backing image data source pod to prepare the first file. The file data is from the data source users specified (download from remote/upload from local/export from the volume). After the preparation done, the backing image manager pod in the same disk will take over the file then {longhorn-product-name} will stop the backing image data source pod.
+. When a backing image is created, {longhorn-product-name} launches a backing image data source pod to prepare the initial file. The file data comes from a source specified by the user—such as a download from a remote location, an upload from a local file, or an export from an existing volume. Once preparation is done, the backing image manager pod on the same disk takes over the file, and {longhorn-product-name} stops the data source pod.
 . Once a new backing image is used by a volume, the backing image manager pods in the disks that the volume replicas reside on will be asked to sync the file from the backing image manager pods that already contain the file.
 . As mentioned in the section <<_clean_up_backing_images_in_disks,#clean_up_backing_images_in_disks>>, the file will be cleaned up automatically if all replicas in one disk do not use one backing image file.
 
 == Concurrent limit of backing image syncing
 
 * `Concurrent Backing Image Replenish Per Node Limit` in the global settings controls how many backing images copies on a node can be replenished simultaneously.
-* When set to 0, {longhorn-product-name} won't replenish the copy automatically event it is less than the `minNumberOfCopies`
+* When set to 0, {longhorn-product-name} does not automatically replenish the copy, even if it is below the `minNumberOfCopies`
 
 == Warning
 
