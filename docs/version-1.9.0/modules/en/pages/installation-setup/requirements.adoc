@@ -16,7 +16,7 @@ Each node in the Kubernetes cluster where {longhorn-product-name} is installed m
 
 The {longhorn-product-name} workloads must be able to run as root in order for {longhorn-product-name} to be deployed and operated properly.
 
-<<_using_the_environment_check_script,This script>> can be used to check the {longhorn-product-name} environment for potential issues.
+The xref:../longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the Longhorn environment for potential issues.
 
 For the minimum recommended hardware, refer to the xref:installation-setup/best-practices.adoc#_minimum_recommended_hardware[best practices guide.]
 
@@ -91,38 +91,22 @@ ____
 [discrete]
 == Using the Environment Check Script
 
-____
-*Deprecation Notice* +
-The functionality of the environment check script, https://github.com/longhorn/longhorn/blob/master/scripts/environment_check.sh[environment_check.sh] overlaps with that of the {longhorn-product-name} Command Line Tool. Therefore, the script has been deprecated in v1.7.0 and is scheduled for removal in v1.8.0.
-____
-
-We've written a script to help you gather enough information about the factors.
-
-Note `jq` maybe required to be installed locally prior to running env check script.
-
-To run script:
-
 [subs="+attributes",shell]
 ----
-curl -sSfL https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/scripts/environment_check.sh | bash
+longhornctl --kube-config ~/.kube/config --image longhornio/longhorn-cli:v{{< current-version >}} install preflight
 ----
 
 Example of result:
 
 [subs="+attributes",shell]
 ----
-[INFO]  Required dependencies 'kubectl jq mktemp sort printf' are installed.
-[INFO]  All nodes have unique hostnames.
-[INFO]  Waiting for longhorn-environment-check pods to become ready (0/3)...
-[INFO]  All longhorn-environment-check pods are ready (3/3).
-[INFO]  MountPropagation is enabled
-[INFO]  Checking kernel release...
-[INFO]  Checking iscsid...
-[INFO]  Checking multipathd...
-[INFO]  Checking packages...
-[INFO]  Checking nfs client...
-[INFO]  Cleaning up longhorn-environment-check pods...
-[INFO]  Cleanup completed.
+INFO[2025-03-11T08:17:57+08:00] Initializing preflight installer
+INFO[2025-03-11T08:17:57+08:00] Cleaning up preflight installer
+INFO[2025-03-11T08:17:57+08:00] Running preflight installer
+INFO[2025-03-11T08:17:57+08:00] Installing dependencies with package manager
+INFO[2025-03-11T08:18:28+08:00] Installed dependencies with package manager
+INFO[2025-03-11T08:18:28+08:00] Cleaning up preflight installer
+INFO[2025-03-11T08:18:28+08:00] Completed preflight installer. Use 'longhornctl check preflight' to check the result.
 ----
 
 [discrete]

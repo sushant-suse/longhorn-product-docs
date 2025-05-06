@@ -16,11 +16,20 @@ If you installed or upgraded Longhorn using the deployment manifest or the Helm 
 This issue does not affect installations and upgrades performed using the charts in the https://charts.longhorn.io/[Longhorn Helm repository]. For more information, see xref:installation-setup/installation/install-using-helm.adoc[Install with Helm].
 ====
 
+== Removal
+
+=== Remove Environment Check Script
+
+The environment check script (`environment_check.sh`), which was deprecated in v1.7.0, has been removed in v1.9.0. Use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] to check the Longhorn environment for potential issues.
+
 == Deprecation
 
-=== Environment Check Script
+=== Deprecate `longhorn.io/v1beta1` API
 
-The functionality of the https://github.com/longhorn/longhorn/blob/master/scripts/environment_check.sh[environment check script] (`environment_check.sh`) overlaps with that of the Longhorn CLI, which is available starting with v1.7.0. Because of this, the script is deprecated in v1.7.0 and is scheduled for removal in v1.9.0.
+The `v1beta1` version of the Longhorn API is deprecated in v1.9.0 and will be removed in v1.10.0. During Longhorn system upgrades, custom resources using `longhorn.io/v1beta1` are automatically migrated to `longhorn.io/v1beta2`.
+
+Deprecated APIs are no longer served and may cause undesirable behavior. Avoid using `longhorn.io/v1beta1` in new code and, if possible, update existing code to exclude this version.
+
 
 == General
 
@@ -136,7 +145,7 @@ For more information, see https://github.com/longhorn/longhorn/issues/10053[Issu
 
 === Resolved Potential Volume and Backup Data Corruption Issue
 
-A data corruption https://github.com/longhorn/longhorn/issues/10135[issue] that affects earlier Longhorn releases has been resolved in v1.8.0. The issue involves potential continual changes to the checksum of files in a V2 volume with multiple replicas. This occurs because SPDK allocates clusters without initialization, leading to data inconsistencies across replicas. The varying data read from the volume can result in data corruption and broken backups. 
+A data corruption https://github.com/longhorn/longhorn/issues/10135[issue] affecting Longhorn releases has been resolved in v1.8.0. The issue involves potential continual changes to the checksum of files in a V2 volume with multiple replicas. This occurs because SPDK allocates clusters without initialization, leading to data inconsistencies across replicas. The varying data read from the volume can result in data corruption and broken backups.
 
 === Support for Configurable CPU Cores
 
