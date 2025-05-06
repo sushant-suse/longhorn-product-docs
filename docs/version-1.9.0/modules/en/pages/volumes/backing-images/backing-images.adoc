@@ -4,7 +4,7 @@
 
 {longhorn-product-name} natively supports backing images.
 
-A QCOW2 or RAW image can be set as the backing/base image of a {longhorn-product-name} volume, which allows {longhorn-product-name} to be integrated with a VM like https://github.com/rancher/harvester[Harvester].
+A QCOW2 or RAW image can be set as the backing/base image of a {longhorn-product-name} volume, which allows {longhorn-product-name} to be integrated with a virtualization solution such as https://www.suse.com/products/rancher/virtualization[{harvester-product-name}].
 
 [IMPORTANT]
 ====
@@ -24,6 +24,10 @@ You can prepare a V1 backing image using any of the supported data sources.
 . Export an existing in-cluster volume as a backing image.
 . Restore a backing image from the backupstore, For more information, see xref:snapshots-backups/backing-image-backups.adoc[Backing Image Backup].
 . Clone a backing image.
+
+==== Volume exporting
+
+A backing image serves as the initial snapshot in the snapshot chain of a {longhorn-product-name} volume. When you export a volume with an associated backing image, {longhorn-product-name} merges that image with the delta changes, resulting in a new consolidated backing image.
 
 ==== Checksum
 
@@ -101,6 +105,7 @@ spec:
 . In a Longhorn StorageClass.
 . Setting parameter `backingImageName` means asking {longhorn-product-name} to use this backing image during volume creation.
 . If you want to create the backing image, as long as it does not exist during the CSI volume creation, parameters `backingImageDataSourceType` and `backingImageDataSourceParameters` should be set. Similarly to YAML, it's better not to create a backing image via "upload" in StorageClass. Note that if all of these parameters are set and the backing image already exists, {longhorn-product-name} will validate if the parameters match the existing one before using it.
+
  ** For `download`:
 +
 [subs="+attributes",yaml]
