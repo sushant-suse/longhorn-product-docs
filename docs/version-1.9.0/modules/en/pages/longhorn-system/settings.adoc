@@ -395,6 +395,24 @@ The setting enables fast replica rebuilding feature. It relies on the checksums 
 
 The value in seconds specifies the timeout of the HTTP client to the replica's file sync server used for replica rebuilding, volume cloning, snapshot cloning, etc.
 
+=== Offline Replica Rebuilding
+
+*Default value*: `false`
+
+Controls whether {longhorn-product-name} automatically rebuilds degraded replicas while the volume is detached. This setting only takes effect if the volume-level setting is set to `ignored` or `enabled`.
+
+Available options:
+
+* `true`: Enables offline replica rebuilding for all detached volumes (unless overridden at the volume level).
+* `false`: Disables offline replica rebuilding globally (unless overridden at the volume level).
+
+[NOTE]
+====
+Offline rebuilding occurs only when a volume is detached. Volumes in a faulted state will not trigger offline rebuilding.
+====
+
+This setting allows {longhorn-product-name} to automatically rebuild replicas for detached volumes when needed.
+
 === Long gRPC Timeout
 
 *Default value*: `86400`
