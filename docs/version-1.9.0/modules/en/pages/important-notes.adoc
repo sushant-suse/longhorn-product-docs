@@ -47,88 +47,7 @@ If the Longhorn Manager crashes during the upgrade, check the logs to determine 
 time="2025-03-27T06:59:55Z" level=fatal msg="Error starting manager: upgrade resources failed: BackingImage in version \"v1beta2\" cannot be handled as a BackingImage: strict decoding error: unknown field \"spec.diskFileSpecMap\", unknown field \"spec.diskSelector\", unknown field \"spec.minNumberOfCopies\", unknown field \"spec.nodeSelector\", unknown field \"spec.secret\", unknown field \"spec.secretNamespace\"" func=main.main.DaemonCmd.func3 file="daemon.go:94"
 ----
 
-
-=== Upgrade Check Events
-
-Longhorn performs a pre-upgrade check whenever you upgrade using Helm or the Rancher App Marketplace. If a check fails, the upgrade stops and the reason for the check's failure is recorded. For more information, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrading Longhorn Manager].
-
-== Manual Checks Before Upgrades
-
-Automated checks are only performed on some upgrade paths, and the pre-upgrade checker may not cover some scenarios. Manual checks, performed using either kubectl or the UI, are recommended for these scenarios. You can take mitigating actions or defer the upgrade until issues are addressed.
-
-* Ensure that all V2 Data Engine volumes are detached and the replicas are stopped. The V2 Data Engine currently does not support live upgrades.
-* Avoid upgrading when volumes are in the "Faulted" status. If all the replicas are deemed unusable, they may be deleted and data may be permanently lost (if no usable backups exist).
-* Avoid upgrading if a failed BackingImage exists. For more information, see xref:volumes/backing-images/backing-images.adoc[Backing Image].
-* Create a Longhorn system backup before you perform the upgrade. Refer to xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn System Backup] for instructions. A system backup ensures that all critical resources, such as volumes and backing images, are backed up and can be restored if any issues occur.
-
-=== Install or Upgrade Using Helm Controller
-
-You can now install and upgrade Longhorn on clusters running RKE2 or K3s using the Helm Controller that is built into those distributions. The Helm Controller manages Helm charts using a HelmChart Custom Resource Definition (CRD), which contains most of the options that would normally be passed to the Helm command-line tool. For more information, see xref:installation-setup/installation/install-using-helm-controller.adoc[Install Using Helm Controller].
-
-=== Automatic Expansion of RWX Volumes
-
-Longhorn v1.8.0 supports fully automatic online expansion of RWX volumes. There is no need to scale down the workload or apply manual commands. For more information, see xref:volumes/volume-expansion.adoc#_rwx_volume[RWX Volume].
-
-== Resilience
-
-=== Timeout Configuration for Replica Rebuilding and Snapshot Cloning
-
-Starting with v1.7.0, Longhorn supports configuration of timeouts for replica rebuilding and snapshot cloning. Before v1.7.0, the replica rebuilding timeout was capped at 24 hours, which could cause failures for large volumes in slow bandwidth environments. The default timeout is still 24 hours but you can adjust it to accommodate different environments. For more information, see xref:longhorn-system/settings.adoc#_long_grpc_timeout[Long gRPC Timeout].
-
-=== Change in Engine Replica Timeout Behavior
-
-In versions earlier than v1.8.0, the xref:longhorn-system/settings.adoc#_engine_replica_timeout[Engine Replica Timeout] setting was equally applied to all V1 volume replicas. In v1.8.0, a V1 engine marks the last active replica as failed only after twice the configured number of seconds (timeout value x 2) have passed.
-
-== Operating Systems and Distributions
-
-=== Talos Linux
-
-Longhorn v1.8.0 and later versions support usage of V2 volumes in Talos Linux clusters. To use V2 volumes, ensure that all nodes meet the V2 Data Engine prerequisites. For more information, see xref:installation-setup/os-distro/talos-linux.adoc#_v2_data_engine[Talos Linux Support: V2 Data Engine].
-
-== Backup
-
-=== Multiple Backupstores Support
-
-Starting with v1.8.0, Longhorn supports usage of multiple backupstores. You can configure backup targets to access backupstores on the *Setting/Backup Target* screen of the UI. v1.8.0 improves on earlier Longhorn versions, which only allow you to use a single backup target for accessing a backupstore. Earlier versions also require you to configure the settings `backup-target`, `backup-target-credential-secret`, and `backupstore-poll-interval` for backup target management.
-
-[IMPORTANT]
-====
-The settings `backup-target`, `backup-target-credential-secret`, and `backupstore-poll-interval` were removed from the global settings because backup targets can be configured on the *Setting/Backup Target* screen of the UI. Longhorn also creates a default backup target (`default`) during installation and upgrades.
-====
-
-Longhorn creates a default backup target (`default`) during installation and upgrades. The default backup target is used for the following:
-
-* System backups
-* Volumes that were created without a specific backup target name
-
-[TIP]
-====
-Set the xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_default_backup_target[default backup target] before creating a new one.
-====
-
-For more information, see xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[Configure a Backup Target], https://github.com/longhorn/longhorn/issues/5411[Issue #5411], and https://github.com/longhorn/longhorn/issues/10089[Issue #10089].
-
-=== Backup Data On The Remote Backup Server Might Be Deleted
-
-Earlier Longhorn versions may unintentionally delete data in the backupstore and backup-related custom resources (such as `BackupVolume`, `BackupBackingImage`, `SystemBackup`, and `Backup`) in the following scenarios:
-
-* The NFS server becomes unavailable and sends an empty response.
-* A race condition could delete the remote backup volume and its corresponding backups when the backup target is reset within a short period.
-
-Starting with v1.8.0, Longhorn handles backup-related custom resources in the following manner:
-
-* If there are discrepancies between the backup information in the cluster and in the backupstore, Longhorn deletes only the backup-related custom resources in the cluster.
-* The backup-related custom resources in the cluster may be deleted unintentionally while the remote backup data remains safely stored. The deleted resources are resynchronized from the remote backup server during the next polling period (if the backup target is available).
-
-For more information, see https://github.com/longhorn/longhorn/issues/9530[Issue #9530].
-
 == System Backup And Restore
-
-=== Volume Backup Policy
-
-Starting with Longhorn v1.8.0, the `if-not-present` volume backup policy option ensures that the latest backup contains the most recent data. If the latest backup is outdated, Longhorn creates a new backup for the volume.
-
-For more information, see https://github.com/longhorn/longhorn/issues/6027[Issue #6027].
 
 === Recurring System Backup
 
@@ -140,34 +59,9 @@ You can create a recurring job for system backup creation. For more information,
 
 Longhorn currently does not support live upgrading of V2 volumes. Ensure that all V2 volumes are detached before initiating the upgrade process.
 
-=== New Block Size of Block-Type Disks That Use the AIO Driver
+==== Performance Enhancement
 
-The default block size for block-type disks in earlier Longhorn versions is 4096 bytes. However, a 512-byte block size is more commonly used and aligns with the V1 Data Engine's configuration. Additionally, the 4096-byte block size is incompatible with backing images generated by the V1 Data Engine. To address these concerns, the default block size was changed to 512 bytes.
-
-If you have existing V2 volumes, perform the following steps:
-
-1. Back up the V2 volumes.
-2. Remove the V2 volumes.
-3. Delete the block-type disk with a 4096-byte block size from `node.spec.disks`.
-4. Erase the old data on the block-type disk using tools such as dd.
-5. Add the disk again to `node.spec.disks` with the updated configuration.
-6. Restore the V2 volumes.
-
-For more information, see https://github.com/longhorn/longhorn/issues/10053[Issue #10053].
-
-=== Resolved Potential Volume and Backup Data Corruption Issue
-
-A data corruption https://github.com/longhorn/longhorn/issues/10135[issue] affecting Longhorn releases has been resolved in v1.8.0. The issue involves potential continual changes to the checksum of files in a V2 volume with multiple replicas. This occurs because SPDK allocates clusters without initialization, leading to data inconsistencies across replicas. The varying data read from the volume can result in data corruption and broken backups.
-
-=== Support for Configurable CPU Cores
-
-Longhorn v1.8.0 supports xref:longhorn-system/v2-data-engine/features/configurable-cpu-cores.adoc[configurable CPU cores] for the V2 Data Engine. The global and node-specific configuration options provide greater control and flexibility for optimizing performance and resource allocation.
-
-=== New Features in v1.8.0
-
-==== Scheduling
-
-* https://github.com/longhorn/longhorn/issues/9371[Data locality]
+* xref:longhorn-system/v2-data-engine/features/selective-engine-activation.adoc[Support UBLK Frontend]
 
 ==== Data Recovery
 
@@ -175,14 +69,10 @@ Longhorn v1.8.0 supports xref:longhorn-system/v2-data-engine/features/configurab
 * https://github.com/longhorn/longhorn/issues/8430[Auto-salvage volumes]
 * https://github.com/longhorn/longhorn/issues/9488[Delta replica rebuilding using snapshot checksum]
 
+==== Networking
+
+* https://github.com/longhorn/longhorn/issues/6450[Storage Network]
+
 ==== Backing Image
 
-* https://github.com/longhorn/longhorn/issues/6341[Uploading and downloading]
-
-==== Migration
-
-* https://github.com/longhorn/longhorn/issues/6361[Live migration]
-
-==== Security
-
-* https://github.com/longhorn/longhorn/issues/7355[Volume encryption]
+* https://github.com/longhorn/longhorn/issues/10356[Encryption]
