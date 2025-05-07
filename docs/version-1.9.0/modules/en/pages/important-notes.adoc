@@ -22,6 +22,12 @@ This issue does not affect installations and upgrades performed using the charts
 
 The environment check script (`environment_check.sh`), which was deprecated in v1.7.0, has been removed in v1.9.0. Use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] to check the Longhorn environment for potential issues.
 
+=== Orphan Auto-Deletion Setting
+
+The `orphan-auto-deletion` setting was replaced by the `orphan-resource-auto-deletion` setting in {longhorn-product-name} v1.9.0. To replicate the previous behavior of `orphan-auto-deletion` (which often pertained to replica data), ensure that `replicaData` is included in the value of the `orphan-resource-auto-deletion` setting. This setting typically accepts a semicolon-separated list of orphan types to auto-delete.
+
+For more information, see xref:data-integrity-recovery/orphaned-data-cleanup.adoc[Orphaned Data Cleanup] and xref:data-integrity-recovery/orphaned-instance-cleanup.adoc[Orphaned Instance Cleanup].
+
 == Deprecation
 
 === Deprecate `longhorn.io/v1beta1` API
@@ -194,3 +200,15 @@ Longhorn v1.8.0 supports xref:longhorn-system/v2-data-engine/features/configurab
 ==== Security
 
 * https://github.com/longhorn/longhorn/issues/7355[Volume encryption]
+
+==== Backing Image
+
+* link:https://github.com/longhorn/longhorn/issues/10356[Encryption]
+
+== Resilience
+
+=== Orphaned Instance Deletion
+
+Starting with Longhorn v1.9.0, Longhorn includes the capability to xref:data-integrity-recovery/orphaned-instance-cleanup.adoc[track orphaned instances]. These orphaned instances can be removed either automatically or manually.
+
+For more information, see link:https://github.com/longhorn/longhorn/issues/6764[Issue #6764].
