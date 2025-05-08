@@ -74,7 +74,7 @@ In the below example, users customize the default settings, backup-target, backu
      #backing-image-recovery-wait-interval:
      #guaranteed-instance-manager-cpu:
      #kubernetes-cluster-autoscaler-enabled:
-     #orphan-auto-deletion:
+     #orphan-resource-auto-deletion:
      #storage-network:
      #recurring-successful-jobs-history-limit:
      #recurring-failed-jobs-history-limit:
@@ -136,7 +136,7 @@ When the setting is absent or has a leading `#` symbol, the default setting will
    volumeAttachmentRecoveryPolicy: never
    nodeDownPodDeletionPolicy: do-nothing
    guaranteedInstanceManagerCpu: 15
-   orphanAutoDeletion: false
+   orphanAutoDeletion: ""
 ----
 
 . Run Helm with `values.yaml`:
