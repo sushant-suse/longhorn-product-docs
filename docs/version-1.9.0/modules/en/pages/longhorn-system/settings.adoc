@@ -489,11 +489,17 @@ UI, a StorageClass, or direct changes to an existing volume. `freezeFilesystemFo
 
 == Orphan
 
-=== Orphaned Data Automatic Deletion
+=== Orphaned Resource Automatic Deletion
 
-*Default value*: `false`
+*Example*: `replicaData;engineInstance;replicaInstance`
 
-This setting allows Longhorn to automatically delete the `orphan` resource and its orphaned data like volume replica.
+This setting allows {longhorn-product-name} to automatically delete `orphan` resources, which are typically Custom Resources (CRs) created by {longhorn-product-name} to represent detected orphaned entities. The deletion of an `orphan` CR subsequently triggers the cleanup of the actual orphaned data or runtime instance it represents. However, `orphan` resources associated with nodes that are in a `down` or `unknown` state will not be automatically cleaned up by this setting.
+
+You can list the resource types to be automatically deleted as a semicolon-separated string. Available types include:
+
+* `replicaData`: Represents orphaned replica data directories on disk.
+* `engineInstance`: Represents orphaned engine runtime processes.
+* `replicaInstance`: Represents orphaned replica runtime processes.
 
 == Backups
 

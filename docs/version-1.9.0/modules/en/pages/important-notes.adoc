@@ -18,7 +18,7 @@ This issue does not affect installations and upgrades performed using the charts
 
 == Removal
 
-=== Remove Environment Check Script
+=== Environment Check Script
 
 The environment check script (`environment_check.sh`), which was deprecated in v1.7.0, has been removed in v1.9.0. Use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] to check the Longhorn environment for potential issues.
 
@@ -28,9 +28,13 @@ The `orphan-auto-deletion` setting was replaced by the `orphan-resource-auto-del
 
 For more information, see xref:data-integrity-recovery/orphaned-data-cleanup.adoc[Orphaned Data Cleanup] and xref:data-integrity-recovery/orphaned-instance-cleanup.adoc[Orphaned Instance Cleanup].
 
+=== Deprecated Fields in CRDs
+
+Deprecated fields have been removed from the Custom Resource Definitions (CRDs). For details, see link:https://github.com/longhorn/longhorn/issues/6684[Issue #6684].
+
 == Deprecation
 
-=== Deprecate `longhorn.io/v1beta1` API
+=== `longhorn.io/v1beta1` API
 
 The `v1beta1` version of the Longhorn API is deprecated in v1.9.0 and will be removed in v1.10.0. During Longhorn system upgrades, custom resources using `longhorn.io/v1beta1` are automatically migrated to `longhorn.io/v1beta2`.
 
@@ -53,7 +57,20 @@ If the Longhorn Manager crashes during the upgrade, check the logs to determine 
 time="2025-03-27T06:59:55Z" level=fatal msg="Error starting manager: upgrade resources failed: BackingImage in version \"v1beta2\" cannot be handled as a BackingImage: strict decoding error: unknown field \"spec.diskFileSpecMap\", unknown field \"spec.diskSelector\", unknown field \"spec.minNumberOfCopies\", unknown field \"spec.nodeSelector\", unknown field \"spec.secret\", unknown field \"spec.secretNamespace\"" func=main.main.DaemonCmd.func3 file="daemon.go:94"
 ----
 
-== System Backup And Restore
+=== Upgrade Check Events
+
+Longhorn performs a pre-upgrade check when upgrading with Helm or the Rancher App Marketplace. If a check fails, the upgrade process stops, and the reason for the failure is recorded in an event. For more details, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrading Longhorn Manager].
+
+=== Manual Checks Before Upgrade
+
+Automated checks are performed only on some upgrade paths, and the pre-upgrade checker might not cover all scenarios. Manual checks, performed using either `kubectl` or the UI, are recommended for these scenarios. You can then take mitigating actions or defer the upgrade until any identified issues are addressed.
+
+* Ensure that all V2 Data Engine volumes are detached and their replicas are stopped. The V2 Data Engine currently does not support live upgrades.
+* Avoid upgrading when volumes are in the `"Faulted"` status. If all replicas are deemed unusable, they might be deleted, potentially leading to permanent data loss if no usable backups exist.
+* Avoid upgrading if a failed `BackingImage` exists. For more information, see xref:volumes/backing-images/backing-images.adoc[Backing Image].
+* Create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn system backup] before performing the upgrade. This ensures that all critical resources, such as volumes and backing images, are backed up and can be restored if any issues arise during the upgrade.
+
+== Backup And Restore
 
 === Recurring System Backup
 
@@ -66,6 +83,30 @@ You can create a recurring job for system backup creation. For more information,
 Starting with v1.9.0, Longhorn supports offline replica rebuilding. This feature allows degraded volumes to automatically rebuild replicas while the volumes are detached.
 
 For more information, see xref:../advanced-resources/rebuilding/offline-replica-rebuilding.adoc[Offline replica rebuilding] and link:https://github.com/longhorn/longhorn/issues/8443[Issue #8443].
+
+== Resilience
+
+=== Orphaned Instance Deletion
+
+Starting with Longhorn v1.9.0, Longhorn includes the capability to xref:data-integrity-recovery/orphaned-instance-cleanup.adoc[track the orphaned instances]. These orphaned instances can be removed either automatically or manually.
+
+For more information, see link:https://github.com/longhorn/longhorn/issues/6764[Issue #6764].
+
+== Performance
+
+=== Snapshot Checksum Disabled for Single-Replica Volumes
+
+Starting with v1.9.0, Longhorn does not calculate snapshot checksums by default for single-replica v1 volumes. Since snapshot checksums are primarily used for ensuring data integrity and speeding up replica rebuilding, they are unnecessary in single-replica setups. Disabling them helps reduce performance overhead.
+
+For more information, see link:https://github.com/longhorn/longhorn/issues/10518[Issue #10518].
+
+== Observability
+
+=== Improved Metrics for Replica, Engine, and Rebuild Status
+
+Starting with v1.9.0, Longhorn enhances observability by introducing new Prometheus metrics that expose the state and identity of Replica and Engine Custom Resources (CRs), as well as the rebuild status. These improvements make it easier to monitor rebuild events across the entire cluster.
+
+For more information, see link:https://github.com/longhorn/longhorn/issues/10550[Issue #10550] and link:https://github.com/longhorn/longhorn/issues/10722[Issue #10722].
 
 == V2 Data Engine
 
@@ -92,11 +133,3 @@ Longhorn currently does not support live upgrading of V2 volumes. Ensure that al
 ==== Backing Image
 
 * link:https://github.com/longhorn/longhorn/issues/10356[Encryption]
-
-== Resilience
-
-=== Orphaned Instance Deletion
-
-Starting with Longhorn v1.9.0, Longhorn includes the capability to xref:data-integrity-recovery/orphaned-instance-cleanup.adoc[track orphaned instances]. These orphaned instances can be removed either automatically or manually.
-
-For more information, see link:https://github.com/longhorn/longhorn/issues/6764[Issue #6764].
