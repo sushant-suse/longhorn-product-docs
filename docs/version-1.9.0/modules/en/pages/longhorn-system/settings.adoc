@@ -500,6 +500,17 @@ You can list the resource types to be automatically deleted as a semicolon-separ
 * `replica-data`: Represents replica data store.
 * `instance`: Represents engine and replica runtime instance.
 
+=== Orphaned Resource Automatic Deletion Grace Period
+
+*Default value*: `300` seconds
+
+Number of seconds {longhorn-product-name} waits before automatically deleting an orphaned custom resource (CR) and the actual orphaned data or runtime instance it represents.
+
+[NOTE]
+====
+The grace period does not take effect when you manually delete an orphaned CR.
+====
+
 == Backups
 
 === Allow Recurring Job While Volume Is Detached
