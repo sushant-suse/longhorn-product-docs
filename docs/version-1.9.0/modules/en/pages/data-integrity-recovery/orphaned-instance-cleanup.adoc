@@ -9,6 +9,8 @@ When a network outage affects a {longhorn-product-name} node, it might leave beh
 
 {longhorn-product-name} supports the detection and cleanup of orphaned instances. It identifies these instances and creates `orphan` resources that describe them. By default, {longhorn-product-name} does not automatically delete `orphan` resources. Users can trigger the deletion of orphaned instances manually or configure {longhorn-product-name} to delete them automatically.
 
+When automatic orphan deletion is enabled, {longhorn-product-name} automatically deletes orphaned Custom Resources (CRs) and their associated directories after the delay defined by the `orphan-resource-auto-deletion-grace-period` setting. If a user manually deletes an orphaned CR, the deletion occurs immediately and does not respect this grace period.
+
 === Example
 
 The following example demonstrates how to manage orphaned instances using `kubectl`.

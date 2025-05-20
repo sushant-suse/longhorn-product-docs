@@ -1,17 +1,19 @@
 = Orphaned Data Cleanup
 :current-version: {page-component-version}
 
-Longhorn supports orphaned data cleanup. Currently, Longhorn can identify and clean up the orphaned replica directories on disks.
+{longhorn-product-name} supports orphaned data cleanup. Currently, {longhorn-product-name} can identify and clean up the orphaned replica directories on disks.
 
 == Orphaned Replica Directories
 
-When a user introduces a disk into a Longhorn node, it may contain replica directories that are not tracked by the Longhorn system. The untracked replica directories may belong to other Longhorn clusters. Or, the replica CRs associated with the replica directories are removed after the node or the disk is down. When the node or the disk comes back, the corresponding replica data directories are no longer tracked by the Longhorn system. These replica data directories are called orphaned.
+When a user introduces a disk into a {longhorn-product-name} node, it may contain replica directories that are not tracked by the {longhorn-product-name} system. The untracked replica directories may belong to other {longhorn-product-name} clusters. Or, the replica CRs associated with the replica directories are removed after the node or the disk is down. When the node or the disk comes back, the corresponding replica data directories are no longer tracked by the {longhorn-product-name} system. These replica data directories are called orphaned.
 
-Longhorn supports the detection and cleanup of orphaned replica directories. It identifies the directories and gives a list of `orphan` resources that describe those directories. By default, Longhorn does not automatically delete `orphan` resources and their directories. Users can trigger the deletion of orphaned replica directories manually or have it done automatically.
+{longhorn-product-name} supports the detection and cleanup of orphaned replica directories. It identifies the directories and gives a list of `orphan` resources that describe those directories. By default, {longhorn-product-name} does not automatically delete `orphan` resources and their directories. Users can trigger the deletion of orphaned replica directories manually or have it done automatically.
+
+When automatic orphan deletion is enabled, {longhorn-product-name} automatically deletes orphaned Custom Resources (CRs) and their associated directories after the delay defined by the `orphan-resource-auto-deletion-grace-period` setting. If a user manually deletes an orphaned CR, the deletion occurs immediately and does not respect this grace period.
 
 === Example
 
-In the example, we will explain how to manage orphaned replica directories identified by Longhorn via `kubectl` and Longhorn UI.
+In the example, we will explain how to manage orphaned replica directories identified by {longhorn-product-name} via `kubectl` and {longhorn-product-name} UI.
 
 ==== Manage Orphaned Replica Directories via kubectl
 
@@ -33,7 +35,7 @@ In the example, we will explain how to manage orphaned replica directories ident
  pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-a86771c0
 ----
 
-. Longhorn detects the orphaned replica directories and creates an `orphan` resources describing the directories.
+. {longhorn-product-name} detects the orphaned replica directories and creates an `orphan` resources describing the directories.
 +
 ----
  # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
@@ -43,7 +45,7 @@ In the example, we will explain how to manage orphaned replica directories ident
  orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
 ----
 
-. One can list the `orphan` resources created by Longhorn system by `kubectl -n longhorn-system get orphan`.
+. One can list the `orphan` resources created by {longhorn-product-name} system by `kubectl -n longhorn-system get orphan`.
 +
 ----
  kubectl -n longhorn-system get orphan
@@ -109,7 +111,7 @@ The orphaned replica directory is deleted.
  # ls /mnt/disk/replicas/
 ----
 
-. By default, Longhorn will not automatically delete the orphaned replica directory. You can enable automatic deletion by setting the `orphan-resource-auto-deletion` setting.
+. By default, {longhorn-product-name} will not automatically delete the orphaned replica directory. You can enable automatic deletion by setting the `orphan-resource-auto-deletion` setting.
 +
 ----
  # kubectl -n longhorn-system edit settings.longhorn.io orphan-resource-auto-deletion
