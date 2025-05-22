@@ -5,9 +5,9 @@ Each node in the Kubernetes cluster where {longhorn-product-name} is installed m
 
 * A container runtime compatible with Kubernetes (Docker v1.13+, containerd v1.3.7+, etc.)
 * Kubernetes v1.25 or later
-* `open-iscsi` is installed, and the `iscsid` daemon is running on all the nodes. This is necessary, since {longhorn-product-name} relies on `iscsiadm` on the host to provide persistent volumes to Kubernetes. For help installing `open-iscsi`, refer to <<_installing_open_iscsi,this section.>>
+* `open-iscsi` is installed, and the `iscsid` daemon is running on all the nodes. This is necessary, since {longhorn-product-name} relies on `iscsiadm` on the host to provide persistent volumes to Kubernetes. For help installing `open-iscsi`, refer to <<_installing_open_iscsi,Installing open-iscsi>>.
 * RWX support requires that each node has a NFSv4 client installed.
- ** For installing a NFSv4 client, refer to <<_installing_nfsv4_client,this section.>>
+ ** For installing a NFSv4 client, refer to <<_installing_nfsv4_client,Installing NFSv4 Client>>.
 * The host filesystem supports the `file extents` feature to store the data. Currently we support:
  ** ext4
  ** XFS
@@ -18,7 +18,7 @@ The {longhorn-product-name} workloads must be able to run as root in order for {
 
 The xref:../longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the Longhorn environment for potential issues.
 
-For the minimum recommended hardware, refer to the xref:installation-setup/best-practices.adoc#_minimum_recommended_hardware[best practices guide.]
+For the minimum recommended hardware, refer to the xref:installation-setup/best-practices.adoc#_minimum_recommended_hardware[best practices guide].
 
 [discrete]
 == OS/Distro Specific Configuration
@@ -33,81 +33,24 @@ You must perform additional setups before using {longhorn-product-name} with cer
 * Container-Optimized OS: See xref:installation-setup/os-distro/container-optimized-os.adoc[Container-Optimized OS].
 
 [discrete]
-== Using the {longhorn-product-name} Command Line Tool
+== Checking the Kubernetes Version
 
-The `longhornctl` tool is a CLI for {longhorn-product-name} operations. For more information, see xref:longhorn-system/system-access/longhorn-cli.adoc[Command Line Tool (longhornctl)].
+Use the following command to check your Kubernetes server version:
 
-To check the prerequisites and configurations, download the tool and run the `check` sub-command:
-
-[subs="+attributes",shell]
+[,shell]
 ----
-# For AMD64 platform
-curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{current-version}/longhornctl-linux-amd64
-# For ARM platform
-curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{current-version}/longhornctl-linux-arm64
-
-chmod +x longhornctl
-./longhornctl check preflight
+kubectl version
 ----
 
-Example of result:
+Result:
 
-[subs="+attributes",shell]
+[,shell]
 ----
-INFO[2024-01-01T00:00:01Z] Initializing preflight checker
-INFO[2024-01-01T00:00:01Z] Cleaning up preflight checker
-INFO[2024-01-01T00:00:01Z] Running preflight checker
-INFO[2024-01-01T00:00:02Z] Retrieved preflight checker result:
-worker1:
-  info:
-  - Service iscsid is running
-  - NFS4 is supported
-  - Package nfs-common is installed
-  - Package open-iscsi is installed
-  warn:
-  - multipathd.service is running. Please refer to https://longhorn.io/kb/troubleshooting-volume-with-multipath/ for more information.
-worker2:
-  info:
-  - Service iscsid is running
-  - NFS4 is supported
-  - Package nfs-common is not installed
-  - Package open-iscsi is installed
+Client Version: version.Info{Major:"1", Minor:"26", GitVersion:"v1.26.10", GitCommit:"b8609d4dd75c5d6fba4a5eaa63a5507cb39a6e99", GitTreeState:"clean", BuildDate:"2023-10-18T11:44:31Z", GoVersion:"go1.20.10", Compiler:"gc", Platform:"linux/amd64"}
+Server Version: version.Info{Major:"1", Minor:"26", GitVersion:"v1.26.10+k3s2", GitCommit:"cb5cb5557f34e240e38c68a8c4ca2506c68b1d86", GitTreeState:"clean", BuildDate:"2023-11-08T03:21:46Z", GoVersion:"go1.20.10", Compiler:"gc", Platform:"linux/amd64"}
 ----
 
-Use the `install` sub-command to install and set up the preflight dependencies before installing {longhorn-product-name}.
-
-[subs="+attributes",shell]
-----
-./longhornctl install preflight
-----
-
-____
-*Note*: +
-Some immutable Linux distributions, such as SUSE Linux Enterprise Micro (SLE Micro), require you to reboot worker nodes after running the `install` sub-command. After the reboot, you must run the `install` sub-command again to complete the operation.
-
-The documentation of the Linux distribution you are using should outline such requirements. For example, the https://documentation.suse.com/sle-micro/6.0/html/Micro-transactional-updates/index.html#reference-transactional-update-usage[SLE Micro documentation] explains how all changes made by the `transactional-update` command become active only after the node is rebooted.
-____
-
-[discrete]
-== Using the Environment Check Script
-
-[subs="+attributes",shell]
-----
-longhornctl --kube-config ~/.kube/config --image longhornio/longhorn-cli:v{{< current-version >}} install preflight
-----
-
-Example of result:
-
-[subs="+attributes",shell]
-----
-INFO[2025-03-11T08:17:57+08:00] Initializing preflight installer
-INFO[2025-03-11T08:17:57+08:00] Cleaning up preflight installer
-INFO[2025-03-11T08:17:57+08:00] Running preflight installer
-INFO[2025-03-11T08:17:57+08:00] Installing dependencies with package manager
-INFO[2025-03-11T08:18:28+08:00] Installed dependencies with package manager
-INFO[2025-03-11T08:18:28+08:00] Cleaning up preflight installer
-INFO[2025-03-11T08:18:28+08:00] Completed preflight installer. Use 'longhornctl check preflight' to check the result.
-----
+The `Server Version` should be greater than or equal to v1.25.
 
 [discrete]
 === Pod Security Policy
@@ -307,26 +250,6 @@ nfs install successfully
 ----
 
 [discrete]
-== Checking the Kubernetes Version
-
-Use the following command to check your Kubernetes server version
-
-[subs="+attributes",shell]
-----
-kubectl version
-----
-
-Result:
-
-[subs="+attributes",shell]
-----
-Client Version: version.Info{Major:"1", Minor:"26", GitVersion:"v1.26.10", GitCommit:"b8609d4dd75c5d6fba4a5eaa63a5507cb39a6e99", GitTreeState:"clean", BuildDate:"2023-10-18T11:44:31Z", GoVersion:"go1.20.10", Compiler:"gc", Platform:"linux/amd64"}
-Server Version: version.Info{Major:"1", Minor:"26", GitVersion:"v1.26.10+k3s2", GitCommit:"cb5cb5557f34e240e38c68a8c4ca2506c68b1d86", GitTreeState:"clean", BuildDate:"2023-11-08T03:21:46Z", GoVersion:"go1.20.10", Compiler:"gc", Platform:"linux/amd64"}
-----
-
-The `Server Version` should be v1.25 or later.
-
-[discrete]
 == Installing Cryptsetup and LUKS
 
 https://gitlab.com/cryptsetup/cryptsetup[Cryptsetup] is an open-source utility used to conveniently set up `dm-crypt` based device-mapper targets and {longhorn-product-name} uses https://gitlab.com/cryptsetup/cryptsetup#luks-design[LUKS2] (Linux Unified Key Setup) format that is the standard for Linux disk encryption to support volume encryption.
@@ -381,3 +304,87 @@ yum install device-mapper
 ----
 zypper install device-mapper
 ----
+
+[discrete]
+== Longhorn Command Line Tool
+
+=== Checking Prerequisites Using Longhorn Command Line Tool
+
+The `longhornctl` tool is a command-line interface (CLI) for Longhorn operations. For more information, see xref:longhorn-system/system-access/install-longhorn-cli.adoc[Command Line Tool (longhornctl)].
+
+To check prerequisites and configurations, download the `longhornctl` tool and then run the `check` sub-command:
+
+[,bash]
+----
+# For AMD64 platform
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v<current-version>/longhornctl-linux-amd64
+# For ARM platform
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v<current-version>/longhornctl-linux-arm64
+
+chmod +x longhornctl
+./longhornctl check preflight
+----
+
+Example of result:
+
+[,text]
+----
+INFO[2024-01-01T00:00:01Z] Initializing preflight checker
+INFO[2024-01-01T00:00:01Z] Cleaning up preflight checker
+INFO[2024-01-01T00:00:01Z] Running preflight checker
+INFO[2024-01-01T00:00:02Z] Retrieved preflight checker result:
+worker1:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-common is installed
+  - Package open-iscsi is installed
+  warn:
+  - multipathd.service is running. Please refer to https://longhorn.io/kb/troubleshooting-volume-with-multipath/ for more information.
+worker2:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-common is not installed
+  - Package open-iscsi is installed
+----
+
+=== Installing Prerequisites Using Longhorn Command Line Tool
+
+Use the `install` sub-command to install and set up the preflight dependencies before installing Longhorn. This involves operations that may require a system reboot on certain Linux distributions.
+
+Here are examples of how to use the `install` sub-command:
+
+. To run from a locally downloaded `longhornctl` binary:
++
+[,bash]
+----
+./longhornctl install preflight
+----
+
+. To run with explicit `kube-config` and `image` parameters:
++
+[,bash]
+----
+longhornctl --kube-config ~/.kube/config --image longhornio/longhorn-cli:v<current-version> install preflight
+----
+
+Example of result after running the install command:
+
+[,text]
+----
+INFO[2025-03-11T08:17:57+08:00] Initializing preflight installer
+INFO[2025-03-11T08:17:57+08:00] Cleaning up preflight installer
+INFO[2025-03-11T08:17:57+08:00] Running preflight installer
+INFO[2025-03-11T08:17:57+08:00] Installing dependencies with package manager
+INFO[2025-03-11T08:18:28+08:00] Installed dependencies with package manager
+INFO[2025-03-11T08:18:28+08:00] Cleaning up preflight installer
+INFO[2025-03-11T08:18:28+08:00] Completed preflight installer. Use 'longhornctl check preflight' to check the result.
+----
+
+[NOTE]
+====
+On some immutable Linux distributions, such as SUSE Linux Enterprise Micro (SLE Micro), you might need to reboot worker nodes after running the `install` sub-command for changes to take effect. After the reboot, you must run the `install` sub-command again to complete the operation.
+
+The documentation of the Linux distribution you are using should outline such requirements. For example, the link:https://documentation.suse.com/sle-micro/6.0/html/Micro-transactional-updates/index.html#reference-transactional-update-usage[SLE Micro documentation] explains how all changes made by the `transactional-update` command become active only after the node is rebooted.
+====
