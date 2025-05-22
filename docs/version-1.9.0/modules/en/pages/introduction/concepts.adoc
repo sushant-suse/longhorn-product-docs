@@ -120,7 +120,7 @@ The default replica count can be changed in the xref:longhorn-system/settings.ad
 
 If the current healthy replica count is less than specified replica count, {longhorn-product-name} will start rebuilding new replicas.
 
-If the current healthy replica count is more than the specified replica count, {longhorn-product-name} will do nothing. In this situation, if a replica fails or is deleted, {longhorn-product-name} won't start rebuilding new replicas unless the healthy replica count dips below the specified replica count.
+If the current healthy replica count is more than the specified replica count, Replica Auto Balance and Data Locality are disabled, {longhorn-product-name} will do nothing. In this situation, if a replica fails or is deleted, {longhorn-product-name} will not start rebuilding new replicas unless the healthy replica count dips below the specified replica count. If Replica Auto Balance or Data Locality are set, {longhorn-product-name} might delete one of the replicas.
 
 {longhorn-product-name} replicas are built using Linux https://en.wikipedia.org/wiki/Sparse_file[sparse files,] which support thin provisioning.
 

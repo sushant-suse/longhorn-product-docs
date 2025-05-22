@@ -40,6 +40,28 @@ The `v1beta1` version of the Longhorn API is deprecated in v1.9.0 and will be re
 
 Deprecated APIs are no longer served and may cause undesirable behavior. Avoid using `longhorn.io/v1beta1` in new code and, if possible, update existing code to exclude this version.
 
+== Breaking Change
+
+=== V2 Backing Image
+
+Starting with {longhorn-product-name} v1.9.0, V2 backing images are incompatible with earlier versions. This incompatibility is due to naming conflicts in the extended attributes (`xattrs`) used by SPDK backing image logical volumes. As a result, you must delete and then recreate V2 backing images during the upgrade process.
+
+Because backing images cannot be deleted while volumes that use them still exist, you must first back up, delete, and later restore those volumes.
+
+==== Upgrade Instructions
+
+* **Before upgrading to v1.9.0**:
+** Verify that your backup targets are functioning properly.
+** Create full backups of all volumes that use a V2 backing image.
+** Detach and delete these volumes after the backups complete.
+** On the **Backing Image** page, save the specifications of all V2 backing images, including the name and the image source.
+** Delete all V2 backing images.
+* **After upgrading**:
+** Recreate the V2 backing images using the same names and image sources you saved earlier.
+** Restore the volumes from your backups.
+
+For more details, see link:https://github.com/longhorn/longhorn/issues/10805[Issue #10805].
+
 == General
 
 === Kubernetes Version Requirement
@@ -80,7 +102,7 @@ You can create a recurring job for system backup creation. For more information,
 
 === Offline Replica Rebuilding
 
-Starting with v1.9.0, Longhorn supports offline replica rebuilding. This feature allows degraded volumes to automatically rebuild replicas while the volumes are detached.
+Starting with v1.9.0, {longhorn-product-name} supports offline replica rebuilding, allowing degraded volumes to automatically rebuild replicas while detached.
 
 For more information, see xref:../advanced-resources/rebuilding/offline-replica-rebuilding.adoc[Offline replica rebuilding] and link:https://github.com/longhorn/longhorn/issues/8443[Issue #8443].
 
