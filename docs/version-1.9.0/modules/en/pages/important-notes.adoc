@@ -5,11 +5,11 @@ Please see https://github.com/longhorn/longhorn/releases/tag/v{current-version}[
 
 [WARNING]
 ====
-An incorrect Longhorn image tag (v1.8.x-head) was used in the https://github.com/longhorn/longhorn/blob/v1.8.0/deploy/longhorn.yaml[deployment manifest] and the https://github.com/longhorn/longhorn/blob/v1.8.0/chart/values.yaml#L40-L65[Helm chart]. The correct tag for Longhorn v1.8.0 images is `v1.8.0`. For more information, see https://github.com/longhorn/longhorn/issues/10336[Issue #10336].
+An incorrect {longhorn-product-name} image tag (v1.8.x-head) was used in the https://github.com/longhorn/longhorn/blob/v1.8.0/deploy/longhorn.yaml[deployment manifest] and the https://github.com/longhorn/longhorn/blob/v1.8.0/chart/values.yaml#L40-L65[Helm chart]. The correct tag for {longhorn-product-name} v1.8.0 images is `v1.8.0`. For more information, see https://github.com/longhorn/longhorn/issues/10336[Issue #10336].
 
-If you installed or upgraded Longhorn using the deployment manifest or the Helm chart from the https://github.com/longhorn/longhorn[main Longhorn repository], perform the following actions to resolve the issue:
+If you installed or upgraded {longhorn-product-name} using the deployment manifest or the Helm chart from the https://github.com/longhorn/longhorn[main Longhorn repository], perform the following actions to resolve the issue:
 
-- **New installations**: Replace `v1.8.x-head` with `v1.8.0` in the deployment manifest or the Helm chart before deploying Longhorn.
+- **New installations**: Replace `v1.8.x-head` with `v1.8.0` in the deployment manifest or the Helm chart before deploying {longhorn-product-name}.
 
 - **Upgrades**: Replace `v1.8.x-head` with `v1.8.0` in the deployment manifest or Helm chart. Next, upgrade the Longhorn system and update the engine image for volumes that use `v1.8.x-head`.
 
@@ -20,15 +20,15 @@ This issue does not affect installations and upgrades performed using the charts
 
 === Environment Check Script
 
-The environment check script (`environment_check.sh`), which was deprecated in v1.7.0, has been removed in v1.9.0. Use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] to check the Longhorn environment for potential issues.
+The environment check script (`environment_check.sh`), which was deprecated in v1.7.0, has been removed in v1.9.0. Use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] to check the {longhorn-product-name} environment for potential issues.
 
 === Orphan Auto-Deletion Setting
 
-The `orphan-auto-deletion` setting was replaced by the `orphan-resource-auto-deletion` setting in {longhorn-product-name} v1.9.0. To replicate the previous behavior of `orphan-auto-deletion` (which often pertained to replica data), ensure that `replica-data` is included in the value of the `orphan-resource-auto-deletion` setting. This setting typically accepts a semicolon-separated list of orphan types to auto-delete.
+The `orphan-auto-deletion` setting has been replaced by `orphan-resource-auto-deletion` in v1.9.0. To replicate the previous behavior, include `replica-data` in the `orphan-resource-auto-deletion` value. During the upgrade, the original `orphan-auto-deletion` setting is automatically migrated.
 
 For more information, see xref:data-integrity-recovery/orphaned-data-cleanup.adoc[Orphaned Data Cleanup] and xref:data-integrity-recovery/orphaned-instance-cleanup.adoc[Orphaned Instance Cleanup].
 
-=== Deprecated Fields in CRDs
+=== Deprecated Fields in `longhorn.io/v1beta2` CRDs
 
 Deprecated fields have been removed from the Custom Resource Definitions (CRDs). For details, see link:https://github.com/longhorn/longhorn/issues/6684[Issue #6684].
 
@@ -36,17 +36,15 @@ Deprecated fields have been removed from the Custom Resource Definitions (CRDs).
 
 === `longhorn.io/v1beta1` API
 
-The `v1beta1` version of the Longhorn API is deprecated in v1.9.0 and will be removed in v1.10.0. During Longhorn system upgrades, custom resources using `longhorn.io/v1beta1` are automatically migrated to `longhorn.io/v1beta2`.
+The `v1beta1` version of the Longhorn API is marked unserved and unsupported in v1.9.0 and will be removed in v1.10.0.
 
-Deprecated APIs are no longer served and may cause undesirable behavior. Avoid using `longhorn.io/v1beta1` in new code and, if possible, update existing code to exclude this version.
+For more details, see link:https://github.com/longhorn/longhorn/issues/10250[Issue #10250].
 
 == Breaking Change
 
 === V2 Backing Image
 
-Starting with {longhorn-product-name} v1.9.0, V2 backing images are incompatible with earlier versions. This incompatibility is due to naming conflicts in the extended attributes (`xattrs`) used by SPDK backing image logical volumes. As a result, you must delete and then recreate V2 backing images during the upgrade process.
-
-Because backing images cannot be deleted while volumes that use them still exist, you must first back up, delete, and later restore those volumes.
+Starting with {longhorn-product-name} v1.9.0, V2 backing images are incompatible with earlier versions due to naming conflicts in the extended attributes (`xattrs`) used by SPDK backing image logical volumes. As a result, V2 backing images must be deleted and recreated during the upgrade process. Since backing images cannot be deleted while volumes using them still exist, you must first back up, delete, and later restore those volumes as the following steps:
 
 ==== Upgrade Instructions
 
@@ -81,7 +79,7 @@ time="2025-03-27T06:59:55Z" level=fatal msg="Error starting manager: upgrade res
 
 === Upgrade Check Events
 
-Longhorn performs a pre-upgrade check when upgrading with Helm or the Rancher App Marketplace. If a check fails, the upgrade process stops, and the reason for the failure is recorded in an event. For more details, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrading Longhorn Manager].
+{longhorn-product-name} performs a pre-upgrade check when upgrading with Helm or the Rancher App Marketplace. If a check fails, the upgrade process stops, and the reason for the failure is recorded in an event. For more details, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrading Longhorn Manager].
 
 === Manual Checks Before Upgrade
 
@@ -102,15 +100,19 @@ You can create a recurring job for system backup creation. For more information,
 
 === Offline Replica Rebuilding
 
-Starting with v1.9.0, {longhorn-product-name} supports offline replica rebuilding, allowing degraded volumes to automatically rebuild replicas while detached.
+{longhorn-product-name} introduces offline replica rebuilding, which allows degraded volumes to automatically recover replicas even while detached. This reduces the need for manual intervention, speeds up recovery, and improves data availability.
+	
+This feature is disabled by default. To enable it, set the `offline-replica-rebuilding` setting to `true` in the {longhorn-product-name} UI or CLI.
 
-For more information, see xref:../advanced-resources/rebuilding/offline-replica-rebuilding.adoc[Offline replica rebuilding] and link:https://github.com/longhorn/longhorn/issues/8443[Issue #8443].
+For more information, see xref:high-availability/offline-replica-rebuilding.adoc[Offline replica rebuilding] and link:https://github.com/longhorn/longhorn/issues/8443[Issue #8443].
 
 == Resilience
 
 === Orphaned Instance Deletion
 
-Starting with Longhorn v1.9.0, Longhorn includes the capability to xref:data-integrity-recovery/orphaned-instance-cleanup.adoc[track the orphaned instances]. These orphaned instances can be removed either automatically or manually.
+{longhorn-product-name} can now track and remove orphaned instances, which are leftover resources like replicas or engines that are no longer associated with an active volume. These instances may accumulate due to unexpected failures or incomplete cleanup.
+
+To reduce resource usage and maintain system performance, {longhorn-product-name} supports both automatic and manual cleanup. By default, this feature is disabled. To enable it, set the `orphan-resource-auto-deletion` setting to `instance` in the {longhorn-product-name} UI or CLI.
 
 For more information, see link:https://github.com/longhorn/longhorn/issues/6764[Issue #6764].
 
@@ -118,7 +120,7 @@ For more information, see link:https://github.com/longhorn/longhorn/issues/6764[
 
 === Snapshot Checksum Disabled for Single-Replica Volumes
 
-Starting with v1.9.0, Longhorn does not calculate snapshot checksums by default for single-replica v1 volumes. Since snapshot checksums are primarily used for ensuring data integrity and speeding up replica rebuilding, they are unnecessary in single-replica setups. Disabling them helps reduce performance overhead.
+Starting with v1.9.0, {longhorn-product-name} does not calculate snapshot checksums by default for single-replica v1 volumes. Since snapshot checksums are primarily used for ensuring data integrity and speeding up replica rebuilding, they are unnecessary in single-replica setups. Disabling them helps reduce performance overhead.
 
 For more information, see link:https://github.com/longhorn/longhorn/issues/10518[Issue #10518].
 
@@ -126,28 +128,26 @@ For more information, see link:https://github.com/longhorn/longhorn/issues/10518
 
 === Improved Metrics for Replica, Engine, and Rebuild Status
 
-Starting with v1.9.0, Longhorn enhances observability by introducing new Prometheus metrics that expose the state and identity of Replica and Engine Custom Resources (CRs), as well as the rebuild status. These improvements make it easier to monitor rebuild events across the entire cluster.
+{longhorn-product-name} improves observability with new Prometheus metrics that expose the status and identity of Replica and Engine CRs, along with rebuild activity. These metrics make it easier to monitor rebuilds across the cluster.
 
 For more information, see link:https://github.com/longhorn/longhorn/issues/10550[Issue #10550] and link:https://github.com/longhorn/longhorn/issues/10722[Issue #10722].
 
 == V2 Data Engine
 
-=== Longhorn System Upgrade
+=== {longhorn-product-name} System Upgrade
 
-Longhorn currently does not support live upgrading of V2 volumes. Ensure that all V2 volumes are detached before initiating the upgrade process.
+{longhorn-product-name} currently does not support live upgrading of V2 volumes. Ensure that all V2 volumes are detached before initiating the upgrade process.
 
 === Features Introduced in v1.9.0
 
 ==== Performance Enhancement
 
-* xref:longhorn-system/v2-data-engine/features/selective-engine-activation.adoc[Support UBLK Frontend]
+* xref:longhorn-system/v2-data-engine/features/ublk-frontend-support.adoc[Support UBLK Frontend]: Introduces UBLK frontend support for the V2 Data Engine, enabling better performance and resource utilization.
 
-==== Data Recovery
+==== Rebuilding
 
-* https://github.com/longhorn/longhorn/issues/6613[Disaster recovery volumes]
-* https://github.com/longhorn/longhorn/issues/8430[Auto-salvage volumes]
-* https://github.com/longhorn/longhorn/issues/9488[Delta replica rebuilding using snapshot checksum]
+* xref:high-availability/offline-replica-rebuilding.adoc[Offline Replica Rebuilding]: Support for offline replica rebuilding, which allows degraded volumes to automatically recover replicas even while the volume is detached. This capability ensures high data availability without manual intervention.
 
 ==== Networking
 
-* https://github.com/longhorn/longhorn/issues/6450[Storage Network]
+* https://github.com/longhorn/longhorn/issues/6450[Storage Network]: : Introduces support for storage networks in the V2 Data Engine to allow network segregation.
