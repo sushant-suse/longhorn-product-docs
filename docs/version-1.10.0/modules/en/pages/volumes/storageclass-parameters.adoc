@@ -1,0 +1,404 @@
+= StorageClass Parameters
+:current-version: {page-component-version}
+
+== Overview
+
+StorageClass as a resource object has a number of configurable parameters.  
+
+Example:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-test
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  backupTargetName: "default"
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  fromBackup: ""
+  fsType: "ext4"
+#  mkfsParams: ""
+#  migratable: false
+#  encrypted: false
+#  dataLocality: "disabled"
+#  replicaAutoBalance: "ignored"
+#  diskSelector: "ssd,fast"
+#  nodeSelector: "storage,fast"
+#  recurringJobSelector: '[{"name":"snap-group", "isGroup":true},
+#                          {"name":"backup", "isGroup":false}]'
+#  backingImageName: ""
+#  backingImageChecksum: ""
+#  backingImageDataSourceType: ""
+#  backingImageDataSourceParameters: ""
+#  unmapMarkSnapChainRemoved: "ignored"
+#  disableRevisionCounter: false
+#  replicaSoftAntiAffinity: "ignored"
+#  replicaZoneSoftAntiAffinity: "ignored"
+#  replicaDiskSoftAntiAffinity: "ignored"
+#  nfsOptions: "soft,timeo=150,retrans=3"
+#  v1DataEngine: true
+#  v2DataEngine: false
+#  freezeFSForSnapshot: "ignored"
+----
+
+== Built-in Fields
+
+Some fields are common to all Kubernetes storage classes.
+See also https://kubernetes.io/docs/concepts/storage/storage-classes[Kubernetes Storage Class].
+
+[discrete]
+==== Provisioner _(field: `provisioner`)_
+
+Specifies the plugin that will be used for dynamic creation of persistent volumes.  For Longhorn, that is always "driver.longhorn.io".
+
+____
+See https://kubernetes.io/docs/concepts/storage/storage-classes/#provisioner[Kubernetes Storage Class: Provisioner].
+____
+
+[discrete]
+==== Allow Volume Expansion _(field: `allowVolumeExpansion`)_
+
+____
+Default: `true`
+See https://kubernetes.io/docs/concepts/storage/storage-classes/#allow-volume-expansion[Kubernetes Storage Class: Allow Volume Expansion].
+____
+
+[discrete]
+==== Reclaim Policy _(field: `reclaimPolicy`)_
+
+____
+Default: `Delete`
+See https://kubernetes.io/docs/concepts/storage/storage-classes/#reclaim-policy[Kubernetes Storage Class: Reclaim Policy].
+____
+
+[discrete]
+==== Mount Options _(field: `mountOptions`)_
+
+____
+Default `[]`
+See https://kubernetes.io/docs/concepts/storage/storage-classes/#mount-options[Kubernetes Storage Class: Mount Options].
+____
+
+[discrete]
+==== Volume Binding Mode _(field: `volumeBindingMode`)_
+
+____
+Default `Immediate`
+See https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode[Kubernetes Storage Class: Volume Binding Mode].
+____
+
+== Longhorn-specific Parameters
+
+Note that some of these parameters also exist and may be specified in global settings.  When a volume is provisioned with Kubernetes against a particular StorageClass, StorageClass parameters override the global settings.
+These fields will be applied for new volume creation only.  If a StorageClass is modified, neither Longhorn nor Kubernetes is responsible for propagating changes to its parameters back to volumes previously created with it.
+
+[discrete]
+==== Number Of Replicas _(field: `parameters.numberOfReplicas`)_
+
+____
+Default: `3`
+____
+
+The desired number of copies (replicas) for redundancy.
+
+* Must be between 1 and 20.
+* Replicas will be placed across the widest possible set of zones, nodes, and disks in a cluster, subject to other constraints, such as NodeSelector.
+
+____
+Global setting: xref:longhorn-system/settings.adoc#_default_replica_count[Default Replica Count].
+____
+
+[discrete]
+==== Stale Replica Timeout _(field: `parameters.staleReplicaTimeout`)_
+
+____
+Default: `30`
+____
+
+Minutes after a replica is marked unhealthy before it is deemed useless for rebuilds and is just deleted.
+
+[discrete]
+==== From Backup _(field: `parameters.fromBackup`)_
+
+____
+Default: `""`
+Example: `"s3://backupbucket@us-east-1?volume=minio-vol01&backup=backup-eeb2782d5b2f42bb"`
+____
+
+URL of a backup to be restored from.
+
+[discrete]
+==== FS Type _(field: `parameters.fsType`)_
+
+____
+Default: `ext4`
+For more details, see xref:volumes/create-volumes.adoc#_creating_longhorn_volumes_with_kubectl[Creating Longhorn Volumes with Kubernetes]
+____
+
+[discrete]
+==== Mkfs Params _(field: `parameters.mkfsParams`)_
+
+____
+Default: `""`
+For more details, see xref:volumes/create-volumes.adoc#_creating_longhorn_volumes_with_kubectl[Creating Longhorn Volumes with Kubernetes]
+____
+
+[discrete]
+==== Migratable _(field: `parameters.migratable`)_
+
+____
+Default: `false`
+____
+
+Allows for a Longhorn volume to be live migrated from one node to another.  Useful for volumes used by Harvester.
+
+[discrete]
+==== Encrypted _(field: `parameters.encrypted`)_
+
+____
+Default: `false`
+More details in xref:volumes/volume-encryption.adoc[Encrypted Volumes]
+____
+
+[discrete]
+==== Data Locality _(field: `parameters.dataLocality`)_
+
+____
+Default: `disabled`
+____
+
+If enabled, try to keep the data on the same node as the workload for better performance.
+
+* For "best-effort", a replica will be co-located if possible, but is permitted to find another node if not.
+* For "strict-local" the Replica count should be 1, or volume creation will fail with a parameter validation error.
+* If "strict-local" is not possible for whatever other reason, volume creation will be failed.  A "strict-local" replica that becomes displaced from its workload will be marked as "Stopped".
+
+____
+Global setting: xref:longhorn-system/settings.adoc#_default_data_locality[Default Data Locality]
+ More details in xref:high-availability/data-locality.adoc[Data Locality].
+____
+
+[discrete]
+==== Replica Auto-Balance _(field: `parameters.replicaAutoBalance`)_
+
+____
+Default: `ignored`
+____
+
+If enabled, move replicas to more lightly-loaded nodes.
+
+* "ignored" means use the global setting.
+* Other options are "disabled", "least-effort", "best-effort".
+
+____
+Global setting: xref:longhorn-system/settings.adoc#_replica_auto_balance[Replica Auto Balance]
+More details in xref:high-availability/automatic-replica-balancing.adoc[Auto Balance Replicas].
+____
+
+[discrete]
+==== Disk Selector _(field: `parameters.diskSelector`)_
+
+____
+Default: `""`
+Example: `"ssd,fast"`
+____
+
+A list of tags to select which disks are candidates for replica placement.
+
+____
+More details in xref:nodes/storage-tags.adoc[Storage Tags]
+____
+
+[discrete]
+==== Node Selector _(field: `parameters.nodeSelector`)_
+
+____
+Default: `""`
+Example: `"storage,fast"`
+____
+
+A list of tags to select which nodes are candidates for replica placement.
+
+____
+More details in xref:nodes/storage-tags.adoc[Storage Tags]
+____
+
+[discrete]
+==== Recurring Job Selector _(field: `parameters.recurringJobSelector`)_
+
+____
+Default: `""`
+Example:  `[{"name":"backup", "isGroup":true}]`
+____
+
+A list of recurring jobs that are to be run on a volume.
+
+____
+More details in xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[]
+____
+
+[discrete]
+==== Backing Image Name _(field: `parameters.backingImageName`)_
+
+____
+Default: `""`
+See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image]
+____
+
+[discrete]
+==== Backing Image Checksum _(field: `parameters.backingImageChecksum`)_
+
+____
+Default: `""`
+See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image]
+____
+
+[discrete]
+==== Backing Image Data Source Type _(field: `parameters.backingImageDataSourceType`)_
+
+____
+Default: `""`
+See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image]
+____
+
+[discrete]
+==== Backing Image Data Source Parameters _(field: `parameters.backingImageDataSourceParameters`)_
+
+____
+Default: `""`
+See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image]
+____
+
+[discrete]
+==== Unmap Mark Snap Chain Removed _(field: `parameters.unmapMarkSnapChainRemoved`)_
+
+____
+Default: `ignored`
+____
+
+* "ignored" means use the global setting.
+* Other values are "enabled" and "disabled".
+
+____
+Global setting: xref:longhorn-system/settings.adoc#_remove_snapshots_during_filesystem_trim[Remove Snapshots During Filesystem Trim].
+More details in xref:volumes/trim-filesystem.adoc[Trim Filesystem].
+____
+
+[discrete]
+==== Disable Revision Counter _(field: `parameters.disableRevisionCounter`)_
+
+____
+Default: `true`
+____
+
+____
+Global setting: xref:longhorn-system/settings.adoc#_disable_revision_counter[Disable Revision Counter].
+More details in xref:high-availability/revision_counter.adoc[Revision Counter].
+____
+
+[discrete]
+==== Replica Soft Anti-Affinity _(field: `parameters.replicaSoftAntiAffinity`)_
+
+____
+Default: `ignored`
+____
+
+* "ignored" means use the global setting.
+* Other values are "enabled" and "disabled".
+
+____
+Global setting: xref:longhorn-system/settings.adoc#_replica_node_level_soft_anti_affinity[Replica Node Level Soft Anti-Affinity].
+More details in xref:nodes/scheduling.adoc[Scheduling] and xref:installation-setup/best-practices.adoc#_replica_node_level_soft_anti_affinity[Best Practices].
+____
+
+[discrete]
+==== Replica Zone Soft Anti-Affinity _(field: `parameters.replicaZoneSoftAntiAffinity`)_
+
+____
+Default: `ignored`
+____
+
+* "ignored" means use the global setting.
+* Other values are "enabled" and "disabled".
+
+____
+Global setting: xref:longhorn-system/settings.adoc#_replica_zone_level_soft_anti_affinity[Replica Zone Level Soft Anti-Affinity].
+More details in xref:nodes/scheduling.adoc[Scheduling].
+____
+
+[discrete]
+==== Replica Disk Soft Anti-Affinity _(field: `parameters.replicaDiskSoftAntiAffinity`)_
+
+____
+Default: `ignored`
+____
+
+* "ignored" means use the global setting.
+* Other values are "enabled" and "disabled".
+
+____
+Global setting: xref:longhorn-system/settings.adoc#_replica_disk_level_soft_anti_affinity[Replica Disk Level Soft Anti-Affinity].
+More details in xref:nodes/scheduling.adoc[Scheduling].
+____
+
+[discrete]
+==== NFS Options _(field: `parameters.nfsOptions`)_
+
+____
+Default: `""`
+Example: `"hard,sync"`
+____
+
+* Overrides for NFS mount of RWX volumes to the share-manager.  Use this field with caution.
+* NOTE:  Built-in options vary by release.  Check your release details before setting this.
+
+____
+More details in xref:volumes/rwx-volumes.adoc#_configuring_volume_mount_options[RWX Workloads]
+____
+
+[discrete]
+==== Data Engine _(field: `parameters.dataEngine`)_
+
+____
+Default: `"v1"`
+____
+
+* Specify "v2" to enable the V2 Data Engine (experimental feature). When unspecified, Longhorn uses the default value ("v1").
+
+____
+Global setting: xref:longhorn-system/settings.adoc#_v2_data_engine[V2 Data Engine].
+More details in xref:longhorn-system/v2-data-engine/quick-start-guide.adoc#_create_a_storageclass[V2 Data Engine Quick Start].
+____
+
+[discrete]
+==== Freeze Filesystem For Snapshot _(field: `parameters.freezeFilesystemForSnapshot`)_
+
+____
+Default: `ignored`
+____
+
+* "ignored" instructs Longhorn to use the global setting.
+* Other values are "enabled" and "disabled".
+
+____
+Global setting: xref:longhorn-system/settings.adoc#_freeze_filesystem_for_snapshot[Freeze File System For Snapshot].
+____
+
+[discrete]
+==== Backup Target Name _(field: `parameters.backupTargetName`)_
+
+____
+Default: `default`
+____
+
+* More details are available in xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_default_backup_target[default backup target] and xref:create-volumes.adoc[Create Volumes].
+
+== Helm Installs
+
+If Longhorn is installed via Helm, values in the default storage class can be set by editing the corresponding item in https://github.com/longhorn/longhorn/blob/v{current-version}/chart/values.yaml[values.yaml].  All of the Storage Class parameters have a prefix of "persistence".  For example, `persistence.defaultNodeSelector`.

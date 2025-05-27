@@ -1,0 +1,16 @@
+include::partial$longhorn-globals.adoc[]
+= {longhorn-product-name-tm} Overview
+:description: Cloud native distributed block storage for Kubernetes
+
+*{longhorn-product-name}* is a lightweight, reliable, and powerful distributed https://cloudacademy.com/blog/object-storage-block-storage/[block storage] system for Kubernetes. It is derived from the open source project https://www.cncf.io/projects/longhorn/[Longhorn].
+
+{longhorn-product-name} implements distributed block storage using containers and microservices. It creates a dedicated storage controller for each block device volume and synchronously replicates the volume across multiple replicas stored on multiple nodes. The storage controller and replicas are themselves orchestrated using Kubernetes.
+
+== Features
+
+* Enterprise-grade distributed block storage with no single point of failure
+* Incremental snapshot of block storage
+* Backup to secondary storage (https://www.extrahop.com/resources/protocols/nfs/[NFS] or https://aws.amazon.com/s3/[S3]-compatible object storage) built on efficient change block detection
+* Recurring snapshots and backups
+* Automated, non-disruptive upgrades. You can upgrade the entire {longhorn-product-name} software stack without disrupting running storage volumes.
+* An intuitive GUI dashboard
