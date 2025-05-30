@@ -61,8 +61,8 @@ Automated checks are only performed on some upgrade paths, and the pre-upgrade c
 
 * Ensure that all V2 Data Engine volumes are detached and the replicas are stopped. The V2 Data Engine currently does not support live upgrades.
 * Avoid upgrading when volumes are in the "Faulted" status. If all the replicas are deemed unusable, they may be deleted and data may be permanently lost (if no usable backups exist).
-* Avoid upgrading if a failed BackingImage exists. For more information, see xref:../volumes/backing-images/backing-images.adoc[Backing Image].
-* Create a Longhorn system backup before you perform the upgrade. Refer to xref:../snapshots-backups/system-backups/create-system-backup.adoc[Longhorn System Backup] for instructions. A system backup ensures that all critical resources, such as volumes and backing images, are backed up and can be restored if any issues occur.
+* Avoid upgrading if a failed BackingImage exists. For more information, see xref:volumes/backing-images/backing-images.adoc[Backing Image].
+* Create a Longhorn system backup before you perform the upgrade. Refer to xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn System Backup] for instructions. A system backup ensures that all critical resources, such as volumes and backing images, are backed up and can be restored if any issues occur.
 
 == Upgrading Longhorn
 
@@ -70,15 +70,15 @@ There are normally two steps in the upgrade process: first upgrade Longhorn mana
 
 === 1. Upgrade Longhorn manager
 
-* To upgrade from v1.7.x, see xref:longhorn-components/upgrade-longhorn-manager.adoc[Upgrade Longhorn Manager].
+* To upgrade from v1.7.x, xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrade Longhorn Manager].
 
 === 2. Manually Upgrade Longhorn Engine
 
-After Longhorn Manager is upgraded, Longhorn Engine also needs to be upgraded link:./upgrade-engine[using the Longhorn UI.]
+After Longhorn Manager is upgraded, Longhorn Engine also needs to be upgraded xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[using the Longhorn UI].
 
 === 3. Automatically Upgrade Longhorn Engine
 
-Since Longhorn v1.1.1, we provide an option to help you link:./auto-upgrade-engine[automatically upgrade engines]
+Since Longhorn v1.1.1, we provide an option to help you xref:upgrades/longhorn-components/auto-upgrade-engine.adoc[automatically upgrade engines].
 
 === 4. Automatically Migrate Recurring Jobs
 
