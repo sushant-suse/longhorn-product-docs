@@ -5,8 +5,8 @@
 
 * Your workstation: Install https://helm.sh/docs/[Helm] v3.0 or later.
 * Kubernetes cluster:
- ** Ensure that each node fulfills the xref:../../installation-setup/requirements.adoc[installation requirements].
- ** Install https://fleet.rancher.io/[Fleet] using Helm.
+ ** Ensure that each node fulfills the xref:installation-setup/requirements.adoc[installation requirements].
+ ** Install https://documentation.suse.com/cloudnative/continuous-delivery/v0.12/en/index.html[{fleet-product-name}] using Helm.
 +
 [subs="+attributes",bash]
 ----
@@ -18,12 +18,12 @@ helm -n cattle-fleet-system install --create-namespace --wait fleet fleet/fleet
 Allow some time for the deployment of Fleet components in the `cattle-fleet-system` namespace.
 
 ____
-The xref:../../longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the Longhorn environment for potential issues.
+The xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the Longhorn environment for potential issues.
 ____
 
 == Installation
 
-. In your GitOps repository, create a https://fleet.rancher.io/ref-fleet-yaml[fleet.yaml] file that includes the following:
+. In your GitOps repository, create a https://documentation.suse.com/cloudnative/continuous-delivery/v0.12/en/ref-fleet-yaml.html[fleet.yaml] file that includes the following:
  ** Parameter for installing {longhorn-product-name} in the `longhorn-system` namespace
 
 +
@@ -31,7 +31,7 @@ ____
 ----
  defaultNamespace: longhorn-system
 ----
- ** Parameters for https://fleet.rancher.io/bundle-diffs[ignoring modified CRDs]
+ ** Parameters for https://documentation.suse.com/cloudnative/continuous-delivery/v0.12/en/bundle-diffs.html[ignoring modified CRDs]
 
 +
 [subs="+attributes",yaml]
