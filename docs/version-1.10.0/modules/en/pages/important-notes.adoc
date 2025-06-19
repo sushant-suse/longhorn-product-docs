@@ -3,19 +3,6 @@
 
 Please see https://github.com/longhorn/longhorn/releases/tag/v{current-version}[here] for the full release notes.
 
-[WARNING]
-====
-An incorrect {longhorn-product-name} image tag (v1.8.x-head) was used in the https://github.com/longhorn/longhorn/blob/v1.8.0/deploy/longhorn.yaml[deployment manifest] and the https://github.com/longhorn/longhorn/blob/v1.8.0/chart/values.yaml#L40-L65[Helm chart]. The correct tag for {longhorn-product-name} v1.8.0 images is `v1.8.0`. For more information, see https://github.com/longhorn/longhorn/issues/10336[Issue #10336].
-
-If you installed or upgraded {longhorn-product-name} using the deployment manifest or the Helm chart from the https://github.com/longhorn/longhorn[main Longhorn repository], perform the following actions to resolve the issue:
-
-- **New installations**: Replace `v1.8.x-head` with `v1.8.0` in the deployment manifest or the Helm chart before deploying {longhorn-product-name}.
-
-- **Upgrades**: Replace `v1.8.x-head` with `v1.8.0` in the deployment manifest or Helm chart. Next, upgrade the Longhorn system and update the engine image for volumes that use `v1.8.x-head`.
-
-This issue does not affect installations and upgrades performed using the charts in the Longhorn Helm repository (pass:[https://charts.longhorn.io/]). For more information, see xref:installation-setup/installation/install-using-helm.adoc[Install with Helm].
-====
-
 == Removal
 
 === `longhorn.io/v1beta1` API
