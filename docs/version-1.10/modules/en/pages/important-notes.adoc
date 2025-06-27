@@ -41,6 +41,17 @@ Automated checks are performed only on some upgrade paths, and the pre-upgrade c
 * Avoid upgrading if a failed `BackingImage` exists. For more information, see xref:volumes/backing-images/backing-images.adoc[Backing Image].
 * Create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn system backup] before performing the upgrade. This ensures that all critical resources, such as volumes and backing images, are backed up and can be restored if any issues arise during the upgrade.
 
+== V1 Data Engine
+
+=== IPv6 Support
+
+Longhorn v1.10.0 and later versions support the usage of V1 volumes in single-stacked IPv6 Kubernetes clusters. For more information, see https://github.com/longhorn/longhorn/issues/2259[Issue #2259].
+
+[IMPORTANT]
+====
+Dual-stack Kubernetes clusters and V2 volumes are not supported in this version.
+====
+
 == V2 Data Engine
 
 === {longhorn-product-name} System Upgrade
