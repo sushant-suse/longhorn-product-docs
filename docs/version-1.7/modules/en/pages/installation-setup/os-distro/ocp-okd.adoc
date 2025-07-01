@@ -3,7 +3,10 @@
 
 To deploy {longhorn-product-name} on a cluster provisioned with OpenShift 4.x, some additional configurations are required.
 
-NOTE: OKD currently does not support the ARM platform. For more information, see the https://www.okd.io[OKD website] and https://github.com/okd-project/okd/issues/1165[GitHub issue #1165] (_OKD in ARM platform_).
+[NOTE]
+====
+OKD currently does not support the ARM platform. For more information, see the https://www.okd.io[OKD website] and https://github.com/okd-project/okd/issues/1165[GitHub issue #1165] (_OKD in ARM platform_).
+====
 
 == Installation
 
@@ -11,20 +14,52 @@ NOTE: OKD currently does not support the ARM platform. For more information, see
 
 Please refer to this section xref:installation-setup/installation/install-using-helm.adoc[Install with Helm] first.
 
-And then install {longhorn-product-name} with setting *_openshift.enabled_* true:
+Install {longhorn-product-name} with the following settings:
 
-[subs="+attributes",bash]
+|===
+| Setting | Value | Example
+
+| `openshift.enabled`
+| `true`
+| N/A
+
+| `image.openshift.oauthProxy.repository`
+| Upstream image
+| `quay.io/openshift/origin-oauth-proxy`
+
+| `image.openshift.oauthProxy.tag`
+| Version 4.1 or later
+| `4.15`
+|===
+
+[,bash]
 ----
-  helm install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace --set openshift.enabled=true
+helm install longhorn longhorn/longhorn \
+  --namespace longhorn-system \
+  --create-namespace \
+  --set openshift.enabled=true \
+  --set image.openshift.oauthProxy.repository=quay.io/openshift/origin-oauth-proxy \
+  --set image.openshift.oauthProxy.tag=4.15
 ----
 
 === Install With `oc` Command
 
-You can install {longhorn-product-name} on https://www.okd.io/[OKD] clusters using the following command:
+Perform the following steps to install {longhorn-product-name} on https://www.okd.io/[OKD] clusters.
 
-[subs="+attributes",shell]
+. Download the `longhorn-okd.yaml` file.
++
+[,bash]
 ----
-    oc apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/deploy/longhorn-okd.yaml
+wget https://raw.githubusercontent.com/longhorn/longhorn/v{{< current-version >}}/deploy/longhorn-okd.yaml
+----
+
+. Specify the target `oauth-proxy` container image in the `longhorn-okd.yaml` file (for example, `quay.io/openshift/origin-oauth-proxy:4.15`).
+
+. Run the following command:
++
+[,shell]
+----
+oc apply -f longhorn-okd.yaml
 ----
 
 One way to monitor the progress of the installation is to watch pods being created in the `longhorn-system` namespace:

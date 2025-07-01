@@ -97,7 +97,9 @@ The list below contains known broken kernel versions that users should avoid usi
 | Related to this bug https://longhorn.io/kb/troubleshooting-rwx-volume-fails-to-attached-caused-by-protocol-not-supported/
 |===
 
-== Kubernetes Version
+== Kubernetes
+
+=== Kubernetes Version
 
 Ensure that your cluster is running Kubernetes v1.21 or later before upgrading {longhorn-product-name}.
 
@@ -106,20 +108,24 @@ We recommend running your Kubernetes cluster on one of the following versions. T
 |===
 | Release | Released | End-of-life
 
-| 1.28
-| 15 Aug 2023
-| 28 Oct 2024
+| 1.32
+| 11 Dec 2024
+| 28 Feb 2026
 
-| 1.27
-| 11 Apr 2023
-| 28 Jun 2024
+| 1.31
+| 13 Aug 2024
+| 28 Oct 2025
 
-| 1.26
-| 08 Dec 2022
-| 28 Feb 2024
+| 1.30
+| 17 Apr 2024
+| 28 Jun 2025
 |===
 
 Referenced to https://endoflife.date/kubernetes.
+
+=== CoreDNS Setup
+
+Ensure that CoreDNS runs with at least 2 replicas to maintain high availability. This setup minimizes interruptions in the DNS resolution if one CoreDNS pod experiences a temporary disruption.
 
 == Node and Disk Setup
 
@@ -240,3 +246,15 @@ Recommend: `false`
 ____
 
 This setting should be set to `false` in production environment to ensure every volume have the best availability when created. Because with the setting set to `true`, the volume creation won't error out even there is only enough room to schedule one replica. So there is a risk that the cluster is running out of the spaces but the user won't be made aware immediately.
+
+=== Replica Auto-Balance
+
+____
+Recommend: Set Replica Auto-Balance to `least-effort`.
+____
+
+For production environments, it is recommended to set Replica Auto-Balance to `least-effort`. This setting ensures that at least one replica is placed on a different node in each zone, providing extra high availability (HA).
+
+In certain edge cases, you might consider using the `best-effort` option, which continuously attempts to evenly distribute replicas across nodes and zones. However, this setting can lead to frequent rebuilds if the cluster is unstable.
+
+For most users, having multiple replicas without the Replica Auto-Balance setting is sufficient to achieve basic HA, especially if you prefer to avoid excessive rebuilds and resource usage.

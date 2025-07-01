@@ -21,6 +21,7 @@ To restore, follow the below instructions. The example below uses a StatefulSet 
 |===
 . In Kubernetes, create a `Persistent Volume` for each Longhorn volume that was created. Name the volumes something that can easily be referenced later for the `Persistent Volume Claims`. `storage` capacity, `numberOfReplicas`, `storageClassName`, and `volumeHandle` must be replaced below. In the example, we're referencing `statefulset-vol-0` and `statefulset-vol-1` in Longhorn and using `longhorn` as our `storageClassName`.
 +
+[,yaml]
 ----
  apiVersion: v1
  kind: PersistentVolume
@@ -62,9 +63,40 @@ To restore, follow the below instructions. The example below uses a StatefulSet 
      volumeHandle: statefulset-vol-1 # must match volume name from Longhorn
    storageClassName: longhorn # must be same name that we will use later
 ----
-
++
+.. In the case of an encrypted volume, make sure you are specifying the `nodePublishSecretRef` and `nodeStageSecretRef` while creating the `PV`.
++
+[,yaml]
+----
+kind: PersistentVolume
+metadata:
+  name: statefulset-encrypted-vol-0
+spec:
+  capacity:
+    storage: <size>
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  csi:
+    driver: driver.longhorn.io
+    fsType: ext4
+    nodePublishSecretRef:
+      name: <secret-name>
+      namespace: <namespace>
+    nodeStageSecretRef:
+      name: <secret-name>
+      namespace: <namespace>
+    volumeAttributes:
+      numberOfReplicas: <replicas>
+      staleReplicaTimeout: "30"
+    volumeHandle: statefulset-encrypted-vol-0
+  storageClassName: longhorn
+----
++
 . In the `namespace` the `StatefulSet` will be deployed in, create PersistentVolume Claims *for each* `Persistent Volume`. The name of the `Persistent Volume Claim` must follow this naming scheme:
 +
+[,bash]
 ----
  <name of Volume Claim Template>-<name of StatefulSet>-<index>
 ----
@@ -73,6 +105,7 @@ StatefulSet Pods are zero-indexed. In this example, the name of the `Volume Clai
   Template` is `data`, the name of the `StatefulSet` is `webapp`, and there
   are two replicas, which are indexes `0` and `1`.
 +
+[,yaml]
 ----
  apiVersion: v1
  kind: PersistentVolumeClaim
@@ -100,9 +133,10 @@ StatefulSet Pods are zero-indexed. In this example, the name of the `Volume Clai
    storageClassName: longhorn # must match name from earlier
    volumeName: statefulset-vol-1 # must reference Persistent Volume
 ----
-
++
 . Create the `StatefulSet`:
 +
+[,yaml]
 ----
  apiVersion: apps/v1beta2
  kind: StatefulSet
