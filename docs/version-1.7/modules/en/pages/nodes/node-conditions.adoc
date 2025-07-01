@@ -17,6 +17,9 @@ Confirms if the `multipathd` service is not running on the node, which may affec
 Checks if all required packages (xref:installation-setup/requirements.adoc#_installing_nfsv4_client[NFS client], xref:installation-setup/requirements.adoc#_installing_open-_scsi[iSCSI tool], xref:installation-setup/requirements.adoc#_installing_cryptsetup_and_luks[cryptsetup], xref:installation-setup/requirements.adoc#_installing_device_mapper_userspace_tool[dmsetup]) exist for Longhorn
 * `NFSClientInstalled`: +
 Identifies if any of the following NFS clients are supported: `v4.2`, `v4.1`, or `v4.0`. NFS client is required for RWX volume and backup.
+* `KernelModulesLoaded`:  +
+Identifies if the following Kernel modules are loaded: + 
+** `dm_crypt`: Is required for the volume and backing image encryption.
 
 Node conditions do not block the Longhorn deployment but they result in warnings in the Longhorn `Node` resource.
 For more information, see xref:installation-setup/requirements.adoc#_requirements[Longhorn Installation Requirements].
