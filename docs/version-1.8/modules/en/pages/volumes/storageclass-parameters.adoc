@@ -7,7 +7,7 @@ StorageClass as a resource object has a number of configurable parameters.
 
 Example:
 
-[subs="+attributes",yaml]
+[,yaml]
 ----
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
@@ -18,6 +18,7 @@ allowVolumeExpansion: true
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 parameters:
+  backupTargetName: "default"
   numberOfReplicas: "3"
   staleReplicaTimeout: "2880"
   fromBackup: ""
@@ -388,6 +389,15 @@ ____
 ____
 Global setting: xref:longhorn-system/settings.adoc#_freeze_filesystem_for_snapshot[Freeze File System For Snapshot].
 ____
+
+[discrete]
+==== Backup Target Name (`parameters.backupTargetName` field)
+
+____
+Default: `default`
+____
+
+For more details, see xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_default_backup_target[Default Backup Target] and xref:volumes/create-volumes.adoc[Create Volumes].
 
 == Helm Installs
 

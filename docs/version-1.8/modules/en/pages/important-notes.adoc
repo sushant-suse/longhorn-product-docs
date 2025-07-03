@@ -3,30 +3,49 @@
 
 Please see https://github.com/longhorn/longhorn/releases/tag/v{current-version}[here] for the full release notes.
 
-[WARNING]
-====
-An incorrect Longhorn image tag (v1.8.x-head) was used in the https://github.com/longhorn/longhorn/blob/v1.8.0/deploy/longhorn.yaml[deployment manifest] and the https://github.com/longhorn/longhorn/blob/v1.8.0/chart/values.yaml#L40-L65[Helm chart]. The correct tag for Longhorn v1.8.0 images is `v1.8.0`. For more information, see https://github.com/longhorn/longhorn/issues/10336[Issue #10336].
-
-If you installed or upgraded Longhorn using the deployment manifest or the Helm chart from the https://github.com/longhorn/longhorn[main Longhorn repository], perform the following actions to resolve the issue:
-
-- **New installations**: Replace `v1.8.x-head` with `v1.8.0` in the deployment manifest or the Helm chart before deploying Longhorn.
-
-- **Upgrades**: Replace `v1.8.x-head` with `v1.8.0` in the deployment manifest or Helm chart. Next, upgrade the Longhorn system and update the engine image for volumes that use `v1.8.x-head`.
-
-This issue does not affect installations and upgrades performed using the charts in the Longhorn Helm repository (pass:[https://charts.longhorn.io/]). For more information, see xref:installation-setup/installation/install-using-helm.adoc[Install with Helm].
-====
-
 == Deprecation
 
 === Environment Check Script
 
 The functionality of the https://github.com/longhorn/longhorn/blob/master/scripts/environment_check.sh[environment check script] (`environment_check.sh`) overlaps with that of the Longhorn CLI, which is available starting with v1.7.0. Because of this, the script is deprecated in v1.7.0 and is scheduled for removal in v1.9.0.
 
+== Breaking Change
+
+=== V2 Backing Image
+
+Starting with {longhorn-product-name} v1.8.2, V2 backing images are incompatible with earlier versions. This incompatibility is due to naming conflicts in the extended attributes (`xattrs`) used by SPDK backing image logical volumes. Consequently, you must delete and recreate V2 backing images during the upgrade process.
+
+Because you cannot delete backing images while volumes using them exist, you must back up, delete, and then restore those volumes. Follow these steps:
+
+* **Before upgrading to v1.8.2**:
+** Verify that backup targets are functioning correctly.
+** Create full backups of all volumes that use a V2 backing image.
+** Detach and delete these volumes after their backups complete.
+** On the *Backing Image* page, record the specifications of all V2 backing images, including their names and image sources.
+** Delete all V2 backing images.
+
+* **After upgrading**:
+** Recreate the V2 backing images using their original names and image sources.
+** Restore the volumes from your backups.
+
+For more information, see issue https://github.com/longhorn/longhorn/issues/10805[#10805] and issue https://github.com/longhorn/longhorn/issues/10969[#10969].
+
 == General
 
 === Kubernetes Version Requirement
 
 The upgrade of the CSI external snapshotter to version v8.2.0 requires that all clusters run Kubernetes v1.25 or later. Ensure your Kubernetes version meets this requirement before you upgrade to {longhorn-product-name} v1.8.0 or a newer version.
+
+=== CRD Upgrade Validation
+
+During the upgrade process, the Custom Resource Definition (CRD) may be applied after the new Longhorn manager has started. This sequencing ensures that the controller does not process objects with deprecated data or fields. However, this can result in the Longhorn manager failing during the initial upgrade phase if the CRD has not been applied yet.
+
+If the Longhorn manager crashes during the upgrade, check the logs to determine if the failure is due to the CRD not being applied. In such cases, the logs may contain error messages similar to the following:
+
+[,text]
+----
+time="2025-03-27T06:59:55Z" level=fatal msg="Error starting manager: upgrade resources failed: BackingImage in version \"v1beta2\" cannot be handled as a BackingImage: strict decoding error: unknown field \"spec.diskFileSpecMap\", unknown field \"spec.diskSelector\", unknown field \"spec.minNumberOfCopies\", unknown field \"spec.nodeSelector\", unknown field \"spec.secret\", unknown field \"spec.secretNamespace\"" func=main.main.DaemonCmd.func3 file="daemon.go:94"
+----
 
 === Upgrade Check Events
 
@@ -162,3 +181,9 @@ Longhorn v1.8.0 supports xref:longhorn-system/v2-data-engine/features/configurab
 ==== Security
 
 * https://github.com/longhorn/longhorn/issues/7355[Volume encryption]
+
+== Regression Fixes
+
+=== Fixed "Permission Denied" Errors for Non-Root Users Accessing RWX Volumes
+
+Longhorn Share Manager v1.8.0 and v1.8.1 experienced a regression issue in NFS-Ganesha v6.0+ that caused unexpected "permission denied" errors when non-root users accessed RWX volumes. This issue, documented in NFS-Ganesha issue https://github.com/nfs-ganesha/nfs-ganesha/issues/1132[#1132], has been resolved in {longhorn-product-name} v1.8.2. For more details, refer to issue https://github.com/longhorn/longhorn/issues/10621[#10621].
