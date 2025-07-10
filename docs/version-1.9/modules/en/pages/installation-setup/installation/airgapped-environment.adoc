@@ -185,42 +185,6 @@ Install {longhorn-product-name} by running the following command in the cloned d
 helm install longhorn --namespace longhorn-system --create-namespace ./
 ----
 
-== Using a Rancher App
-
-[discrete]
-=== Use default image name
-
-If you keep the name of images as recommended, you only need to do the following steps:
-
-* In the `Private Registry Settings` section specify:
- ** Private registry URL
- ** Private registry user
- ** Private registry password
- ** Private registry secret name
-
-+
-{longhorn-product-name} will automatically generate a secret with that information and use it to pull images from your private registry.
-
-image::screenshots/airgap-deploy/app-default-images.png[App Default Image]
-
-[discrete]
-=== Use custom image name
-
-* If you want to use the name of custom images, you can set `Use Default Images` to `False` and specify name of the images.
-+
-[NOTE]
-====
-Do not include the private registry prefix, it will be added automatically. e.g: if your image is `example.com/username/longhorn-manager`, use `username/longhorn-manager` in the following charts.
-====
-+
-image::screenshots/airgap-deploy/app-custom-images.png[App Custom Images]
-
-* Specify `Private registry URL`. If the registry requires authentication, specify `Private registry user`, `Private registry password`, and `Private registry secret name`.
-{longhorn-product-name} will automatically generate a secret with that information and use it to pull images from your private registry.
-+
-image::screenshots/airgap-deploy/app-custom-images-reg.png[App Custom Images]
-
-== Troubleshooting
 
 === Helm/Rancher Installation: `longhorn-manager` DaemonSet Fails Due to Missing Private Registry Secret
 
