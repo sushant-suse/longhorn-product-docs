@@ -1,0 +1,291 @@
+= Migrating to {longhorn-product-name}
+	
+== Migrating Longhorn Deployed via Helm To {longhorn-product-name}
+	
+If your existing Longhorn installation was deployed via Helm, you can verify it by running `helm list --all-namespaces`, where you should see a single Helm release named `longhorn`.
+	
+Next, clone the {longhorn-product-name} Helm chart repository, or optionally prepare a `values.yaml` file from your current longhorn chart. This ensures you have the appropriate chart files ready for the upgrade.
+	
+Proceed to upgrade to {longhorn-product-name} using the Helm chart you have prepared:
+
+[,shell]
+----
+helm upgrade longhorn -n longhorn-system ./
+----
+	
+== Migrating Longhorn Deployed via Rancher Apps & Marketplace To {longhorn-product-name}
+
+If your existing Longhorn installation was deployed via Rancher Apps and Marketplace, you will see two Helm releases associated with Longhorn when running `helm list --all-namespaces | grep longhorn`.
+
+[,shell]
+----
+$ helm list --all-namespaces | grep longhorn
+longhorn                                         	longhorn-system    	1       	2025-06-26 08:04:10.877379704 +0000 UTC	deployed	longhorn-105.1.0+up1.7.2                                                                               	v1.7.2
+longhorn-crd                                     	longhorn-system    	1       	2025-06-26 08:04:08.322051059 +0000 UTC	deployed	longhorn-crd-105.1.0+up1.7.2                                                                           	v1.7.2
+----
+
+To migrate the existing Rancher Longhorn installation to {longhorn-product-name}, you need to delete the `longhorn-crd` Helm release without removing the CRDs, and then upgrade the `longhorn` Helm release by following the steps below. 
+
+=== Remove `longhorn-crd` Helm Release while Keeping CRDs
+
+To remove the `longhorn-crd` Helm release from your system while ensuring the Longhorn CRDs themselves are preserved, follow these steps:
+
+. Check the current version of your `longhorn-crd` Helm release:
++
+[,shell]
+----
+helm list --all-namespaces | grep longhorn-crd
+----
++
+The output will show your `longhorn-crd` release details, for example:
++
+[,bash]
+----
+longhorn-crd                                     	longhorn-system    	1       	2025-06-26 08:04:08.322051059 +0000 UTC	deployed	longhorn-crd-105.1.0+up1.7.2
+----
++
+In this example, the release version is `105.1.0+up1.7.2`.
+
+. Clone the `rancher/charts` repository containing the specific version of the `longhorn-crd` chart that matches your current release (for example, `105.1.0+up1.7.2` for Longhorn v1.7.2):
++
+`+git clone https://github.com/rancher/charts.git+`
++
+Navigate into the directory corresponding to your `longhorn-crd` chart version within the cloned repository.
++
+You can execute the script to download the `longhorn-crd` chart.
++
+[,shell]
+----
+#!/bin/bash
+set -euo pipefail
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+    echo "Usage: $0 <version> [github_token]"
+    exit 1
+fi
+REPO="rancher/charts"
+VERSION="$1"
+TARGET_PATH="charts/longhorn-crd/${VERSION}"
+LOCAL_DIR="chart"
+# GitHub Token is optional
+if [ $# -eq 2 ]; then
+    GITHUB_TOKEN="$2"
+    AUTH_HEADER="Authorization: token ${GITHUB_TOKEN}"
+else
+    AUTH_HEADER=""
+fi
+# Get all release-* branches and sort by latest first
+if [ -n "$AUTH_HEADER" ]; then
+    branches=$(curl -s -H "${AUTH_HEADER}" "https://api.github.com/repos/${REPO}/branches?per_page=100" | jq -r '.[].name' | grep '^release-' | sort -r)
+else
+    branches=$(curl -s "https://api.github.com/repos/${REPO}/branches?per_page=100" | jq -r '.[].name' | grep '^release-' | sort -r)
+fi
+# Function to recursively download files and folders
+download_directory() {
+    local remote_path=$1
+    local local_path=$2
+    local branch=$3
+    echo "Fetching content from: ${remote_path} (branch: ${branch})"
+    if [ -n "$AUTH_HEADER" ]; then
+        response=$(curl -s -w "%{http_code}" -H "${AUTH_HEADER}" -o /tmp/api_response.json "https://api.github.com/repos/${REPO}/contents/${remote_path}?ref=${branch}")
+    else
+        response=$(curl -s -w "%{http_code}" -o /tmp/api_response.json "https://api.github.com/repos/${REPO}/contents/${remote_path}?ref=${branch}")
+    fi
+    http_code="${response: -3}"
+    body=$(cat /tmp/api_response.json)
+    if [[ "$http_code" != "200" ]]; then
+        echo "Error fetching directory: ${remote_path}"
+        echo "HTTP status: $http_code"
+        echo "Response: $body"
+        exit 1
+    fi
+    if ! echo "$body" | jq -e '. | type == "array"' > /dev/null; then
+        echo "Unexpected API response format for ${remote_path}"
+        echo "Response: $body"
+        exit 1
+    fi
+    for row in $(echo "${body}" | jq -r '.[] | @base64'); do
+        _jq() {
+            echo "${row}" | base64 --decode | jq -r "${1}"
+        }
+        name=$(_jq '.name')
+        type=$(_jq '.type')
+        path=$(_jq '.path')
+        if [[ "${type}" == "file" ]]; then
+            file_url="https://raw.githubusercontent.com/${REPO}/${branch}/${path}"
+            echo "Downloading file: ${path}"
+            mkdir -p "${local_path}"
+            curl -s -L -o "${local_path}/${name}" "${file_url}"
+        elif [[ "${type}" == "dir" ]]; then
+            echo "Entering directory: ${path}"
+            mkdir -p "${local_path}/${name}"
+            download_directory "${path}" "${local_path}/${name}" "${branch}"
+        fi
+    done
+}
+for branch in $branches; do
+    echo "Checking branch: $branch"
+    url="https://api.github.com/repos/${REPO}/contents/${TARGET_PATH}?ref=${branch}"
+    if [ -n "$AUTH_HEADER" ]; then
+        response=$(curl -s -w "%{http_code}" -H "${AUTH_HEADER}" -o /tmp/check_response.json "$url")
+    else
+        response=$(curl -s -w "%{http_code}" -o /tmp/check_response.json "$url")
+    fi
+    http_code="${response: -3}"
+    body=$(cat /tmp/check_response.json)
+    if [[ "$http_code" == "200" ]]; then
+        echo "Found target in branch: $branch"
+        mkdir -p "${LOCAL_DIR}"
+        download_directory "${TARGET_PATH}" "${LOCAL_DIR}" "${branch}"
+        echo "Download completed to ${LOCAL_DIR}."
+        exit 0
+    elif [[ "$http_code" != "404" ]]; then
+        echo "Error checking branch: ${branch}"
+        echo "HTTP status: $http_code"
+        echo "Response: $body"
+        exit 1
+    fi
+done
+echo "Target not found in any release-* branch."
+exit 1
+----
+After running the command `bash ./download_longhorn-crd_chart.sh 105.1.0+up1.7.2`, the `longhorn-crd` chart will be downloaded to the local directory `105.1.0+up1.7.2`.
+
+. Patch the `helm.sh/resource-policy: keep` annotation to each Custom Resource Definitions (CRDs) in `templates/crds.yaml` within the `longhorn-crd` chart that you cloned. This ensures that Helm does not delete the CRDs when the release is uninstalled.
+
+. Upgrade the `longhorn-crd` Helm release using the locally patched chart:
++
+[,shell]
+----
+helm upgrade longhorn-crd -n longhorn-system ./chart
+----
+
+. Uninstall the `longhorn-crd` Helm release from your system. Due to the applied patch, the CRDs will remain.
++
+[,shell]
+----
+helm uninstall longhorn-crd --namespace longhorn-system
+----
++
+You will see the CRDs are kept while uninstalling `longhorn-crd` Helm release.
++
+[,shell]
+----
+$ helm uninstall longhorn-crd --namespace longhorn-system
+These resources were kept due to the resource policy:
+[CustomResourceDefinition] backingimagedatasources.longhorn.io
+[CustomResourceDefinition] backingimagemanagers.longhorn.io
+[CustomResourceDefinition] nodes.longhorn.io
+[CustomResourceDefinition] orphans.longhorn.io
+[CustomResourceDefinition] recurringjobs.longhorn.io
+[CustomResourceDefinition] replicas.longhorn.io
+[CustomResourceDefinition] settings.longhorn.io
+[CustomResourceDefinition] sharemanagers.longhorn.io
+[CustomResourceDefinition] snapshots.longhorn.io
+[CustomResourceDefinition] supportbundles.longhorn.io
+[CustomResourceDefinition] systembackups.longhorn.io
+[CustomResourceDefinition] systemrestores.longhorn.io
+[CustomResourceDefinition] backingimages.longhorn.io
+[CustomResourceDefinition] volumeattachments.longhorn.io
+[CustomResourceDefinition] volumes.longhorn.io
+[CustomResourceDefinition] backupbackingimages.longhorn.io
+[CustomResourceDefinition] backups.longhorn.io
+[CustomResourceDefinition] backuptargets.longhorn.io
+[CustomResourceDefinition] backupvolumes.longhorn.io
+[CustomResourceDefinition] engineimages.longhorn.io
+[CustomResourceDefinition] engines.longhorn.io
+[CustomResourceDefinition] instancemanagers.longhorn.io
+----
+
+=== Replace `longhorn-crd` with `longhorn` in Longhorn CRDs
+
+After ensuring the `longhorn-crd` Helm release is uninstalled but the CRDs are kept, you need to update the ownership labels on the existing Longhorn CRDs to prepare for the main `longhorn` Helm chart. Apply the following script to perform this replacement:
+
+[,bash]
+----
+#!/bin/bash
+
+# List of CRDs to update
+Suggested change
+CRDS=("backingimagedatasources.longhorn.io"
+      "backingimagemanagers.longhorn.io"
+      "backingimages.longhorn.io"
+      "backupbackingimages.longhorn.io"
+      "backups.longhorn.io"
+      "backuptargets.longhorn.io"
+      "backupvolumes.longhorn.io"
+      "backups.longhorn.io"
+      "engineimages.longhorn.io"
+      "engines.longhorn.io"
+      "instancemanagers.longhorn.io"
+      "nodes.longhorn.io"
+      "orphans.longhorn.io"
+      "recurringjobs.longhorn.io"
+      "replicas.longhorn.io"
+      "settings.longhorn.io"
+      "sharemanagers.longhorn.io"
+      "snapshots.longhorn.io"
+      "supportbundles.longhorn.io"
+      "systembackups.longhorn.io"
+      "systemrestores.longhorn.io"
+      "volumeattachments.longhorn.io"
+      "volumes.longhorn.io")
+
+# Function to update a single CRD
+update_crd() {
+  local crd=$1
+  echo "Processing CRD: $crd"
+
+  # Get the current CRD definition
+  kubectl get crd "$crd" -o yaml > temp-crd.yaml
+
+  # Check if the CRD exists
+  if [ $? -ne 0 ]; then
+    echo "Error: CRD $crd not found"
+    rm -f temp-crd.yaml
+    return 1
+  fi
+
+  # Use sed with cross-platform compatible syntax
+  # Create a backup file and replace longhorn-crd with longhorn
+  sed -e 's/longhorn-crd/longhorn/g' temp-crd.yaml > temp-crd-updated.yaml
+
+  if [ $? -ne 0 ]; then
+    echo "Error: sed command failed for $crd"
+    rm -f temp-crd.yaml temp-crd-updated.yaml
+    return 1
+  fi
+
+  # Move updated file back to original
+  mv temp-crd-updated.yaml temp-crd.yaml
+
+  # Apply the updated CRD
+  kubectl apply -f temp-crd.yaml
+
+  if [ $? -eq 0 ]; then
+    echo "Successfully updated CRD: $crd"
+  else
+    echo "Error updating CRD: $crd"
+  fi
+
+  # Clean up
+  rm -f temp-crd.yaml
+}
+
+# Main execution
+for crd in "${CRDS[@]}"; do
+  update_crd "$crd"
+done
+----
+
+=== Upgrade to {longhorn-product-name}
+
+After the CRDs have been prepared, you can proceed with upgrading your Longhorn installation to {longhorn-product-name}.
+
+. Clone the {longhorn-product-name} Longhorn chart, or optionally prepare your `values.yaml` file from the `longhorn` chart repository. This step ensures you have the correct chart files locally for the upgrade.
+
+. Upgrade {longhorn-product-name} using the Helm chart you have prepared.
++
+[,shell]
+----
+  helm upgrade longhorn -n longhorn-system ./
+----
