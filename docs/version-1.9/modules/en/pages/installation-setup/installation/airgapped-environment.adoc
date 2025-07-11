@@ -33,13 +33,17 @@ cleanup() {
   rm -rf "$tmp_dir"
 }
 trap cleanup EXIT
-helm pull "$CHART_REF" --untar --untardir "$tmp_dir"
 # Pull and extract chart
 helm pull "$CHART_REF" --untar --untardir "$tmp_dir"
 # The folder name is just the chart name, not the version
 chart_dir="$tmp_dir/suse-storage"
-# Extract 'helm.sh/images' annotation and convert to JSON, then print image list (one per line)
-yq eval '.annotations."helm.sh/images"' "$chart_dir/Chart.yaml" | yq -o=json eval - | jq -r '.[] | .image' | sort > longhorn-images.txt
+chart_path="$chart_dir/Chart.yaml"
+# Extract 'helm.sh/images' annotation and convert to JSON
+images_json=$(
+  yq eval '.annotations."helm.sh/images"' "$chart_path" | yq -o=json eval -
+)
+# Directly print image list (one per line)
+echo "$images_json" | jq -r '.[] | .image' > longhorn-images.txt
 ----
 
 . **Pull and save {longhorn-product-name} images** + 
@@ -66,16 +70,7 @@ chmod +x load-images.sh
 +
 If you do not specify a `tar.gz` file using the `--images` flag, the script will find images in your local Docker cache and push them to the registry.
 
-. **View script options**: + 
-For more options when using these scripts, see their respective `--help` flags:
-+
-[,bash]
-----
-./save-images.sh --help
-./load-images.sh --help
-----
-
-== Using a Helm Chart
+== Installing by Helm Chart
 
 . ** Obtain {longhorn-product-name} Chart** +
 Obtain the {longhorn-product-name} Chart and decompress the downloaded tarball:
