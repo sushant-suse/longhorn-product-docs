@@ -51,7 +51,7 @@ chmod +x load-images.sh
 
 . Get deployment manifest file
 +
-`+wget https://raw.githubusercontent.com/longhorn/longho/v{patch-version}n}/deploy/longhorn.yaml+`
+`+wget https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml+`
 
 . Create Longhorn namespace
 +
@@ -59,11 +59,11 @@ chmod +x load-images.sh
 
 . If private registry require authentication, Create `docker-registry` secret in `longhorn-system` namespace:
 +
-`kubectl -n longhorn-system create secret docker-registry <SECRET_NAME> --docker-server=<REGISTRY_UR/v{patch-version}e=<REGISTRY_USER> --docker-password=<REGISTRY_PASSWORD>`
+`kubectl -n longhorn-system create secret docker-registry <SECRET_NAME> --docker-server=<REGISTRY_URL> --docker-username=<REGISTRY_USER> --docker-password=<REGISTRY_PASSWORD>`
 
  ** Add your secret name  `SECRET_NAME` to `imagePullSecrets.name` in the following resources
   *** `longhorn-driver-deployer` Deployment
-  *** `longhorn-manager` DaemonSet/v{patch-version}
+  *** `longhorn-manager` DaemonSet
   *** `longhorn-ui` Deployment
 
 +
@@ -361,4 +361,4 @@ image::screenshots/airgap-deploy/app-custom-images-reg.png[images]
 
 It's highly recommended not to manipulate image tags, especially instance manager image tags such as v1_20200301, because we intentionally use the date to avoid associating it with a {longhorn-product-name} version.
 
-The component images are hosted in Dockerhub under the `longhornio` account. For example, `longhornio/longhorn-manager:v{patch-version}` (you can replace v{patch-version} with your desired Longhorn version). It is recommended to keep the account name, `longhornio`, the same when you push the images to your private registry. This helps avoid unnecessary configuration issues.
+The component images are hosted in Dockerhub under the `longhornio` account. For example, `longhornio/longhorn-manager:v{patch-version}` (you can replace v{patch-version} with your desired {longhorn-product-name} version). It is recommended to keep the account name, `longhornio`, the same when you push the images to your private registry. This helps avoid unnecessary configuration issues.
