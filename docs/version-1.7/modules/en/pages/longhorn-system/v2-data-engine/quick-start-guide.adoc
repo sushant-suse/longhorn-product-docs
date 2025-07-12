@@ -29,7 +29,7 @@ We provide a manifest that helps you configure the kernel modules and huge pages
 
 [subs="+attributes", console]
 ----
-kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/deploy/prerequisite/longhorn-spdk-setup.yaml
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/prerequisite/longhorn-spdk-setup.yaml
 ----
 
 And also can check the log with the following command to see the installation result.
@@ -70,7 +70,7 @@ We provide a manifest that helps you finish the deployment on each Longhorn node
 
 [subs="+attributes", console]
 ----
-kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/deploy/prerequisite/longhorn-nvme-cli-installation.yaml
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/prerequisite/longhorn-nvme-cli-installation.yaml
 ----
 
 Or, you can manually load `nvme-tcp` kernel module on the each Longhorn node
@@ -104,9 +104,9 @@ To check the prerequisites and configurations, download the tool and run the `ch
 [subs="+attributes",shell]
 ----
 # For AMD64 platform
-curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{current-version}/longhornctl-linux-amd64
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-amd64
 # For ARM platform
-curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{current-version}/longhornctl-linux-arm64
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-arm64
 
 chmod +x longhornctl
 ./longhornctl check preflight --enable-spdk
@@ -176,7 +176,7 @@ Make sure everything is correctly configured and installed by
 
 [subs="+attributes", console]
 ----
-bash -c "$(curl -sfL https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/scripts/environment_check.sh)" -s -s
+bash -c "$(curl -sfL https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/environment_check.sh)" -s -s
 ----
 
 == Installation
@@ -297,7 +297,7 @@ Run the following command to create a StorageClass named `longhorn-spdk`. Set `p
 
 [subs="+attributes", console]
 ----
-kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/examples/v2/storageclass.yaml
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/storageclass.yaml
 ----
 
 === Create Longhorn Volumes
@@ -306,7 +306,7 @@ Create a Pod that uses Longhorn volumes using V2 Data Engine by running this com
 
 [subs="+attributes", console]
 ----
-kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/examples/v2/pod_with_pvc.yaml
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/pod_with_pvc.yaml
 ----
 
 Or, if you are creating a volume on Longhorn UI, please specify the `Data Engine` as `v2`.

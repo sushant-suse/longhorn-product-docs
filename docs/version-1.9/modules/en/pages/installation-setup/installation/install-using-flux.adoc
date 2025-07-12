@@ -47,7 +47,7 @@ ____
  flux create helmrelease longhorn-release \
    --chart=longhorn \
    --source=HelmRepository/longhorn-repo \
-   --chart-version=v{current-version} \
+   --chart-version=v{patch-version} \
    --namespace=longhorn-system \
    --export > helmrelease.yaml
  kubectl apply -f helmrelease.yaml

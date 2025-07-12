@@ -18,7 +18,7 @@ helm -n cattle-fleet-system install --create-namespace --wait fleet fleet/fleet
 Allow some time for the deployment of Fleet components in the `cattle-fleet-system` namespace.
 
 ____
-Use https://github.com/longhorn/longhorn/blob/v{current-version}/scripts/environment_check.sh[this script] to check the environment for potential issues.
+Use https://github.com/longhorn/longhorn/blob/v{patch-version}/scripts/environment_check.sh[this script] to check the environment for potential issues.
 ____
 
 == Installation
@@ -82,7 +82,7 @@ ____
  helm:
    repo: https://charts.longhorn.io
    chart: longhorn
-   version: v{current-version} # Replace with the version you'd like to install or upgrade to
+   version: v{patch-version} # Replace with the version you would like to install or upgrade to
    releaseName: longhorn
 ----
 +
@@ -94,7 +94,7 @@ Example of a complete `fleet.yaml` file:
  helm:
    repo: https://charts.longhorn.io
    chart: longhorn
-   version: v{current-version}
+   version: v{patch-version} # Replace with the version you would like to upgrade
    releaseName: longhorn
  diff:
    comparePatches:
