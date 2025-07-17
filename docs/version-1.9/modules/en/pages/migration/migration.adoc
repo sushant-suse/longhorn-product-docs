@@ -13,9 +13,9 @@ Proceed to upgrade to {longhorn-product-name} using the Helm chart you have prep
 helm upgrade longhorn -n longhorn-system ./
 ----
 	
-== Migrating Longhorn Deployed via Rancher Apps & Marketplace To {longhorn-product-name}
+== Migrating Longhorn Deployed via Rancher Apps Marketplace To {longhorn-product-name}
 
-If your existing Longhorn installation was deployed via Rancher Apps and Marketplace, you will see two Helm releases associated with Longhorn when running `helm list --all-namespaces | grep longhorn`.
+If your existing Longhorn installation was deployed via Rancher Apps Marketplace, you will see two Helm releases associated with Longhorn when running `helm list --all-namespaces | grep longhorn`.
 
 [,shell]
 ----
@@ -204,8 +204,7 @@ After ensuring the `longhorn-crd` Helm release is uninstalled but the CRDs are k
 ----
 #!/bin/bash
 
-# List of CRDs to update
-Suggested change
+# The list of CRDs needs to be changed to reflect your installed Longhorn CRDs.
 CRDS=("backingimagedatasources.longhorn.io"
       "backingimagemanagers.longhorn.io"
       "backingimages.longhorn.io"
