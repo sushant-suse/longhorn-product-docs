@@ -18,7 +18,7 @@ Run the script to download the complete list of all images required for {longhor
 [,bash]
 ----
 #!/usr/bin/env bash
-CHART_REF=oci://dp.apps.rancher.io/charts/suse-storage:{current-version}
+CHART_REF=oci://dp.apps.rancher.io/charts/suse-storage:{patch-version}
 set -euo pipefail
 setopt shwordsplit 2>/dev/null || true
 # Check for dependencies
@@ -47,11 +47,11 @@ echo "$images_json" | jq -r '.[] | .image' > longhorn-images.txt
 ----
 
 . **Pull and save {longhorn-product-name} images** + 
-{longhorn-product-name} provides the https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/scripts/save-images.sh[`save-images.sh` script] to quickly pull images listed in the `longhorn-images.txt` file. To pull and save Longhorn images to a `tar.gz` file (for example, `longhorn-images.tar.gz`), run the following commands:
+{longhorn-product-name} provides the https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/save-images.sh[`save-images.sh` script] to quickly pull images listed in the `longhorn-images.txt` file. To pull and save Longhorn images to a `tar.gz` file (for example, `longhorn-images.tar.gz`), run the following commands:
 +
 [,bash]
 ----
-wget https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/scripts/save-images.sh
+wget https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/save-images.sh
 chmod +x save-images.sh
 ./save-images.sh --image-list longhorn-images.txt --images longhorn-images.tar.gz
 ----
@@ -59,11 +59,11 @@ chmod +x save-images.sh
 Then, copy the generated `longhorn-images.tar.gz` file to your air-gapped environment. If you do not specify a filename using the `--images` flag, the script will only pull the images to your local Docker image cache without saving them to a file.
 
 . **Load and push {longhorn-product-name} images to your private registry** + 
-{longhorn-product-name} provides another script, https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/scripts/load-images.sh[`load-images.sh` script], to push images to your private container registry. To load images from a `tar.gz` file (for example, `longhorn-images.tar.gz`) and push them to your registry, run the following commands. Replace `<YOUR-PRIVATE-REGISTRY>` with the actual address of your private registry.
+{longhorn-product-name} provides another script, https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/load-images.sh[`load-images.sh` script], to push images to your private container registry. To load images from a `tar.gz` file (for example, `longhorn-images.tar.gz`) and push them to your registry, run the following commands. Replace `<YOUR-PRIVATE-REGISTRY>` with the actual address of your private registry.
 +
 [,bash]
 ----
-wget https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/scripts/load-images.sh
+wget https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/load-images.sh
 chmod +x load-images.sh
 ./load-images.sh --image-list longhorn-images.txt --images longhorn-images.tar.gz --registry <YOUR-PRIVATE-REGISTRY>
 ----
@@ -77,8 +77,8 @@ Obtain the {longhorn-product-name} Chart and decompress the downloaded tarball:
 +
 [,bash]
 ----
-helm pull longhorn oci://dp.apps.rancher.io/charts/suse-storage:{current-version}
-tar -zxf suse-storage-{current-version}.tgz
+helm pull longhorn oci://dp.apps.rancher.io/charts/suse-storage:{patch-version}
+tar -zxf suse-storage-{patch-version}.tgz
 cd suse-storage
 ----
 

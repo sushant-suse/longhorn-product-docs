@@ -4,8 +4,8 @@
 	
 If your existing Longhorn installation was deployed via Helm, you can verify it by running `helm list --all-namespaces`, where you should see a single Helm release named `longhorn`.
 	
-Next, clone the {longhorn-product-name} Helm chart repository, or optionally prepare a `values.yaml` file from your current longhorn chart. This ensures you have the appropriate chart files ready for the upgrade.
-	
+Next, optionally prepare a `values.yaml` file from your current Longhorn chart for the upgrade.
+
 Proceed to upgrade to {longhorn-product-name} using the Helm chart you have prepared:
 
 [,shell]
@@ -280,11 +280,13 @@ done
 
 After the CRDs have been prepared, you can proceed with upgrading your Longhorn installation to {longhorn-product-name}.
 
-. Clone the {longhorn-product-name} Longhorn chart, or optionally prepare your `values.yaml` file from the `longhorn` chart repository. This step ensures you have the correct chart files locally for the upgrade.
+. Upgrade {longhorn-product-name}.
 
-. Upgrade {longhorn-product-name} using the Helm chart you have prepared.
-+
 [,shell]
 ----
-  helm upgrade longhorn -n longhorn-system ./
+helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+	--namespace longhorn-system \
+	--version <new-version> \
+	--set global.imagePullSecrets={application-collection} \
+	-f values.yaml
 ----
