@@ -3,6 +3,11 @@
 
 == Prerequisites
 
+[NOTE]
+====
+{longhorn-product-name} installation requires authenticated access to your Kubernetes. For more details, check https://docs.apps.rancher.io/get-started/authentication/#kubernetes[authentication guide].
+====
+
 * Your workstation: Install https://helm.sh/docs/[Helm] v3.0 or later.
 * Kubernetes cluster:
  ** Ensure that each node fulfills the xref:installation-setup/requirements.adoc[installation requirements].
@@ -99,10 +104,11 @@ Example of a successful installation:
 
 You can commit and push exported manifests to your GitOps repository.
 
- ```bash
+[,bash]
+----
  git add helmrepo.yaml helmrelease.yaml
  git commit -m "Add HelmRepository and HelmRelease for Longhorn installation"
  git push origin <branch_name>
- ```
+----
 
 Afterwards, you can modify the HelmRelease and HelmRepository CRs by editing the YAML manifests in your GitOps repository. Flux automatically detects and applies the changes without requiring direct access to your Kubernetes cluster.

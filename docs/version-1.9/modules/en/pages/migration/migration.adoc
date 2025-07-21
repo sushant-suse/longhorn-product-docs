@@ -4,13 +4,27 @@
 	
 If your existing Longhorn installation was deployed via Helm, you can verify it by running `helm list --all-namespaces`, where you should see a single Helm release named `longhorn`.
 	
-Next, optionally prepare a `values.yaml` file from your current Longhorn chart for the upgrade.
+Next, optionally create a `values.yaml`` file with any customized settings you want to apply during the upgrade.
 
 Proceed to upgrade to {longhorn-product-name} using the Helm chart you have prepared:
 
 [,shell]
 ----
-helm upgrade longhorn -n longhorn-system ./
+helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+	--namespace longhorn-system \
+	--version <new-version> \
+	--set global.imagePullSecrets={application-collection} \
+----
+
+Optionally, if you have a `values.yaml` file with customized settings, include it with the `-f`` flag:
+
+[,shell]
+----
+helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+	--namespace longhorn-system \
+	--version <new-version> \
+	--set global.imagePullSecrets={application-collection} \
+	-f values.yaml
 ----
 	
 == Migrating Longhorn Deployed via Rancher Apps Marketplace To {longhorn-product-name}
@@ -20,8 +34,8 @@ If your existing Longhorn installation was deployed via Rancher Apps Marketplace
 [,shell]
 ----
 $ helm list --all-namespaces | grep longhorn
-longhorn                                         	longhorn-system    	1       	2025-06-26 08:04:10.877379704 +0000 UTC	deployed	longhorn-105.1.0+up1.7.2                                                                               	v1.7.2
-longhorn-crd                                     	longhorn-system    	1       	2025-06-26 08:04:08.322051059 +0000 UTC	deployed	longhorn-crd-105.1.0+up1.7.2                                                                           	v1.7.2
+longhorn                                         	longhorn-system    	1       	2025-07-21 02:58:40.877484249 +0000 UTC	deployed	longhorn-106.2.1+up1.8.2                                                                               	v1.8.2
+longhorn-crd                                     	longhorn-system    	1       	2025-07-21 02:58:38.192579711 +0000 UTC	deployed	longhorn-crd-106.2.1+up1.8.2                                                                           	v1.8.2
 ----
 
 To migrate the existing Rancher Longhorn installation to {longhorn-product-name}, you need to delete the `longhorn-crd` Helm release without removing the CRDs, and then upgrade the `longhorn` Helm release by following the steps below. 
@@ -41,12 +55,12 @@ The output will show your `longhorn-crd` release details, for example:
 +
 [,bash]
 ----
-longhorn-crd                                     	longhorn-system    	1       	2025-06-26 08:04:08.322051059 +0000 UTC	deployed	longhorn-crd-105.1.0+up1.7.2
+longhorn-crd                                     	longhorn-system    	1       	2025-07-21 02:58:38.192579711 +0000 UTC	deployed	longhorn-crd-106.2.1+up1.8.2                                                                           	v1.8.2
 ----
 +
-In this example, the release version is `105.1.0+up1.7.2`.
+In this example, the release version is `106.2.1+up1.8.2`.
 
-. Clone the `rancher/charts` repository containing the specific version of the `longhorn-crd` chart that matches your current release (for example, `105.1.0+up1.7.2` for Longhorn v1.7.2):
+. Clone the `rancher/charts` repository containing the specific version of the `longhorn-crd` chart that matches your current release (for example, `106.2.1+up1.8.2` for Longhorn v1.8.2):
 +
 `+git clone https://github.com/rancher/charts.git+`
 +
@@ -65,7 +79,7 @@ fi
 REPO="rancher/charts"
 VERSION="$1"
 TARGET_PATH="charts/longhorn-crd/${VERSION}"
-LOCAL_DIR="chart"
+LOCAL_DIR=""$VERSION""
 # GitHub Token is optional
 if [ $# -eq 2 ]; then
     GITHUB_TOKEN="$2"
@@ -148,7 +162,8 @@ done
 echo "Target not found in any release-* branch."
 exit 1
 ----
-After running the command `bash ./download_longhorn-crd_chart.sh 105.1.0+up1.7.2`, the `longhorn-crd` chart will be downloaded to the local directory `105.1.0+up1.7.2`.
++
+After running the command `bash ./download_longhorn-crd_chart.sh 106.2.1+up1.8.2`, the `longhorn-crd` chart will be downloaded to the local directory `106.2.1+up1.8.2`. Then, open `106.2.1+up1.8.2/Chart.yaml` to verify that the chart version matches `106.2.1+up1.8.2`.
 
 . Patch the `helm.sh/resource-policy: keep` annotation to each Custom Resource Definitions (CRDs) in `templates/crds.yaml` within the `longhorn-crd` chart that you cloned. This ensures that Helm does not delete the CRDs when the release is uninstalled.
 
@@ -281,6 +296,16 @@ done
 After the CRDs have been prepared, you can proceed with upgrading your Longhorn installation to {longhorn-product-name}.
 
 . Upgrade {longhorn-product-name}.
+
+[,shell]
+----
+helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+	--namespace longhorn-system \
+	--version <new-version> \
+	--set global.imagePullSecrets={application-collection} \
+----
+
+Optionally, if you have a `values.yaml` file with customized settings, include it with the `-f`` flag:
 
 [,shell]
 ----
