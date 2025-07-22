@@ -1,11 +1,11 @@
 = Migrating to {longhorn-product-name}
 	
-== Migrating Longhorn Deployed via Helm To {longhorn-product-name}
-	
-[NOTE]
+[WARNING]
 ====
 It is recommended to create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn system backup] before performing the upgrade. This ensures that all critical resources, such as volumes and backing images, are backed up and can be restored in case any issues arise.
 ====
+
+== Migrating Longhorn Deployed via Helm To {longhorn-product-name}
 
 If your existing Longhorn installation was deployed via Helm, you can verify it by running `helm list --all-namespaces`. By default, the Helm release used to install Longhorn is named `longhorn`, but it may also be a custom name defined by the user.
 	
