@@ -3,6 +3,11 @@
 
 == Upgrading from v1.8.x
 
+[NOTE]
+====
+It is recommended to create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn system backup] before performing the upgrade. This ensures that all critical resources, such as volumes and backing images, are backed up and can be restored in case any issues arise.
+====
+
 {longhorn-product-name} only supports upgrading to v{current-version} from v1.8.x. For other versions, please upgrade to v1.8.x first.
 
 {longhorn-product-name} v1.8.x to v{current-version} support live engine upgrades.
@@ -154,21 +159,3 @@ Then wait for all the pods to become running and {longhorn-product-name} UI work
 ----
 
 Next, xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[upgrade Longhorn engine].
-
-== Upgrading from Unsupported Versions
-
-{longhorn-product-name} only supports upgrading to v{current-version} from v1.8.x. For other versions, please upgrade to v1.8.x first.
-
-If you attempt to upgrade from an unsupported version, the upgrade will fail. When encountering an upgrade failure, please consider the following scenarios to recover the state based on different upgrade methods.
-
-== TroubleShooting
-
-. Error: `"longhorn" is invalid: provisioner: Forbidden: updates to provisioner are forbidden.`
- ** This means there are some modifications applied to the default storageClass and you need to clean up the old one before upgrade.
-
-* To clean up the deprecated StorageClass, run this command:
-+
-[,shell]
-----
-kubectl delete -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/storageclass.yaml
-----

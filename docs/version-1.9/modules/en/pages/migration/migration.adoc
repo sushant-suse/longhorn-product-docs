@@ -2,11 +2,16 @@
 	
 == Migrating Longhorn Deployed via Helm To {longhorn-product-name}
 	
-If your existing Longhorn installation was deployed via Helm, you can verify it by running `helm list --all-namespaces`, where you should see a single Helm release named `longhorn`.
-	
-Next, optionally create a `values.yaml`` file with any customized settings you want to apply during the upgrade.
+[NOTE]
+====
+It is recommended to create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn system backup] before performing the upgrade. This ensures that all critical resources, such as volumes and backing images, are backed up and can be restored in case any issues arise.
+====
 
-Proceed to upgrade to {longhorn-product-name} using the Helm chart you have prepared:
+If your existing Longhorn installation was deployed via Helm, you can verify it by running `helm list --all-namespaces`. By default, the Helm release used to install Longhorn is named `longhorn`, but it may also be a custom name defined by the user.
+	
+Next, optionally create a `values.yaml` file with any customized settings you want to apply during the upgrade.
+
+Proceed with the upgrade to {longhorn-product-name} using the {longhorn-product-name} chart:
 
 [,shell]
 ----
@@ -16,7 +21,7 @@ helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	--set global.imagePullSecrets={application-collection} \
 ----
 
-Optionally, if you have a `values.yaml` file with customized settings, include it with the `-f`` flag:
+Optionally, if you have a `values.yaml` file with customized settings, include it with the `-f` flag:
 
 [,shell]
 ----
@@ -27,9 +32,9 @@ helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	-f values.yaml
 ----
 	
-== Migrating Longhorn Deployed via Rancher Apps Marketplace To {longhorn-product-name}
+== Migrating Longhorn deployed via Rancher Apps & Marketplace to {longhorn-product-name}
 
-If your existing Longhorn installation was deployed via Rancher Apps Marketplace, you will see two Helm releases associated with Longhorn when running `helm list --all-namespaces | grep longhorn`.
+If your existing Longhorn installation was deployed via Rancher Apps & Marketplace, you will see two Helm releases associated with Longhorn when running `helm list --all-namespaces | grep longhorn`.
 
 [,shell]
 ----
@@ -62,24 +67,31 @@ In this example, the release version is `106.2.1+up1.8.2`.
 
 . Clone the `rancher/charts` repository containing the specific version of the `longhorn-crd` chart that matches your current release (for example, `106.2.1+up1.8.2` for Longhorn v1.8.2):
 +
+[,shell]
+----
 `+git clone https://github.com/rancher/charts.git+`
+----
 +
 Navigate into the directory corresponding to your `longhorn-crd` chart version within the cloned repository.
 +
-You can execute the script to download the `longhorn-crd` chart.
+Or, you can execute the script to download the `longhorn-crd` chart.
 +
 [,shell]
 ----
 #!/bin/bash
+
 set -euo pipefail
+
 if [ $# -lt 1 ] || [ $# -gt 2 ]; then
     echo "Usage: $0 <version> [github_token]"
     exit 1
 fi
+
 REPO="rancher/charts"
 VERSION="$1"
 TARGET_PATH="charts/longhorn-crd/${VERSION}"
 LOCAL_DIR=""$VERSION""
+
 # GitHub Token is optional
 if [ $# -eq 2 ]; then
     GITHUB_TOKEN="$2"
@@ -87,12 +99,14 @@ if [ $# -eq 2 ]; then
 else
     AUTH_HEADER=""
 fi
+
 # Get all release-* branches and sort by latest first
 if [ -n "$AUTH_HEADER" ]; then
     branches=$(curl -s -H "${AUTH_HEADER}" "https://api.github.com/repos/${REPO}/branches?per_page=100" | jq -r '.[].name' | grep '^release-' | sort -r)
 else
     branches=$(curl -s "https://api.github.com/repos/${REPO}/branches?per_page=100" | jq -r '.[].name' | grep '^release-' | sort -r)
 fi
+
 # Function to recursively download files and folders
 download_directory() {
     local remote_path=$1
@@ -136,6 +150,7 @@ download_directory() {
         fi
     done
 }
+
 for branch in $branches; do
     echo "Checking branch: $branch"
     url="https://api.github.com/repos/${REPO}/contents/${TARGET_PATH}?ref=${branch}"
@@ -159,6 +174,7 @@ for branch in $branches; do
         exit 1
     fi
 done
+
 echo "Target not found in any release-* branch."
 exit 1
 ----
@@ -293,9 +309,7 @@ done
 
 === Upgrade to {longhorn-product-name}
 
-After the CRDs have been prepared, you can proceed with upgrading your Longhorn installation to {longhorn-product-name}.
-
-. Upgrade {longhorn-product-name}.
+After the CRDs have been prepared, you can proceed with upgrading your Longhorn installation to {longhorn-product-name}:
 
 [,shell]
 ----
@@ -305,7 +319,7 @@ helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	--set global.imagePullSecrets={application-collection} \
 ----
 
-Optionally, if you have a `values.yaml` file with customized settings, include it with the `-f`` flag:
+Optionally, if you have a `values.yaml` file with customized settings, include it with the `-f` flag:
 
 [,shell]
 ----
