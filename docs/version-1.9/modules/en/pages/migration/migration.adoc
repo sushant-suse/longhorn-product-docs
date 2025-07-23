@@ -18,8 +18,13 @@ Proceed with the upgrade to {longhorn-product-name} using the {longhorn-product-
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	--namespace longhorn-system \
 	--version <new-version> \
-	--set global.imagePullSecrets={application-collection} \
+	--set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
 ----
+
+[NOTE]
+====
+To create a secret, follow the https://docs.apps.rancher.io/get-started/authentication/#kubernetes[AppCo documentation].
+====
 
 Optionally, if you have a `values.yaml` file with customized settings, include it with the `-f` flag:
 
@@ -28,13 +33,13 @@ Optionally, if you have a `values.yaml` file with customized settings, include i
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	--namespace longhorn-system \
 	--version <new-version> \
-	--set global.imagePullSecrets={application-collection} \
+	--set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
 	-f values.yaml
 ----
 	
-== Migrating Longhorn deployed via Rancher Apps & Marketplace to {longhorn-product-name}
+== Migrating Longhorn deployed via Rancher Apps Marketplace to {longhorn-product-name}
 
-If your existing Longhorn installation was deployed via Rancher Apps & Marketplace, you will see two Helm releases associated with Longhorn when running `helm list --all-namespaces | grep longhorn`.
+If your existing Longhorn installation was deployed via Rancher Apps Marketplace, you will see two Helm releases associated with Longhorn when running `helm list --all-namespaces | grep longhorn`.
 
 [,shell]
 ----
@@ -74,9 +79,9 @@ In this example, the release version is `106.2.1+up1.8.2`.
 +
 Navigate into the directory corresponding to your `longhorn-crd` chart version within the cloned repository.
 +
-Or, you can execute this link:{attachmentsdir}/v1.9.1-longhorn-crd.sh[script] to `longhorn-crd` chart.
+Or, you can execute this link:{attachmentsdir}/download-longhorn-crd-chart.sh[script] to `longhorn-crd` chart.
 +
-After running the command `bash ./download_longhorn-crd_chart.sh 106.2.1+up1.8.2`, the `longhorn-crd` chart will be downloaded to the local directory `106.2.1+up1.8.2`. Then, open `106.2.1+up1.8.2/Chart.yaml` to verify that the chart version matches `106.2.1+up1.8.2`.
+After running the command `bash ./download_longhorn-crd-chart.sh 106.2.1+up1.8.2`, the `longhorn-crd` chart will be downloaded to the local directory `106.2.1+up1.8.2`. Then, open `106.2.1+up1.8.2/Chart.yaml` to verify that the chart version matches `106.2.1+up1.8.2`.
 
 . Patch the `helm.sh/resource-policy: keep` annotation to each Custom Resource Definitions (CRDs) in `templates/crds.yaml` within the `longhorn-crd` chart that you cloned. This ensures that Helm does not delete the CRDs when the release is uninstalled.
 
@@ -126,7 +131,7 @@ These resources were kept due to the resource policy:
 
 === Replace `longhorn-crd` with `longhorn` in Longhorn CRDs
 
-After ensuring the `longhorn-crd` Helm release is uninstalled but the CRDs are kept, you need to update the ownership labels on the existing Longhorn CRDs to prepare for the main `longhorn` Helm chart. Apply the following link:{attachmentsdir}/v1.9.1-longhorn-main.sh[script] to perform the replacement.
+After ensuring the `longhorn-crd` Helm release is uninstalled but the CRDs are kept, you need to update the ownership labels on the existing Longhorn CRDs to prepare for the main `longhorn` Helm chart. Apply the following link:{attachmentsdir}/migrate-crd-ownership.sh[script] to perform the replacement.
 
 === Upgrade to {longhorn-product-name}
 
@@ -137,7 +142,7 @@ After the CRDs have been prepared, you can proceed with upgrading your Longhorn 
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	--namespace longhorn-system \
 	--version <new-version> \
-	--set global.imagePullSecrets={application-collection} \
+	--set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
 ----
 
 Optionally, if you have a `values.yaml` file with customized settings, include it with the `-f` flag:
@@ -147,6 +152,6 @@ Optionally, if you have a `values.yaml` file with customized settings, include i
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	--namespace longhorn-system \
 	--version <new-version> \
-	--set global.imagePullSecrets={application-collection} \
+	--set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
 	-f values.yaml
 ----

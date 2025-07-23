@@ -13,7 +13,7 @@
 == Image Management for Air-Gapped Environments
 
 . **Obtain the list of required images** +
-Run the link:{attachmentsdir}/v1.9.1-longhorn-image-list.sh[script] to download the complete list of all images required for {longhorn-product-name}. The script will generate a `longhorn-images.txt` file containing the list of images.
+Run the link:{attachmentsdir}/download-longhorn-image-list.sh[script] to download the complete list of all images required for {longhorn-product-name}. The script will generate a `longhorn-images.txt` file containing the list of images.
 
 . **Pull and save {longhorn-product-name} images** + 
 {longhorn-product-name} provides the https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/save-images.sh[`save-images.sh` script] to quickly pull images listed in the `longhorn-images.txt` file. To pull and save Longhorn images to a `tar.gz` file (for example, `longhorn-images.tar.gz`), run the following commands:
@@ -94,19 +94,19 @@ Specify the `repository` and `tag` for each {longhorn-product-name} component im
   image:
     longhorn:
       engine:
-        repository: containers/longhorn-engine
+        repository: <USERNAME>/longhorn-engine
         tag: <LONGHORN_ENGINE_IMAGE_TAG>
       manager:
-        repository: containers/longhorn-manager
+        repository: <USERNAME>/longhorn-manager
         tag: <LONGHORN_MANAGER_IMAGE_TAG>
       ui:
-        repository: containers/longhorn-ui
+        repository: <USERNAME>/longhorn-ui
         tag: <LONGHORN_UI_IMAGE_TAG>
       instanceManager:
-        repository: containers/longhorn-instance-manager
+        repository: <USERNAME>/longhorn-instance-manager
         tag: <LONGHORN_INSTANCE_MANAGER_IMAGE_TAG>
       shareManager:
-        repository: containers/longhorn-share-manager
+        repository: <USERNAME>/longhorn-share-manager
         tag: <LONGHORN_SHARE_MANAGER_IMAGE_TAG>
 ----
 Specify the `repository` and `tag` for CSI Driver components images:
@@ -115,19 +115,19 @@ Specify the `repository` and `tag` for CSI Driver components images:
 ----
     csi:
       attacher:
-        repository: containers/csi-attacher
+        repository: <USERNAME>/csi-attacher
         tag: <CSI_ATTACHER_IMAGE_TAG>
       provisioner:
-        repository: containers/csi-provisioner
+        repository: <USERNAME>/csi-provisioner
         tag: <CSI_PROVISIONER_IMAGE_TAG>
       nodeDriverRegistrar:
-        repository: containers/csi-node-driver-registrar
+        repository: <USERNAME>/csi-node-driver-registrar
         tag: <CSI_NODE_DRIVER_REGISTRAR_IMAGE_TAG>
       resizer:
-        repository: containers/csi-resizer
+        repository: <USERNAME>/csi-resizer
         tag: <CSI_RESIZER_IMAGE_TAG>
       snapshotter:
-        repository: containers/csi-snapshotter
+        repository: <USERNAME>/csi-snapshotter
         tag: <CSI_SNAPSHOTTER_IMAGE_TAG>
 ----
 Finally, specify your `Private registry URL`. If the registry requires authentication, specify `Private registry user`, `Private registry password`, and `Private registry secret`. {longhorn-product-name} will automatically generate a secret with that information and use it to pull images from your private registry.

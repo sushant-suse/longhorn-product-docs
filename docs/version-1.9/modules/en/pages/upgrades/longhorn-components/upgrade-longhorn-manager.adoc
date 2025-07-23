@@ -70,9 +70,14 @@ The general Helm command for upgrading is:
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
   --namespace longhorn-system \
   --version <new-version> \
-  --set global.imagePullSecrets={application-collection} \
+  --set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
   -f values.yaml
 ----
+
+[NOTE]
+====
+To create a secret, follow the https://docs.apps.rancher.io/get-started/authentication/#kubernetes[AppCo documentation].
+====
 
 Or, if upgrading without a specific `values.yaml` file and only changing the version:
 
@@ -81,7 +86,7 @@ Or, if upgrading without a specific `values.yaml` file and only changing the ver
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
   --namespace longhorn-system \
   --version <new-version> \
-  --set global.imagePullSecrets={application-collection}
+  --set global.imagePullSecrets=<PULL_IMAGE_SECRET>
 ----
 
 * *Upgrade Path*: Refer to the official xref:upgrades/upgrades.adoc[SUSE Storage upgrade documentation] for specific version-to-version upgrade paths, prerequisites, and post-upgrade verification steps. This is important to ensure a smooth upgrade and data integrity.

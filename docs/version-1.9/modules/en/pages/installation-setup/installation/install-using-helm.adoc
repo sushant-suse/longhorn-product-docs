@@ -5,13 +5,14 @@
 
 [NOTE]
 ====
-{longhorn-product-name} installation requires authenticated access to your Kubernetes. For more details, check https://docs.apps.rancher.io/get-started/authentication/#kubernetes[authentication guide].
+{longhorn-product-name} installation requires authenticated access to Application Collection. For more details, check https://docs.apps.rancher.io/get-started/authentication[authentication guide].
 ====
 
 * https://helm.sh/docs/[Helm] v3.0 or later is required.
 * A Kubernetes cluster, with each node fulfilling the xref:installation-setup/requirements.adoc[installation requirements], is required.
 * The xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the {longhorn-product-name} environment for potential issues.
-* Refer to the https://docs.apps.rancher.io/get-started/first-steps/#authentication-methods[AppCo documentation] for instructions on authenticating to the OCI registry using Helm.
+* When running the helm command, validate authentication via https://docs.apps.rancher.io/get-started/authentication/#helm[Helm] is required.
+* Rancher uses Kubernetes secrets to authenticate registry access via https://docs.apps.rancher.io/get-started/authentication/#kubernetes[authentication guide].
 
 == Installation
 
@@ -23,7 +24,7 @@ helm install longhorn oci://dp.apps.rancher.io/charts/suse-storage \
   --namespace longhorn-system \
   --create-namespace \
   --version <version> \
-  --set global.imagePullSecrets={application-collection}
+  --set global.imagePullSecrets=<PULL_IMAGE_SECRET>
 ----
 
 . To confirm that the deployment succeeded, run:

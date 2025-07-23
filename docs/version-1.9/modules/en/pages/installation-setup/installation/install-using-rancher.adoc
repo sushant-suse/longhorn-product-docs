@@ -1,42 +1,37 @@
 = Install {longhorn-product-name} Using Rancher
 :current-version: {page-component-version}
 
-One benefit of installing {longhorn-product-name} through Rancher Apps & Marketplace is that Rancher provides authentication to the {longhorn-product-name} UI.
+One benefit of installing {longhorn-product-name} through Rancher Apps Marketplace is that Rancher provides authentication to the {longhorn-product-name} UI.
 
-If there is a new version of {longhorn-product-name} available, you will see an `Upgrade Available` sign on the `Apps & Marketplace` screen. You can click `Upgrade` button to upgrade Longhorn Manager. See more about upgrade xref:upgrades/upgrades.adoc[here].
+If there is a new version of {longhorn-product-name} available, you will see an `Upgrade Available` sign on the `Apps Marketplace` screen. You can click `Upgrade` button to upgrade Longhorn Manager. See more about upgrade xref:upgrades/upgrades.adoc[here].
 
 == Prerequisites
 
-Each node in the Kubernetes cluster where {longhorn-product-name} is installed must fulfill xref:installation-setup/requirements.adoc[these requirements.]
+Each node in the Kubernetes cluster where {longhorn-product-name} is installed must fulfill xref:installation-setup/requirements.adoc[these requirements].
+
+To install SUSE Storage from the Application Collection instead of Rancher's default Longhorn community charts, configure a new repository in Rancher that points to the Application Collection chart repository for {longhorn-product-name}. Refer to https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/helm-charts-in-rancher/oci-repositories#add-an-oci-based-helm-chart-repository[this guide] for details on the process and how to authenticate the chart repository.
 
 The xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the {longhorn-product-name} environment for potential issues.
 
 == Installation
 
-[NOTE]
-====
-For Kubernetes < v1.25, if your cluster still enables Pod Security Policy admission controller, set `Other Settings > Pod Security Policy` to `true` to install `longhorn-psp` PodSecurityPolicy resource which allows privileged Longhorn pods to start.
-====
-
-If Rancher version is 2.5.9 or before, we recommend creating a new project for {longhorn-product-name}, for example, `Storage`.
-
 . In Rancher, go to *Apps* > *Repositories*.
 +
-image::screenshots/install/rancher-2.6/navigation.png[Image]
+image::screenshots/install/rancher/navigation.png[Image]
 +
 . Click on the *Create* button.
 +
 . Choose *OCI Repository* in the radio buttons and enter the prime oci chart path, then click *Create*.
 +
-image::screenshots/install/rancher-2.6/oci-repository.png[Image]
+image::screenshots/install/rancher/oci-repository.png[Image]
 +
 The repository should be added successfully.
 +
-image::screenshots/install/rancher-2.6/repository-added.png[Image]
+image::screenshots/install/rancher/repository-added.png[Image]
 +
 . In *Apps* > *Chart*, you can see `suse-storage` available for installation.
 +
-image::screenshots/install/rancher-2.6/suse-storage-installed.png[Image]
+image::screenshots/install/rancher/suse-storage-installed.png[Image]
 
 After {longhorn-product-name} is installed, you can access the {longhorn-product-name} UI by navigating to the *Longhorn* option from Rancher left panel.
 
