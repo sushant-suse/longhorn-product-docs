@@ -40,11 +40,11 @@ Always back up volumes before upgrading. If anything goes wrong, you can restore
 
 === Upgrade as a Rancher Catalog App
 
-To upgrade the Longhorn App, make sure which Rancher UI the existing Longhorn App was installed with. There are two Rancher UIs, one is the Cluster Manager (old UI), and the other one is the Cluster Explorer (new UI). The Longhorn App in different UIs considered as two different applications by Rancher. They cannot upgrade to each other. If you installed {longhorn-product-name} in the Cluster Manager, you need to use the Cluster Manager to upgrade {longhorn-product-name} to a newer version, and vice versa for the Cluster Explorer.
+To upgrade the {longhorn-product-name} App, make sure which Rancher UI the existing {longhorn-product-name} App was installed with. There are two Rancher UIs, one is the Cluster Manager (old UI), and the other one is the Cluster Explorer (new UI). The {longhorn-product-name} App in different UIs considered as two different applications by Rancher. They cannot upgrade to each other. If you installed {longhorn-product-name} in the Cluster Manager, you need to use the Cluster Manager to upgrade {longhorn-product-name} to a newer version, and vice versa for the Cluster Explorer.
 
 [NOTE]
 ====
-Because the Cluster Manager (old UI) is being deprecated, the instruction to migrate the existing {longhorn-product-name} installation to the Longhorn chart in the Cluster Explorer (new UI) can be found https://longhorn.io/kb/how-to-migrate-longhorn-chart-installed-in-old-rancher-ui-to-the-chart-in-new-rancher-ui/[here].
+Because the Cluster Manager (old UI) is being deprecated, the instruction to migrate the existing {longhorn-product-name} installation to the {longhorn-product-name} chart in the Cluster Explorer (new UI) can be found https://longhorn.io/kb/how-to-migrate-longhorn-chart-installed-in-old-rancher-ui-to-the-chart-in-new-rancher-ui/[here].
 ====
 
 Different Rancher UIs screenshots.
@@ -101,7 +101,7 @@ Update the value of `helm.version` in the `fleet` YAML file of your GitOps repos
 helm:
   repo: https://charts.longhorn.io
   chart: longhorn
-  version: v{patch-version} # Replace with the Longhorn version you would like to upgrade to
+  version: v{patch-version} # Replace with the SUSE Storage version you would like to upgrade to
   releaseName: longhorn
 ----
 
@@ -119,7 +119,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: longhorn
-      version: v{patch-version} # Replace with the Longhorn version you would like to upgrade to
+      version: v{patch-version} # Replace with the SUSE Storage version you would like to upgrade to
 ----
 
 === Upgrade with Argo CD
@@ -133,7 +133,7 @@ spec:
   sources:
     - chart: longhorn
       repoURL: https://charts.longhorn.io
-      targetRevision: v{patch-version} # Replace with the Longhorn version you would like to upgrade to
+      targetRevision: v{patch-version} # Replace with the SUSE Storage version you would like to upgrade to
 ----
 
 Then wait for all the pods to become running and {longhorn-product-name} UI working. For example:
