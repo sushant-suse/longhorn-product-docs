@@ -33,11 +33,6 @@ helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	--set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
 ----
 
-[NOTE]
-====
-To create a secret, follow the https://docs.apps.rancher.io/get-started/authentication/#kubernetes[AppCo documentation].
-====
-
 Optionally, if you have a `values.yaml` file with customized settings, include it with the `-f` flag:
 
 [,shell]
@@ -143,7 +138,7 @@ These resources were kept due to the resource policy:
 
 === Replace `longhorn-crd` with `longhorn` in Longhorn CRDs
 
-After ensuring the `longhorn-crd` Helm release is uninstalled but the CRDs are kept, you need to update the ownership labels on the existing Longhorn CRDs to prepare for the main `longhorn` Helm chart. Apply the following link:{attachmentsdir}/migrate-crd-ownership.sh[script] to perform the replacement.
+After ensuring the `longhorn-crd` Helm release is uninstalled but the CRDs are kept, you need to update the ownership labels on the existing Longhorn CRDs to prepare for the main `longhorn` Helm chart. Apply the link:{attachmentsdir}/migrate-crd-ownership.sh[shell script] to perform the replacement.
 
 === Upgrade to {longhorn-product-name}
 
