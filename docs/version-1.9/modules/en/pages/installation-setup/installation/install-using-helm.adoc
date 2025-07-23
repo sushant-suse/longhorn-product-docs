@@ -8,11 +8,19 @@
 {longhorn-product-name} installation requires authenticated access to Application Collection. For more details, check https://docs.apps.rancher.io/get-started/authentication[authentication guide].
 ====
 
+=== Tools
+
 * https://helm.sh/docs/[Helm] v3.0 or later is required.
-* A Kubernetes cluster, with each node fulfilling the xref:installation-setup/requirements.adoc[installation requirements], is required.
 * The xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the {longhorn-product-name} environment for potential issues.
-* To authenticate with the Application Collection chart repository, refer to https://docs.apps.rancher.io/get-started/authentication/#helm[helm authentication guide] for instructions.
-* To authenticate with the Application Collection OCI registry, refer to https://docs.apps.rancher.io/get-started/authentication/#kubernetes[kubernetes authentication guide] for steps to create a Kubernetes secret and specify it as the `global.imagePullSecrets` chart value.
+
+=== Kubernetes Environment
+
+* A Kubernetes cluster, with each node fulfilling the xref:installation-setup/requirements.adoc[installation requirements], is required.
+
+=== Authentication
+
+* To authenticate Helm with the SUSE Application Collection OCI chart repository, refer to the https://docs.apps.rancher.io/get-started/authentication/#helm[Helm authentication documentation].
+* To allow Kubernetes to pull images from the registry, follow the https://docs.apps.rancher.io/get-started/authentication/#kubernetes[Kubernetes authentication documentation] to create a secret and set the `global.imagePullSecrets` chart value.
 
 == Installation
 
