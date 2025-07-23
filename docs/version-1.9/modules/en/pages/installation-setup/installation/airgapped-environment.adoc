@@ -15,8 +15,20 @@
 . **Obtain the list of required images** +
 Run the link:{attachmentsdir}/download-longhorn-image-list.sh[script] to download the complete list of all images required for {longhorn-product-name}. The script will generate a `longhorn-images.txt` file containing the list of images.
 
-. **Pull and save {longhorn-product-name} images** + 
-{longhorn-product-name} provides the https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/save-images.sh[`save-images.sh` script] to quickly pull images listed in the `longhorn-images.txt` file. To pull and save Longhorn images to a `tar.gz` file (for example, `longhorn-images.tar.gz`), run the following commands:
+[NOTE]
+====
+Authentication to AppCo is necessary when running this script, as it uses Helm internally. For more information, refer to the https://docs.apps.rancher.io/get-started/authentication/#helm[Helm authentication documentation].
+====
+
+. **Pull and Save {longhorn-product-name} Images** +
+{longhorn-product-name} provides the https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/save-images.sh[`save-images.sh`] script to quickly pull images listed in the `longhorn-images.txt` file.
++
+[NOTE]
+====
+Running this script requires Docker authentication. For more information, refer to the xref:https://docs.apps.rancher.io/get-started/authentication/#docker[Docker authentication documentation].
+====
++
+To pull and save Longhorn images to a `tar.gz` file (for example, `longhorn-images.tar.gz`), run the following commands:
 +
 [,bash]
 ----
@@ -28,7 +40,7 @@ chmod +x save-images.sh
 Then, copy the generated `longhorn-images.tar.gz` file to your air-gapped environment. If you do not specify a filename using the `--images` flag, the script will only pull the images to your local Docker image cache without saving them to a file.
 
 . **Load and push {longhorn-product-name} images to your private registry** + 
-{longhorn-product-name} provides another script, https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/load-images.sh[`load-images.sh` script], to push images to your private container registry. To load images from a `tar.gz` file (for example, `longhorn-images.tar.gz`) and push them to your registry, run the following commands. Replace `<YOUR-PRIVATE-REGISTRY>` with the actual address of your private registry.
+{longhorn-product-name} provides another script, https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/load-images.sh[`load-images.sh`] script, to push images to your private container registry. To load images from a `tar.gz` file (for example, `longhorn-images.tar.gz`) and push them to your registry, run the following commands. Replace `<YOUR-PRIVATE-REGISTRY>` with the actual address of your private registry.
 +
 [,bash]
 ----
