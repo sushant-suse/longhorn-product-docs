@@ -14,12 +14,12 @@
 
 . **Obtain the list of required images** +
 Run the link:{attachmentsdir}/download-longhorn-image-list.sh[script] to download the complete list of all images required for {longhorn-product-name}. The script will generate a `longhorn-images.txt` file containing the list of images.
-
++
 [NOTE]
 ====
 This script pulls the {longhorn-product-name} chart from the SUSE Application Collection OCI registry to extract the required image list. Helm must be configured with authentication credentials to access the registry. For setup instructions, refer to the https://docs.apps.rancher.io/get-started/authentication/#helm[Helm authentication documentation].
 ====
-
++
 . **Pull and Save {longhorn-product-name} Images** +
 {longhorn-product-name} provides the https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/save-images.sh[`save-images.sh`] script to quickly pull images listed in the `longhorn-images.txt` file.
 +
