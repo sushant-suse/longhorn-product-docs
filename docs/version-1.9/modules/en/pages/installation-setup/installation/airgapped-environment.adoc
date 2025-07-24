@@ -42,7 +42,7 @@ Then, copy the generated `longhorn-images.tar.gz` file to your air-gapped enviro
 . **Load and push {longhorn-product-name} images to your private registry** + 
 {longhorn-product-name} provides another script, https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/load-images.sh[`load-images.sh`] script, to push images to your private container registry. To load images from a `tar.gz` file (for example, `longhorn-images.tar.gz`) and push them to your registry, run the following commands. Replace `<YOUR-PRIVATE-REGISTRY>` with the actual address of your private registry.
 +
-[,bash]
+[subs="+attributes",bash]
 ----
 wget https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/load-images.sh
 chmod +x load-images.sh
@@ -56,7 +56,7 @@ If you do not specify a `tar.gz` file using the `--images` flag, the script will
 . ** Obtain {longhorn-product-name} Chart** +
 Obtain the {longhorn-product-name} Chart and decompress the downloaded tarball:
 +
-[,bash]
+[subs="+attributes",bash]
 ----
 helm pull longhorn oci://dp.apps.rancher.io/charts/suse-storage:{patch-version}
 tar -zxf suse-storage-{patch-version}.tgz

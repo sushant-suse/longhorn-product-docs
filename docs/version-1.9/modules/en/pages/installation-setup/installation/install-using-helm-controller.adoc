@@ -26,7 +26,7 @@ ____
 
 . Create a HelmChart YAML file similar to the following:
 +
-[,yaml]
+[subs="+attributes",yaml]
 ----
 apiVersion: helm.cattle.io/v1
   kind: HelmChart
@@ -39,7 +39,7 @@ apiVersion: helm.cattle.io/v1
     name: longhorn-install
     namespace: default
   spec:
-    version: v{{< current-version >}}
+    version: v{patch-version}
     chart: longhorn
     repo: https://charts.longhorn.io
     failurePolicy: abort
@@ -52,11 +52,13 @@ apiVersion: helm.cattle.io/v1
 * Ensure that `spec.failurePolicy` is set to "abort".  The only other value is the default: "reinstall", which uninstalls {longhorn-product-name}.  With "abort", it retries periodically, giving the user a chance to fix the problem.
 +
 * Rather than specify the repo, version, and chart name, the yaml can also use an image of the charts themselves:
++
 [,yaml]
 ----
 spec:
   chartContent:  <tarball of chart directory | base64 -w 0>
 ----
++
 For full details see the HelmChart controller docs: https://documentation.suse.com/cloudnative/rke2/latest/en/helm.html[{rke2-product-name} - Helm] or https://documentation.suse.com/cloudnative/k3s/latest/en/helm.html[{k3s-product-name} - Helm].
 ====
 +
@@ -74,7 +76,7 @@ Deleting the HelmChart CR initiates uninstallation of {longhorn-product-name}.
 ====
 . Check the created resources.
 +
-[,shell]
+[subs="+attributes",shell]
 ----
 $ kubectl get jobs
 NAME                            COMPLETIONS   DURATION   AGE
@@ -84,7 +86,7 @@ NAME                                  READY   STATUS      RESTARTS   AGE
 helm-install-longhorn-install-lngm8   0/1     Completed   0          25s
 $ kubectl get helmcharts
 NAME               JOB                     CHART      TARGETNAMESPACE   VERSION   REPO                         HELMVERSION   BOOTSTRAP
-longhorn-install   helm-install-longhorn   longhorn   longhorn-system   v{{< current-version >}}    https://charts.longhorn.io
+longhorn-install   helm-install-longhorn   longhorn   longhorn-system   v{patch-version}    https://charts.longhorn.io
 ----
 +
 . Verify that the deployment succeeded.

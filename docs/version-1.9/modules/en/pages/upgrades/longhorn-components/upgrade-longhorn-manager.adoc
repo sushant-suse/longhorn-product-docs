@@ -63,7 +63,7 @@ Upgrading the {longhorn-product-name} Helm chart involves updating your deployme
 
 The general Helm command for upgrading is:
 
-[,shell]
+[subs="+attributes",shell]
 ----
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
   --namespace longhorn-system \
@@ -79,7 +79,7 @@ To create a secret, follow the https://docs.apps.rancher.io/get-started/authenti
 
 Or, if upgrading without a specific `values.yaml` file and only changing the version:
 
-[,shell]
+[subs="+attributes",shell]
 ----
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
   --namespace longhorn-system \
@@ -94,7 +94,7 @@ helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 
 Update the value of `helm.version` in the `fleet` YAML file of your GitOps repository.
 
-[,yaml]
+[subs="+attributes",yaml]
 ----
 helm:
   repo: https://charts.longhorn.io
@@ -107,7 +107,7 @@ helm:
 
 Update the value of `spec.chart.spec.version` in the `HelmRelease` YAML file of your GitOps repository.
 
-[,yaml]
+[subs="+attributes",yaml]
 ----
 spec:
   chart:
@@ -124,7 +124,7 @@ spec:
 
 Update the value of `targetRevision` in the `Application` YAML file of your GitOps repository.
 
-[,yaml]
+[subs="+attributes",yaml]
 ----
 spec:
   project: default
