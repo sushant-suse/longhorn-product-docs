@@ -1,11 +1,11 @@
 = Upgrade Kubernetes on Azure Kubernetes Service (AKS)
 :current-version: {page-component-version}
 
-AKS provides `az aks upgrade` for in-places nodes upgrade by node reimaged, but this will cause the original Longhorn disks missing, then there will be no disks allowing replica rebuilding in upgraded nodes anymore.
+AKS provides `az aks upgrade` for in-places nodes upgrade by node reimaged, but this will cause the original {longhorn-product-name} disks missing, then there will be no disks allowing replica rebuilding in upgraded nodes anymore.
 
 We suggest using node-pool replacement to upgrade the agent nodes but use `az aks upgrade` for control plane nodes to ensure data safety.
 
-. In Longhorn, set `replica-replenishment-wait-interval` to `0`.
+. In {longhorn-product-name}, set `replica-replenishment-wait-interval` to `0`.
 . Upgrade AKS control plane.
 +
 ----
@@ -37,7 +37,7 @@ We suggest using node-pool replacement to upgrade the agent nodes but use `az ak
    --mode System
 ----
 
-. Using Longhorn UI to disable the disk scheduling and request eviction for nodes in the old node-pool.
+. Using {longhorn-product-name} UI to disable the disk scheduling and request eviction for nodes in the old node-pool.
 . Cordon and drain Kubernetes nodes in the old node-pool.
 +
 ----

@@ -2,7 +2,7 @@
 :current-version: {page-component-version}
 
 Rancher can provision a Windows cluster with combination of Linux worker nodes and Windows worker nodes.
-For more information on the Rancher Windows cluster, see the official https://rancher.com/docs/rancher/v2.x/en/cluster-provisioning/rke-clusters/windows-clusters/[Rancher documentation].
+For more information on the Rancher Windows cluster, see the official https://documentation.suse.com/cloudnative/rancher-manager/latest/en/cluster-deployment/custom-clusters/windows/use-windows-clusters.html[Rancher documentation].
 
 In a Rancher Windows cluster, all Linux worker nodes are:
 
@@ -42,3 +42,10 @@ You can set up the existing {longhorn-product-name} when its not deployed with t
 * Since {longhorn-product-name} components can only run on Linux nodes, you need to set the node selector `kubernetes.io/os:linux` for {longhorn-product-name} to select the Linux nodes. For more information, see xref:nodes/node-selector.adoc[Node Selector].
 +
 * Since all Linux worker nodes in a Rancher Windows cluster have the taint `cattle.io/os=linux:NoSchedule`, you must set the toleration `cattle.io/os=linux:NoSchedule` to allow {longhorn-product-name} to run on those nodes. For more information, see xref:nodes/taints-tolerations.adoc[Taint Toleration].
+
+
+
+[NOTE]
+====
+SUSE Storage can be effectively deployed on clusters comprising both Windows and Linux nodes, offering a versatile solution for diverse infrastructure needs. To facilitate installation from Rancher, users should first add the AppCo OCI registry as a Rancher App Repository. Detailed instructions for this process can be found at https://docs.apps.rancher.io/howto-guides/integrate-with-rancher-manager/[Rancher Documentation: Integrate with Rancher Manager]
+====
