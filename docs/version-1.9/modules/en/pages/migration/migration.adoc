@@ -14,7 +14,7 @@ It is recommended to create a xref:snapshots-backups/system-backups/create-syste
 
 === Authentication
 
-* To authenticate Helm with the SUSE Application Collection OCI chart repository, refer to the https://docs.apps.rancher.io/get-started/authentication/#helm[Helm authentication documentation].
+* To authenticate Helm with SUSE Application Collection OCI chart repository, refer to the https://docs.apps.rancher.io/get-started/authentication/#helm[Helm authentication documentation].
 * To allow Kubernetes to pull images from the registry, follow the https://docs.apps.rancher.io/get-started/authentication/#kubernetes[Kubernetes authentication documentation] to create a secret and set the `global.imagePullSecrets` chart value.
 
 == Migrating Longhorn Deployed via Helm To {longhorn-product-name}
@@ -30,7 +30,7 @@ Proceed with the upgrade to {longhorn-product-name} using the {longhorn-product-
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	--namespace longhorn-system \
 	--version <new-version> \
-	--set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
+	--set global.imagePullSecrets=<PULL_IMAGE_SECRET>
 ----
 
 Optionally, if you have a `values.yaml` file with customized settings, include it with the `-f` flag:
@@ -81,7 +81,7 @@ In this example, the release version is `106.2.1+up1.8.2`.
 +
 [,shell]
 ----
-`+git clone https://github.com/rancher/charts.git+`
+git clone https://github.com/rancher/charts.git
 ----
 +
 Navigate into the directory corresponding to your `longhorn-crd` chart version within the cloned repository.
@@ -90,13 +90,26 @@ Or, you can execute this link:{attachmentsdir}/download-longhorn-crd-chart.sh[sc
 +
 After running the command `bash ./download_longhorn-crd-chart.sh 106.2.1+up1.8.2`, the `longhorn-crd` chart will be downloaded to the local directory `106.2.1+up1.8.2`. Then, open `106.2.1+up1.8.2/Chart.yaml` to verify that the chart version matches `106.2.1+up1.8.2`.
 
-. Patch the `helm.sh/resource-policy: keep` annotation to each Custom Resource Definitions (CRDs) in `templates/crds.yaml` within the `longhorn-crd` chart that you cloned. This ensures that Helm does not delete the CRDs when the release is uninstalled.
+. Manually patch the `helm.sh/resource-policy: keep` annotation to *each Custom Resource Definitions (CRDs)* in `templates/crds.yaml` within the `longhorn-crd` chart that you cloned. This ensures that Helm does not delete the CRDs when the release is uninstalled.
+Alternatively, you can use the link:{attachmentsdir}/patch-resource-policy-annotation.sh[provided script] to automatically patch the annotation:
++
+[,shell]
+----
+bash ./patch-resource-policy-annotation.sh 106.2.1+up1.8.2/templates/crds.yaml
+----
++
+To verify that the CRDs have been correctly patched, run:
++
+[,shell]
+----
+# vimdiff 106.2.1+up1.8.2/templates/crds.yaml.original 106.2.1+up1.8.2/templates/crds.yaml
+----
 
 . Upgrade the `longhorn-crd` Helm release using the locally patched chart:
 +
 [,shell]
 ----
-helm upgrade longhorn-crd -n longhorn-system ./chart
+helm upgrade longhorn-crd -n longhorn-system ./106.2.1+up1.8.2
 ----
 
 . Uninstall the `longhorn-crd` Helm release from your system. Due to the applied patch, the CRDs will remain.
@@ -149,7 +162,7 @@ After the CRDs have been prepared, you can proceed with upgrading your Longhorn 
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	--namespace longhorn-system \
 	--version <new-version> \
-	--set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
+	--set global.imagePullSecrets=<PULL_IMAGE_SECRET>
 ----
 
 Optionally, if you have a `values.yaml` file with customized settings, include it with the `-f` flag:
