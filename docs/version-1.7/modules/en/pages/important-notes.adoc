@@ -1,7 +1,7 @@
 = Important Notes for v1.7.0
 :current-version: {page-component-version}
 
-Please see https://github.com/longhorn/longhorn/releases/tag/v{current-version}[here] for the full release note.
+Please see https://github.com/longhorn/longhorn/releases/tag/v{patch-version}[here] for the full release note.
 
 == Warning
 
@@ -56,7 +56,7 @@ The functionality of the https://github.com/longhorn/longhorn/blob/master/script
 
 === Supported Kubernetes Versions
 
-Please ensure your Kubernetes cluster is at least v1.21 before upgrading to {longhorn-product-name} v{current-version} because this is the minimum version {longhorn-product-name} v{current-version} supports.
+Please ensure your Kubernetes cluster is at least v1.21 before upgrading to {longhorn-product-name} v{patch-version} (you can replace v{patch-version} with your desired {longhorn-product-name} version) because this is the minimum version {longhorn-product-name} v{patch-version} supports.
 
 === Pod Security Policies Disabled & Pod Security Admission Introduction
 
@@ -95,7 +95,7 @@ The Longhorn CLI (binary name: `longhornctl`), which is the official Longhorn co
 Recent versions of `xfsprogs` (including the version {longhorn-product-name} currently uses) _do not allow_ the creation of XFS
 filesystems https://git.kernel.org/pub/scm/fs/xfs/xfsprogs-dev.git/commit/?id=6e0ed3d19c54603f0f7d628ea04b550151d8a262[smaller than 300
 MiB].
-{longhorn-product-name} v{current-version} does not allow the following:
+{longhorn-product-name} v{patch-version} does not allow the following:
 
 * CSI flow: Volume provisioning if `resources.requests.storage < 300 Mi` and the corresponding StorageClass has `fsType:
 xfs`
@@ -229,7 +229,7 @@ For more information, see https://github.com/longhorn/longhorn/issues/8184[Issue
 
 === Backup Data On The Remote Backup Server Might Be Deleted
 
-{longhorn-product-name} may unintentionally delete backup-related custom resources (such as `BackupVolume`, `BackupBackingImage`, `SystemBackup`, and `Backup`) and backup data on the remote backup server before {longhorn-product-name} v{current-version} in the following scenarios:
+{longhorn-product-name} may unintentionally delete backup-related custom resources (such as `BackupVolume`, `BackupBackingImage`, `SystemBackup`, and `Backup`) and backup data on the remote backup server before {longhorn-product-name} v{patch-version} in the following scenarios:
 
 * An empty response from the NFS server due to server downtime.
 * A race condition could delete the remote backup volume and its corresponding backups when the backup target is reset within a short period.

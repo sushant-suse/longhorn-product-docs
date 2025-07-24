@@ -13,6 +13,20 @@ The following setup is recommended for production environments.
  ** 500/250 max IOPS per volume (1 MiB I/O)
  ** 500/250 max throughput per volume (MiB/s)
 
+[WARNING]
+====
+While {longhorn-product-name} can function with HDDs (spinning disks) as storage, it is important to understand that **latency** plays a much more important role in volume stability than IOPS or throughput. This is because HDDs are mechanical, relying on spinning platters and moving read or write heads to access data. This physical movement introduces inherent delays (seek time and rotational delay), leading to much higher latency compared to the SSDs or NVMe drives, which utilize flash memory and have no moving parts. This can directly cause instability, especially when multiple input-output intensive tasks are running, such as:
+
+* Foreground IOs to the replicas
+* Foreground IOs from the replicas
+* Rebuilding volumes
+* Backups or other workloads
+
+The increased latency due to the use of HDDs, combined with other input-output workloads, can lead to **volume instability**. Therefore, we recommend **SSD or NVMe** drives for better performance and stability, especially for production workloads.
+
+The mentioned IOPS and throughput (500/250 max IOPS per volume and 500/250 max throughput per volume) are intended as general references based on the test setup but **should not be treated as hard requirements**. Latency, not just throughput, is the most important factor in ensuring system stability.
+====
+
 == Architecture
 
 {longhorn-product-name} supports the following architectures:
@@ -24,7 +38,7 @@ The following setup is recommended for production environments.
 
 NOTE: CentOS Linux has been removed from the verified OS list below, as it has been discontinued in favor of CentOS Stream [https://www.redhat.com/en/blog/faq-centos-stream-updates#Q5[ref]], a rolling-release Linux distribution. Our focus for verifying RHEL-based downstream open source distributions will be enterprise-grade, such as Rocky and Oracle Linux.
 
-The following Linux OS distributions and versions have been verified during the v{current-version} release testing. However, this does not imply that {longhorn-product-name} exclusively supports these distributions. Essentially, {longhorn-product-name} should function well on any certified Kubernetes cluster running on Linux nodes with a wide range of general-purpose operating systems, as well as verified container-optimized operating systems like SLE Micro.
+The following Linux OS distributions and versions have been verified during the v{patch-version} release testing (you can replace v{patch-version} with your desired {longhorn-product-name} version). However, this does not imply that {longhorn-product-name} exclusively supports these distributions. Essentially, {longhorn-product-name} should function well on any certified Kubernetes cluster running on Linux nodes with a wide range of general-purpose operating systems, as well as verified container-optimized operating systems like SLE Micro.
 
 |===
 | No. | OS | Versions
@@ -103,7 +117,7 @@ The list below contains known broken kernel versions that users should avoid usi
 
 Ensure that your cluster is running Kubernetes v1.21 or later before upgrading {longhorn-product-name}.
 
-We recommend running your Kubernetes cluster on one of the following versions. These versions are the active supported versions prior to the {longhorn-product-name} release, and have been tested with {longhorn-product-name} v{current-version}.
+We recommend running your Kubernetes cluster on one of the following versions. These versions are the active supported versions prior to the {longhorn-product-name} release, and have been tested with {longhorn-product-name} v{patch-version}.
 
 |===
 | Release | Released | End-of-life

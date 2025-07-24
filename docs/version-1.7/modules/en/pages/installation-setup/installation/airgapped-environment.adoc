@@ -13,27 +13,27 @@
 .Images required and getting them
 ====
 
-* A full list of all needed images is in https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/deploy/longhorn-images.txt[longhorn-images.txt]. First, download the images list by running:
+* A full list of all needed images is in https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn-images.txt[longhorn-images.txt]. First, download the images list by running:
 +
 [subs="+attributes",shell]
 ----
-wget https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/deploy/longhorn-images.txt
+wget https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn-images.txt
 ----
 
-* We provide a script, https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/scripts/save-images.sh[save-images.sh], to quickly pull the above `longhorn-images.txt` list. If you specify a `tar.gz` file name for flag `--images`, the script will save all images to the provided filename. In the example below, the script pulls and saves Longhorn images to the file `longhorn-images.tar.gz`. You then can copy the file to your air-gap environment. On the other hand, if you don't specify the file name, the script just pulls the list of images to your computer.
+* We provide a script, https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/save-images.sh[save-images.sh], to quickly pull the above `longhorn-images.txt` list. If you specify a `tar.gz` file name for flag `--images`, the script will save all images to the provided filename. In the example below, the script pulls and saves Longhorn images to the file `longhorn-images.tar.gz`. You then can copy the file to your air-gap environment. On the other hand, if you don't specify the file name, the script just pulls the list of images to your computer.
 +
 [subs="+attributes",shell]
 ----
-wget https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/scripts/save-images.sh
+wget https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/save-images.sh
 chmod +x save-images.sh
 ./save-images.sh --image-list longhorn-images.txt --images longhorn-images.tar.gz
 ----
 
-* We provide another script, https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/scripts/load-images.sh[load-images.sh], to push Longhorn images to your private registry. If you specify a `tar.gz` file name for flag `--images`, the script loads images from the `tar` file and pushes them. Otherwise, it will find images in your local Docker and push them. In the example below, the script loads images from the file `longhorn-images.tar.gz` and pushes them to `<YOUR-PRIVATE-REGISTRY>`
+* We provide another script, https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/load-images.sh[load-images.sh], to push Longhorn images to your private registry. If you specify a `tar.gz` file name for flag `--images`, the script loads images from the `tar` file and pushes them. Otherwise, it will find images in your local Docker and push them. In the example below, the script loads images from the file `longhorn-images.tar.gz` and pushes them to `<YOUR-PRIVATE-REGISTRY>`
 +
 [subs="+attributes",shell]
 ----
-wget https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/scripts/load-images.sh
+wget https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/load-images.sh
 chmod +x load-images.sh
 ./load-images.sh --image-list longhorn-images.txt --images longhorn-images.tar.gz --registry <YOUR-PRIVATE-REGISTRY>
 ----
@@ -51,7 +51,7 @@ chmod +x load-images.sh
 
 . Get deployment manifest file
 +
-`+wget https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/deploy/longhorn.yaml+`
+`+wget https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml+`
 
 . Create Longhorn namespace
 +
@@ -271,15 +271,19 @@ NOTE: Do not include the private registry prefix, it will be added automatically
  ** Specify `Private registry URL`. If the registry requires authentication, specify `Private registry user`, `Private registry password`, and `Private registry secret`.
  {longhorn-product-name} will automatically generate a secret with the those information and use it to pull images from your private registry.
 +
-[subs="+attributes",yaml]
+[,yaml]
 ----
-  defaultSettings:
-    registrySecret: <SECRET_NAME>
-
-  privateRegistry:
-      registryUrl: <REGISTRY_URL>
-      registryUser: <REGISTRY_USER>
-      registryPasswd: <REGISTRY_PASSWORD>
+privateRegistry:
+  # -- Setting that allows you to create a private registry secret.
+  createSecret: true
+  # -- URL of a private registry. When unspecified, Longhorn uses the default system registry.
+  registryUrl: <REGISTRY_URL>
+  # -- User account used for authenticating with a private registry.
+  registryUser: <REGISTRY_USER>
+  # -- Password for authenticating with a private registry.
+  registryPasswd: <REGISTRY_PASSWORD>
+  # -- Kubernetes secret that allows you to pull images from a private registry. This setting applies only when creation of private registry secrets is enabled. You must include the private registry name in the secret name.
+  registrySecret: <REGISTRY_SECRET_NAME>
 ----
 
 . Install {longhorn-product-name}
@@ -361,4 +365,4 @@ image::screenshots/airgap-deploy/app-custom-images-reg.png[images]
 
 It's highly recommended not to manipulate image tags, especially instance manager image tags such as v1_20200301, because we intentionally use the date to avoid associating it with a {longhorn-product-name} version.
 
-The component images are hosted in Dockerhub under the `longhornio` account. For example, `longhornio/longhorn-manager:v{current-version}`. It's recommended to keep the account name, `longhornio`, the same when you push the images to your private registry. This helps avoid unnecessary configuration issues.
+The component images are hosted in Dockerhub under the `longhornio` account. For example, `longhornio/longhorn-manager:v{patch-version}` (you can replace v{patch-version} with your desired {longhorn-product-name} version). It's recommended to keep the account name, `longhornio`, the same when you push the images to your private registry. This helps avoid unnecessary configuration issues.

@@ -305,7 +305,7 @@ Longhorn provides sample backupstore server setups for testing purposes.  You ca
 +
 [subs="+attributes", console]
 ----
- kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}/deploy/backupstores/minio-backupstore.yaml
+ kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/backupstores/minio-backupstore.yaml
 ----
 
 . Go to the Longhorn UI. click **Setting/Backup Target**, and create or edit a backup target.
@@ -359,7 +359,7 @@ To include multiple certificates, one can just concatenate the different certifi
 
 . you want to switch to this new access style right now so that you won't need to worry about https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/[Amazon S3 Path Deprecation Plan];
 . the backupstore you are using supports virtual-hosted-style access only, e.g., Alibaba Cloud(Aliyun) OSS;
-. you have configured `MINIO_DOMAIN` environment variable to https://docs.min.io/docs/minio-server-configuration-guide.html[enable virtual-host-style requests for the MinIO server];
+. you have configured `MINIO_DOMAIN` environment variable to https://min.io/docs/minio/linux/administration/object-management.html#path-vs-virtual-host-bucket-access[enable virtual-host-style requests for the MinIO server];
 . the error `+...... error: AWS Error: SecondLevelDomainForbidden Please use virtual hosted style to access. .....+` is triggered.
 
 *The way to enable virtual-hosted-style access*
@@ -407,7 +407,7 @@ nfs://longhorn-test-nfs-svc.default:/opt/backupstore?nfsOptions=soft,timeo=330,r
 
 Any mount options that you specify will replace, not add to, the default options.
 
-You can find an example NFS backupstore for testing purpose https://github.com/longhorn/longhorn/blob/v{current-version}/deploy/backupstores/nfs-backupstore.yaml[here].
+You can find an example NFS backupstore for testing purpose https://github.com/longhorn/longhorn/blob/v{patch-version}/deploy/backupstores/nfs-backupstore.yaml[here].
 
 *Result:* Longhorn can store backups in NFS. To create a backup, see xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[this section.]
 
@@ -470,7 +470,7 @@ Set **Credential Secret** to:
 +
 This is the secret name with CIFS credentials.
 
-You can find an example CIFS backupstore for testing purpose https://github.com/longhorn/longhorn/blob/v{current-version}/deploy/backupstores/cifs-backupstore.yaml[here].
+You can find an example CIFS backupstore for testing purpose https://github.com/longhorn/longhorn/blob/v{patch-version}/deploy/backupstores/cifs-backupstore.yaml[here].
 
 *Result:* Longhorn can store backups in CIFS. To create a backup, see xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[this section.]
 
