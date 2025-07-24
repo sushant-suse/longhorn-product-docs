@@ -29,7 +29,7 @@ Proceed with the upgrade to {longhorn-product-name} using the {longhorn-product-
 ----
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	--namespace longhorn-system \
-	--version <new-version> \
+	--version <version> \ # Replace with the version you would like to upgrade to
 	--set global.imagePullSecrets=<PULL_IMAGE_SECRET>
 ----
 
@@ -39,7 +39,7 @@ Optionally, if you have a `values.yaml` file with customized settings, include i
 ----
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	--namespace longhorn-system \
-	--version <new-version> \
+	--version <version> \ # Replace with the version you would like to upgrade to
 	--set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
 	-f values.yaml
 ----
@@ -161,7 +161,7 @@ After the CRDs have been prepared, you can proceed with upgrading your Longhorn 
 ----
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	--namespace longhorn-system \
-	--version <new-version> \
+	--version <version> \ # Replace with the version you would like to upgrade to
 	--set global.imagePullSecrets=<PULL_IMAGE_SECRET>
 ----
 
@@ -171,7 +171,7 @@ Optionally, if you have a `values.yaml` file with customized settings, include i
 ----
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	--namespace longhorn-system \
-	--version <new-version> \
+	--version <version> \ # Replace with the version you would like to upgrade to
 	--set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
 	-f values.yaml
 ----

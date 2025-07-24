@@ -67,7 +67,7 @@ The general Helm command for upgrading is:
 ----
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
   --namespace longhorn-system \
-  --version <new-version> \
+  --version <version> \ # Replace with the version you would like to upgrade to
   --set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
   -f values.yaml
 ----
@@ -83,7 +83,7 @@ Or, if upgrading without a specific `values.yaml` file and only changing the ver
 ----
 helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
   --namespace longhorn-system \
-  --version <new-version> \
+  --version <version> \ # Replace with the version you would like to upgrade to
   --set global.imagePullSecrets=<PULL_IMAGE_SECRET>
 ----
 
