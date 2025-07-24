@@ -29,9 +29,10 @@ if [ $# -lt 1 ]; then
 fi
 
 INPUT_FILE="$1"
+INPUT_FILENAME="$(basename "$INPUT_FILE")"
 BACKUP_SUFFIX="${2:-original}"
-BACKUP_FILE="${INPUT_FILE}.${BACKUP_SUFFIX}"
-TEMP_FILE="${INPUT_FILE}.tmp"
+BACKUP_FILE="/tmp/${INPUT_FILENAME}.${BACKUP_SUFFIX}"
+TEMP_FILE="/tmp/${INPUT_FILENAME}.tmp"
 
 # Check if input file exists
 if [ ! -f "$INPUT_FILE" ]; then
