@@ -91,7 +91,7 @@ Or, you can execute this link:{attachmentsdir}/download-longhorn-crd-chart.sh[sc
 After running the command `bash ./download-longhorn-crd-chart.sh 106.2.1+up1.8.2`, the `longhorn-crd` chart will be downloaded to the local directory `106.2.1+up1.8.2`. Then, open `106.2.1+up1.8.2/Chart.yaml` to verify that the chart version matches `106.2.1+up1.8.2`.
 
 . Manually patch the `helm.sh/resource-policy: keep` annotation to *each Custom Resource Definitions (CRDs)* in `templates/crds.yaml` within the `longhorn-crd` chart that you cloned. This ensures that Helm does not delete the CRDs when the release is uninstalled.
-Alternatively, you can use the link:{attachmentsdir}/patch-resource-policy-annotation.sh[provided script] to automatically patch the annotation:
+Alternatively, you can use the link:{attachmentsdir}/patch-resource-policy-annotation.sh[script] to automatically patch the annotation:
 +
 [,shell]
 ----
