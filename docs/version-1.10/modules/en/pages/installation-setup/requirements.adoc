@@ -16,7 +16,7 @@ Each node in the Kubernetes cluster where {longhorn-product-name} is installed m
 
 The {longhorn-product-name} workloads must be able to run as root in order for {longhorn-product-name} to be deployed and operated properly.
 
-The xref:../longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the Longhorn environment for potential issues.
+The xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the Longhorn environment for potential issues.
 
 For the minimum recommended hardware, refer to the xref:installation-setup/best-practices.adoc#_minimum_recommended_hardware[best practices guide].
 
@@ -314,12 +314,12 @@ The `longhornctl` tool is a command-line interface (CLI) for Longhorn operations
 
 To check prerequisites and configurations, download the `longhornctl` tool and then run the `check` sub-command:
 
-[,bash]
+[subs="+attributes",bash]
 ----
 # For AMD64 platform
-curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v<current-version>/longhornctl-linux-amd64
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-amd64
 # For ARM platform
-curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v<current-version>/longhornctl-linux-arm64
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-arm64
 
 chmod +x longhornctl
 ./longhornctl check preflight
@@ -364,9 +364,9 @@ Here are examples of how to use the `install` sub-command:
 
 . To run with explicit `kube-config` and `image` parameters:
 +
-[,bash]
+[subs="+attributes",bash]
 ----
-longhornctl --kube-config ~/.kube/config --image longhornio/longhorn-cli:v<current-version> install preflight
+longhornctl --kube-config ~/.kube/config --image longhornio/longhorn-cli:v{patch-version} install preflight
 ----
 
 Example of result after running the install command:
