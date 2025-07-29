@@ -21,7 +21,7 @@ ____
 
 . Create a HelmChart YAML file similar to the following:
 +
-[,yaml]
+[subs="+attributes",yaml]
 ----
 apiVersion: helm.cattle.io/v1
   kind: HelmChart
@@ -34,7 +34,7 @@ apiVersion: helm.cattle.io/v1
     name: longhorn-install
     namespace: default
   spec:
-    version: v{{< current-version >}}
+    version: v{patch-version}
     chart: longhorn
     repo: https://charts.longhorn.io
     failurePolicy: abort
@@ -71,7 +71,7 @@ Deleting the HelmChart CR initiates uninstallation of {longhorn-product-name}.
 ====
 . Check the created resources.
 +
-[,shell]
+[subs="+attributes",shell]
 ----
 $ kubectl get jobs
 NAME                            COMPLETIONS   DURATION   AGE
@@ -81,7 +81,7 @@ NAME                                  READY   STATUS      RESTARTS   AGE
 helm-install-longhorn-install-lngm8   0/1     Completed   0          25s
 $ kubectl get helmcharts
 NAME               JOB                     CHART      TARGETNAMESPACE   VERSION   REPO                         HELMVERSION   BOOTSTRAP
-longhorn-install   helm-install-longhorn   longhorn   longhorn-system   v{{< current-version >}}    https://charts.longhorn.io
+longhorn-install   helm-install-longhorn   longhorn   longhorn-system   v{patch-version}   https://charts.longhorn.io
 ----
 +
 . Verify that the deployment succeeded.

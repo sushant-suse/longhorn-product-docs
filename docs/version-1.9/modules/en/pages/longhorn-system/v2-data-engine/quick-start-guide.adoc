@@ -187,9 +187,9 @@ worker1:
 
 Make sure everything is correctly configured and installed by
 
-[subs="+attributes", console]
+[subs="+attributes",console]
 ----
-longhornctl --kube-config ~/.kube/config --image longhornio/longhorn-cli:v{{< current-version >}} install preflight --enable-spdk
+longhornctl --kube-config ~/.kube/config --image longhornio/longhorn-cli:v{patch-version} install preflight --enable-spdk
 ----
 
 Refer to xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] for more information.
@@ -210,6 +210,7 @@ Or, you can enable it in `Setting > General > V2 Data Engine`.
 
 When the V2 Data Engine is enabled, each Instance Manager pod for the V2 Data Engine uses 1 CPU core. The high CPU usage is caused by `spdk_tgt`, a process running in each Instance Manager pod that handles input/output (IO) operations and requires intensive polling. `spdk_tgt` consumes 100% of a dedicated CPU core to efficiently manage and process the IO requests, ensuring optimal performance and responsiveness for storage operations.
 
+[subs="+attributes",console]
 ----
 NAME                                                CPU(cores)   MEMORY(bytes)
 csi-attacher-57c5fd5bdf-jsfs4                       1m           7Mi
@@ -236,6 +237,7 @@ longhorn-ui-58db78b68-ffbxr                         0m           2Mi
 
 You can observe the utilization of allocated huge pages on each node by running the command `kubectl get node <node name> -o yaml`.
 
+[subs="+attributes",console]
 ----
 # kubectl get node sles-pool1-07437316-4jw8f -o yaml
 ...

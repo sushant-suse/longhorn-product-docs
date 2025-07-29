@@ -57,6 +57,7 @@ On Kubernetes clusters managed by Rancher 2.1 or newer, the steps to upgrade the
 
 Run the following command:
 
+[subs="+attributes",shell]
 ----
 kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml
 ----
@@ -65,6 +66,7 @@ kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-ver
 
 Run the following command:
 
+[subs="+attributes",shell]
 ----
 helm upgrade longhorn longhorn/longhorn --namespace longhorn-system --version {patch-version}
 ----
@@ -73,7 +75,7 @@ helm upgrade longhorn longhorn/longhorn --namespace longhorn-system --version {p
 
 Update the value of `spec.version` in the `HelmChart` YAML file.
 
-[,yaml]
+[subs="+attributes",yaml]
 ----
 spec:
   version: v{patch-version} # Replace with the version you would like to upgrade to
@@ -85,6 +87,7 @@ spec:
 Alternatively, if you are using the `spec.chartContent` key, create and apply a patch file.
 
 * Create the file:
++
 [,yaml]
 ----
 spec:
@@ -92,6 +95,8 @@ spec:
 ----
 
 * Apply the file.
++
+[subs="+attributes",shell]
 ----
 kubectl  patch helmchart longhorn -n <namespace> --type merge --patch-file <name of patch file>
 ----
@@ -105,7 +110,7 @@ In both cases, ensure that `spec.failurePolicy` is set to `abort` so that {longh
 
 Update the value of `helm.version` in the `fleet` YAML file of your GitOps repository.
 
-[,yaml]
+[subs="+attributes",yaml]
 ----
 helm:
   repo: https://charts.longhorn.io
@@ -118,7 +123,7 @@ helm:
 
 Update the value of `spec.chart.spec.version` in the `HelmRelease` YAML file of your GitOps repository.
 
-[,yaml]
+[subs="+attributes",yaml]
 ----
 spec:
   chart:
@@ -135,7 +140,7 @@ spec:
 
 Update the value of `targetRevision` in the `Application` YAML file of your GitOps repository.
 
-[,yaml]
+[subs="+attributes",yaml]
 ----
 spec:
   project: default
@@ -145,9 +150,9 @@ spec:
       targetRevision: v{patch-version} # Replace with the version you would like to upgrade to
 ----
 
-Then wait for all the pods to become running and {longhorn-product-name} UI working.
+Then wait for all the pods to become running and {longhorn-product-name} UI working. For example:
 
-Example:
+[subs="+attributes",shell]
 ----
  $ kubectl -n longhorn-system get pod
  NAME                                                  READY   STATUS    RESTARTS      AGE
@@ -237,6 +242,7 @@ To recover, you need to upgrade to the previously installed revision at `Rancher
 
 * To clean up the deprecated StorageClass, run this command:
 +
+[subs="+attributes",console]
 ----
-  kubectl delete -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/storageclass.yaml
+kubectl delete -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/storageclass.yaml
 ----
