@@ -41,12 +41,13 @@ helm install longhorn longhorn/longhorn \
 
 === Install With `oc` Command
 
-Perform the following steps to install Longhorn on [OKD](https://www.okd.io/) clusters.
+Perform the following steps to install Longhorn on https://www.okd.io/[OKD] clusters.
 
 . Download the `longhorn-okd.yaml` file.
 +
+[subs="+attributes",bash]
 ----
-wget https://raw.githubusercontent.com/longhorn/longhorn/v{{< current-version >}}/deploy/longhorn-okd.yaml
+wget https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn-okd.yaml
 ----
 +
 . Specify the target `oauth-proxy` container image in the `longhorn-okd.yaml` file (for example, `quay.io/openshift/origin-oauth-proxy:4.15`).
@@ -80,7 +81,7 @@ To understand more about configuring the disks for {longhorn-product-name}, plea
 --set defaultSettings.createDefaultDiskLabeledNodes=true
 ----
 
-And then add another device formatted for {longhorn-product-name}
+And then add another device formatted for {longhorn-product-name}.
 
 === Add An Extra Disk for {longhorn-product-name}
 
@@ -106,7 +107,7 @@ sudo mkfs.ext4 -L longhorn /dev/${DEVICE_NAME}
 
 The secondary drive needs to be mounted automatically when node boots up by the `MachineConfig` that can be created and deployed by:
 
-[subs="+attributes",bash]
+[subs="+attributes",yaml]
 ----
 cat <<EOF >>auto-mount-machineconfig.yaml
 apiVersion: machineconfiguration.openshift.io/v1
@@ -150,7 +151,10 @@ oc annotate node ${NODE_NAME} --overwrite node.longhorn.io/default-disks-config=
 oc label node ${NODE_NAME} --overwrite node.longhorn.io/create-default-disk=config
 ----
 
-NOTE: You might need to reboot the node to validate the modified configuration.
+[NOTE]
+====
+You might need to reboot the node to validate the modified configuration.
+====
 
 == Reference
 

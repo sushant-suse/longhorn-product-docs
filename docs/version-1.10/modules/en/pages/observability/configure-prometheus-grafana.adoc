@@ -148,6 +148,7 @@ Save the above Alertmanager config in a file called `alertmanager.yaml` and crea
 +
 Alertmanager instances require the secret resource naming to follow the format `alertmanager-<ALERTMANAGER_NAME>`. In the previous step, the name of the Alertmanager is `longhorn`, so the secret name must be `alertmanager-longhorn`
 +
+[subs="+attributes",console]
 ----
  $ kubectl create secret generic alertmanager-longhorn --from-file=alertmanager.yaml -n default
 ----
@@ -433,6 +434,7 @@ ____
 
 . Access the Grafana dashboard using any node IP on port `32000`.
 +
+[subs="+attributes",bash]
 ----
  # Default Credential
  User: admin

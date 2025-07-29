@@ -10,7 +10,7 @@ This value, which you specified during volume creation, represents the amount of
 The following are other ways of understanding this concept:
 
 * The volume itself is just a Kubernetes CRD object and volume data is stored in replicas. This value represents the nominal size of each replica. 
-* Longhorn replicas use [sparse files](https://wiki.archlinux.org/index.php/Sparse_file) to store data. This value represents the maximum size to which a sparse file may expand.
+* Longhorn replicas use https://wiki.archlinux.org/index.php/Sparse_file[sparse files] to store data. This value represents the maximum size to which a sparse file may expand.
 
 Replicas are scheduled on nodes with enough allocatable space to cover this nominal size during volume creation. For more information, see xref:nodes/node-space-usage.adoc[Node Space Usage].
 

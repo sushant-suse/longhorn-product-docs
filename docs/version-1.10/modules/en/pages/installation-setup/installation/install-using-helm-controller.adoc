@@ -15,7 +15,7 @@ ____
 
 [NOTE]
 ====
-* The initial settings can be [customized using Helm options or by editing the deployment configuration file.](../../../advanced-resources/deploy/customizing-default-settings/#using-helm)
+* The initial settings can be xref:longhorn-system/customize-default-settings.adoc#_using_helm[customized using Helm options or by editing the deployment configuration file].
 * For Kubernetes v1.25 or earlier, if your cluster still enables Pod Security Policy admission controller, set the helm value `enablePSP` to `true` to install `longhorn-psp` PodSecurityPolicy resource which allows privileged Longhorn pods to start.
 ====
 
@@ -47,11 +47,13 @@ apiVersion: helm.cattle.io/v1
 * Ensure that `spec.failurePolicy` is set to "abort".  The only other value is the default: "reinstall", which uninstalls {longhorn-product-name}.  With "abort", it retries periodically, giving the user a chance to fix the problem.
 +
 * Rather than specify the repo, version, and chart name, the yaml can also use an image of the charts themselves:
++
 [,yaml]
 ----
 spec:
   chartContent:  <tarball of chart directory | base64 -w 0>
 ----
++
 For full details see the HelmChart controller docs: https://documentation.suse.com/cloudnative/rke2/latest/en/helm.html[{rke2-product-name} - Helm] or https://documentation.suse.com/cloudnative/k3s/latest/en/helm.html[{k3s-product-name} - Helm].
 ====
 +
