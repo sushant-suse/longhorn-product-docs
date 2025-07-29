@@ -11,6 +11,26 @@ Each node in the Kubernetes cluster where {longhorn-product-name} is installed m
 
 The xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the {longhorn-product-name} environment for potential issues.
 
+=== Authentication
+
+To create `longhorn-system` namespace, run the following command:
+
+[,shell]
+----
+kubectl create namespace longhorn-system
+----
+
+Follow the https://docs.apps.rancher.io/get-started/authentication/#kubernetes[Kubernetes authentication documentation] to create a secret in the `longhorn-system` namespace.
+
+[,shell]
+----
+kubectl create secret docker-registry application-collection \
+  --docker-server=dp.apps.rancher.io \
+  --namespace=longhorn-system \
+  --docker-username=<your-username-or-service-account-username> \
+  --docker-password=<access-token-or-service-account-secret>
+----
+
 == Installation
 
 To install SUSE Storage from SUSE Application Collection instead of Rancher's default Longhorn community charts, configure a new repository in Rancher that points to SUSE Application Collection chart repository for {longhorn-product-name}. Refer to https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/helm-charts-in-rancher/oci-repositories#add-an-oci-based-helm-chart-repository[this guide] for details on the process and how to authenticate the chart repository.
@@ -44,6 +64,10 @@ image::screenshots/install/rancher/installing-longhorn.png[Image]
 . Optional: Customize the default settings.
 +
 image::screenshots/install/rancher/installing-longhorn-2.png[Image]
++
+. Click Next. In the yaml editor, add the value `application-collection` in the `global.imagePullSecrets` field.
++
+image::screenshots/install/rancher/installing-longhorn-3.png[Image]
 +
 . Click Next. {longhorn-product-name} will be installed in the `longhorn-system` namespace.
 +
