@@ -9,7 +9,7 @@ You must meet the following requirements before installing {longhorn-product-nam
 
 Some {longhorn-product-name}-dependent binary executables are not present in the default Talos root filesystem. To have access to these binaries, Talos offers system extension mechanism to extend the installation.
 
-* `siderolabs/iscsi-tools`: this extension enables iscsid daemon and iscsiadm to be available to all nodes for the Kubernetes persistent volumes operations.
+* `siderolabs/iscsi-tools`: this extension enables `iscsid` daemon and `iscsiadm` to be available to all nodes for the Kubernetes persistent volumes operations.
 * `siderolabs/util-linux-tools`: this extension enables linux tool to be available to all nodes. For example, the `fstrim` binary is used for {longhorn-product-name} volume trimming.
 
 The most straightforward method is patching the extensions onto existing Talos Linux nodes.
@@ -57,7 +57,8 @@ For detailed instructions, see the Talos documentation on https://www.talos.dev/
 
 To use V2 volumes, all nodes must meet the V2 Data Engine xref:longhorn-system/v2-data-engine/prerequisites.adoc[prerequisites].
 
-```yaml
+[,yaml]
+----
 machine:
   sysctls:
     vm.nr_hugepages: "1024"
@@ -66,13 +67,13 @@ machine:
       - name: nvme_tcp
       - name: vfio_pci
 #     - name: uio_pci_generic
-```
+----
 
 [NOTE]
 ====
-Talos Linux v1.7.x and earlier versions do not include the `uio_pci_generic` kernel module. If your system device supports `vfio_pci`, which is the preferred kernel module for SPDK application deployment, you are not required to install and enable the `uio_pci_generic` kernel driver. For more information, see [System Configuration User Guide](https://spdk.io/doc/system_configuration.html) in the SPDK documentation.
+Talos Linux v1.7.x and earlier versions do not include the `uio_pci_generic` kernel module. If your system device supports `vfio_pci`, which is the preferred kernel module for SPDK application deployment, you are not required to install and enable the `uio_pci_generic` kernel driver. For more information, see https://spdk.io/doc/system_configuration.html[System Configuration User Guide] in the SPDK documentation.
 
-You can use `uio_pci_generic` if `vfio_pci` is incompatible with your system or specific hardware. Future versions of Talos Linux are expected to include native support for `uio_pci_generic`. For more information, see [Issue #9236](https://github.com/siderolabs/talos/issues/9236).
+You can use `uio_pci_generic` if `vfio_pci` is incompatible with your system or specific hardware. Future versions of Talos Linux are expected to include native support for `uio_pci_generic`. For more information, see https://github.com/siderolabs/talos/issues/9236[Issue #9236].
 ====
 
 == Talos Linux Upgrades
@@ -81,6 +82,7 @@ When https://www.talos.dev/v1.7/talos-guides/upgrading-talos/#talosctl-upgrade[u
 
 Example:
 
+[subs="+attributes",console]
 ----
 talosctl upgrade --nodes 10.20.30.40 --image ghcr.io/siderolabs/installer:v1.7.6 --preserve
 ----
