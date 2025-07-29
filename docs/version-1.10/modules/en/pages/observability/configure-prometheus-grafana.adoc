@@ -43,7 +43,8 @@ ____
 
 Create a ServiceMonitor for Longhorn Manager.
 
- ```yaml
+[,yaml]
+----
  apiVersion: monitoring.coreos.com/v1
  kind: ServiceMonitor
  metadata:
@@ -60,7 +61,7 @@ Create a ServiceMonitor for Longhorn Manager.
      - longhorn-system
    endpoints:
    - port: manager
- ```
+----
 
 ==== Install Longhorn ServiceMonitor with Helm
 
@@ -78,7 +79,7 @@ Create a ServiceMonitor for Longhorn Manager.
 +
 [subs="+attributes",bash]
 ----
-   helm upgrade longhorn longhorn/longhorn --namespace longhorn-system -f values.yaml
+helm upgrade longhorn longhorn/longhorn --namespace longhorn-system -f values.yaml
 ----
 
 Longhorn ServiceMonitor is a https://prometheus-operator.dev/[Prometheus Operator] custom resource. This setup allows the Prometheus server to discover all Longhorn Manager pods and their respective endpoints.
@@ -147,6 +148,7 @@ Save the above Alertmanager config in a file called `alertmanager.yaml` and crea
 +
 Alertmanager instances require the secret resource naming to follow the format `alertmanager-<ALERTMANAGER_NAME>`. In the previous step, the name of the Alertmanager is `longhorn`, so the secret name must be `alertmanager-longhorn`
 +
+[subs="+attributes",console]
 ----
  $ kubectl create secret generic alertmanager-longhorn --from-file=alertmanager.yaml -n default
 ----
@@ -432,6 +434,7 @@ ____
 
 . Access the Grafana dashboard using any node IP on port `32000`.
 +
+[subs="+attributes",bash]
 ----
  # Default Credential
  User: admin

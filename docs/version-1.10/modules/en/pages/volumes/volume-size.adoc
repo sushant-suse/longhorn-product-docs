@@ -10,7 +10,7 @@ This value, which you specified during volume creation, represents the amount of
 The following are other ways of understanding this concept:
 
 * The volume itself is just a Kubernetes CRD object and volume data is stored in replicas. This value represents the nominal size of each replica. 
-* Longhorn replicas use [sparse files](https://wiki.archlinux.org/index.php/Sparse_file) to store data. This value represents the maximum size to which a sparse file may expand.
+* Longhorn replicas use https://wiki.archlinux.org/index.php/Sparse_file[sparse files] to store data. This value represents the maximum size to which a sparse file may expand.
 
 Replicas are scheduled on nodes with enough allocatable space to cover this nominal size during volume creation. For more information, see xref:nodes/node-space-usage.adoc[Node Space Usage].
 
@@ -60,7 +60,7 @@ image::screenshots/volumes-and-nodes/volume-size-illustration-fig2.png[Image]
 . Then, rewrite the 4 Gi data (data#1), and the `df` command in the filesystem shows 4 Gi used space again. However, the `actual size` is increased by 4 Gi and becomes 8.25Gi. See Figure 3(a) of the illustration.
 +
 ____
-After deletion, filesystem may or maynot reuse the recently freed blocks from recently deleted files according to the filesystem design and please refer to https://www.ogris.de/blkalloc[Block allocation strategies of various filesystems]. If the volume nominal `size` is 12 Gi, the `actual size` in the end would range from 4 Gi to 8 Gi since the filesystem may or maynot reuse the freed blocks. On the other hand, if the volume nominal `size` is 6 Gi, the `actual size` at the end would range from 4 Gi to 6 Gi, because the filesystem has to reuse the freed blocks in the 2nd round of writing. See Figure 3(b) of the illustration.
+After deletion, filesystem may or may not reuse the recently freed blocks from recently deleted files according to the filesystem design and please refer to https://www.ogris.de/blkalloc[Block allocation strategies of various filesystems]. If the volume nominal `size` is 12 Gi, the `actual size` in the end would range from 4 Gi to 8 Gi since the filesystem may or may not reuse the freed blocks. On the other hand, if the volume nominal `size` is 6 Gi, the `actual size` at the end would range from 4 Gi to 6 Gi, because the filesystem has to reuse the freed blocks in the 2nd round of writing. See Figure 3(b) of the illustration.
 
 Thus, allocating an appropriate nominal `size` for a volume that holds heavy writing tasks according to the IO pattern would make disk space usage more efficient.
 ____

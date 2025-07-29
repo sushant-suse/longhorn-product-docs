@@ -1,18 +1,20 @@
 = Create an Ingress with Basic Authentication (nginx)
 :current-version: {page-component-version}
 
-If you install Longhorn on a Kubernetes cluster with kubectl or Helm, you will need to create an Ingress to allow external traffic to reach the Longhorn UI.
+If you install {longhorn-product-name} on a Kubernetes cluster with kubectl or Helm, you will need to create an Ingress to allow external traffic to reach the {longhorn-product-name} UI.
 
 Authentication is not enabled by default for kubectl and Helm installations. In these steps, you'll learn how to create an Ingress with basic authentication using annotations for the nginx ingress controller.
 
 . Create a basic auth file `auth`. It's important the file generated is named auth (actually - that the secret has a key `data.auth`), otherwise the Ingress returns a 503.
 +
+[subs="+attributes",console]
 ----
  $ USER=<USERNAME_HERE>; PASSWORD=<PASSWORD_HERE>; echo "${USER}:$(openssl passwd -stdin -apr1 <<< ${PASSWORD})" >> auth
 ----
 
 . Create a secret:
 +
+[subs="+attributes",console]
 ----
  $ kubectl -n longhorn-system create secret generic basic-auth --from-file=auth
 ----
@@ -20,9 +22,10 @@ Authentication is not enabled by default for kubectl and Helm installations. In 
 . Create an Ingress manifest `longhorn-ingress.yml` :
 +
 ____
-Since v1.2.0, Longhorn supports uploading backing image from the UI, so please specify `nginx.ingress.kubernetes.io/proxy-body-size: 10000m` as below to ensure uploading images work as expected.
+Since v1.2.0, {longhorn-product-name} supports uploading backing image from the UI, so please specify `nginx.ingress.kubernetes.io/proxy-body-size: 10000m` as below to ensure uploading images work as expected.
 ____
 +
+[subs="+attributes",console]
 ----
  apiVersion: networking.k8s.io/v1
  kind: Ingress
@@ -55,12 +58,15 @@ ____
 
 . Create the Ingress:
 +
+[subs="+attributes",console]
 ----
  $ kubectl -n longhorn-system apply -f longhorn-ingress.yml
 ----
 
-e.g.:
-```
+For example:
+
+[subs="+attributes",console]
+----
 $ USER=foo; PASSWORD=bar; echo "$\{USER}:$(openssl passwd -stdin -apr1 <<< $\{PASSWORD})" >> auth
 $ cat auth
 foo:$apr1$FnyKCYKb$6IP2C45fZxMcoLwkOwf7k0
@@ -135,4 +141,4 @@ Accept: _/_
 < Connection: keep-alive
 < WWW-Authenticate: Basic realm="Authentication Required"
 <
-```
+----

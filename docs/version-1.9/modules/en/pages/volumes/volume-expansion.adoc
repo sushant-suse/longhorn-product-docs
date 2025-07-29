@@ -120,10 +120,10 @@ Follow the steps below to resize the filesystem:
 
 Longhorn support for online expansion depends on Kubernetes.
 
-* Kubernetes natively supports [authenticated CSI storage resizing](https://kubernetes.io/blog/2023/12/15/csi-node-expand-secret-support-ga/) starting in v1.29.
-* In [Kubernetes v1.25 to v1.28](https://kubernetes.io/blog/2022/09/21/kubernetes-1-25-use-secrets-while-expanding-csi-volumes-on-node-alpha/), the feature gate `CSINodeExpandSecret` is required.
+* Kubernetes natively supports https://kubernetes.io/blog/2023/12/15/csi-node-expand-secret-support-ga/[authenticated CSI storage resizing] starting in v1.29.
+* In https://kubernetes.io/blog/2022/09/21/kubernetes-1-25-use-secrets-while-expanding-csi-volumes-on-node-alpha/[Kubernetes v1.25 to v1.28], the feature gate `CSINodeExpandSecret` is required.
 
-You can enable online expansion for encrypted volumes by specifying the following [encryption parameters in the StorageClass](../../../advanced-resources/security/volume-encryption#setting-up-kubernetes-secrets-and-storageclasses):
+You can enable online expansion for encrypted volumes by specifying the following xref:volumes/volume-encryption.adoc#_setting_up_kubernetes_secrets_and_storageclasses[encryption parameters in the StorageClass]:
 
 * `csi.storage.k8s.io/node-expand-secret-name`
 * `csi.storage.k8s.io/node-expand-secret-namespace`

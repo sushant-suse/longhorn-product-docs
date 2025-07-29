@@ -54,6 +54,7 @@ On Kubernetes clusters managed by Rancher 2.1 or newer, the steps to upgrade the
 
 To upgrade with kubectl, run this command:
 
+[subs="+attributes",shell]
 ----
 kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml
 ----
@@ -62,6 +63,7 @@ kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-ver
 
 To upgrade with Helm, run this command:
 
+[subs="+attributes",shell]
 ----
 helm upgrade longhorn longhorn/longhorn --namespace longhorn-system --version {patch-version}
 ----
@@ -70,7 +72,7 @@ Upgrade with Helm Controller
 
 Update the value of `spec.version` in the `HelmChart` YAML file:
 
-[,yaml]
+[subs="+attributes",yaml]
 ----
 spec:
   version: v{patch-version} # Replace with the version you would like to upgrade to
@@ -89,6 +91,7 @@ spec:
 
 and then apply it with
 
+[subs="+attributes",shell]
 ----
 kubectl  patch helmchart longhorn -n <namespace> --type merge --patch-file <name of patch file>
 ----
@@ -102,6 +105,7 @@ In both cases, ensure that `spec.failurePolicy` is set to "abort".  The only oth
 
 Update the value of `helm.version` in the `fleet` YAML file of your GitOps repository.
 
+[subs="+attributes",yaml]
 ----
 helm:
   repo: https://charts.longhorn.io
@@ -114,6 +118,7 @@ helm:
 
 Update the value of `spec.chart.spec.version` in the `HelmRelease` YAML file of your GitOps repository.
 
+[subs="+attributes",yaml]
 ----
 spec:
   chart:
@@ -130,6 +135,7 @@ spec:
 
 Update the value of `targetRevision` in the `Application` YAML file of your GitOps repository.
 
+[subs="+attributes",yaml]
 ----
 spec:
   project: default
@@ -139,8 +145,9 @@ spec:
       targetRevision: v{patch-version} # Replace with the version you would like to upgrade to
 ----
 
-Then wait for all the pods to become running and Longhorn UI working. e.g.:
-
+Then wait for all the pods to become running and Longhorn UI working. For example:
+[subs="+attributes",console]
+----
  $ kubectl -n longhorn-system get pod
  NAME                                                  READY   STATUS    RESTARTS      AGE
  engine-image-ei-4dbdb778-nw88l                        1/1     Running   0             4m29s
@@ -162,6 +169,7 @@ Then wait for all the pods to become running and Longhorn UI working. e.g.:
  csi-resizer-6d8cf5f99f-7vv89                          1/1     Running   1 (30s ago)   37s
  csi-provisioner-869bdc4b79-sn6zr                      1/1     Running   1 (30s ago)   43s
  longhorn-csi-plugin-b2zzj                             2/2     Running   0             24s
+----
 
 Next, xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[upgrade Longhorn engine.]
 
@@ -200,6 +208,7 @@ The `pre-upgrade` job blocks the upgrade process and provides the cause of the f
 
 Example:
 
+[subs="+attributes",console]
 ----
 2m33s     Normal      Created                   Pod/longhorn-pre-upgrade-v5tqq     Created container longhorn-pre-upgrade
 2m33s     Warning     FailedUpgradePreCheck     /longhorn-pre-upgrade              failed to upgrade since upgrading from v1.6.2 to v1.8.0 for minor version is not supported
@@ -228,6 +237,7 @@ To recover, you need to upgrade to the previously installed revision at `Rancher
 
 * To clean up the deprecated StorageClass, run this command:
 +
+[subs="+attributes",console]
 ----
-  kubectl delete -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/storageclass.yaml
+kubectl delete -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/storageclass.yaml
 ----
