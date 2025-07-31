@@ -33,7 +33,7 @@ kubectl create secret docker-registry application-collection \
 
 == Installation
 
-To install SUSE Storage from SUSE Application Collection instead of Rancher's default Longhorn community charts, configure a new repository in Rancher that points to SUSE Application Collection chart repository for {longhorn-product-name}. Refer to https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/helm-charts-in-rancher/oci-repositories#add-an-oci-based-helm-chart-repository[this guide] for details on the process and how to authenticate the chart repository.
+To install {longhorn-product-name} from SUSE Application Collection instead of Rancher's default Longhorn community charts, configure a new repository in Rancher that points to SUSE Application Collection chart repository for {longhorn-product-name}. Refer to https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/helm-charts-in-rancher/oci-repositories#add-an-oci-based-helm-chart-repository[this guide] for details on the process and how to authenticate the chart repository.
 
 The following steps provide an example in Rancher. For detailed instructions, refer to the Rancher documentation.
 
@@ -59,11 +59,18 @@ image::screenshots/install/rancher/suse-storage-app.png[Image]
 + 
 image::screenshots/install/rancher/installing-longhorn.png[Image]
 + 
-. Optional: Select the project where you want to install Longhorn.
+. Optional: Select the project where you want to install {longhorn-product-name}.
 +
 . Optional: Customize the default settings.
 +
 image::screenshots/install/rancher/installing-longhorn-2.png[Image]
++
+[NOTE]
+====
+If you are using Rancher Prime, it is mandatory to enable **Container Registry for Rancher System Container Images** and set the value to `dp.apps.rancher.io` to ensure images are pulled from the correct registry.
+====
++
+image::screenshots/install/rancher/container-registry-setting.png[Image]
 +
 . Click Next. In the yaml editor, add the value `application-collection` in the `global.imagePullSecrets` field.
 +
