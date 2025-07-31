@@ -87,7 +87,7 @@ helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
   --set global.imagePullSecrets=<PULL_IMAGE_SECRET>
 ----
 
-* *Upgrade Path*: Refer to the official xref:upgrades/upgrades.adoc[SUSE Storage upgrade documentation] for specific version-to-version upgrade paths, prerequisites, and post-upgrade verification steps. This is important to ensure a smooth upgrade and data integrity.
+* *Upgrade Path*: Refer to the official xref:upgrades/upgrades.adoc[{longhorn-product-name} upgrade documentation] for specific version-to-version upgrade paths, prerequisites, and post-upgrade verification steps. This is important to ensure a smooth upgrade and data integrity.
 * *Configuration Changes*: If you have custom configurations, ensure you carry them over to the new chart version, merging with any default changes.
 
 === Upgrade with Fleet
@@ -99,7 +99,7 @@ Update the value of `helm.version` in the `fleet` YAML file of your GitOps repos
 helm:
   repo: https://charts.longhorn.io
   chart: longhorn
-  version: v{patch-version} # Replace with the SUSE Storage version you would like to upgrade to
+  version: v{patch-version} # Replace with the {longhorn-product-name} version you would like to upgrade to
   releaseName: longhorn
 ----
 
@@ -117,7 +117,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: longhorn
-      version: v{patch-version} # Replace with the SUSE Storage version you would like to upgrade to
+      version: v{patch-version} # Replace with the {longhorn-product-name} version you would like to upgrade to
 ----
 
 === Upgrade with Argo CD
@@ -131,7 +131,7 @@ spec:
   sources:
     - chart: longhorn
       repoURL: https://charts.longhorn.io
-      targetRevision: v{patch-version} # Replace with the SUSE Storage version you would like to upgrade to
+      targetRevision: v{patch-version} # Replace with the {longhorn-product-name} version you would like to upgrade to
 ----
 
 Then wait for all the pods to become running and {longhorn-product-name} UI working. For example:
