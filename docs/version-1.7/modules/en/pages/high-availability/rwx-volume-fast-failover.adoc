@@ -1,4 +1,6 @@
 = RWX Volume Fast Failover (Experimental)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
 :current-version: {page-component-version}
 
 Release 1.7.0 adds a feature that minimizes the downtime for ReadWriteMany volumes when a node fails.  When enabled Longhorn uses a lease-based mechanism to monitor the state of the NFS server pod that exports the volume Longhorn reacts quickly to move it to another node if it becomes unresponsive.  See xref:volumes/rwx-volumes.adoc[RWX Volumes] for details on how the NFS server works.
