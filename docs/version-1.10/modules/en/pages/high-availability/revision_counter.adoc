@@ -5,25 +5,28 @@
 :experimental:
 :current-version: {page-component-version}
 
-The revision counter is a mechanism that Longhorn uses to track each replica's updates.
+The revision counter is a mechanism that {longhorn-product-name} uses to track each replica's updates.
 
-During replica creation, Longhorn will create a 'revision.counter' file with its initial counter set to 0. And for every write to the replica, the counter in 'revision.counter' file will be increased by 1.
+During replica creation, {longhorn-product-name} will create a `revision.counter` file with its initial counter set to 0. And for every write to the replica, the counter in `revision.counter` file will be increased by 1.
 
-The Longhorn engine uses these counters as a heuristic for achieving best-effort consistency among replicas during startup. Note that because the write IOs in Longhorn are parallel, enabling the revision counter does not guarantee data consistency. Longhorn also uses these counters during auto-salvage to identify the replica with the latest update.
+The {longhorn-product-name} engine uses these counters as a heuristic for achieving best-effort consistency among replicas during startup. Note that because the write IOs in {longhorn-product-name} are parallel, enabling the revision counter does not guarantee data consistency. {longhorn-product-name} also uses these counters during auto-salvage to identify the replica with the latest update.
 
-Disable Revision Counter is an option in which every write on replicas is not tracked. When this setting is used, performance is improved. This option can be helpful if you prefer higher performance and have a stable network infrastructure (e.g. an internal network) with enough CPU resources. When the revision counter is disabled, the Longhorn Engine skips checking the revision counter for all replicas at startup. However, auto-salvage still functions because Longhorn can use the replica's head file stat to identify the replica to be used for recovery. For more information about how auto-salvage functions without the revision counter, see <<_auto_salvage_support_with_revision_counter_disabled,Auto-Salvage Support with Revision Counter Disabled>>.
+Disable Revision Counter is an option in which every write on replicas is not tracked. When this setting is used, performance is improved. This option can be helpful if you prefer higher performance and have a stable network infrastructure (e.g. an internal network) with enough CPU resources. When the revision counter is disabled, the Longhorn Engine skips checking the revision counter for all replicas at startup. However, auto-salvage still functions because {longhorn-product-name} can use the replica's head file stat to identify the replica to be used for recovery. For more information about how auto-salvage functions without the revision counter, see <<_auto_salvage_support_with_revision_counter_disabled,Auto-Salvage Support with Revision Counter Disabled>>.
 
 By default, the revision counter is disabled.
 
-NOTE: 'Salvage' is Longhorn trying to recover a volume in a faulted state. A volume is in a faulted state when the Longhorn Engine loses the connection to all the replicas, and all replicas are marked as being in an error state.
+[NOTE]
+====
+Salvage' is {longhorn-product-name} trying to recover a volume in a faulted state. A volume is in a faulted state when the Longhorn Engine loses the connection to all the replicas, and all replicas are marked as being in an error state.
+====
 
 = Disable Revision Counter
 
-== Using Longhorn UI
+== Using {longhorn-product-name} UI
 
-To disable or enable the revision counter from the Longhorn UI, click menu:Setting[General > Disable Revision Counter.]
+To disable or enable the revision counter from the {longhorn-product-name} UI, click menu:Settings[Disable Revision Counter].
 
-To create individual volumes with settings that are customized against the general settings, go to the *Volume* page and click *Create Volume.*
+To create individual volumes with settings that are customized against the general settings, go to the *Volumes* page and click *Create Volume*.
 
 == Using a Manifest File
 

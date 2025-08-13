@@ -147,7 +147,7 @@ Referenced to https://endoflife.date/kubernetes.
 
 Ensure that CoreDNS runs with at least two replicas to maintain high availability. This setup minimizes interruptions in the DNS resolution when one CoreDNS pod experiences a temporary disruption.
 
-== Node and Disk Setup
+== Nodes and Disk Setup
 
 We recommend the following setup for nodes and disks.
 
@@ -179,7 +179,7 @@ To use a directory other than the default `/var/lib/longhorn` for storage, the `
 
 The xref:nodes/default-disk-and-node-config.adoc[Default node/disk configuration] feature can be used to customize the default disk after installation. Customizing the default configurations for disks and nodes is useful for scaling the cluster because it eliminates the need to configure {longhorn-product-name} manually for each new node if the node contains more than one disk, or if the disk configuration is different for new nodes. Remember to enable `Create default disk only on labeled node` if applicable.
 
-== Volume Performance Optimization
+== Volumes Performance Optimization
 
 Before configuring workloads, ensure that you have set up the following basic requirements for optimal volume performance.
 
@@ -219,7 +219,7 @@ For applications with replication capability, periodically xref:introduction/con
 
 If you're using `ext4` as the filesystem of the volume, we recommend adding a liveness check to workloads to help automatically recover from a network-caused interruption, a node reboot, or a Docker restart. See xref:high-availability/volume-recovery.adoc[this section] for details.
 
-== Volume Maintenance
+== Volumes Maintenance
 
 Using {longhorn-product-name}'s built-in backup feature is highly recommended. You can save backups to an object store such as S3 or to an NFS server. Saving to an object store is preferable because it generally offers better reliability.  Another advantage is that you do not need to mount and unmount the target, which can complicate failover and upgrades.
 
@@ -257,7 +257,7 @@ Recommendation: `false`
 
 This setting should be set to `false` in production environment to ensure the best availability of the volume. Otherwise, one node down event may bring down more than one replicas of a volume.
 
-=== Allow Volume Creation with Degraded Availability
+=== Allow Volumes Creation with Degraded Availability
 
 Recommendation: `false`
 
