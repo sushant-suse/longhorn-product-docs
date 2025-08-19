@@ -994,6 +994,17 @@ space. If insufficient disk space prevents the process from continuing, consider
 
 When set to true, the snapshot used by the backup will be automatically cleaned up when the backup is deleted.
 
+=== Instance Manager Pod Liveness Probe Timeout
+
+*Default value*: `10` (in seconds)
+
+The setting specifies the timeout for the instance manager pod liveness probe. The default value is 10 seconds.
+
+[WARNING]
+====
+When applying the setting, {longhorn-product-name} will try to restart all instance-manager pods if all volumes are detached and eventually restart the instance manager pod without instances running on the instance manager.
+====
+
 === V1 Data Engine
 
 *Default value*: `true`
