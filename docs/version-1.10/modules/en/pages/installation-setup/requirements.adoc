@@ -1,5 +1,5 @@
 = Requirements
-:revdate: 2025-07-26
+:revdate: 2025-08-19
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -152,12 +152,7 @@ modprobe iscsi_tcp
 
 IMPORTANT: On SUSE and openSUSE, the `iscsi_tcp` module is included only in the `kernel-default` package. If the `kernel-default-base` package is installed on your system, you must replace it with `kernel-default`.
 
-We also provide an `iscsi` installer to make it easier for users to install `open-iscsi` automatically:
-
-[subs="+attributes",shell]
-----
-kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/prerequisite/longhorn-iscsi-installation.yaml
-----
+We also provide an `iscsi` installer to make it easier for users to install `open-iscsi` automatically. You can use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI] to install the prerequisites.
 
 After the deployment, run the following command to check pods' status of the installer:
 
@@ -227,12 +222,7 @@ zypper install nfs-client
 * For Talos Linux, https://www.talos.dev/v1.6/kubernetes-guides/configuration/storage/#nfs[the NFS client is part of the `kubelet` image maintained by the Talos team].
 * For Container-Optimized OS, https://cloud.google.com/kubernetes-engine/docs/concepts/node-images#storage_driver_support[the NFS is supported with the node image].
 
-We also provide an `nfs` installer to make it easier for users to install `nfs-client` automatically:
-
-[subs="+attributes",shell]
-----
-kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/prerequisite/longhorn-nfs-installation.yaml
-----
+We also provide an `nfs` installer to make it easier for users to install `nfs-client` automatically. You can use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI] to install the prerequisites.
 
 After the deployment, run the following command to check pods' status of the installer:
 
