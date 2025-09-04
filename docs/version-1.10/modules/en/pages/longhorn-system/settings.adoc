@@ -484,7 +484,7 @@ Applies only to the V2 Data Engine. Specifies the default write bandwidth limit,
 
 === Snapshot Data Integrity
 
-*Default value*: `fast-check`
+*Default value*: `{"v1":"fast-check","v2":"fast-check"}`
 
 This setting allows users to enable or disable snapshot hashing and data integrity checking. Available options are:
 
@@ -514,7 +514,7 @@ Maximum snapshot count for a volume. The value should be between 2 to 250.
 
 === Freeze Filesystem For Snapshot
 
-*Default value*: `{"v2":"false"}`
+*Default value*: `{"v1":"false"}`
 
 This setting only applies to volumes with the Kubernetes volume mode `Filesystem`. When enabled, {longhorn-product-name} freezes the
 volume's filesystem immediately before creating a user-initiated snapshot. When disabled or when the Kubernetes volume
@@ -535,6 +535,12 @@ this setting if you plan to use kernels with version `5.17` or later, and ext4 o
 
 You can override this setting (using the field `freezeFilesystemForSnapshot`) for specific volumes through the {longhorn-product-name}
 UI, a StorageClass, or direct changes to an existing volume. `freezeFilesystemForSnapshot` accepts the following values:
+
+*Default value*: `ignored`
+
+* `ignored`: Instructs {longhorn-product-name} to use the global setting. This is the default option.
+* `enabled`: Enables freezing before snapshots, regardless of the global setting.
+* `disabled`: Disables freezing before snapshots, regardless of the global setting.
 
 == Orphan
 
@@ -849,6 +855,24 @@ If you do not detach all volumes before the settings are synchronized, the setti
 
 For V1 and V2 Data Engine settings, you can disable the Data Engines only when all associated volumes are detached. For example, you can disable the V2 Data Engine only when all V2 volumes are detached (even when V1 volumes are still attached).
 
+=== V1 Data Engine
+
+*Default value*: `true`
+
+This setting lets you enable the V1 Data Engine.
+
+=== V2 Data Engine
+
+*Default value*: `false`
+
+This setting enable the V2 Data Engine, which is an experimental feature based on the Storage Performance Development Kit (SPDK). The V2 Data Engine is an experimental feature and should not be used in production environments. For more information, see xref:longhorn-system/v2-data-engine.adoc[V2 Data Engine (Experimental)].
+
+[WARNING]
+====
+* DO NOT CHANGE THIS SETTING WITH ATTACHED VOLUMES. {longhorn-product-name} will block this setting update when there are attached volumes.
+* When the V2 Data Engine is enabled, each instance-manager pod utilizes 1 CPU core. This high CPU usage is attributed to the Storage Performance Development Kit (SPDK) target daemon running within each instance-manager pod. The SPDK target daemon is responsible for handling input/output (IO) operations and requires intensive polling. As a result, it consumes 100% of a dedicated CPU core to efficiently manage and process the IO requests, ensuring optimal performance and responsiveness for storage operations.
+====
+
 === Concurrent Replica Rebuild Per Node Limit
 
 *Default value*: `5`
@@ -1023,25 +1047,6 @@ The setting specifies the timeout for the instance manager pod liveness probe. T
 When applying the setting, {longhorn-product-name} will try to restart all instance-manager pods if all volumes are detached and eventually restart the instance manager pod without instances running on the instance manager.
 ====
 
-=== V1 Data Engine
-
-*Default value*: `true`
-
-Setting this enables the V1 Data Engine.
-
-=== V2 Data Engine
-
-*Default value*: `false`
-
-Setting this enables the V2 Data Engine, based on the Storage Performance Development Kit (SPDK). The V2 Data Engine is an experimental feature and should not be used in production environments. For more information, see xref:longhorn-system/v2-data-engine.adoc[V2 Data Engine (Experimental)].
-
-[WARNING]
-====
-* DO NOT CHANGE THIS SETTING WITH ATTACHED VOLUMES. {longhorn-product-name} will block this setting update when there are attached volumes.
-
-* When the V2 Data Engine is enabled, each instance-manager pod utilizes 1 CPU core. This high CPU usage is attributed to the Storage Performance Development Kit (SPDK) target daemon running within each instance-manager pod. The SPDK target daemon is responsible for handling input/output (IO) operations and requires intensive polling. As a result, it consumes 100% of a dedicated CPU core to efficiently manage and process the IO requests, ensuring optimal performance and responsiveness for storage operations.
-====
-
 === Data Engine CPU Mask
 
 *Default value*: `{"v2":"0x1"}`
@@ -1053,3 +1058,9 @@ Applies only to the V2 Data Engine. Specifies the CPU cores on which the Storage
 *Default value*: `{"v2":"2048"}` 
 
 Applies only to the V2 Data Engine. Specifies the hugepage size, in MiB, for the Storage Performance Development Kit (SPDK) target daemon.
+
+=== Log Path
+
+*Default value*: `/var/lib/longhorn/logs/`
+
+Specifies the directory on the host where {longhorn-product-name} stores log files for the instance manager pod. Currently, it is only used for instance manager pods in the v2 data engine.
