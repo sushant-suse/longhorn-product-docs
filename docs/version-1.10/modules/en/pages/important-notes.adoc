@@ -1,5 +1,5 @@
 = Important Notes
-:revdate: 2025-08-28
+:revdate: 2025-09-09
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -43,11 +43,38 @@ Automated checks are performed only on some upgrade paths, and the pre-upgrade c
 * Avoid upgrading if a failed `BackingImage` exists. For more information, see xref:volumes/backing-images/backing-images.adoc[Backing Image].
 * Create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn system backup] before performing the upgrade. This ensures that all critical resources, such as volumes and backing images, are backed up and can be restored if any issues arise during the upgrade.
 
+=== Consolidated {longhorn-product-name} Settings
+
+To enhance manageability and user experience, {longhorn-product-name} settings have been consolidated for the V1 and V2 data engines. Each setting now supports one of the following formats, which determines which data engines can be configured and whether their values can differ:
+
+* Single value for all supported data engines:
+** *Format*: Non-JSON string (for example, `1024`)
+** This value applies to all supported data engines and must be the same across them. Data engine-specific values are not allowed.
+* Data engine-specific values for V1 and V2 data engines:
+** *Format*: JSON object (for example, `{"v1": "value1", "v2": "value2"}`)
+** This allows you to specify different values for the V1 and V2 data engines.
+* Data engine-specific values for V1 data engine only:
+** *Format*: JSON object with a `v1` key only (for example, `{"v1": "value1"}`)
+** This allows you to configure only the V1 data engine, and it does not affect the V2 data engine.
+* Data engine-specific values for V2 data engine only:
+** *Format*: JSON object with a `v2` key only (for example, `{"v2": "value1"}`)
+** This allows you to configure only the V2 data engine, and it does not affect the V1 data engine.
+
+For more information, see the xref:longhorn-system/settings.adoc[{longhorn-product-name} Settings].
+
+=== Backup and Restore
+
+==== Configurable Backup Block Size
+
+Beginning with {longhorn-product-name} v1.10.0, you can configure the backup block size when creating a volume. This feature provides greater flexibility by allowing the block size to be adjusted to meet different needs and cost considerations. This enables you to balance performance, efficiency, and transmission costs.
+
+For more information, see xref:volumes/create-volumes.adoc[Create Longhorn Volumes].
+
 == V1 Data Engine
 
 === IPv6 Support
 
-Longhorn v1.10.0 and later versions support the usage of V1 volumes in single-stacked IPv6 Kubernetes clusters. For more information, see https://github.com/longhorn/longhorn/issues/2259[Issue #2259].
+{longhorn-product-name} v1.10.0 and later versions support the usage of V1 volumes in single-stacked IPv6 Kubernetes clusters. For more information, see https://github.com/longhorn/longhorn/issues/2259[Issue #2259].
 
 [IMPORTANT]
 ====
@@ -62,10 +89,6 @@ Dual-stack Kubernetes clusters and V2 volumes are not supported in this version.
 
 === Newly Introduced Functionalities since {longhorn-product-name} v1.10.0
 
-== Backup And Restore
+====  V2 Data Engine Without Hugepage Support
 
-=== Configurable Backup Block Size
-
-Starting in {longhorn-product-name} v1.10.0, users can configure the backup block size when creating a volume. This feature provides greater flexibility, allowing the block size to be adjusted based on different needs and cost considerations to balance performance, efficiency, and transmission cost.
-
-For more information, see xref:volumes/create-volumes.adoc[Create Longhorn Volumes].
+Starting with {longhorn-product-name} v1.10.0, you can run the V2 Data Engine without Hugepage by setting `data-engine-hugepage-enabled` to `{"v2":"false"}`. While this setting increases deployment flexibility and reduces memory pressure on low-spec nodes, it may result in lower performance compared to using Hugepage.
