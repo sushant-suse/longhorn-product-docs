@@ -1070,15 +1070,18 @@ When applying the setting, {longhorn-product-name} will try to restart all insta
 
 === Data Engine CPU Mask
 
-*Default value*: `{"v2":"0x1"}`
+*Default value*: `{"v2":"true"}`
 
-Applies only to the V2 Data Engine. Specifies the CPU cores on which the Storage Performance Development Kit (SPDK) target daemon runs. The daemon is deployed in each Instance Manager pod. Ensure that the number of assigned cores does not exceed the guaranteed Instance Manager CPUs for the V2 Data Engine.
+This setting applies only to the V2 Data Engine. It enables hugepages for the Storage Performance Development Kit (SPDK) target daemon. If this setting is disabled, legacy memory is used. The allocation size for this memory is set through the Data Engine Memory Size setting.
 
-=== Data Engine Hugepage Limit
+=== Data Engine Hugepage Enabled
 
 *Default value*: `{"v2":"2048"}` 
 
-Applies only to the V2 Data Engine. Specifies the hugepage size, in MiB, for the Storage Performance Development Kit (SPDK) target daemon.
+This setting applies only to the V2 Data Engine and specifies the memory size, in MiB, allocated to the Storage Performance Development Kit (SPDK) target daemon.
+
+* When Hugepage is enabled, this value defines the Hugepage size.
+* When Hugepage is disabled, legacy memory is used.
 
 === Log Path
 
