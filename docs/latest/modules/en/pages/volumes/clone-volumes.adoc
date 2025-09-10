@@ -1,0 +1,102 @@
+= Clone Volumes
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:description: Creating a new volume as a duplicate of an existing volume
+:current-version: {page-component-version}
+
+Longhorn supports https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource/[CSI volume cloning].
+
+== Clone a Volume Using YAML
+
+Suppose that you have the following `source-pvc`:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: source-pvc
+spec:
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+----
+
+You can create a new PVC that has the exact same content as the `source-pvc` by applying the following yaml file:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloned-pvc
+spec:
+  storageClassName: longhorn
+  dataSource:
+    name: source-pvc
+    kind: PersistentVolumeClaim
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+----
+
+____
+Note:
+In addition to the requirements listed at https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource/[CSI volume cloning],
+the `cloned-pvc` must have the same `resources.requests.storage` as the `source-pvc`.
+____
+
+== Clone Volume Using the Longhorn UI
+
+=== Clone a volume
+
+. Go to the *Volume* page.
+. Select a volume, and then click *Clone Volume* in the *Operation* menu.
+. (Optional) Configure the settings of the new volume.
+. Click *OK*.
+
+=== Clone a Volume Using a Snapshot
+
+. Go to the *Volume* page.
+. Click the name of the volume that you want to clone.
+. In the *Snapshot and Backups* section of the details screen, identify the snapshot that you want to use and then click *Clone Volume*.
+. (Optional) Configure the settings of the new volume.
+. Click *OK*.
+
+image::screenshots/snapshots-and-backups/clone-volume-modal.png[Image]
+
+=== Clone Multiple Volumes (Bulk Cloning)
+
+. Go to the *Volume* page.
+. Select the volume you want to clone.
+. Click *Clone Volume* button on top of the table.
+. (Optional) Configure the settings of the new volumes
+. Click *OK*
+
+*Note*:
+
+____
+* The Longhorn UI pre-fills certain fields and prevents you from modifying the values to ensure that those match the settings of the source volume.
+* Longhorn automatically attaches the new volume, clones the source volume, and then detaches the new volume.
+____
+
+== Volume Creation
+
+. Go to the *Volume* page.
+. Click *Create Volume*.
+. Select the data source (*Volume* or *Volume Snapshot*) that you want to use.
+. If you select *Volume Snapshot*, choose a snapshot.
+. Specify the volume name.
+. Click *OK*.
+
+image::screenshots/snapshots-and-backups/create-volume-choose-datasource.png[Image]
+
+== History
+
+* https://github.com/longhorn/longhorn/issues/1815[GitHub Issue]
+* https://github.com/longhorn/longhorn/pull/2864[Longhorn Enhancement Proposal]
