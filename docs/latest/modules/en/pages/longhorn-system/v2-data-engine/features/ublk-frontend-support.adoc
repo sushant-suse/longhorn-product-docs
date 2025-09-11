@@ -1,0 +1,74 @@
+= UBLK Frontend Support
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/ublk-frontend-support.md"]
+:current-version: {page-component-version}
+
+Starting with v1.9.0, {longhorn-product-name} supports the UBLK front-end for V2 Data Engine Volumes.
+This feature exposes V2 Data Engine volumes as a block device using the https://spdk.io/doc/ublk.html[UBLK SPDK framework].
+In certain high-specification environments (for example, machines with fast SSDs capable of millions of IOPS and equipped with 32 CPU cores), the UBLK front-end might offer better performance compared to the default NVMe-oF front-end for V2 Data Engine volumes.
+For performance comparisons, see the link:https://github.com/longhorn/longhorn/wiki/Longhorn-Performance-Investigation[{longhorn-product-name} Performance Investigation wiki page].
+However, the UBLK front-end is less mature than the default NVMe-oF front-end (see xref:_known_limitations[Known Limitations]).
+The UBLK front-end also has additional restrictions, as detailed below.
+
+== Prerequisites
+
+. The kernel version on nodes must be v6.0 or later. The UBLK kernel driver is available only from kernel v6.0 onwards.
+. The kernel module `ublk_drv` must be loaded on each node where UBLK volumes are to be attached. For testing, you can load it manually on each relevant node using the command:
++
+[,bash]
+----
+modprobe ublk_drv
+----
+
+== How to use
+
+=== When creating a V2 volume from the UI
+Select `UBLK` as the volume front-end during volume creation.
+
+=== When creating a V2 volume from a manifest
+. Create a `StorageClass` that specifies the UBLK front-end. For example:
++
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: my-ublk-frontend-storageclass
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "2880"
+  fsType: "ext4"
+  dataEngine: "v2"
+  frontend: "ublk"
+----
+. Create a `PersistentVolumeClaim` (PVC) that references the `StorageClass` created in the previous step. For example:
++
+[,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: my-ublk-frontend-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: my-ublk-frontend-storageclass
+  resources:
+    requests:
+      storage: 1Gi
+----
+. {longhorn-product-name} automatically provisions a V2 volume using the UBLK front-end based on the PVC and `StorageClass` definitions.
+
+== Known Limitations
+When an instance-manager pod crashes, it might leave orphaned UBLK devices on the node.
+Currently, removing these orphaned devices manually can be difficult and might sometimes require a node reboot.
+We are investigating this issue further in link:https://github.com/longhorn/longhorn/issues/10738[GitHub Issue #10738].
+
+== Reference
+Original GitHub issue for UBLK front-end support: link:https://github.com/longhorn/longhorn/issues/9456[GitHub Issue #9456].

@@ -1,0 +1,64 @@
+= Offline Replica Rebuilding
+:revdate: 2025-07-26
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Starting with v1.9.0, {longhorn-product-name} supports offline replica rebuilding. This feature allows degraded volumes to automatically rebuild replicas while the volumes are detached.
+
+== Global Setting `offline-replica-rebuilding`
+
+* When enabled, {longhorn-product-name} automatically initiates offline rebuilding for eligible volumes.
+* For more information about this global setting, see xref:longhorn-system/settings.adoc#_offline_replica_rebuilding[settings].
+
+== Per-Volume Override
+
+* You can override the global `offline-replica-rebuilding` setting for each volume individually. This can be done through the {longhorn-product-name} UI or by editing the Volume Custom Resource. To use `kubectl`, run the following command and then modify the `spec.offlineRebuilding` field:
++
+[,bash]
+----
+kubectl -n longhorn-system edit volume <volume-name>
+----
++
+Replace `<volume-name>` with the name of your specific volume.
+* When the per-volume `spec.offlineRebuilding` field is set to `enabled` or `disabled`, this setting takes precedence over the global configuration. The default value for `spec.offlineRebuilding` is `ignored`.
+
+The following table shows how the global and per-volume settings interact:
+
+|===
+| Global Setting (`offline-replica-rebuilding`)
+| Per-Volume Setting (`spec.offlineRebuilding`)
+| Offline Rebuilding Enabled
+
+| `true`
+| `ignored`
+| Yes
+
+| `false`
+| `ignored`
+| No
+
+| `true`
+| `enabled`
+| Yes
+
+| `false`
+| `enabled`
+| Yes
+
+| `true`
+| `disabled`
+| No
+
+| `false`
+| `disabled`
+| No
+|===
+
+== Rebuilding Process
+
+* When offline replica rebuilding is triggered, {longhorn-product-name} attaches the volume without activating the frontend, rebuilds any missing replicas, and then detaches the volume after the rebuilding process is complete.
+* This process can be interrupted if the associated workload scales up and requires the volume.
+
+== Limitations
+
+This feature does not apply to faulted volumes.

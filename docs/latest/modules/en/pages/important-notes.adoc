@@ -1,0 +1,161 @@
+= Important Notes
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Please see https://github.com/longhorn/longhorn/releases/tag/v{patch-version}[here] for the full release notes.
+
+[WARNING]
+====
+The `longhorn-manager` v1.9.0 is affected by a https://github.com/longhorn/longhorn/issues/11016[regression issue] that causes failures of recurring jobs. To resolve this issue, replace `longhorn-manager:v1.9.0` with the hotfix image `longhorn-manager:v1.9.0-hotfix-1`.
+
+You can apply the update by following these steps:
+
+. **Disable the upgrade version check**
+  * **Helm users**: Set `upgradeVersionCheck` to `false` in the `values.yaml` file.
+  * **Manifest users**: Remove the `--upgrade-version-check` flag from the deployment manifest.
+
+. **Update the `longhorn-manager` image**
+  * Change the image tag from `v1.9.0` to `v1.9.0-hotfix-1` in the appropriate file:
+    * For Helm: Update `values.yaml`.
+    * For manifests: Update the deployment manifest directly.
+
+. **Proceed with the upgrade**
+  * Apply the changes using your standard Helm upgrade command or reapply the updated manifest.
+====
+
+== Removal
+
+=== Environment Check Script
+
+The environment check script (`environment_check.sh`), which was deprecated in v1.7.0, has been removed in v1.9.0. Use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] to check the {longhorn-product-name} environment for potential issues.
+
+=== Orphan Auto-Deletion Setting
+
+The `orphan-auto-deletion` setting has been replaced by `orphan-resource-auto-deletion` in v1.9.0. To replicate the previous behavior, include `replica-data` in the `orphan-resource-auto-deletion` value. During the upgrade, the original `orphan-auto-deletion` setting is automatically migrated.
+
+For more information, see xref:data-integrity-recovery/orphaned-data-cleanup.adoc[Orphaned Data Cleanup] and xref:data-integrity-recovery/orphaned-instance-cleanup.adoc[Orphaned Instance Cleanup].
+
+=== Deprecated Fields in `longhorn.io/v1beta2` CRDs
+
+Deprecated fields have been removed from the Custom Resource Definitions (CRDs). For details, see link:https://github.com/longhorn/longhorn/issues/6684[Issue #6684].
+
+== Deprecation
+
+=== `longhorn.io/v1beta1` API
+
+The `v1beta1` version of the Longhorn API is marked unserved and unsupported in v1.9.0 and will be removed in v1.10.0.
+
+For more details, see link:https://github.com/longhorn/longhorn/issues/10250[Issue #10250].
+
+== Breaking Change
+
+=== V2 Backing Image
+
+Starting with {longhorn-product-name} v1.9.0, V2 backing images are incompatible with earlier versions due to naming conflicts in the extended attributes (`xattrs`) used by SPDK backing image logical volumes. As a result, V2 backing images must be deleted and recreated during the upgrade process. Since backing images cannot be deleted while volumes using them still exist, you must first back up, delete, and later restore those volumes as the following steps:
+
+==== Upgrade Instructions
+
+* **Before upgrading to v1.9.0**:
+** Verify that your backup targets are functioning properly.
+** Create full backups of all volumes that use a V2 backing image.
+** Detach and delete these volumes after the backups complete.
+** On the **Backing Image** page, save the specifications of all V2 backing images, including the name and the image source.
+** Delete all V2 backing images.
+* **After upgrading**:
+** Recreate the V2 backing images using the same names and image sources you saved earlier.
+** Restore the volumes from your backups.
+
+For more details, see link:https://github.com/longhorn/longhorn/issues/10805[Issue #10805].
+
+== General
+
+=== Kubernetes Version Requirement
+
+The upgrade of the CSI external snapshotter to version v8.2.0 requires that all clusters run Kubernetes v1.25 or later. Ensure your Kubernetes version meets this requirement before you upgrade to {longhorn-product-name} v1.8.0 or a newer version.
+
+=== CRD Upgrade Validation
+
+During an upgrade, the Custom Resource Definition (CRD) might be applied after the new Longhorn Manager starts. This order helps prevent the controller from processing objects that contain deprecated data or fields. However, this sequencing can cause the Longhorn Manager to fail during the initial upgrade phase if the CRD is not yet applied.
+
+If the Longhorn Manager crashes during the upgrade, check the logs to determine if the CRD not being applied is the cause of the failure. In such cases, the logs might contain error messages similar to the following:
+
+[,log]
+----
+time="2025-03-27T06:59:55Z" level=fatal msg="Error starting manager: upgrade resources failed: BackingImage in version \"v1beta2\" cannot be handled as a BackingImage: strict decoding error: unknown field \"spec.diskFileSpecMap\", unknown field \"spec.diskSelector\", unknown field \"spec.minNumberOfCopies\", unknown field \"spec.nodeSelector\", unknown field \"spec.secret\", unknown field \"spec.secretNamespace\"" func=main.main.DaemonCmd.func3 file="daemon.go:94"
+----
+
+=== Upgrade Check Events
+
+{longhorn-product-name} performs a pre-upgrade check when upgrading with Helm or the Rancher App Marketplace. If a check fails, the upgrade process stops, and the reason for the failure is recorded in an event. For more details, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrading Longhorn Manager].
+
+=== Manual Checks Before Upgrade
+
+Automated checks are performed only on some upgrade paths, and the pre-upgrade checker might not cover all scenarios. Manual checks, performed using either `kubectl` or the UI, are recommended for these scenarios. You can then take mitigating actions or defer the upgrade until any identified issues are addressed.
+
+* Ensure that all V2 Data Engine volumes are detached and their replicas are stopped. The V2 Data Engine currently does not support live upgrades.
+* Avoid upgrading when volumes are in the `"Faulted"` status. If all replicas are deemed unusable, they might be deleted, potentially leading to permanent data loss if no usable backups exist.
+* Avoid upgrading if a failed `BackingImage` exists. For more information, see xref:volumes/backing-images/backing-images.adoc[Backing Image].
+* Create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn system backup] before performing the upgrade. This ensures that all critical resources, such as volumes and backing images, are backed up and can be restored if any issues arise during the upgrade.
+
+== Backup And Restore
+
+=== Recurring System Backup
+
+You can create a recurring job for system backup creation. For more information, see https://github.com/longhorn/longhorn/issues/6534[Issue #6534].
+
+== Replica Rebuilding
+
+=== Offline Replica Rebuilding
+
+{longhorn-product-name} introduces offline replica rebuilding, which allows degraded volumes to automatically recover replicas even while detached. This reduces the need for manual intervention, speeds up recovery, and improves data availability.
+	
+This feature is disabled by default. To enable it, set the `offline-replica-rebuilding` setting to `true` in the {longhorn-product-name} UI or CLI.
+
+For more information, see xref:high-availability/offline-replica-rebuilding.adoc[Offline replica rebuilding] and link:https://github.com/longhorn/longhorn/issues/8443[Issue #8443].
+
+== Resilience
+
+=== Orphaned Instance Deletion
+
+{longhorn-product-name} can now track and remove orphaned instances, which are leftover resources like replicas or engines that are no longer associated with an active volume. These instances may accumulate due to unexpected failures or incomplete cleanup.
+
+To reduce resource usage and maintain system performance, {longhorn-product-name} supports both automatic and manual cleanup. By default, this feature is disabled. To enable it, set the `orphan-resource-auto-deletion` setting to `instance` in the {longhorn-product-name} UI or CLI.
+
+For more information, see link:https://github.com/longhorn/longhorn/issues/6764[Issue #6764].
+
+== Performance
+
+=== Snapshot Checksum Disabled for Single-Replica Volumes
+
+Starting with v1.9.0, {longhorn-product-name} does not calculate snapshot checksums by default for single-replica v1 volumes. Since snapshot checksums are primarily used for ensuring data integrity and speeding up replica rebuilding, they are unnecessary in single-replica setups. Disabling them helps reduce performance overhead.
+
+For more information, see link:https://github.com/longhorn/longhorn/issues/10518[Issue #10518].
+
+== Observability
+
+=== Improved Metrics for Replica, Engine, and Rebuild Status
+
+{longhorn-product-name} improves observability with new Prometheus metrics that expose the status and identity of Replica and Engine CRs, along with rebuild activity. These metrics make it easier to monitor rebuilds across the cluster.
+
+For more information, see link:https://github.com/longhorn/longhorn/issues/10550[Issue #10550] and link:https://github.com/longhorn/longhorn/issues/10722[Issue #10722].
+
+== V2 Data Engine
+
+=== {longhorn-product-name} System Upgrade
+
+{longhorn-product-name} currently does not support live upgrading of V2 volumes. Ensure that all V2 volumes are detached before initiating the upgrade process.
+
+=== Features Introduced in v1.9.0
+
+==== Performance Enhancement
+
+* xref:longhorn-system/v2-data-engine/features/ublk-frontend-support.adoc[Support UBLK Frontend]: Introduces UBLK frontend support for the V2 Data Engine, enabling better performance and resource utilization.
+
+==== Rebuilding
+
+* xref:high-availability/offline-replica-rebuilding.adoc[Offline Replica Rebuilding]: Support for offline replica rebuilding, which allows degraded volumes to automatically recover replicas even while the volume is detached. This capability ensures high data availability without manual intervention.
+
+==== Networking
+
+* https://github.com/longhorn/longhorn/issues/6450[Storage Network]: : Introduces support for storage networks in the V2 Data Engine to allow network segregation.
