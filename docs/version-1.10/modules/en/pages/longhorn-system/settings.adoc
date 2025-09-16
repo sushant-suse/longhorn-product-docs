@@ -1,5 +1,5 @@
 = Settings
-:revdate: 2025-09-09
+:revdate: 2025-09-16
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -1082,6 +1082,20 @@ This setting applies only to the V2 Data Engine and specifies the memory size, i
 
 * When Hugepage is enabled, this value defines the Hugepage size.
 * When Hugepage is disabled, legacy memory is used.
+
+=== Data Engine Interrupt Mode Enabled
+
+*Default value*: `{"v2":"false"}`
+
+It applies only to the *V2 Data Engine*. It controls whether the Storage Performance Development Kit (SPDK) target daemon runs in *interrupt mode* or the default *polling mode*.
+
+* `true`: It enables interrupt mode, reducing CPU usage by handling I/O through interrupts.
+* `false`: It keeps polling mode enabled for maximum performance and lowest latency.
+
+[WARNING]
+====
+DO NOT CHANGE THIS SETTING WITH ATTACHED VOLUMES. {longhorn-product-name} will block this setting update when there are attached v2 volumes.
+====
 
 === Log Path
 

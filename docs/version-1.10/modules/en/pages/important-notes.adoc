@@ -1,5 +1,5 @@
 = Important Notes
-:revdate: 2025-09-09
+:revdate: 2025-09-16
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -92,3 +92,11 @@ Dual-stack Kubernetes clusters and V2 volumes are not supported in this version.
 ====  V2 Data Engine Without Hugepage Support
 
 Starting with {longhorn-product-name} v1.10.0, you can run the V2 Data Engine without Hugepage by setting `data-engine-hugepage-enabled` to `{"v2":"false"}`. While this setting increases deployment flexibility and reduces memory pressure on low-spec nodes, it may result in lower performance compared to using Hugepage.
+
+==== V2 Data Engine Interrupt Mode Support
+
+Adds interrupt mode to the V2 Data Engine to help reduce CPU usage. This feature is especially beneficial for clusters with idle or low I/O workloads, where conserving CPU resources is more important than minimizing latency.
+
+While interrupt mode lowers CPU consumption, it may introduce slightly higher I/O latency compared to polling mode. In addition, the current implementation uses a hybrid approach, which still incurs a minimal, constant CPU load even when interrupts are enabled.
+
+For more information, see xref:longhorn-system/v2-data-engine/features/interrupt-mode.adoc[Interrupt Mode].
