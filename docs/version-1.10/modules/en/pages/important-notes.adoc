@@ -44,12 +44,12 @@ For more details, see xref:upgrades/longhorn-components/upgrade-longhorn-manager
 
 === Manual Checks Before Upgrade
 
-Automated pre-upgrade checks don't cover all scenarios. We recommend you run manual checks using kubectl or the UI.
+Automated pre-upgrade checks does not cover all scenarios. A manual check is recommended using `kubectl` or the {longhorn-product-name} UI.
 
 * Ensure all V2 Data Engine volumes are detached and replicas are stopped. The V2 engine does not support live upgrades.
 * Avoid upgrading when volumes are Faulted. Unusable replicas may be deleted, causing permanent data loss if no backups exist.
 * Avoid upgrading if a failed `BackingImage` exists. For more information, see xref:volumes/backing-images/backing-images.adoc[Backing Image] for details.
-* Create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn system backup] upgrading is recommended to ensure recoverability.
+* Create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn System Backup] upgrading is recommended to ensure recoverability.
 
 === Consolidated {longhorn-product-name} Settings
 

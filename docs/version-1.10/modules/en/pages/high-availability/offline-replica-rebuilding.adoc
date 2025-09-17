@@ -59,7 +59,7 @@ The following table shows how the global and per-volume settings interact:
 * When offline replica rebuilding is triggered, {longhorn-product-name} attaches the volume without activating the frontend, rebuilds any missing replicas, and then detaches the volume after the rebuilding process is complete.
 * This process can be interrupted if the associated workload scales up and requires the volume.
 
-## Rebuilding Not Started or Canceled
+== Rebuilding Not Started or Canceled
 
 When offline rebuilding starts, degraded volumes can get stuck in the attached state if rebuilding conditions aren't met. To prevent this, if the necessary conditions aren't satisfied, offline rebuilding won't start or will be canceled.
 
@@ -93,7 +93,7 @@ When offline rebuilding is enabled, {longhorn-product-name} determines whether i
 . If the volume's `Scheduled` condition status becomes `False`, the offline rebuilding is canceled, and the volume is detached.
 . If the required conditions are met again, offline rebuilding restarts; otherwise, the volume remains detached.
 
-### Examples
+=== Examples
 
 * *Successful offline rebuilding*:
 . A volume is created with 3 replicas in a 3-worker-node cluster.
