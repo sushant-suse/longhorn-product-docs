@@ -1,5 +1,5 @@
 = Important Notes
-:revdate: 2025-09-09
+:revdate: 2025-09-16
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -9,19 +9,25 @@ Please see https://github.com/longhorn/longhorn/releases/tag/v{patch-version}[he
 
 === `longhorn.io/v1beta1` API
 
-The `v1beta1` version of the Longhorn API is removed since Longhorn v1.10.0.
+The `v1beta1` Longhorn API version was removed in {longhorn-product-name} v1.10.0.
 
 For more details, see link:https://github.com/longhorn/longhorn/issues/10249[Issue #10249].
+
+=== `replica.status.evictionRequested` field
+
+The deprecated `replica.status.evictionRequested` field has been removed.
+
+For more details, see https://github.com/longhorn/longhorn/issues/7022[Issue #7022].
 
 == General
 
 === Kubernetes Version Requirement
 
-The upgrade of the CSI external snapshotter to version v8.2.0 requires that all clusters run Kubernetes v1.25 or later. Ensure your Kubernetes version meets this requirement before you upgrade to {longhorn-product-name} v1.8.0 or a newer version.
+Due to the upgrade of the CSI external snapshotter to v8.2.0, you must be running Kubernetes v1.25 or later to upgrade to {longhorn-product-name}  v1.8.0 or a newer version.
 
 === CRD Upgrade Validation
 
-During an upgrade, the Custom Resource Definition (CRD) might be applied after the new Longhorn Manager starts. This order helps prevent the controller from processing objects that contain deprecated data or fields. However, this sequencing can cause the Longhorn Manager to fail during the initial upgrade phase if the CRD is not yet applied.
+During an upgrade, a new Longhorn manager might start before the Custom Resource Definitions (CRDs) are applied. This sequence ensures the controller doesn't process objects with deprecated data or fields. However, if the CRD hasn't yet been applied, the Longhorn manager can fail during the initial upgrade phase.
 
 If the Longhorn Manager crashes during the upgrade, check the logs to determine if the CRD not being applied is the cause of the failure. In such cases, the logs might contain error messages similar to the following:
 
@@ -32,20 +38,22 @@ time="2025-03-27T06:59:55Z" level=fatal msg="Error starting manager: upgrade res
 
 === Upgrade Check Events
 
-{longhorn-product-name} performs a pre-upgrade check when upgrading with Helm or the Rancher App Marketplace. If a check fails, the upgrade process stops, and the reason for the failure is recorded in an event. For more details, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrading Longhorn Manager].
+When you upgrade with Helm or the Rancher App Marketplace, {longhorn-product-name} performs pre-upgrade checks. If a check fails, the upgrade stops and the reason for the failure is recorded in an event.
+
+For more details, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrading Longhorn Manager].
 
 === Manual Checks Before Upgrade
 
-Automated checks are performed only on some upgrade paths, and the pre-upgrade checker might not cover all scenarios. Manual checks, performed using either `kubectl` or the UI, are recommended for these scenarios. You can then take mitigating actions or defer the upgrade until any identified issues are addressed.
+Automated pre-upgrade checks does not cover all scenarios. A manual check is recommended using `kubectl` or the {longhorn-product-name} UI.
 
-* Ensure that all V2 Data Engine volumes are detached and their replicas are stopped. The V2 Data Engine currently does not support live upgrades.
-* Avoid upgrading when volumes are in the `"Faulted"` status. If all replicas are deemed unusable, they might be deleted, potentially leading to permanent data loss if no usable backups exist.
-* Avoid upgrading if a failed `BackingImage` exists. For more information, see xref:volumes/backing-images/backing-images.adoc[Backing Image].
-* Create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn system backup] before performing the upgrade. This ensures that all critical resources, such as volumes and backing images, are backed up and can be restored if any issues arise during the upgrade.
+* Ensure all V2 Data Engine volumes are detached and replicas are stopped. The V2 engine does not support live upgrades.
+* Avoid upgrading when volumes are Faulted. Unusable replicas may be deleted, causing permanent data loss if no backups exist.
+* Avoid upgrading if a failed `BackingImage` exists. For more information, see xref:volumes/backing-images/backing-images.adoc[Backing Image] for details.
+* Create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn System Backup] upgrading is recommended to ensure recoverability.
 
 === Consolidated {longhorn-product-name} Settings
 
-To enhance manageability and user experience, {longhorn-product-name} settings have been consolidated for the V1 and V2 data engines. Each setting now supports one of the following formats, which determines which data engines can be configured and whether their values can differ:
+Settings have been consolidated for easier management across V1 and V2 Data Engines. Each setting now uses one of these formats:
 
 * Single value for all supported data engines:
 ** *Format*: Non-JSON string (for example, `1024`)
@@ -62,33 +70,103 @@ To enhance manageability and user experience, {longhorn-product-name} settings h
 
 For more information, see the xref:longhorn-system/settings.adoc[{longhorn-product-name} Settings].
 
-=== Backup and Restore
+=== System Info Category in Setting
+
+A new *System Info* category has been added to show cluster-level information more clearly.
+
+For more details, see https://github.com/longhorn/longhorn/issues/11656[Issue #11656].
 
 ==== Configurable Backup Block Size
 
-Beginning with {longhorn-product-name} v1.10.0, you can configure the backup block size when creating a volume. This feature provides greater flexibility by allowing the block size to be adjusted to meet different needs and cost considerations. This enables you to balance performance, efficiency, and transmission costs.
+The {longhorn-product-name} UI now display a summary of attachment tickets on each volume overview page for improved visibility into volume state.
+
+For more details, see https://github.com/longhorn/longhorn/issues/11400[Issue #11400] and https://github.com/longhorn/longhorn/issues/11401[Issue #11400].
+
+== Scheduling
+
+=== Pod Scheduling with CSIStorageCapacity
+
+{longhorn-product-name} now supports Kubernetes *CSIStorageCapacity*, which enables the scheduler to verify node storage before it schedules pods that use StorageClasses with *WaitForFirstConsumer*. This reduces scheduling errors and and improves reliability.
+
+For more details, see https://github.com/longhorn/longhorn/issues/10685[Issue #10685].
+
+== Performance
+
+=== Configurable Backup Block Size
+
+Backup block size can now be configured when you create a volume, starting in {longhorn-product-name} v1.10.0. This allows you to optimize for performance, efficiency, and cost.
 
 For more information, see xref:volumes/create-volumes.adoc[Create Longhorn Volumes].
+
+=== Profiling Support for Backup Sync Agent
+
+The backup sync agent has a `pprof` server for profiling runtime resource usage during backup sync operations.
+
+For more information, see xref:troubleshooting-maintenance/troubleshooting.adoc#_profiling[Profiling].
+
+== Resilience
+
+=== Configurable Liveness Probe for Instance Manager
+
+You can now configure the instance-manager pod liveness probes. This allows the system to better distinguish between temporary delays and actual failures, which helps reduce unnecessary restarts and improves overall cluster stability.
+
+For more information, see xref:longhorn-system/settings.adoc#_instance_manager_pod_liveness_probe_timeout[{longhorn-product-name} Settings].
+
+=== Backing Image Manager CR Naming
+
+Backing Image Manager CRs now use a compact, collision-resistant naming format to reduce the risk of conflicts.
+
+For more details, see https://github.com/longhorn/longhorn/issues/11455[Issue #11455].
+
+== Security
+
+=== Refined RBAC Permissions
+
+RBAC permissions have been refined to minimize privileges and improve cluster security.
+
+For more details, see https://github.com/longhorn/longhorn/issues/11345[Issue #11345].
 
 == V1 Data Engine
 
 === IPv6 Support
 
-{longhorn-product-name} v1.10.0 and later versions support the usage of V1 volumes in single-stacked IPv6 Kubernetes clusters. For more information, see https://github.com/longhorn/longhorn/issues/2259[Issue #2259].
+V1 volumes now support single-stack IPv6 Kubernetes clusters.
 
-[IMPORTANT]
+[WARNING]
 ====
-Dual-stack Kubernetes clusters and V2 volumes are not supported in this version.
+Dual-stack Kubernetes clusters and V2 volumes are not supported in this release.
 ====
+
+For more details, see https://github.com/longhorn/longhorn/issues/2259[Issue #2259].
 
 == V2 Data Engine
 
 === {longhorn-product-name} System Upgrade
 
-{longhorn-product-name} currently does not support live upgrading of V2 volumes. Ensure that all V2 volumes are detached before initiating the upgrade process.
+Live upgrades of V2 volumes are not supported. Before you upgrade, make sure all V2 volumes are detached.
 
-=== Newly Introduced Functionalities since {longhorn-product-name} v1.10.0
+=== New Introduced Functionalities since {longhorn-product-name} v1.10.0
 
 ====  V2 Data Engine Without Hugepage Support
 
-Starting with {longhorn-product-name} v1.10.0, you can run the V2 Data Engine without Hugepage by setting `data-engine-hugepage-enabled` to `{"v2":"false"}`. While this setting increases deployment flexibility and reduces memory pressure on low-spec nodes, it may result in lower performance compared to using Hugepage.
+The V2 Data Engine can run without Hugepages by setting `data-engine-hugepage-enabled`` to `{"v2":"false"}``. This reduces memory pressure on low-spec nodes and increases deployment flexibility. The performance may be lower compared to running with Hugepage.
+
+==== V2 Data Engine Interrupt Mode Support
+
+Interrupt mode has been added to the V2 Data Engine to help reduce CPU usage. This feature is especially beneficial for clusters with idle or low I/O workloads, where conserving CPU resources is more important than minimizing latency.
+
+While interrupt mode lowers CPU consumption, it may introduce slightly higher I/O latency compared to polling mode. In addition, the current implementation uses a hybrid approach, which still incurs a minimal, constant CPU load even when interrupts are enabled.
+
+For more information, see xref:longhorn-system/v2-data-engine/features/interrupt-mode.adoc[Interrupt Mode].
+
+==== V2 Data Engine Replica Rebuild QoS
+
+Provides Quality of Service (QoS) control for V2 volume replica rebuilds. You can configure bandwidth limits globally or per volume to prevent storage throughput overload on source and destination nodes.
+
+For more information, see xref:longhorn-system/v2-data-engine/features/replica-rebuild-qos.adoc[Replica Rebuild QoS].
+
+==== V2 Data Engine Volume Expansion
+
+{longhorn-product-name} now supports volume expansion for V2 Data Engine volumes. Users can expand the volume through the UI or by modifying the PVC manifest.
+
+For more information, see xref:longhorn-system/v2-data-engine/features/volume-expansion.adoc[Volume Expansion].
