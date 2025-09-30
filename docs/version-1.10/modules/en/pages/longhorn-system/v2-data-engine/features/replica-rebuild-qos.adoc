@@ -1,5 +1,5 @@
 = Replica Rebuild QoS
-:revdate: 2025-07-04
+:revdate: 2025-09-29
 :page-revdate: {revdate}
 :aliases: ["/spdk/features/replica-rebuild-qos.md"]
 :current-version: {page-component-version}
@@ -14,7 +14,7 @@
 
 [,bash]
 ----
-kubectl -n longhorn-system patch settings v2-data-engine-rebuilding-mbytes-per-second \
+kubectl -n longhorn-system patch settings.longhorn.io v2-data-engine-rebuilding-mbytes-per-second \
   --type=merge -p '{"value":"100"}'
 ----
 
