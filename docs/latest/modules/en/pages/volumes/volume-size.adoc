@@ -1,5 +1,5 @@
 = Volume Size
-:revdate: 2025-07-29
+:revdate: 2025-09-30
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -177,3 +177,81 @@ If there are heavy writing tasks for volumes, the head/snapshot average actual s
 +
 Also, notice that the extra space, up to volume nominal `size`, is required during snapshot cleanup and merge.
 . An appropriate the volume nominal `size` according to the workloads.
+
+== Troubleshooting
+
+=== Workload is hitting `no space left on device` error
+
+To address the "`no space left on device`" error, you need to understand that the difference between a volume being full and the node disks being full is crucial for proper storage management in {longhorn-product-name}.
+
+==== Volume full
+
+A volume is full when its mounted filesystem has reached its capacity limit.
+* Data writes fail with "`no space left on device`" errors.
+* The host disk for the replica of the volume may still have available space for other volumes.
+
+* *Characteristics*:
+** The `df` command shows 100% usage for the mounted filesystem.
+** Applications cannot write new data to the volume mount point.
+
+*Example*:
+
+[,bash]
+----
+$ df -h /mnt/longhorn-volume-example-dir
+Filesystem                    Size  Used Avail Use% Mounted on
+/dev/longhorn-volume-example   12G   12G    0  100% /mnt/longhorn-volume-example-dir
+----
+
+==== Node disk full
+
+Node disks may not have enough space to accommodate volume operations because volumes are thin-provisioned, and replica sizes continue to grow.
+* Data writes fail with "`no space left on device`" errors, even if the filesystem of the volume is not full.
+* Volume operations like creation, expansion, and snapshot management may be limited.
+* Newly created volume replicas cannot be scheduled to the full disks.
+
+* *Characteristics*:
+** Applications cannot write new data to the volume mount point even though the volume is not full.
+** {longhorn-product-name} operations on these disks, such as replica creation, rebuilding, or snapshot operations, may fail.
+** Volumes with replicas on these node disks are affected.
+
+==== Data integrity protection for disks out-of-space scenarios
+
+When multiple replicas simultaneously encounter "`no space left on device`" errors, {longhorn-product-name} implements data integrity protection. If all writable replicas are on disks that are out of space, the system preserves the maximum number of replicas that have written the same amount of data (the highest written bytes count). This ensures data consistency by:
+
+. *Retaining* the maximum number of replicas that have written the same amount of data.  
+This avoids massive replica rebuilding operations, allows for efficient rebuilding when node disks recover from out-of-space issues and ensures that users can still read data consistently.
+. *Marking* other replicas as *`ERR`* to prevent data corruption.  
+This ensures that users can read data consistently from retained replicas, and replicas marked as `ERR` will be rebuilt from retained replicas to maintain data integrity when node disks recover from out-of-space issues.
+. *Maintaining* volume accessibility even when all underlying disks are full.
+
+For example, if replicas A, B, and C encounter space errors after writing 1MB, 2MB, and 2MB respectively, replicas B and C will remain active while replica A is marked as `ERR`.
+
+=== Solutions
+
+When encountering the `no space left on device` error, first check the filesystem usage of the volume, then check the disk hosting the volume replica.
+
+* *Check volume filesystem usage*: 
+If the filesystem usage of the volume is 100% (using the following command):
++
+[,bash]
+----
+df -h /mnt/your-volume
+----
++
+You should expand the volume or remove unnecessary files from the filesystem.
+* *Check {longhorn-product-name} node disk usage*:
+Check disk usage in the {longhorn-product-name} UI under *Node* > *Node Disk* or use the command line:
++
+[subs="+attributes",bash]
+----
+# Check through {longhorn-product-name} UI: Node > Node Disk
+# Or check the data path mount point
+df -h /var/lib/longhorn # default data path
+----
++
+If disk usage is 100%, follow these steps to recover the workloads:
++
+. Scale down the workload.
+. Expand the disk size, or remove unnecessary files such as xref:data-integrity-recovery/orphaned-data-cleanup.adoc#_orphaned_replica_directories[orphaned replica directories] and xref:volumes/backing-images/backing-images.adoc#_clean_up_backing_images[used backing images], on the disk.
+. Scale up the workload.
