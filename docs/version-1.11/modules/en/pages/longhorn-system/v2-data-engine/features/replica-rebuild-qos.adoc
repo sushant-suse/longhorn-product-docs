@@ -1,0 +1,69 @@
+= Replica Rebuild QoS
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:aliases: ["/spdk/features/replica-rebuild-qos.md"]
+:current-version: {page-component-version}
+
+{longhorn-product-name} supports rebuild bandwidth throttling (Quality of Service, or QoS) for v2 volumes based on SPDK. This feature allows you to apply bandwidth limits to replicas during rebuilding, which helps prevent overloading the source and destination node's storage throughput.
+
+== Global Setting: `v2-data-engine-rebuilding-mbytes-per-second`
+
+* This cluster-wide setting defines the maximum write bandwidth (in MB/s) for rebuilding replicas.
+* A value of `0` indicates no limit.
+* You can configure this setting only via `kubectl`:
+
+[,bash]
+----
+kubectl -n longhorn-system patch settings.longhorn.io v2-data-engine-rebuilding-mbytes-per-second \
+  --type=merge -p '{"value":"100"}'
+----
+
+== Per-Volume QoS Override
+
+You can override the global rebuild bandwidth limit for a specific volume by setting `spec.rebuildingMbytesPerSecond` in the volume's specification:
+
+[,yaml]
+----
+spec:
+  rebuildingMbytesPerSecond: 50
+----
+
+== Effective QoS Resolution
+
+The effective rebuild bandwidth limit is determined by evaluating both the global and volume-specific settings. If the volume-specific value is greater than zero, it overrides the global setting.
+
+|===
+|Global Setting | Volume Override | Effective QoS
+
+|0
+|0
+|No limit
+
+|100
+|0
+|100 MB/s
+
+|0
+|200
+|200 MB/s
+
+|100
+|200
+|200 MB/s
+|===
+
+The applied QoS is recorded in the `status.rebuildStatus[*].appliedRebuildingMbps` field within the engine status.
+
+For example, the applied bandwidth limit appears in the volume engine status as shown here:
+
+[,yaml]
+----
+  Rebuild Status:
+    tcp://172.24.1.95:20001:
+      Error:
+      From Replica Address:  tcp://172.24.8.133:20001
+      Is Rebuilding:         true
+      Progress:              97
+      State:                 in_progress
+      appliedRebuildingMbps: 50
+----
