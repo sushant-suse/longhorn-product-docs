@@ -9,7 +9,9 @@ Please see https://github.com/longhorn/longhorn/releases/tag/v{patch-version}[he
 
 === Upgrade
 
-During the {longhorn-product-name} v1.8 to v1.9 upgrade, resources are automatically migrated to the new `v1beta2` version. However, before you upgrade from {longhorn-product-name} v1.9 to v1.10, we strongly advise a manual CRD migration. Certain operations, such as etcd restore or CRD restore, might leave `v1beta1` data behind, and a manual migration ensures that all Longhorn custom resources are properly updated.
+If your {longhorn-product-name} cluster was initially deployed with a version earlier than v1.3.0, the Custom Resources (CRs) were created by using the `v1beta1` APIs. While the upgrade from {longhorn-product-name} `v1.8` to `v1.9` automatically migrates all CRs to the new `v1beta2` version, a manual CR migration is strongly advised before you upgrade from {longhorn-product-name} `v1.9` to `v1.10`.
+
+Certain operations, such as an `etcd` or CRD restore, might leave behind `v1beta1` data. Manually migrating your CRs ensures that all {longhorn-product-name} data is properly updated to the `v1beta2` API, which prevents potential compatibility issues and unexpected behavior with the new {longhorn-product-name} version.
 
 Following the manual migration, verify that `v1beta1` has been removed from the CRD stored versions to ensure completion and a successful upgrade.
 
@@ -98,7 +100,7 @@ With these steps completed, the {longhorn-product-name} upgrade to v1.10 should 
 
 ==== Troubleshooting CRD Upgrade Failures During Upgrade to {longhorn-product-name} v1.10
 
-If you did not apply the required pre-upgrade migration steps and the Custom Resources (CRs) are not fully migrated to `v1beta2`, the `longhorn-manager` Pods may fail to operate correctly. A common error message for this issue is:
+If you did not apply the required pre-upgrade migration steps and the CRs are not fully migrated to `v1beta2`, the `longhorn-manager` Pods may fail to operate correctly. A common error message for this issue is:
 
 [,bash]
 ----
