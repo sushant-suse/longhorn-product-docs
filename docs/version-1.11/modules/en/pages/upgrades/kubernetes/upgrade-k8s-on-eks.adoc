@@ -1,0 +1,10 @@
+= Upgrade Kubernetes on Amazon Elastic Kubernetes Service (Amazon EKS)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+In Longhorn, set `replica-replenishment-wait-interval` to `0`.
+
+See https://docs.aws.amazon.com/eks/latest/userguide/update-cluster.html[Updating a cluster] for instructions.
+
+NOTE: If you have created xref:nodes/managed-kubernetes/eks-managed-node-pools.adoc#_create_additional_volume[addition disks] for Longhorn, you will need to manually add the path of the mounted disk into the disk list of the upgraded nodes.
