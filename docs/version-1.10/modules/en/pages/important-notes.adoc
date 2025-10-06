@@ -1,9 +1,136 @@
 = Important Notes
-:revdate: 2025-09-29
+:revdate: 2025-10-06
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 Please see https://github.com/longhorn/longhorn/releases/tag/v{patch-version}[here] for the full release notes.
+
+== Warning
+
+=== Upgrade
+
+If your {longhorn-product-name} cluster was initially deployed with a version earlier than v1.3.0, the Custom Resources (CRs) were created by using the `v1beta1` APIs. While the upgrade from {longhorn-product-name} `v1.8` to `v1.9` automatically migrates all CRs to the new `v1beta2` version, a manual CR migration is strongly advised before you upgrade from {longhorn-product-name} `v1.9` to `v1.10`.
+
+Certain operations, such as an `etcd` or CRD restore, might leave behind `v1beta1` data. Manually migrating your CRs ensures that all {longhorn-product-name} data is properly updated to the `v1beta2` API, which prevents potential compatibility issues and unexpected behavior with the new {longhorn-product-name} version.
+
+Following the manual migration, verify that `v1beta1` has been removed from the CRD stored versions to ensure completion and a successful upgrade.
+
+For more details, see https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definition-versioning/#upgrade-existing-objects-to-a-new-stored-version[Kubernetes official document for CRD storage version], and https://github.com/longhorn/longhorn/issues/11886[Issue #11886].
+
+[[manual-crd-migration]]
+==== Migration Requirement Before {longhorn-product-name} v1.10 Upgrade
+
+Before you upgrade from {longhorn-product-name} v1.9 to v1.10, perform the following manual CRD storage version migration.
+
+[NOTE]
+====
+If your {longhorn-product-name} installation uses a namespace other than `longhorn-system`, replace `longhorn-system` with your custom namespace throughout the commands.
+====
+
+[,bash]
+----
+# Temporarily disable the CR validation webhook to allow updating read-only settings CRs.
+kubectl patch validatingwebhookconfiguration longhorn-webhook-validator \
+  --type=merge \
+  -p "$(kubectl get validatingwebhookconfiguration longhorn-webhook-validator -o json | \
+  jq '.webhooks[0].rules |= map(if .apiGroups == ["longhorn.io"] and .resources == ["settings"] then
+    .operations |= map(select(. != "UPDATE")) else . end)')"
+
+# Migrate CRDs that ever stored v1beta1 resources
+migration_time="$(date +%Y-%m-%dT%H:%M:%S)"
+crds=($(kubectl get crd -l app.kubernetes.io/name=longhorn -o json | jq -r '.items[] | select(.status.storedVersions | index("v1beta1")) | .metadata.name'))
+for crd in "${crds[@]}"; do
+  echo "Migrating ${crd} ..."
+  for name in $(kubectl -n longhorn-system get "$crd" -o jsonpath='{.items[*].metadata.name}'); do
+    # Attach additional annotations to trigger v1beta1 resource updating in the latest storage version.
+    kubectl patch "${crd}" "${name}" -n longhorn-system --type=merge -p='{"metadata":{"annotations":{"migration-time":"'"${migration_time}"'"}}}'
+  done
+  # Clean up the stored version in CRD status
+  kubectl patch crd "${crd}" --type=merge -p '{"status":{"storedVersions":["v1beta2"]}}' --subresource=status
+done
+
+# Re-enable the CR validation webhook.
+kubectl patch validatingwebhookconfiguration longhorn-webhook-validator \
+  --type=merge \
+  -p "$(kubectl get validatingwebhookconfiguration longhorn-webhook-validator -o json | \
+  jq '.webhooks[0].rules |= map(if .apiGroups == ["longhorn.io"] and .resources == ["settings"] then
+    .operations |= (. + ["UPDATE"] | unique) else . end)')"
+----
+
+==== Migration Verification
+
+After running the script, verify the CRD stored versions using this command:
+
+[,bash]
+----
+kubectl get crd -l app.kubernetes.io/name=longhorn -o=jsonpath='{range .items[*]}{.metadata.name}{": "}{.status.storedVersions}{"\n"}{end}'
+----        
+
+Before upgrading to {longhorn-product-name} v1.10, you must confirm that all {longhorn-product-name} Custom Resource Definitions (CRDs) have only `"v1beta2"` listed in their `storedVersions`. The `"v1beta1"` version must be completely removed.
+
+*Example of successful output*:
+
+[,bash]
+----
+backingimagedatasources.longhorn.io: ["v1beta2"]
+backingimagemanagers.longhorn.io: ["v1beta2"]
+backingimages.longhorn.io: ["v1beta2"]
+backupbackingimages.longhorn.io: ["v1beta2"]
+backups.longhorn.io: ["v1beta2"]
+backuptargets.longhorn.io: ["v1beta2"]
+backupvolumes.longhorn.io: ["v1beta2"]
+engineimages.longhorn.io: ["v1beta2"]
+engines.longhorn.io: ["v1beta2"]
+instancemanagers.longhorn.io: ["v1beta2"]
+nodes.longhorn.io: ["v1beta2"]
+orphans.longhorn.io: ["v1beta2"]
+recurringjobs.longhorn.io: ["v1beta2"]
+replicas.longhorn.io: ["v1beta2"]
+settings.longhorn.io: ["v1beta2"]
+sharemanagers.longhorn.io: ["v1beta2"]
+snapshots.longhorn.io: ["v1beta2"]
+supportbundles.longhorn.io: ["v1beta2"]
+systembackups.longhorn.io: ["v1beta2"]
+systemrestores.longhorn.io: ["v1beta2"]
+volumeattachments.longhorn.io: ["v1beta2"]
+volumes.longhorn.io: ["v1beta2"]
+----
+
+With these steps completed, the {longhorn-product-name} upgrade to v1.10 should now proceed without issues.
+
+==== Troubleshooting CRD Upgrade Failures During Upgrade to {longhorn-product-name} v1.10
+
+If you did not apply the required pre-upgrade migration steps and the CRs are not fully migrated to `v1beta2`, the `longhorn-manager` Pods may fail to operate correctly. A common error message for this issue is:
+
+[,bash]
+----
+Upgrade failed: cannot patch "backingimagedatasources.longhorn.io" with kind CustomResourceDefinition: CustomResourceDefinition.apiextensions.k8s.io "backingimagedatasources.longhorn.io" is invalid: status.storedVersions[0]: Invalid value: "v1beta1": missing from spec.versions; v1beta1 was previously a storage version, and must remain in spec.versions until a storage migration ensures no data remains persisted in v1beta1 and removes v1beta1 from status.storedVersions
+----
+
+To fix this issue, you must perform a *forced downgrade* back to the *exact {longhorn-product-name} v1.9.x version* that was running before the failed upgrade attempt.
+
+===== Downgrade Procedure (`kubectl` Installation)
+
+If {longhorn-product-name} was installed by using `kubectl`, you must patch the `current-longhorn-version` setting before you downgrade. Replace `"v1.9.x"` to the original version before upgrade in the following commands.
+
+[,bash]
+----
+# Attaching annotation to allow patching current-longhorn-version.
+kubectl patch settings.longhorn.io current-longhorn-version -n longhorn-system --type=merge -p='{"metadata":{"annotations":{"longhorn.io/update-setting-from-longhorn":""}}}'
+# Temporarily override current version to allow old version installation.
+# Replace the value `"v1.9.x"` with the original version before upgrade.
+kubectl patch settings.longhorn.io current-longhorn-version -n longhorn-system --type=merge -p='{"value":"v1.9.1"}'
+----
+
+After modifying `current-longhorn-version`, you can proceed to downgrade to the original {longhorn-product-name} v1.9.x deployment.
+
+===== Downgrade Procedure (Helm Installation)
+
+If {longhorn-product-name} was installed by using Helm, the downgrade is allowed by disabling the https://github.com/longhorn/longhorn/tree/v1.9.x/chart#other-settings[`preUpgradeChecker.upgradeVersionCheck`] flag.
+
+===== Post-Downgrade
+
+Once the downgrade is complete and the Longhorn system is stable on the v1.9.x version, you must immediately follow the steps outlined in the xref:#manual-crd-migration[Manual CRD Migration Guide]. This step is crucial to migrate all remaining `v1beta1` CRs to `v1beta2` before you try the Longhorn v1.10 upgrade again.
 
 == Removal
 
