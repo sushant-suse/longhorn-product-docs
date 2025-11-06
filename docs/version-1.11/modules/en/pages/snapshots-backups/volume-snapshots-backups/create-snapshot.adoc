@@ -1,14 +1,90 @@
 = Create a Snapshot
-:revdate: 2025-06-27
+:revdate: 2025-11-06
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
-A xref:introduction/concepts.adoc#_2_4_snapshots[snapshot] is the state of a Kubernetes Volume at any given point in time.
+A xref:introduction/concepts.adoc#_2_4_snapshots[snapshot] is the state of a Kubernetes volume at any given moment in time.
 
-To create a snapshot of an existing cluster,
+== Snapshot Management via {longhorn-product-name} UI
 
-. In the top navigation bar of the Longhorn UI, click *Volume.*
-. Click the name of the volume of which you want a snapshot. This leads to the volume detail page.
-. Click the *Take Snapshot* button
+To create a snapshot of an existing cluster, follow these steps:
 
-Once the snapshot is created you'll see it in the list of snapshots for the volume prior to the Volume Head.
+. In the top navigation bar of the {longhorn-product-name} UI, click *Volume*.
+. Click the name of the volume for which you want to create a snapshot. This leads to the volume detail page.
+. Click the *Take Snapshot* button.
+
+Once the snapshot is created, you can view it in the list of snapshots for the volume before the Volume Head.
+
+== Snapshot Management with Custom Resources (CRs)
+
+This section demonstrates how to create, list, restore and delete Longhorn snapshots directly via `kubectl` using the *Custom Resources (CRs)* of {longhorn-product-name}.
+
+[NOTE]
+====
+{longhorn-product-name} uses its own `Snapshot` CRD under the `longhorn.io` API group (for example, `v1beta2`), not the generic Kubernetes `VolumeSnapshot` from `snapshot.storage.k8s.io`.  
+====
+
+=== Create a snapshot
+
+. *Prepare the manifest* - Create a file named `longhorn-snapshot.yaml` with the following content:
++
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: longhorn-test-snapshot
+  namespace: longhorn-system
+spec:
+  volume: pvc-840804d8-6f11-49fd-afae-54bc5be639de   # replace with your actual Longhorn volume name
+  createSnapshot: true
+----
++
+. *Apply the manifest*:
++
+[,bash]
+----
+kubectl apply -f longhorn-snapshot.yaml
+----
++
+Expected output:
++
+[,bash]
+----
+snapshot.longhorn.io/longhorn-test-snapshot created
+----
++
+[NOTE]
+====
+If the volume is detached, a brief warning about the engine not running appears. {longhorn-product-name} automatically retries, and the snapshot completes when the volume is attached.
+====
+
+=== List snapshots
+
+To list all snapshots for a specific volume, use the following command:
+
+[,bash]
+----
+kubectl get snapshots.longhorn.io -l longhornvolume=pvc-840804d8-6f11-49fd-afae-54bc5be639de -n longhorn-system
+----
+
+=== Delete a snapshot
+
+To delete a specific snapshot, use the following command:
+
+[,bash]
+----
+kubectl delete snapshot.longhorn.io longhorn-test-snapshot -n longhorn-system
+----
+
+Expected output:
+
+[,bash]
+----
+snapshot.longhorn.io "longhorn-test-snapshot" deleted
+----    
+
+[NOTE]
+====
+{longhorn-product-name} automatically handles the cleanup of the underlying data.
+====
