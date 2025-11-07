@@ -1,5 +1,5 @@
 = Requirements
-:revdate: 2025-10-22
+:revdate: 2025-11-06
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -184,24 +184,24 @@ iscsi install successfully
 ----
 
 In rare cases, it may be required to modify the installed SELinux policy to get {longhorn-product-name} working. If you are running
-an up-to-date version of a Fedora downstream distribution (e.g. Fedora, RHEL, Rocky, CentOS, etc.) and plan to leave
+an up-to-date version of a Fedora downstream distribution (for example, Fedora, RHEL, Rocky, CentOS, etc.) and plan to leave
 SELinux enabled, see link:https://longhorn.io/kb/troubleshooting-volume-attachment-fails-due-to-selinux-denials[the KB] for details.
 
 [discrete]
 == Installing NFSv4 client
 
-The backup feature requires NFSv4, v4.1 or v4.2, and ReadWriteMany (RWX) volume feature requires NFSv4.1. Before installing NFSv4 client userspace daemon and utilities, make sure the client kernel support is enabled on each {longhorn-product-name} node.
+In {longhorn-product-name} system, backup feature requires NFSv4, v4.1 or v4.2, and ReadWriteMany (RWX) volume feature requires NFSv4.1. Before installing NFSv4 client userspace daemon and utilities, make sure the client kernel support is enabled on each Longhorn node.
 
-* Check `NFSv4.1` support is enabled in the kernel:
+* Check if `NFSv4` support is enabled in the kernel::
++
+----
+cat /boot/config-`uname -r`| grep CONFIG_NFS_V4
+----
+
+* Check if `NFSv4.1` support is enabled in the kernel:
 +
 ----
 cat /boot/config-`uname -r`| grep CONFIG_NFS_V4_1
-----
-
-* Check `NFSv4.2` support is enabled in the kernel:
-+
-----
-cat /boot/config-`uname -r`| grep CONFIG_NFS_V4_2
 ----
 
 * Check if `NFSv4.2` support is enabled in the kernel:
