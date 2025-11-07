@@ -128,7 +128,7 @@ The automatic replica balancing feature in {longhorn-product-name} activates onl
 *Unhealthy volumes* or *detached volumes* are not automatically rebalanced, even when a node has low available space.
 
 This behavior is a deliberate design choice to ensure system stability and data integrity:
-* Moving replicas or triggering automatic rebuilds on an unhealthy volume could further compromise data integrity. This design requires manual intervention so an administrator can assess the volume's condition before initiating potentially risky operations.
+* Moving replicas or triggering automatic rebuilds on an unhealthy volume could further compromise data integrity. This design requires manual intervention to enable an administrator to assess the volume's condition before initiating potentially risky operations.
 * Detached volumes do not actively serve I/O. Skipping automatic rebalance prevents unnecessary rebuilds and saves cluster resources.
 
 If a volume is unhealthy or detached, moving replicas requires manual intervention, such as:
