@@ -1,5 +1,5 @@
 = Upgrade Longhorn Manager
-:revdate: 2025-07-31
+:revdate: 2025-11-10
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -38,26 +38,98 @@ parameters:
 Always back up volumes before upgrading. If anything goes wrong, you can restore the volume using the backup.
 ====
 
-=== Upgrade as a Rancher Catalog App
+=== Upgrade Using the Rancher Prime UI
 
-To upgrade the {longhorn-product-name} App, make sure which Rancher UI the existing {longhorn-product-name} App was installed with. There are two Rancher UIs, one is the Cluster Manager (old UI), and the other one is the Cluster Explorer (new UI). The {longhorn-product-name} App in different UIs considered as two different applications by Rancher. They cannot upgrade to each other. If you installed {longhorn-product-name} in the Cluster Manager, you need to use the Cluster Manager to upgrade {longhorn-product-name} to a newer version, and vice versa for the Cluster Explorer.
+For Kubernetes clusters managed by Rancher, you can upgrade the {longhorn-product-name} App by updating the repository to reference a newer chart version.  
+This method applies to Rancher Prime v2.12.3 and later.
 
 [NOTE]
 ====
-Because the Cluster Manager (old UI) is being deprecated, the instruction to migrate the existing {longhorn-product-name} installation to the {longhorn-product-name} chart in the Cluster Explorer (new UI) can be found https://longhorn.io/kb/how-to-migrate-longhorn-chart-installed-in-old-rancher-ui-to-the-chart-in-new-rancher-ui/[here].
+If your existing {longhorn-product-name} App was installed by using the deprecated *Cluster Manager* (old UI), migrate to the chart in the *Cluster Explorer* (new UI) before proceeding.  
+For migration steps, see the https://longhorn.io/kb/how-to-migrate-longhorn-chart-installed-in-old-rancher-ui-to-the-chart-in-new-rancher-ui/[migration guide].
 ====
 
-Different Rancher UIs screenshots.
+The following procedure describes how to upgrade the {longhorn-product-name} App on Rancher Prime.
 
-* The Cluster Manager (old UI)
+. Go to *Apps > Repositories*.
+. Select the OCI repository.
+. In the *OCI Repository Host URL* field, enter:
 +
-image::screenshots/install/cluster-manager.png[Image]
+`oci://dp.apps.rancher.io/charts/suse-storage:1.9.2`
 +
-* The Cluster Explorer (new UI)
-+
-image::screenshots/install/cluster-explorer.png[Image]
+image::screenshots/install/add-repo.png[Add Repository, width=80%]
 
-On Kubernetes clusters managed by Rancher 2.1 or newer, the steps to upgrade the catalog app `longhorn-system` are the similar to the installation steps.
+. Verify that the repository has been added successfully.
++
+image::screenshots/install/add-repo-success.png[Repository Added, width=80%]
+
+. Go to *Apps > Charts* and find the `suse-storage` chart.
++
+image::screenshots/install/find-chart.png[Find Chart, width=80%]
+
+. Click the chart, and then click *Install*.
++
+image::screenshots/install/install-chart.png[Install Chart, width=80%]
+
+. On the next page, set `global.imagePullSecrets` to `application-collection`, and then click *Install*.
++
+Refer to the https://docs.apps.rancher.io/get-started/authentication/#kubernetes[authentication documentation] for credential setup.
++
+[,yaml]
+----
+global:
+  cattle:
+    windowsCluster:
+      defaultSetting:
+        systemManagedComponentsNodeSelector: kubernetes.io/os:linux
+        taintToleration: cattle.io/os=linux:NoSchedule
+      enabled: false
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+        - effect: NoSchedule
+          key: cattle.io/os
+          operator: Equal
+          value: linux
+  imagePullSecrets: [application-collection]
+  imageRegistry: ''
+----
+
+. This installs `suse-storage` `v1.9.1`.
++
+image::screenshots/install/update-repo.png[Update Repository, width=80%]
+
+. After installation, go to *Apps > Repositories*.
+. Select the `suse-storage` repository, click the three-dot menu on the right, and choose *Edit Config*.
+. Update the URL from:
++
+`oci://dp.apps.rancher.io/charts/suse-storage:1.9.1`
++
+to:
++
+`oci://dp.apps.rancher.io/charts/suse-storage:1.9.2`
+
+. The repository should be updated successfully.
++
+image::screenshots/install/updated-repo.png[Update Repository, width=80%]
+
+. Go to *Apps > Installed Apps*.
+. In the `longhorn-system` namespace, under the *Upgradable* column, look for a yellow-highlighted `1.9.2` label. If you do not see the yellow label, refresh the page.
++
+image::screenshots/install/upgradable-column.png[Upgradable Version, width=80%]
+
+. Click the yellow `1.9.2` label to open the upgrade page.
++
+image::screenshots/install/upgrade-page.png[Upgrade Page, width=80%]
+
+. Click *Next*.
+. Ensure that `global.imagePullSecrets` is set to `application-collection`, and then click *Upgrade* to start the process.
++
+image::screenshots/install/upgrade-progress.png[Upgrade Progress, width=80%]
+
+. After the upgrade completes, verify that the `suse-storage` chart version is updated to `1.9.2`.
++
+image::screenshots/install/upgrade-success.png[Upgrade Success, width=80%]
 
 === Upgrade with Helm
 
