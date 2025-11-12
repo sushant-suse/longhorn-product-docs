@@ -1,0 +1,298 @@
+= Replica Rebuilding
+:revdate: 2025-08-19
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+When {longhorn-product-name} detects a failed or deleted replica, it automatically initiates a rebuilding process. This document outlines the replica rebuilding workflow for v1 data engine, including *full*, *delta*, and *fast* rebuilding methods. It also explains the limitations associated with each method.
+
+*Rebuilding will not start in the following scenarios*:
+
+* The volume is migrating to another node.
+* The volume is an old restore/DR volume.
+* The volume is expanding in size.
+
+== Replica Rebuilding Workflow
+
+Replica rebuilding may occur in the following scenarios for the v1 data engine:
+
+* A node is rebooted, drained, or evicted.
+* A replica becomes unhealthy or is deleted.
+
+image::diagrams/architecture/replica-rebuilding-flow.png[Image]
+
+. Mark the target replica with `WO` (write-only) mode.
+. Create a new snapshot to serve as the volume head reference point for data integrity checks.
+. Generate the synchronization file list for the volume head and snapshot files.
+
+=== For V1 Data Engine
+
+[start=4]
+
+. Start a receiver server on the target replica for each snapshot.
+. Instruct the source replica to begin data synchronization.
+
+.. For each snapshot:
+
+* Check if the snapshot file exists in the data directory of the target replica.
+** If _no_, transfer the entire snapshot data from the source replica to the target replica.
+See <<_full_replica_rebuilding>>.
+** If _yes_, check whether the snapshot checksum files exist, and whether the modification time and checksums are identical between the target and source replicas.
+*** If _yes_, {longhorn-product-name} skips transferring the data of the snapshot. This optimization reduces CPU usage, disk I/O, network I/O, and total rebuild time. See <<_fast_replica_rebuilding>>.
+*** If _no_, {longhorn-product-name} calculates and compares block-level checksums using the SHA-512 algorithm. If mismatches are found, only the differing blocks are synchronized.
+See <<_delta_replica_rebuilding>>.
+
+=== For V2 Data Engine
+
+[start=4]
+
+. Expose the source and target replicas and prepare a shallow copy using the SPDK engine.
+. For each snapshot:
+
+* Check if the snapshot timestamp, actual size, and checksum match between the source and target.
+** If _yes_, {longhorn-product-name} skips transferring the data of that snapshot.
+** If _no_, check whether both the source and target snapshots contain ranged checksums.
+*** If _yes_, fetch and compare the range checksums. If mismatches exist, only the mismatched ranges are copied.
+See <<_fast_replica_rebuilding>>.
+*** If _no_, delete the existing target snapshot. Then, copy the entire snapshot from the source replica to the target replica.
+See <<_full_replica_rebuilding>>.
+
+=== Full Replica Rebuilding
+
+If the replica is unrecoverable or has no existing data, {longhorn-product-name} synchronizes all data from a healthy replica. It reconstructs the replica by transferring the full snapshot chain.
+
+Full replica rebuilding consumes significant network bandwidth and results in heavy disk write operations on the target node. However, it is required when the target replica has no usable data.
+
+=== Delta Replica Rebuilding
+
+Delta replica rebuilding is only for v1 data engine. It starts with a reusable failed replica, and it checks the data integrity for all snapshots' data block by block.
+
+* This is available for failed replica reuse only, and there is an existing snapshot file (with the same name) in the failed replica data directory
+* When a snapshot has no checksum, {longhorn-product-name} performs delta replica rebuilding for this snapshot instead.
+
+* *Pros*:
+** Reduce network bandwidth consumption.
+* *Cons*:
+** Increased CPU overhead because {longhorn-product-name} will compute the checksum of the snapshot data block by block for data integrity check.
+** Rebuilding time is influenced by CPU performance.
+
+=== Fast Replica Rebuilding
+
+Fast replica rebuilding is enabled when the following conditions are met:
+
+* The fast replica rebuild setting is enabled:
++
+--
+`fast-replica-rebuild-enabled: true`
+--
+
+* Snapshot checksum files are created (checksums are precomputed) using one of the following methods:
++
+--
+* `snapshot-data-integrity` is set to `enabled`:  
+  A scheduled job calculates checksums for all snapshots at a configured interval (default: 7 days).
+* `snapshot-data-integrity-immediate-check-after-snapshot-creation` is set to `true`:  
+  The snapshot checksum is calculated immediately after snapshot creation.
+--
+
+[NOTE]
+====
+These checksum calculations consume storage and computing resources.  
+The calculation time is unpredictable and may negatively impact storage performance.  
+For more information, see xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[Snapshot Data Integrity].
+====
+
+* *Pros*:
+** Minimizes network bandwidth consumption.
+** Minimizes disk I/O.
+* *Cons*:
+** Calculating snapshot checksums can be time-consuming.
+** The timing of checksum calculation is unpredictable. It may trigger even under high I/O load.
+
+For more information, see xref:high-availability/fast-replica-rebuilding.adoc[Fast Replica Rebuilding].
+
+== Factors That Affect Rebuilding Performance
+
+* *Large volume head*
+** *Why it matters*:  
+The volume head is a special file that never has a precomputed checksum.  
+If a replica fails, {longhorn-product-name} must always synchronize the entire volume head.  
+A larger volume head increases rebuild time.
+** *How to prevent*:  
+Take snapshots regularly to reduce the volume head's size.  
+Schedule snapshots before planned maintenance to minimize rebuild time.
+
+* *No snapshots exist*
+** *Why it matters*:  
+Without snapshots, {longhorn-product-name} cannot skip data transfer or reuse existing data.  
+If a volume head snapshot is created but its checksum isn't ready, {longhorn-product-name} must perform delta rebuilding.  
+This increases CPU usage due to block-by-block checksum comparisons.
+** *How to prevent*:
++
+--
+. Enable `snapshot-data-integrity-immediate-check-after-snapshot-creation` or `snapshot-data-integrity` to precompute checksums.  
+   *Trade-off:* Increases CPU, disk I/O, and storage usage during computation.
+. Use a recurring job to create snapshots regularly.
+--
+
+* *Snapshot purged*
+** *Why it matters*:  
+When snapshot purging starts, system-generated snapshots are coalesced into the next snapshot.  
+This invalidates the checksum of next snapshot.
+** *How to prevent*:
++
+--
+. Enable `snapshot-data-integrity-immediate-check-after-snapshot-creation` to ensure checksums are computed after purging.
+. Proactively create a snapshot and allow time for checksum generation before performing upgrades or rebuilds.
+--
+
+* *Concurrent rebuilds*
+** *Why it matters*:  
+Running multiple rebuilds on the same node can overuse CPU, disk input-output, and network input-output, impacting performance.
+** *How to prevent*:  
+Tune the number of concurrent rebuilds using the `concurrent-replica-rebuild-per-node-limit` setting.
+
+* *Multiple replica failures*
+** *Why it matters*:  
+Increases rebuild time and complexity.  
+If `auto-cleanup-system-generated-snapshot` is `true` and no user-created snapshots exist, two failed replicas may trigger at least one full data transfer.
++
+For more details, see https://github.com/longhorn/longhorn/issues/9335[Avoid "full data transfer" when rebuilding two failed replicas].
++
+** *How to prevent*:
++
+--
+. Disable `auto-cleanup-system-generated-snapshot` before performing maintenance.
+. Create user snapshots of all volumes before starting maintenance.
+. Use a recurring job to take snapshots regularly.
+--
+
+== Use Cases
+
+=== Node Reboot During Upgrade
+
+When a worker node with replicas is rebooted as part of a planned upgrade:
+
+. The replica on that node becomes temporarily unavailable and fails, but read and write operations continue.
+. If the node recovers within the `replica-replenishment-wait-interval`, {longhorn-product-name} initiates a rebuild using the reusable failed replica.
+
+During the rebuilding process:
+
+. {longhorn-product-name} selects the latest reusable failed replica if multiple reusable failed replicas are available.
+. Based on the rebuild scenario:
++
+--
+* *If fast replica rebuilding is enabled and all snapshot checksums exist*:  
+  {longhorn-product-name} triggers <<_fast_replica_rebuilding>>.  
+  Only changed blocks in the volume head are synced, avoiding both full and delta rebuilding.
+
+* *If fast replica rebuilding is enabled but some snapshot checksums are missing*:  
+  {longhorn-product-name} triggers <<_delta_replica_rebuilding>>.  
+  Changed blocks from snapshots without checksums are synced, avoiding full rebuilding.
+
+* *If fast replica rebuilding is disabled*:  
+  {longhorn-product-name} performs delta rebuilding by syncing changed blocks of *all* snapshots, avoiding full rebuilding.
+--
+
+=== Short-Term Node Drain
+
+If a worker node is drained for short-term maintenance and then quickly restored:
+
+. The replica on the drained node is marked as failed immediately.
+. If the node is uncordoned before the `replica-replenishment-wait-interval` expires, {longhorn-product-name} attempts to reuse the failed replica.
+. Rebuild behavior follows the same logic as described in the previous use case.
+
+== Relevant Settings
+
+[cols="1,1,4", options="header"]
+|===
+|Setting |Default |Description
+
+|`fast-replica-rebuild-enabled`
+|`true`
+|Enables fast replica rebuilding. Relies on precomputed snapshot checksums.
+
+|xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[snapshot-data-integrity]
+|`fast-check`
+|Hashes snapshot disk files only if they are unhashed or their modification time has changed.
+
+|`snapshot-data-integrity-cronjob`
+|`0 0 */7 * *`
+|Cron schedule to compute checksums for all snapshots. Default: every 7 days.
+
+|`snapshot-data-integrity-immediate-check-after-snapshot-creation`
+|`false`
+|If enabled, computes checksums immediately after snapshot creation.
+
+|`replica-replenishment-wait-interval`
+|`600`
+|Time in seconds to wait before creating a new replica. Allows reuse of failed replicas.
+
+|`concurrent-replica-rebuild-per-node-limit`
+|`5`
+|Limits the number of concurrent replica rebuilds per node.
+
+|`offline-replica-rebuilding`
+|`false`
+|Determines whether degraded replicas are rebuilt while the volume is detached.
+|===
+
+=== Settings Trade-Off Analysis
+
+* xref:longhorn-system/settings.adoc#_fast_replica_rebuild_enabled[fast-replica-rebuild-enabled]
++
+--
+* `enabled`:  
+  Skips snapshot data transfer if checksums are current. Provides fast rebuilds but doesn't revalidate data.
+
+* `disabled`:  
+  Performs delta rebuilding using block comparisons. Slower, but ensures snapshot data integrity.
+--
+
+* xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[snapshot-data-integrity]
++
+--
+* `enabled`:  
+  By default, calculates snapshot checksums every 7 days. Increases CPU, disk I/O, and resource usage.
+--
+
+* xref:longhorn-system/settings.adoc#_snapshot_data_integrity_check_cronjob[snapshot-data-integrity-cronjob]
++
+--
+* Default: `0 0 */7 * *`
++  
+If `snapshot-data-integrity` is enabled, this defines when snapshot checksums are recalculated. Snapshots created between cron runs may lack checksums.
+--
+
+* xref:longhorn-system/settings.adoc#_immediate_snapshot_data_integrity_check_after_creating_a_snapshot[snapshot-data-integrity-immediate-check-after-snapshot-creation]
++
+--
+* `true`:  
+  Immediately computes snapshot checksums after creation. Increases CPU and disk I/O usage. Completion time is unpredictable.
+
+* `false`:  
+  Snapshots may not have checksums until the next cron run. Delta rebuilding will be required if checksums are missing.
+--
+
+* xref:longhorn-system/settings.adoc#_replica_replenishment_wait_interval[replica-replenishment-wait-interval]
++
+--
+* Default: `600` seconds
+
+** *Short interval*:  
+  May skip reusing failed replicas and trigger full rebuilds.
+
+** *Long interval*:  
+  Waits longer to reuse failed replicas but may delay recovery.
+--
+
+* xref:longhorn-system/settings.adoc#_concurrent_replica_rebuild_per_node_limit[concurrent-replica-rebuild-per-node-limit]
++
+--
+* Default: `5`
+
+** *High limit*:  
+  May overload node resources, slowing down rebuilds and active workloads.
+
+** *Low limit*:  
+  Reduces resource contention but increases rebuild time due to queueing.
+--

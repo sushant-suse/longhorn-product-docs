@@ -1,5 +1,5 @@
 = Customize Default Settings
-:revdate: 2025-09-29
+:revdate: 2025-06-29
 :page-revdate: {revdate}
 :experimental:
 :current-version: {page-component-version}
@@ -17,7 +17,7 @@ When using Longhorn Deployment YAML file or Helm for installation, updating or u
 
 From the project view in Rancher, go to menu:Apps && Marketplace[Longhorn > Install > Next > Edit Options > Longhorn Default Settings > Customize Default Settings] and edit the settings before installing the app.
 
-=== Using the {longhorn-product-name} Deployment YAML File
+=== Using the Longhorn Deployment YAML File
 
 . Download the longhorn repo:
 +
@@ -107,7 +107,7 @@ You can also provide a copy of the `values.yaml` file with the default settings 
 +
 [subs="+attributes",shell]
 ----
-curl -Lo values.yaml https://raw.githubusercontent.com/longhorn/charts/HEAD/charts/longhorn/values.yaml
+curl -Lo values.yaml https://raw.githubusercontent.com/longhorn/charts/master/charts/longhorn/values.yaml
 ----
 
 . Modify the default settings in the YAML file. The following is an example snippet of `values.yaml`:
@@ -198,11 +198,11 @@ From the project view in Rancher, go to menu:Apps && Marketplace[Longhorn > Upgr
 
 === Using Kubectl
 
-If you prefer to use the command line to update the setting, you could use `kubectl`.
+If you prefer to update the setting from the command line, use `kubectl`. To avoid collisions with other CRDs, do not use the simple `settings`. Instead, use `settings.longhorn.io` or `lhs`.
 
 [subs="+attributes",shell]
 ----
-kubectl edit settings <SETTING-NAME> -n longhorn-system
+kubectl edit settings.longhorn.io <SETTING-NAME> -n longhorn-system
 ----
 
 === Using Helm

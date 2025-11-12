@@ -1,5 +1,5 @@
 = Volume Size
-:revdate: 2025-09-30
+:revdate: 2025-09-16
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -12,7 +12,7 @@ This value, which you specified during volume creation, represents the amount of
 The following are other ways of understanding this concept:
 
 * The volume itself is just a Kubernetes CRD object and volume data is stored in replicas. This value represents the nominal size of each replica. 
-* Longhorn replicas use https://wiki.archlinux.org/index.php/Sparse_file[sparse files] to store data. This value represents the maximum size to which a sparse file may expand.
+* {longhorn-product-name} replicas use https://wiki.archlinux.org/index.php/Sparse_file[sparse files] to store data. This value represents the maximum size to which a sparse file may expand.
 
 Replicas are scheduled on nodes with enough allocatable space to cover this nominal size during volume creation. For more information, see xref:nodes/node-space-usage.adoc[Node Space Usage].
 
@@ -29,7 +29,7 @@ This value represents the amount of space used by each replica (including the vo
 
 Because all historical data (stored in the snapshots) and active data are included in the calculation, this value can exceed the user-defined nominal size.
 
-The Longhorn UI displays this value only when the volume is running.
+The {longhorn-product-name} UI displays this value only when the volume is running.
 
 == Example
 
@@ -54,7 +54,7 @@ image::screenshots/volumes-and-nodes/volume-size-illustration-fig2.png[Image]
 . Delete the 4 Gi data. Then, `df` command shows that the used space of the filesystem is nearly 0, but the `actual size` is unchanged.
 +
 ____
-Users can see by default the volume `actual size` is not shrunk after deleting the 4 Gi data. Longhorn is a block-level storage system. Therefore, the deletion in the filesystem only marks the blocks that belong to the deleted file as unused. Currently, Longhorn will not apply TRIM/UNMAP operations automatically/periodically. if you want to do filesystem trim, please check xref:volumes/trim-filesystem.adoc[this doc] for details.
+Users can see by default the volume `actual size` is not shrunk after deleting the 4 Gi data. {longhorn-product-name} is a block-level storage system. Therefore, the deletion in the filesystem only marks the blocks that belong to the deleted file as unused. Currently, {longhorn-product-name} will not apply TRIM/UNMAP operations automatically/periodically. if you want to do filesystem trim, please check xref:volumes/trim-filesystem.adoc[this doc] for details.
 ____
 
 image::screenshots/volumes-and-nodes/volume-size-illustration-fig2.png[Image]
@@ -81,7 +81,7 @@ image::screenshots/volumes-and-nodes/volume-size-illustration-fig4.png[Image]
  ** The `actual size` is still 8.25 Gi.
 . Write 8 Gi data (data#2) in the volume mount, then take one more snapshot (snapshot#2). See Figure 5 of the illustration.
  ** Now the `actual size` is 16.2 Gi, which is greater than the volume nominal `size`.
- ** From a filesystem's perspective, the overlapping part between the two snapshots is considered as the blocks that have to be reused or overwritten. But in terms of Longhorn, these blocks are actually fresh ones held in another snapshot/volume head. See the 2 snapshots in Figure 6.
+ ** From a filesystem's perspective, the overlapping part between the two snapshots is considered as the blocks that have to be reused or overwritten. But in terms of {longhorn-product-name}, these blocks are actually fresh ones held in another snapshot/volume head. See the 2 snapshots in Figure 6.
 
 +
 ____
@@ -93,7 +93,7 @@ ____
 image::screenshots/volumes-and-nodes/volume-size-illustration-fig5.png[Image]
 
 . Delete snapshot#1 and wait for snapshot purge complete. See Figure 7 of the illustration.
- ** Here Longhorn actually coalesces the snapshot#1 with the snapshot#2.
+ ** Here {longhorn-product-name} actually coalesces the snapshot#1 with the snapshot#2.
  ** For the overlapping part during coalescing, the newer data (data#2) will be retained in the blocks. Then some historical data is removed and the volume gets shrunk (from 16.2 Gi to 11.4 Gi in the example).
 
 image::screenshots/volumes-and-nodes/volume-size-illustration-fig6.png[Image]
@@ -105,8 +105,8 @@ image::screenshots/volumes-and-nodes/volume-size-illustration-fig7.png[Image]
 
 . Try to delete the only snapshot (snapshot#2) of the volume. See Figure 9 of the illustration.
  ** The snapshot directly behinds the volume head cannot be cleaned up.
-If users try to delete this kind of snapshot, Longhorn will mark the snapshot as Removing, hide it, then try to free the overlapping part between the volume head and the snapshot for the snapshot file.
-The last operation is called snapshot prune in Longhorn and is available since v1.3.0.
+If users try to delete this kind of snapshot, {longhorn-product-name} will mark the snapshot as Removing, hide it, then try to free the overlapping part between the volume head and the snapshot for the snapshot file.
+The last operation is called snapshot prune in {longhorn-product-name} and is available since v1.3.0.
  ** Since in the example both the snapshot and the volume head use up most of the nominal space, the overlapping part almost equals to the snapshot actual size. After the pruning, the snapshot actual size is down to 259 Mi and the volume gets shrunk from 22.9 Gi to 11.8 Gi.
 
 image::screenshots/volumes-and-nodes/volume-size-illustration-fig8.png[Image]
@@ -115,7 +115,7 @@ Here we summarize the important things related to disk space usage we have in th
 
 * Unused blocks are not released
 +
-Longhorn will not issue TRIM/UNMAP operations automatically. Hence deleting files from filesystems will not lead to volume actual size decreasing/shrinking. You may need to check xref:volumes/trim-filesystem.adoc[the doc] and handle it by yourself if needed.
+{longhorn-product-name} will not issue TRIM/UNMAP operations automatically. Hence deleting files from filesystems will not lead to volume actual size decreasing/shrinking. You may need to check xref:volumes/trim-filesystem.adoc[the doc] and handle it by yourself if needed.
 
 * Allocated blocks but unused are not reused
 +
@@ -148,7 +148,7 @@ If there are heavy writing tasks for volumes, the head/snapshot average actual s
      ****** `N` is the snapshot recurring job retain number.
      ****** The 1st `1` means the volume head.
      ****** The 2nd `1` means the extra snapshot created by the recurring job. Since the recurring job always creates a new snapshot then deletes the oldest snapshot when the current snapshots created by itself exceeds the retention number. Before the deletion starts, there is one extra snapshot that can take extra disk space.
-     ****** The 3rd `1` is the system snapshot. If the rebuilding is triggered or the expansion is issued, Longhorn will create a system snapshot before starting the operations. And this system snapshot may not be able to get cleaned up immediately.
+     ****** The 3rd `1` is the system snapshot. If the rebuilding is triggered or the expansion is issued, {longhorn-product-name} will create a system snapshot before starting the operations. And this system snapshot may not be able to get cleaned up immediately.
      ****** The 4th `1` is for the temporary space that may be required by snapshot deletion/purge.
 
    **** Users don't want snapshot at all. Neither (manually created) snapshot nor recurring job will be launched. Assume xref:longhorn-system/settings.adoc#_automatically_clean_up_system_generated_snapshot[setting _Automatically Cleanup System Generated Snapshot_] is enabled, then formula would become:
@@ -171,7 +171,7 @@ If there are heavy writing tasks for volumes, the head/snapshot average actual s
      ****** The 3rd `1` is for the temporary space that may be required by the 2 system snapshot purge/coalescing.
 . Do not retain too many snapshots for the volumes.
 . Cleaning up snapshots will help reclaim disk space. There are two ways to clean up snapshots:
- ** Delete the snapshots manually via Longhorn UI.
+ ** Delete the snapshots manually via {longhorn-product-name} UI.
  ** Set a snapshot recurring job with retention 1, then the snapshots will be cleaned up automatically.
 
 +

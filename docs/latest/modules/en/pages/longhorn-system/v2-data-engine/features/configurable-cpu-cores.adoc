@@ -6,7 +6,7 @@ Longhorn now supports configurable CPU cores for the V2 Data Engine, offering bo
 
 ## Global Configuration
 
-Update the xref:longhorn-system/settings.adoc#_v2_data_engine_cpu_mask[v2-data-engine-cpu-mask] setting using a hexadecimal encoded string.
+Update the xref:longhorn-system/settings.adoc#_data_engine_cpu_mask[data-engine-cpu-mask] setting using a hexadecimal encoded string.
 
 Examples:
 
@@ -16,4 +16,4 @@ Examples:
 
 ## Node-Specific Configuration
 
-Update the `spec.dataEngineSpec.v2.cpuMask` field of the instance manager with a hexadecimal encoded string. By default, this value is empty, and the V2 Data Engine uses the global setting `v2-data-engine-cpu-mask`. When a node-specific setting is configured, the V2 Data Engine prioritizes this value over the global setting for that specific node.
+For node-specific CPU core allocation, update the `spec.dataEngineSpec.v2.cpuMask` field of the instance manager with a hexadecimal encoded string. By default, this value is empty, and the v2 data engine will use the global setting specified by `data-engine-cpu-mask`. When a per-node configuration is set, the v2 data engine will prioritize this value over the global setting for that specific node.

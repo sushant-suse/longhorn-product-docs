@@ -1,5 +1,5 @@
 = Best Practices
-:revdate: 2025-09-29
+:revdate: 2025-07-15
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -40,7 +40,7 @@ The mentioned IOPS and throughput (500/250 max IOPS per volume and 500/250 max t
 
 NOTE: CentOS Linux has been removed from the verified OS list below, as it has been discontinued in favor of CentOS Stream [https://www.redhat.com/en/blog/faq-centos-stream-updates#Q5[ref]], a rolling-release Linux distribution. Our focus for verifying RHEL-based downstream open source distributions will be enterprise-grade, such as Rocky and Oracle Linux.
 
-The following Linux OS distributions and versions have been verified during the v{patch-version} release testing (you can replace v{patch-version} with your desired {longhorn-product-name} version). However, this does not imply that {longhorn-product-name} exclusively supports these distributions. Essentially, {longhorn-product-name} should function well on any certified Kubernetes cluster running on Linux nodes with a wide range of general-purpose operating systems, as well as verified container-optimized operating systems like SLE Micro.
+The following Linux OS distributions and versions have been verified during the v{patch-version} release testing. However, this does not imply that {longhorn-product-name} exclusively supports these distributions. Essentially, {longhorn-product-name} should function well on any certified Kubernetes cluster running on Linux nodes with a wide range of general-purpose operating systems, as well as verified container-optimized operating systems like SLE Micro.
 
 |===
 | No. | OS | Versions
@@ -59,23 +59,23 @@ The following Linux OS distributions and versions have been verified during the 
 
 | 4.
 | Red Hat Enterprise Linux
-| 9.5
+| 10.0
 
 | 5.
 | Oracle Linux
-| 9.5
+| 9.6
 
 | 6.
 | Rocky Linux
-| 9.5
+| 10.0
 
 | 7.
 | Talos Linux
-| 1.9.5
+| 1.10.6
 
 | 8.
 | Container-Optimized OS (GKE)
-| 117
+| 121
 |===
 
 {longhorn-product-name} relies heavily on kernel functionality and performs better on some kernel versions. The following activities,
@@ -135,6 +135,10 @@ We recommend running your Kubernetes cluster on one of the following versions. T
 | 1.31
 | 13 Aug 2024
 | 28 Oct 2025
+
+| 1.30
+| 17 Apr 2024
+| 28 Jun 2025
 |===
 
 Referenced to https://endoflife.date/kubernetes.
@@ -143,7 +147,7 @@ Referenced to https://endoflife.date/kubernetes.
 
 Ensure that CoreDNS runs with at least two replicas to maintain high availability. This setup minimizes interruptions in the DNS resolution when one CoreDNS pod experiences a temporary disruption.
 
-== Node and Disk Setup
+== Nodes and Disk Setup
 
 We recommend the following setup for nodes and disks.
 
@@ -175,7 +179,7 @@ To use a directory other than the default `/var/lib/longhorn` for storage, the `
 
 The xref:nodes/default-disk-and-node-config.adoc[Default node/disk configuration] feature can be used to customize the default disk after installation. Customizing the default configurations for disks and nodes is useful for scaling the cluster because it eliminates the need to configure {longhorn-product-name} manually for each new node if the node contains more than one disk, or if the disk configuration is different for new nodes. Remember to enable `Create default disk only on labeled node` if applicable.
 
-== Volume Performance Optimization
+== Volumes Performance Optimization
 
 Before configuring workloads, ensure that you have set up the following basic requirements for optimal volume performance.
 
@@ -215,7 +219,7 @@ For applications with replication capability, periodically xref:introduction/con
 
 If you're using `ext4` as the filesystem of the volume, we recommend adding a liveness check to workloads to help automatically recover from a network-caused interruption, a node reboot, or a Docker restart. See xref:high-availability/volume-recovery.adoc[this section] for details.
 
-== Volume Maintenance
+== Volumes Maintenance
 
 Using {longhorn-product-name}'s built-in backup feature is highly recommended. You can save backups to an object store such as S3 or to an NFS server. Saving to an object store is preferable because it generally offers better reliability.  Another advantage is that you do not need to mount and unmount the target, which can complicate failover and upgrades.
 
@@ -253,7 +257,7 @@ Recommendation: `false`
 
 This setting should be set to `false` in production environment to ensure the best availability of the volume. Otherwise, one node down event may bring down more than one replicas of a volume.
 
-=== Allow Volume Creation with Degraded Availability
+=== Allow Volumes Creation with Degraded Availability
 
 Recommendation: `false`
 
