@@ -1,0 +1,146 @@
+= Volume Clone
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Clone Using YAML
+
+=== Clone a CSI Snapshot
+
+To clone a CSI snapshot, refer to the documentation on xref:snapshots-backups/csi-snapshots/csi-snapshot-longhorn-snapshot.adoc[Creating a Volume from a Snapshot].
+
+=== Clone a Volume with the v2 Data Engine
+
+Assume you have a `StorageClass` named `longhorn-v2`:
+
+[source,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-v2
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  dataEngine: "v2"
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "2880"
+----
+
+And you have a PersistentVolumeClaim (PVC) named `source-pvc-v2` provisioned from it:
+
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: source-pvc-v2
+spec:
+  storageClassName: longhorn-v2
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+----
+
+==== Clone Using `full-copy` Mode
+
+Create a new PVC with the same content as `source-pvc-v2` by applying the following YAML. {longhorn-product-name} will copy the data from the source PVC to the new PVC.
+
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloned-pvc-v2
+spec:
+  storageClassName: longhorn-v2
+  dataSource:
+    name: source-pvc-v2
+    kind: PersistentVolumeClaim
+  accessModes:
+    - ReadWriteOnce
+  resources:
+      requests:
+        storage: 10Gi
+----
+
+==== Clone Using `linked-clone` Mode
+
+The `full-copy` mode creates a new PVC that is fully independent of the source PVC. However, it requires time and resources to copy the data.
+
+Sometimes, you need to quickly create a temporary PVC with the same content as the source without copying the data. For example, backup solutions like *Velero* or *Kasten* can use this feature to quickly create a temporary PVC to read data and upload it to an S3 bucket.
+
+In this scenario, use the `linked-clone` mode. This mode creates a new PVC that shares the same data blocks as the source PVC.
+
+Follow these steps:
+
+. Create a `StorageClass` with `cloneMode` set to `linked-clone`.
++
+[source,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-v2-linked-clone
+provisioner: driver.longhorn.io
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  dataEngine: "v2"
+  cloneMode: "linked-clone"
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "2880"
+----
+. Create a new PVC that uses the `StorageClass` you created and references the source PVC in the `dataSource` field.
++
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloned-pvc-v2-linked-clone
+spec:
+  storageClassName: longhorn-v2-linked-clone
+  dataSource:
+    name: source-pvc-v2
+    kind: PersistentVolumeClaim
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+----
+
+[NOTE]
+====
+. In addition to the the requirements for https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource[CSI Volume Cloning], the cloned PVC's (`cloned-pvc`) `resources.requests.storage` must match the source PVC's (`source-pvc`) storage size.
+. The `linked-clone` mode is only supported by the v2 data engine.
+. A PVC created using `linked-clone` shares data blocks with the source and has the following limitations:
+* It can have only one replica.
+* It cannot be snapshotted or backed up.
+* It cannot be used as the source for another clone operation.
+* A source PVC can only have one `linked-clone` PVC at a time.
+* `linked-clone` PVCs are designed to be short-lived. We highly recommend you delete them when no longer needed.
+====
+
+For more examples of `linked-clone` mode, see the blog post: https://longhorn.io/blog/20250902-k8s-backup-solutions-and-longhorn/[Backup Applications with Longhorn V2 Volumes using Velero].
+
+=== Clone a Volume Using the {longhorn-product-name} UI
+
+You can also clone a v2 data engine volume using the {longhorn-product-name} UI:
+
+* On the *Volumes* page, click *Create Volume* and select the data source (`Volume` or `Volume Snapshot`).
+* From the *Volumes* page, select a volume and click *Clone Volume* in the *Operation* menu.
+* On the *Volumes* page, select a volume, click its name, and in the *Snapshot and Backups* section, identify the snapshot you want to use, then click *Clone Volume*.
+* For bulk cloning, on the *Volumes* page, select one or more volumes and click the *Clone Volume* button at the top of the table.
+
+== History
+
+* https://github.com/longhorn/longhorn/issues/7794[GitHub Issue].
+* https://github.com/longhorn/longhorn/pull/10873[Longhorn Enhancement Proposal].
+
+Available since v1.10.0

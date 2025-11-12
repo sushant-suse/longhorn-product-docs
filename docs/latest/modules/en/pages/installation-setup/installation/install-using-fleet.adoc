@@ -1,21 +1,16 @@
 = Install {longhorn-product-name} Using Fleet
-:revdate: 2025-07-24
+:revdate: 2025-07-26
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 == Prerequisites
-
-[NOTE]
-====
-{longhorn-product-name} installation requires authenticated access to SUSE Application Collection. For more details, check https://docs.apps.rancher.io/get-started/authentication[authentication guide].
-====
 
 * Your workstation: Install https://helm.sh/docs/[Helm] v3.0 or later.
 * Kubernetes cluster:
  ** Ensure that each node fulfills the xref:installation-setup/requirements.adoc[installation requirements].
  ** Install https://documentation.suse.com/cloudnative/continuous-delivery/v0.12/en/index.html[{fleet-product-name}] using Helm.
 +
-[,bash]
+[subs="+attributes",bash]
 ----
 helm repo add fleet https://rancher.github.io/fleet-helm-charts/
 helm -n cattle-fleet-system install --create-namespace --wait fleet-crd fleet/fleet-crd
@@ -30,18 +25,18 @@ ____
 
 == Installation
 
-. In your GitOps repository, create a https://documentation.suse.com/cloudnative/continuous-delivery/v0.12/en/reference/ref-fleet-yaml.html[`fleet.yaml`] file that includes the following:
+. In your GitOps repository, create a https://documentation.suse.com/cloudnative/continuous-delivery/v0.12/en/reference/ref-fleet-yaml.html[fleet.yaml] file that includes the following:
  ** Parameter for installing {longhorn-product-name} in the `longhorn-system` namespace
 
 +
-[,yaml]
+[subs="+attributes",yaml]
 ----
  defaultNamespace: longhorn-system
 ----
  ** Parameters for https://documentation.suse.com/cloudnative/continuous-delivery/v0.12/en/how-tos-for-users/bundle-diffs.html[ignoring modified CRDs]
 
 +
-[,yaml]
+[subs="+attributes",yaml]
 ----
  diff:
    comparePatches:
@@ -101,7 +96,7 @@ Example of a complete `fleet.yaml` file:
  helm:
    repo: https://charts.longhorn.io
    chart: longhorn
-   version: v{patch-version}
+   version: v{patch-version} # Replace with the version you would like.
    releaseName: longhorn
  diff:
    comparePatches:
@@ -123,7 +118,7 @@ Example of a complete `fleet.yaml` file:
 ----
 . Create a GitRepo custom resource (CR) that points to your GitOps repository.
 +
-[,bash]
+[subs="+attributes",bash]
 ----
  cat > longhorn-gitrepo.yaml << "EOF"
  apiVersion: fleet.cattle.io/v1alpha1
@@ -141,28 +136,28 @@ Example of a complete `fleet.yaml` file:
 
 . Apply the GitRepo CR.
 +
-[,bash]
+[subs="+attributes",bash]
 ----
  kubectl apply -f longhorn-gitrepo.yaml
 ----
 
 . Verify that the GitRepo CR was created and synced successfully.
 +
-[,bash]
+[subs="+attributes",bash]
 ----
  kubectl -n fleet-local get gitrepo -w
 ----
 
 . Verify that {longhorn-product-name} was installed successfully.
 +
-[,bash]
+[subs="+attributes",bash]
 ----
  kubectl -n longhorn-system get pod
 ----
 +
 Example of a successful installation:
 +
-[,bash]
+[subs="+attributes",bash]
 ----
  NAME                                                READY   STATUS    RESTARTS   AGE
  longhorn-ui-b7c844b49-w25g5                         1/1     Running   0          2m41s

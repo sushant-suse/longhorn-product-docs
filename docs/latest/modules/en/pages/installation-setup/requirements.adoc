@@ -1,5 +1,5 @@
 = Requirements
-:revdate: 2025-11-06
+:revdate: 2025-10-22
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -152,56 +152,53 @@ modprobe iscsi_tcp
 
 IMPORTANT: On SUSE and openSUSE, the `iscsi_tcp` module is included only in the `kernel-default` package. If the `kernel-default-base` package is installed on your system, you must replace it with `kernel-default`.
 
-We also provide an `iscsi` installer to make it easier for users to install `open-iscsi` automatically:
+We also provide an `iscsi` installer to make it easier for users to install `open-iscsi` automatically. You can use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI] to install the prerequisites.
 
-[subs="+attributes",shell]
+You can use the `longhornctl check preflight` command. This command verifies your Kubernetes cluster environment to ensure it meets the requirements of {longhorn-product-name}. It performs a series of checks that can help identify potential issues that may prevent {longhorn-product-name} from functioning correctly.
+
+Example:
+
+[,shell]
 ----
-kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/prerequisite/longhorn-iscsi-installation.yaml
-----
-
-After the deployment, run the following command to check pods' status of the installer:
-
-----
-kubectl -n longhorn-system get pod | grep longhorn-iscsi-installation
-longhorn-iscsi-installation-49hd7   1/1     Running   0          21m
-longhorn-iscsi-installation-pzb7r   1/1     Running   0          39m
-----
-
-And also can check the log with the following command to see the installation result:
-
-----
-kubectl -n longhorn-system logs longhorn-iscsi-installation-pzb7r -c iscsi-installation
-...
-Installed:
-  iscsi-initiator-utils.x86_64 0:6.2.0.874-7.amzn2
-
-Dependency Installed:
-  iscsi-initiator-utils-iscsiuio.x86_64 0:6.2.0.874-7.amzn2
-
-Complete!
-Created symlink from /etc/systemd/system/multi-user.target.wants/iscsid.service to /usr/lib/systemd/system/iscsid.service.
-iscsi install successfully
+> longhornctl check preflight
+INFO[2025-08-22T12:58:40+08:00] Initializing preflight checker               
+INFO[2025-08-22T12:58:40+08:00] Cleaning up preflight checker                
+INFO[2025-08-22T12:58:42+08:00] Running preflight checker                    
+INFO[2025-08-22T12:58:49+08:00] Retrieved preflight checker result:
+ip-10-0-1-132:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-client is installed
+  - Package open-iscsi is installed
+  - Package cryptsetup is installed
+  - Package device-mapper is installed
+  - Module dm_crypt is loaded
+  warn:
+  - Kube DNS "coredns" is set with fewer than 2 replicas; consider increasing replica count for high availability
+INFO[2025-08-22T12:58:49+08:00] Cleaning up preflight checker                
+INFO[2025-08-22T12:58:50+08:00] Completed preflight checker
 ----
 
 In rare cases, it may be required to modify the installed SELinux policy to get {longhorn-product-name} working. If you are running
-an up-to-date version of a Fedora downstream distribution (for example, Fedora, RHEL, Rocky, CentOS, etc.) and plan to leave
+an up-to-date version of a Fedora downstream distribution (e.g. Fedora, RHEL, Rocky, CentOS, etc.) and plan to leave
 SELinux enabled, see link:https://longhorn.io/kb/troubleshooting-volume-attachment-fails-due-to-selinux-denials[the KB] for details.
 
 [discrete]
 == Installing NFSv4 client
 
-In {longhorn-product-name} system, backup feature requires NFSv4, v4.1 or v4.2, and ReadWriteMany (RWX) volume feature requires NFSv4.1. Before installing NFSv4 client userspace daemon and utilities, make sure the client kernel support is enabled on each Longhorn node.
+The backup feature requires NFSv4, v4.1 or v4.2, and ReadWriteMany (RWX) volume feature requires NFSv4.1. Before installing NFSv4 client userspace daemon and utilities, make sure the client kernel support is enabled on each {longhorn-product-name} node.
 
-* Check if `NFSv4` support is enabled in the kernel::
-+
-----
-cat /boot/config-`uname -r`| grep CONFIG_NFS_V4
-----
-
-* Check if `NFSv4.1` support is enabled in the kernel:
+* Check `NFSv4.1` support is enabled in the kernel:
 +
 ----
 cat /boot/config-`uname -r`| grep CONFIG_NFS_V4_1
+----
+
+* Check `NFSv4.2` support is enabled in the kernel:
++
+----
+cat /boot/config-`uname -r`| grep CONFIG_NFS_V4_2
 ----
 
 * Check if `NFSv4.2` support is enabled in the kernel:
@@ -233,28 +230,32 @@ zypper install nfs-client
 * For Talos Linux, https://www.talos.dev/v1.6/kubernetes-guides/configuration/storage/#nfs[the NFS client is part of the `kubelet` image maintained by the Talos team].
 * For Container-Optimized OS, https://cloud.google.com/kubernetes-engine/docs/concepts/node-images#storage_driver_support[the NFS is supported with the node image].
 
-We also provide an `nfs` installer to make it easier for users to install `nfs-client` automatically:
+We also provide an `nfs` installer to make it easier for users to install `nfs-client` automatically. You can use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI] to install the prerequisites.
 
-[subs="+attributes",shell]
-----
-kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/prerequisite/longhorn-nfs-installation.yaml
-----
+You can use the `longhornctl check preflight` command. This command verifies your Kubernetes cluster environment to ensure it meets {longhorn-product-name}. It performs a series of checks that can help identify potential issues that may prevent {longhorn-product-name} from functioning correctly.
 
-After the deployment, run the following command to check pods' status of the installer:
+Example:
 
+[,shell]
 ----
-kubectl -n longhorn-system get pod | grep longhorn-nfs-installation
-NAME                                  READY   STATUS    RESTARTS   AGE
-longhorn-nfs-installation-t2v9v   1/1     Running   0          143m
-longhorn-nfs-installation-7nphm   1/1     Running   0          143m
-----
-
-And also can check the log with the following command to see the installation result:
-
-----
-kubectl -n longhorn-system logs longhorn-nfs-installation-t2v9v -c nfs-installation
-...
-nfs install successfully
+> longhornctl check preflight
+INFO[2025-08-22T12:58:40+08:00] Initializing preflight checker               
+INFO[2025-08-22T12:58:40+08:00] Cleaning up preflight checker                
+INFO[2025-08-22T12:58:42+08:00] Running preflight checker                    
+INFO[2025-08-22T12:58:49+08:00] Retrieved preflight checker result:
+ip-10-0-1-132:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-client is installed
+  - Package open-iscsi is installed
+  - Package cryptsetup is installed
+  - Package device-mapper is installed
+  - Module dm_crypt is loaded
+  warn:
+  - Kube DNS "coredns" is set with fewer than 2 replicas; consider increasing replica count for high availability
+INFO[2025-08-22T12:58:49+08:00] Cleaning up preflight checker                
+INFO[2025-08-22T12:58:50+08:00] Completed preflight checker
 ----
 
 [NOTE]

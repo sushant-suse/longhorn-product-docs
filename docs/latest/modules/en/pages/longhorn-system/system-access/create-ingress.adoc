@@ -9,14 +9,14 @@ Authentication is not enabled by default for kubectl and Helm installations. In 
 
 . Create a basic auth file `auth`. It's important the file generated is named auth (actually - that the secret has a key `data.auth`), otherwise the Ingress returns a 503.
 +
-[subs="+attributes",console]
+[subs="+attributes",bash]
 ----
  $ USER=<USERNAME_HERE>; PASSWORD=<PASSWORD_HERE>; echo "${USER}:$(openssl passwd -stdin -apr1 <<< ${PASSWORD})" >> auth
 ----
 
 . Create a secret:
 +
-[subs="+attributes",console]
+[subs="+attributes",bash]
 ----
  $ kubectl -n longhorn-system create secret generic basic-auth --from-file=auth
 ----
@@ -61,14 +61,14 @@ ____
 
 . Create the Ingress:
 +
-[subs="+attributes",console]
+[subs="+attributes",bash]
 ----
  $ kubectl -n longhorn-system apply -f longhorn-ingress.yml
 ----
 
 For example:
 
-[subs="+attributes",yaml]
+[subs="+attributes",console]
 ----
 $ USER=foo; PASSWORD=bar; echo "$\{USER}:$(openssl passwd -stdin -apr1 <<< $\{PASSWORD})" >> auth
 $ cat auth

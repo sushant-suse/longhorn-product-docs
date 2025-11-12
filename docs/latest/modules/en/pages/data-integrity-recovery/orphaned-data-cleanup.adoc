@@ -22,7 +22,7 @@ The following example demonstrate how to manage orphaned replica directories ide
 . Introduce disks containing orphaned replica directories.
  ** Orphaned replica directories on Node `worker1` disks
 +
-[subs="+attributes",console]
+[,console]
 ----
  # ls /mnt/disk/replicas/
  pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
@@ -30,7 +30,7 @@ The following example demonstrate how to manage orphaned replica directories ide
 
  ** Orphaned replica directories on Node `worker2` disks
 +
-[subs="+attributes",console]
+[,console]
 ----
 # ls /var/lib/longhorn/replicas/
  pvc-28255b31-161f-5621-eea3-a1cbafb4a12a-866aa0a5
@@ -41,7 +41,7 @@ The following example demonstrate how to manage orphaned replica directories ide
 
 . {longhorn-product-name} detects the orphaned replica directories and creates an `orphan` resources describing the directories.
 +
-[subs="+attributes",console]
+[,console]
 ----
  # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
  NAME                                                                      TYPE      NODE
@@ -52,14 +52,14 @@ The following example demonstrate how to manage orphaned replica directories ide
 
 . Retrieve a list of orphaned resources created by {longhorn-product-name} using the command `kubectl -n longhorn-system get orphan`.
 +
-[subs="+attributes",console]
+[,console]
 ----
  kubectl -n longhorn-system get orphan
 ----
 
 . Get the detailed information of one of the orphaned replica directories in `spec.parameters` by `kubectl -n longhorn-system get orphan <name>`.
 +
-[subs="+attributes",yaml]
+[,yaml]
 ----
  # kubectl -n longhorn-system get orphans orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272 -o yaml
  apiVersion: longhorn.io/v1beta2
@@ -104,7 +104,7 @@ spec:
 
 . One can delete the `orphan` resource by `kubectl -n longhorn-system delete orphan <name>` and then the corresponding orphaned replica directory will be deleted.
 +
-[subs="+attributes",console]
+[,console]
 ----
  # kubectl -n longhorn-system delete orphan orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272
 
@@ -116,21 +116,21 @@ spec:
 +
 The orphaned replica directory is deleted.
 +
-[subs="+attributes",console]
+[,console]
 ----
  # ls /mnt/disk/replicas/
 ----
 
 . By default, {longhorn-product-name} will not automatically delete the orphaned replica directory. You can enable automatic deletion by setting the `orphan-resource-auto-deletion` setting.
 +
-[subs="+attributes",console]
+[,console]
 ----
  # kubectl -n longhorn-system edit settings.longhorn.io orphan-resource-auto-deletion
 ----
 +
 Then, add `replica-data` to the list by including it as one of the semicolon-separated items.
 +
-[subs="+attributes",console]
+[,console]
 ----
  # kubectl -n longhorn-system get settings.longhorn.io orphan-resource-auto-deletion
  NAME                           VALUE          APPLIED     AGE
@@ -139,7 +139,7 @@ Then, add `replica-data` to the list by including it as one of the semicolon-sep
 
 . After enabling the automatic deletion and wait for a while, the `orphan` resources and directories are deleted automatically.
 +
-[subs="+attributes",console]
+[,console]
 ----
  # kubectl -n longhorn-system get orphans.longhorn.io -l "longhorn.io/orphan-type=replica"
  No resources found in longhorn-system namespace.
@@ -147,7 +147,7 @@ Then, add `replica-data` to the list by including it as one of the semicolon-sep
 +
 The orphaned replica directories are deleted.
 +
-[subs="+attributes",console]
+[,console]
 ----
  # ls /mnt/disk/replicas/
 
@@ -156,7 +156,7 @@ The orphaned replica directories are deleted.
 +
 Additionally, one can delete all orphaned replica directories on the specified node by
 +
-[subs="+attributes",console]
+[,console]
 ----
  # kubectl -n longhorn-system delete orphan -l "longhorn.io/orphan-type=replica-instance,longhornnode=<node name>”
 ----
@@ -167,7 +167,7 @@ Additionally, one can delete all orphaned replica directories on the specified n
 . Review the displayed list of orphaned replica directories. These are grouped by node and disk.
 . For the directory that you want to delete, select *Operation > Delete*.
 
-By default, {longhorn-product-name} does not automatically delete orphaned replica directories. To enable automatic deletion, navigate to *Setting > General > Orphan* and configure the relevant option for automatic deletion.
+By default, {longhorn-product-name} does not automatically delete orphaned replica directories. To enable automatic deletion, navigate to *Settings > Orphan* and configure the relevant option for automatic deletion.
 
 === Exception
 

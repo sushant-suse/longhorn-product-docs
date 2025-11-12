@@ -1,5 +1,5 @@
 = Quick Start Guide
-:revdate: 2025-07-29
+:revdate: 2025-08-28
 :page-revdate: {revdate}
 :aliases: ["/spdk/quick-start.md"]
 :current-version: {page-component-version}
@@ -32,20 +32,7 @@ For Debian and Ubuntu, please install Linux kernel extra modules before loading 
 apt install -y linux-modules-extra-`uname -r`
 ----
 
-We provide a manifest that helps you configure the kernel modules and huge pages automatically, making it easier to set up.
-
-[subs="+attributes", console]
-----
-kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/prerequisite/longhorn-spdk-setup.yaml
-----
-
-And also can check the log with the following command to see the installation result.
-
-----
-Cloning into '/tmp/spdk'...
-INFO: Requested 1024 hugepages but 1024 already allocated on node0
-SPDK environment is configured successfully
-----
+To configure the necessary kernel modules and huge pages for SPDK, you can use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI].
 
 Or, you can install them manually by following these steps.
 
@@ -73,17 +60,13 @@ To make the change permanent, add the following line to the file /etc/sysctl.con
 
 === Load `nvme-tcp` Kernel Module
 
-We provide a manifest that helps you finish the deployment on each Longhorn node.
+To ensure the necessary prerequisites for NVMe are met, you can use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI].
 
-[subs="+attributes", console]
-----
-kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/prerequisite/longhorn-nvme-cli-installation.yaml
-----
+Alternatively, you can manually load the `nvme-tcp` kernel module on each Longhorn node by running the following command:
 
-Or, you can manually load `nvme-tcp` kernel module on the each Longhorn node
-
+[,console]
 ----
-  modprobe nvme-tcp
+modprobe nvme-tcp
 ----
 
 === Load Kernel Modules Automatically on Boot
@@ -189,7 +172,7 @@ worker1:
 
 Make sure everything is correctly configured and installed by
 
-[subs="+attributes",console]
+[subs="+attributes", console]
 ----
 longhornctl --kube-config ~/.kube/config --image longhornio/longhorn-cli:v{patch-version} install preflight --enable-spdk
 ----
@@ -206,13 +189,12 @@ Follow the steps in Quick Installation to install Longhorn system.
 
 Enable the V2 Data Engine by changing the `v2-data-engine` setting to `true` after installation. Following this, the instance-manager pods will be automatically restarted.
 
-Or, you can enable it in `Setting > General > V2 Data Engine`.
+Or, you can enable it in `Settings > V2 Data Engine`.
 
 === CPU and Memory Usage
 
 When the V2 Data Engine is enabled, each Instance Manager pod for the V2 Data Engine uses 1 CPU core. The high CPU usage is caused by `spdk_tgt`, a process running in each Instance Manager pod that handles input/output (IO) operations and requires intensive polling. `spdk_tgt` consumes 100% of a dedicated CPU core to efficiently manage and process the IO requests, ensuring optimal performance and responsiveness for storage operations.
 
-[subs="+attributes",console]
 ----
 NAME                                                CPU(cores)   MEMORY(bytes)
 csi-attacher-57c5fd5bdf-jsfs4                       1m           7Mi
@@ -239,7 +221,6 @@ longhorn-ui-58db78b68-ffbxr                         0m           2Mi
 
 You can observe the utilization of allocated huge pages on each node by running the command `kubectl get node <node name> -o yaml`.
 
-[subs="+attributes",console]
 ----
 # kubectl get node sles-pool1-07437316-4jw8f -o yaml
 ...

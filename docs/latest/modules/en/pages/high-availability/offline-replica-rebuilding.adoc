@@ -1,5 +1,5 @@
 = Offline Replica Rebuilding
-:revdate: 2025-07-26
+:revdate: 2025-09-16
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -59,6 +59,63 @@ The following table shows how the global and per-volume settings interact:
 * When offline replica rebuilding is triggered, {longhorn-product-name} attaches the volume without activating the frontend, rebuilds any missing replicas, and then detaches the volume after the rebuilding process is complete.
 * This process can be interrupted if the associated workload scales up and requires the volume.
 
+== Rebuilding Not Started or Canceled
+
+When offline rebuilding starts, degraded volumes can get stuck in the attached state if rebuilding conditions aren't met. To prevent this, if the necessary conditions aren't satisfied, offline rebuilding won't start or will be canceled.
+
+* *Benefits*:
+** It ensures volumes don't remain stuck in the attached state if rebuilding never finishes.
+** It prevents wasteful rebuilding attempts.
+** It reduces unnecessary volume attachment and detachment cycles.
+** It provides predictable rebuilding behavior based on resource availability.
+
+* *Required conditions*: Offline rebuilding automatically starts for degraded volumes once the required conditions are met. These conditions include:
+** A reusable failed replica exists, or
+** A disk candidate exists:
+*** The instance manager on the node hosting the disk must be ready.
+*** The disk's containing node is schedulable.
+*** The disk itself is schedulable.
+
+=== Before offline rebuilding starts
+
+When offline rebuilding is enabled, {longhorn-product-name} determines whether it should start.
+
+. {longhorn-product-name} detects a degraded, detached volume.
+. The system validates whether the required conditions are met before starting the rebuild.
+. If the conditions are met, rebuilding proceeds. Otherwise, the volume remains detached.
+. The required conditions are re-evaluated when a node is added, becomes ready, or becomes schedulable.
+
+=== During offline rebuilding
+
+{longhorn-product-name} determines if a rebuilding process should be canceled while in progress.
+
+. {longhorn-product-name} detects the volume's status when offline rebuilding starts and the volume is attached.
+. If the volume's `Scheduled` condition status becomes `False`, the offline rebuilding is canceled, and the volume is detached.
+. If the required conditions are met again, offline rebuilding restarts; otherwise, the volume remains detached.
+
+=== Examples
+
+* *Successful offline rebuilding*:
+. A volume is created with 3 replicas in a 3-worker-node cluster.
+. Offline rebuilding is enabled.
+. The volume is detached and then a replica of the volume is deleted.
+. Offline rebuilding begins, and the volume is attached.
+. After rebuilding finishes, the volume is detached.
+* *Offline rebuilding doesn't start even when it is enabled*:
+. A volume is created with 3 replicas in a 3-worker-node (A, B, and C) cluster.
+. Offline rebuilding is enabled.
+. Worker node A is unschedulable.
+. The volume replica on worker node A is deleted.
+. Because only two schedulable worker nodes exist, offline rebuilding will not start.
+* *A worker node is drained during offline rebuilding*:
+. A volume is created with 3 replicas in a 3-worker-node (A, B, and C) cluster.
+. Offline rebuilding is enabled.
+. The volume is detached, and then the volume replica on worker node A is deleted.
+. Offline rebuilding begins, and the volume is attached to rebuild a replica on worker node A.
+. Worker node A is drained, making it unschedulable, and the volume replica on worker node A is deleted.
+. The volume remains attached until the volume's `Scheduled` condition status becomes `False`.
+. The volume is detached until worker node A is uncordoned or a new schedulable node is added.
+
 == Limitations
 
-This feature does not apply to faulted volumes.
+Offline rebuilding is not supported for faulted volumes.

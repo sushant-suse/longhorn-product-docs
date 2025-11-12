@@ -1,5 +1,5 @@
 = Important Notes
-:revdate: 2025-09-29
+:revdate: 2025-11-12
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -155,13 +155,13 @@ The V2 Data Engine can run without Hugepages by setting `data-engine-hugepage-en
 
 Interrupt mode has been added to the V2 Data Engine to help reduce CPU usage. This feature is especially beneficial for clusters with idle or low I/O workloads, where conserving CPU resources is more important than minimizing latency.
 
-While interrupt mode lowers CPU consumption, it may introduce slightly higher I/O latency compared to polling mode. In addition, the current implementation uses a hybrid approach, which still incurs a minimal, constant CPU load even when interrupts are enabled.
+While interrupt mode lowers CPU consumption, it may introduce slightly higher I/O latency compared to polling mode. Also, the current implementation uses a hybrid approach, which still incurs a minimal, constant CPU load even when interrupts are enabled.
 
 For more information, see xref:longhorn-system/v2-data-engine/features/interrupt-mode.adoc[Interrupt Mode].
 
 [NOTE]
 ====
-Interrupt mode currently supports only AIO disks.
+In {longhorn-product-name} v1.10.0, interrupt mode supports only *AIO disks*. Interrupt mode for *NVMe disks* is supported starting in v1.10.1.
 ====
 
 ==== V2 Data Engine Volume Clone Support

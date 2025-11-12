@@ -1,5 +1,5 @@
 = Important Notes
-:revdate: 2025-10-22
+:revdate: 2025-11-12
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -148,7 +148,35 @@ If {longhorn-product-name} was installed by using Helm, the downgrade is allowed
 
 ===== Post-Downgrade
 
-Once the downgrade is complete and the Longhorn system is stable on the v1.9.x version, you must immediately follow the steps outlined in the xref:#manual-crd-migration[Manual CRD Migration Guide]. This step is crucial to migrate all remaining `v1beta1` CRs to `v1beta2` before you try the Longhorn v1.10 upgrade again.
+Once the downgrade is complete and the Longhorn system is stable on the v1.9.x version, you must immediately follow the steps outlined in the xref:#manual-crd-migration[Manual CRD Migration Guide]. This step is crucial to migrate all remaining `v1beta1` CRs to `v1beta2` before you try the {longhorn-product-name} v1.10 upgrade again.
+
+== Important Fixes
+
+This release includes several critical stability and performance improvements:
+
+=== Goroutine Leak in Instance Manager (V2 Data Engine)
+
+Fixed a goroutine leak in the instance manager when using the V2 data engine. This issue could lead to increased memory usage and potential stability problems over time.
+
+For more details, see https://github.com/longhorn/longhorn/issues/11962[Issue #11962].
+
+=== V2 Volume Attachment Failure in Interrupt Mode
+
+Fixed an issue where V2 volumes using interrupt mode with NVMe disks could fail to complete the attachment process, causing volumes to remain stuck in the attaching state indefinitely.
+
+For more details, see https://github.com/longhorn/longhorn/issues/11816[Issue #11816].
+
+=== UI Deployment Failure on IPv4-Only Nodes
+
+Fixed a bug introduced in v1.10.0 where the {longhorn-product-name} UI failed to deploy on nodes with only IPv4 enabled. The UI now correctly supports IPv4-only configurations without requiring IPv6.
+
+For more details, see https://github.com/longhorn/longhorn/issues/11875[Issue #11875].
+
+=== Share Manager Excessive Memory Usage
+
+Fixed excessive memory consumption in the share manager for RWX (ReadWriteMany) volumes. The component now maintains stable memory usage under normal operation.
+
+For more details, see https://github.com/longhorn/longhorn/issues/12043[Issue #12043].
 
 == Removal
 
@@ -168,11 +196,11 @@ For more details, see https://github.com/longhorn/longhorn/issues/7022[Issue #70
 
 === Kubernetes Version Requirement
 
-Due to the upgrade of the CSI external snapshotter to v8.2.0, you must be running Kubernetes v1.25 or later to upgrade to {longhorn-product-name}  v1.8.0 or a newer version.
+Due to the upgrade of the CSI external snapshotter to v8.2.0, you must be running Kubernetes v1.25 or later to upgrade to {longhorn-product-name} v1.8.0 or a newer version.
 
 === CRD Upgrade Validation
 
-During an upgrade, a new Longhorn manager might start before the Custom Resource Definitions (CRDs) are applied. This sequence ensures the controller doesn't process objects with deprecated data or fields. However, if the CRD hasn't yet been applied, the Longhorn manager can fail during the initial upgrade phase.
+During an upgrade, a new Longhorn manager might start before the Custom Resource Definitions (CRDs) are applied. This sequence ensures the controller does not process objects with deprecated data or fields. However, if the CRD has not yet been applied, the Longhorn manager can fail during the initial upgrade phase.
 
 If the Longhorn Manager crashes during the upgrade, check the logs to determine if the CRD not being applied is the cause of the failure. In such cases, the logs might contain error messages similar to the following:
 
@@ -300,13 +328,13 @@ The V2 Data Engine can run without Hugepages by setting `data-engine-hugepage-en
 
 Interrupt mode has been added to the V2 Data Engine to help reduce CPU usage. This feature is especially beneficial for clusters with idle or low I/O workloads, where conserving CPU resources is more important than minimizing latency.
 
-While interrupt mode lowers CPU consumption, it may introduce slightly higher I/O latency compared to polling mode. In addition, the current implementation uses a hybrid approach, which still incurs a minimal, constant CPU load even when interrupts are enabled.
+While interrupt mode lowers CPU consumption, it may introduce slightly higher I/O latency compared to polling mode. Also, the current implementation uses a hybrid approach, which still incurs a minimal, constant CPU load even when interrupts are enabled.
 
 For more information, see xref:longhorn-system/v2-data-engine/features/interrupt-mode.adoc[Interrupt Mode].
 
 [NOTE]
 ====
-Interrupt mode currently supports only AIO disks.
+In {longhorn-product-name} v1.10.0, interrupt mode supports only *AIO disks*. Interrupt mode for *NVMe disks* is supported starting in v1.10.1.
 ====
 
 ==== V2 Data Engine Volume Clone Support

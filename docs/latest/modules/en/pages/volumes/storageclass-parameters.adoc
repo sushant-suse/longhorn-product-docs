@@ -1,5 +1,5 @@
 = StorageClass Parameters
-:revdate: 2025-07-12
+:revdate: 2025-08-28
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -399,6 +399,22 @@ Default: `default`
 ____
 
 * More details are available in xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_default_backup_target[default backup target] and xref:create-volumes.adoc[Create Volumes].
+
+[discrete]
+==== Backup Block Size _(field: `parameters.backupBlockSize`)_
+
+____
+Default: `""`
+____
+
+Example: `"2Mi"` or `"16Mi"`
+
+A Kubernetes quantity string. Use an empty string "" to apply the global setting.
+
+For more information, see:
+
+* xref:longhorn-system/settings.adoc[default backup block size].
+* xref:snapshots-backups/volume-snapshots-backups/configure-backup-block-size.adoc[Configure the Block Size of a Backup]
 
 == Helm Installs
 
