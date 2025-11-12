@@ -18,7 +18,7 @@ For air-gapped upgrades when {longhorn-product-name} is installed as a Rancher a
 
 === Preparing for the Upgrade
 
-If {longhorn-product-name} was installed using a Helm Chart, or if it was installed as Rancher catalog app, check to make sure the parameters in the default StorageClass were not changed. Changing the parameter of the default StorageClass might result in a chart upgrade failure. If you want to reconfigure the parameters in the StorageClass, you can copy the configuration of default StorageClass to create another StorageClass.
+If {longhorn-product-name} was installed using a Helm Chart, or if it was installed as Rancher Catalog, check to make sure the parameters in the default StorageClass were not changed. Changing the parameter of the default StorageClass might result in a chart upgrade failure. To reconfigure the parameters in the StorageClass, you can copy the configuration of default StorageClass to create another StorageClass.
 
 The current default StorageClass has the following parameters:
 
@@ -41,13 +41,6 @@ Always back up volumes before upgrading. If anything goes wrong, you can restore
 === Upgrade Using the Rancher Prime UI
 
 For Kubernetes clusters managed by Rancher, you can upgrade the {longhorn-product-name} App by updating the repository to reference a newer chart version.  
-This method applies to Rancher Prime v2.12.3 and later.
-
-[NOTE]
-====
-If your existing {longhorn-product-name} App was installed by using the deprecated *Cluster Manager* (old UI), migrate to the chart in the *Cluster Explorer* (new UI) before proceeding.  
-For migration steps, see the https://longhorn.io/kb/how-to-migrate-longhorn-chart-installed-in-old-rancher-ui-to-the-chart-in-new-rancher-ui/[migration guide].
-====
 
 The following procedure describes how to upgrade the {longhorn-product-name} App on Rancher Prime.
 
