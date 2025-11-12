@@ -1,5 +1,5 @@
 = Settings
-:revdate: 2025-09-16
+:revdate: 2025-11-12
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -117,6 +117,7 @@ If enabled, when running a recurring backup job, {longhorn-product-name} takes a
 
 If disabled, this setting ensures that the retained snapshots directly correspond to the backups on the remote backup target.
 
+[[automatically-delete-workload-pod-when-the-volume-is-detached-unexpectedly]]
 === Automatically Delete Workload Pod when The Volume Is Detached Unexpectedly
 
 *Default value*: `true`
@@ -129,6 +130,17 @@ If disabled, {longhorn-product-name} will not delete the workload pod that is ma
 [NOTE]
 ====
 This setting does not apply to workload pods without a controller. {longhorn-product-name} never deletes such pods.
+====
+
+=== Blacklist for Automatic Workload Pod Deletion on Unexpected Volume Detachment
+
+*Default value*: `""`
+
+Blacklist of controller api/kind values for the setting <<automatically-delete-workload-pod-when-the-volume-is-detached-unexpectedly,Automatically Delete Workload Pod when the Volume Is Detached Unexpectedly>>. If a workload pod is managed by a controller whose api/kind is listed in this blacklist, {longhorn-product-name} will not automatically delete the pod when its volume is unexpectedly detached. Multiple controller api/kind entries can be specified, separated by semicolons. For example: `apps/v1/StatefulSet;apps/v1/DaemonSet`.
+
+[NOTE]
+====
+The controller api/kind is case sensitive and must exactly match the api/kind in the workload pod's owner reference.
 ====
 
 === Automatic Salvage
