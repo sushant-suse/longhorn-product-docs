@@ -1,5 +1,5 @@
 = Important Notes
-:revdate: 2025-11-12
+:revdate: 2025-11-19
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -27,7 +27,7 @@ Due to the upgrade of the CSI external snapshotter to v8.2.0, you must be runnin
 
 === CRD Upgrade Validation
 
-During an upgrade, a new Longhorn manager might start before the Custom Resource Definitions (CRDs) are applied. This sequence ensures the controller doesn't process objects with deprecated data or fields. However, if the CRD hasn't yet been applied, the Longhorn manager can fail during the initial upgrade phase.
+During an upgrade, a new Longhorn manager might start before the Custom Resource Definitions (CRDs) are applied. This sequence ensures the controller does not process objects with deprecated data or fields. However, if the CRD has not yet been applied, the Longhorn manager can fail during the initial upgrade phase.
 
 If the Longhorn Manager crashes during the upgrade, check the logs to determine if the CRD not being applied is the cause of the failure. In such cases, the logs might contain error messages similar to the following:
 
@@ -86,7 +86,7 @@ For more details, see https://github.com/longhorn/longhorn/issues/11400[Issue #1
 
 === Pod Scheduling with CSIStorageCapacity
 
-{longhorn-product-name} now supports Kubernetes *CSIStorageCapacity*, which enables the scheduler to verify node storage before it schedules pods that use StorageClasses with *WaitForFirstConsumer*. This reduces scheduling errors and and improves reliability.
+{longhorn-product-name} now supports Kubernetes *CSIStorageCapacity*, which enables the scheduler to verify node storage before it schedules pods that use StorageClasses with *WaitForFirstConsumer*. This reduces scheduling errors and improves reliability.
 
 For more details, see https://github.com/longhorn/longhorn/issues/10685[Issue #10685].
 
