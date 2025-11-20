@@ -1,11 +1,11 @@
 = Node Space Usage
-:revdate: 2025-06-27
+:revdate: 2025-11-19
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 == Whole Cluster Space Usage
 
-In `Dashboard` page, Longhorn will show you the cluster space usage info:
+In `Dashboard` page, {longhorn-product-name} shows you the cluster space usage info:
 
 image::screenshots/volumes-and-nodes/space-usage-info-dashboard-page.png[Image]
 
@@ -13,13 +13,13 @@ image::screenshots/volumes-and-nodes/space-usage-info-dashboard-page.png[Image]
 
 `Reserved`: The space reserved for other applications and system.
 
-`Used`: The actual space that has been used by Longhorn, system, and other applications.
+`Used`: The actual space that has been used by Longhorn system and other applications.
 
 `Disabled`: The total space of the disks/nodes on which Longhorn volumes are not allowed for scheduling.
 
 == Space Usage of Each Node
 
-In `Node` page, Longhorn will show the space allocation, schedule, and usage info for each node:
+In `Nodes` page, {longhorn-product-name} show the space allocation, schedule and usage info for each node:
 
 image::screenshots/volumes-and-nodes/space-usage-info-node-page.png[Image]
 
@@ -29,4 +29,4 @@ image::screenshots/volumes-and-nodes/space-usage-info-node-page.png[Image]
 
 `Used` column: The left part indicates the currently used space of this node. The whole bar indicates the total space of the node.
 
-Notice that the allocable space may be greater than the actual available space of the node when setting `Storage Over Provisioning Percentage` to a value greater than 100. If the volumes are heavily used and lots of historical data will be stored in the volume snapshots, please be careful about using a large value for this setting. For more info about the setting, see xref:longhorn-system/settings.adoc#_storage_over_provisioning_percentage[here] for details.
+Notice that the allocable space may be greater than the actual available space of the node when setting `Storage Over Provisioning Percentage` to a value greater than 100. If the volumes are heavily used and lots of historical data would be stored in the volume snapshots, please be careful about using a large value for this setting. For more info about the setting, see xref:longhorn-system/settings.adoc#_storage_over_provisioning_percentage[here] for details.

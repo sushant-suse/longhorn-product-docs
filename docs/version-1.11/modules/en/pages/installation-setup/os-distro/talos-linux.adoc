@@ -1,11 +1,11 @@
 = Talos Linux
-:revdate: 2025-08-22
+:revdate: 2025-11-19
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 == Requirements
 
-You must meet the following requirements before installing {longhorn-product-name} on a Talos Linux cluster.
+The following requirements must be met before installing {longhorn-product-name} on a Talos Linux cluster.
 
 === System Extensions
 
@@ -14,7 +14,7 @@ Some {longhorn-product-name}-dependent binary executables are not present in the
 * `siderolabs/iscsi-tools`: this extension enables `iscsid` daemon and `iscsiadm` to be available to all nodes for the Kubernetes persistent volumes operations.
 * `siderolabs/util-linux-tools`: this extension enables linux tool to be available to all nodes. For example, the `fstrim` binary is used for {longhorn-product-name} volume trimming.
 
-The most straightforward method is patching the extensions onto existing Talos Linux nodes.
+The most straightforward method is to patch the extensions onto existing Talos Linux nodes. Alternatively, you can use the https://factory.talos.dev[Talos Linux Image Factory] and select the desired extensions under *System Extensions*. This approach is especially useful when combined with Infrastructure as Code (IaC) tools.
 
 [subs="+attributes",yaml]
 ----
@@ -33,11 +33,60 @@ For detailed instructions, see the Talos documentation on https://www.talos.dev/
 
 By default, Talos Linux applies a `baseline` pod security profile across namespaces, except for the kube-system namespace. This default setting restricts {longhorn-product-name}'s ability to manage and access system resources. For more information, see xref:installation-setup/requirements.adoc#_root_and_privileged_permission[Root and Privileged Permission] and the Talos documentation on https://www.talos.dev/v1.6/kubernetes-guides/configuration/pod-security/[Pod Security].
 
-== Talos Linux Versions Prior to v1.10.x
+== From Talos Linux v1.10.x Onwards
 
 === Data Path Mounts
 
-You need provide additional data path mounts to be accessible to the Kubernetes Kubelet container.
+Since Talos Linux deprecated `.machine.disks`, it is recommended to use `UserVolumeConfig` to mount a disk for {longhorn-product-name}. See https://www.talos.dev/v1.10/introduction/what-is-new/#user-volumes[What's new in Talos v1.10] for more details.
+
+Optionally, it is also recommended to create a `VolumeConfig` to specify the size of Talos system volumes. This is *recommended*, as it avoids the need to set `defaultSettings.storageReservedPercentageForDefaultDisk`.
+
+[NOTE]
+====
+For more disk configuration options, see the https://www.talos.dev/v1.10/talos-guides/configuration/disk-management/#disk-layout[Talos documentation].
+====
+
+You must provide additional data path mounts to make them accessible to the Kubernetes kubelet container.
+
+These mounts allow access to host directories and attach the volumes required by Longhorn components.
+
+The xref:longhorn-system/settings.adoc#_default_data_path[default data path] for Longhorn is `/var/lib/longhorn`. To use the configuration below in Talos, first set your default data path to `/var/mnt/longhorn`. The method to do this depends on your xref:longhorn-system/customize-default-settings.adoc[deployment method].
+
+[,yaml]
+----
+machine:
+  kubelet:
+    extraMounts:
+      - destination: /var/mnt/longhorn
+        type: bind
+        source: /var/mnt/longhorn
+        options:
+          - bind
+          - rshared
+          - rw
+----
+
+Next, create a `UserVolumeConfig` to mount the disk for {longhorn-product-name}. It would be automatically mounted to `/var/mnt/longhorn` on the configured node.
+
+[,yaml]
+----
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+name: longhorn # name is used to identify the volume /var/mnt/<name>
+provisioning:
+  diskSelector:
+    match: disk.transport == "nvme"
+  grow: false
+  maxSize: 1700GB
+----
+
+For detailed instructions on `UserVolumeConfig` and `VolumeConfig`, see the Talos documentation on https://www.talos.dev/v1.10/reference/configuration/block/[Block configuration]. Refer to the https://docs.siderolabs.com/talos/v1.11/reference/api[Talos API Reference] for more configuration details.
+
+== Up to Talos Linux v1.9.x
+
+=== Data Path Mounts
+
+You must provide additional data path mounts to be accessible to the Kubernetes kubelet container.
 
 These mounts are necessary to provide access to the host directories, and attach volumes required by Longhorn components.
 
@@ -78,14 +127,18 @@ machine:
 
 [NOTE]
 ====
-Talos Linux v1.7.x and earlier versions do not include the `uio_pci_generic` kernel module. If your system device supports `vfio_pci`, which is the preferred kernel module for SPDK application deployment, you are not required to install and enable the `uio_pci_generic` kernel driver. For more information, see https://spdk.io/doc/system_configuration.html[System Configuration User Guide] in the SPDK documentation.
+Talos Linux v1.7.x and earlier versions do not include the `uio_pci_generic` kernel module. If the system device supports `vfio_pci`, which is the preferred kernel module for SPDK application deployment, you are not required to install and enable the `uio_pci_generic` kernel driver. For more information, see https://spdk.io/doc/system_configuration.html[System Configuration User Guide] in the SPDK documentation.
 
 You can use `uio_pci_generic` if `vfio_pci` is incompatible with your system or specific hardware. Future versions of Talos Linux are expected to include native support for `uio_pci_generic`. For more information, see https://github.com/siderolabs/talos/issues/9236[Issue #9236].
 ====
 
 == Talos Linux Upgrades
 
-=== Prior to v1.8.x
+=== From v1.8.x Onwards
+
+The `--preserve` flag is no longer required. It is now automatically set for the `talosctl` upgrade command, as noted https://www.talos.dev/v1.8/introduction/what-is-new/#upgrades[here].
+
+=== Up to v1.8.x
 
 When https://www.talos.dev/v1.7/talos-guides/upgrading-talos/#talosctl-upgrade[upgrading a Talos Linux node], always include the `--preserve` option in the command. This option explicitly tells Talos to keep ephemeral data intact.
 
@@ -96,7 +149,10 @@ Example:
 talosctl upgrade --nodes 10.20.30.40 --image ghcr.io/siderolabs/installer:v1.7.6 --preserve
 ----
 
-CAUTION: If you do not include the `--preserve` option, Talos wipes `/var/lib/longhorn`, destroying all replicas stored on that node.
+[CAUTION]
+====
+If the `--preserve` option is not included, Talos wipes `/var/lib/longhorn`, destroying all replicas stored on that node.
+====
 
 === Recovering from an Upgraded Node without Preserving Data
 
@@ -113,59 +169,6 @@ If you were unable to include the `--preserve` option in the upgrade command, pe
 . Click *Save*.
 
 {longhorn-product-name} synchronizes the replicas based on the configured settings.
-
-=== After v1.8.x
-
-The `--preserve` is no longer required. The flag is automatically set for `talosctl upgrade` command.  
-For more information, see https://www.talos.dev/v1.8/introduction/what-is-new/#upgrades[here].
-
-== Talos Linux v1.10.x and Later
-
-=== Data Path Mounts
-
-Because Talos Linux deprecated `.machine.disks` we recommend using `UserVolumeConfig` to mount a disk for {longhorn-product-name}. Refer to the https://www.talos.dev/v1.10/introduction/what-is-new/#user-volumes[What's new in Talos v1.10] for more information.
-
-You can optionally create a `VolumeConfig` object to specify the size of Talos System volumes.  
-This step is *recommended* to avoid setting the `defaultSettings.storageReservedPercentageForDefaultDisk` value manually.
-
-[TIP]
-====
-For additional disk configuration options, refer to the https://www.talos.dev/v1.10/talos-guides/configuration/disk-management/#disk-layout[Disk Layout documentation].
-====
-
-You need provide additional data path mounts to be accessible to the Kubernetes Kubelet container.
-
-These mounts are necessary to provide access to the host directories, and attach volumes required by Longhorn components.
-
-[,yaml]
-----
-machine:
-  kubelet:
-    extraMounts:
-      - destination: /var/mnt/longhorn
-        type: bind
-        source: /var/mnt/longhorn
-        options:
-          - bind
-          - rshared
-          - rw
-----
-
-You need to create a `UserVolumeConfig` to mount the disk for {longhorn-product-name}, which will be automatically mounted to `/var/mnt/longhorn` on the configured node.
-
-[,yaml]
-----
-apiVersion: v1alpha1
-kind: UserVolumeConfig
-name: longhorn # Name is used to identify the volume at /var/mnt/<name>
-provisioning:
-  diskSelector:
-    match: disk.transport == "nvme"
-  grow: false
-  maxSize: 1700GB
-----
-
-For detailed instructions on `UserVolumeConfig` and `VolumeConfig`, see the https://www.talos.dev/v1.10/reference/configuration/block/[Talos block configuration documentation].
 
 == References
 

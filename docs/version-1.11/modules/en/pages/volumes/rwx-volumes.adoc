@@ -1,54 +1,81 @@
 = ReadWriteMany (RWX) Volumes
-:revdate: 2025-06-27
+:revdate: 2025-11-19
 :page-revdate: {revdate}
 :doctype: book
 :current-version: {page-component-version}
 
-Longhorn supports ReadWriteMany (RWX) volumes by exposing regular Longhorn volumes via NFSv4 servers that reside in share-manager pods.
+{longhorn-product-name} supports ReadWriteMany (RWX) volumes by exposing regular Longhorn volumes via NFSv4 servers that reside in share-manager pods.
 
 == Introduction
 
-Longhorn creates a dedicated `share-manager-<volume-name>` Pod within the `longhorn-system` namespace for each RWX volume that is currently in active use. The Pod facilitates the export of Longhorn volume via an internally hosted NFSv4 server. Additionally, a corresponding Service is created for each RWX volume, serving as the designated endpoint for actual NFSv4 client connections.
+{longhorn-product-name} provides two types of RWX volumes, each optimized for different workload requirements:
+
+=== Generic (Non-Migratable) RWX volumes
+
+Generic RWX volumes provide shared file system access across multiple nodes. They use dedicated NFSv4.1 servers that run in `share-manager-<volume-name>` Pods within the `longhorn-system` namespace. Each RWX volume is paired with a corresponding Service that exposes the NFS endpoint to clients.
+
+These volumes are ideal for workloads that need concurrent file access but do not support live migration. Live migration is the process of moving a running workload from a source host to a destination host without service interruption. During the migration, the volumes are accessible only from the source workload. Once complete, the destination workload takes over access, and the source workload is terminated.
+
+==== Characteristics
+
+. Not capable of https://kubevirt.io/user-guide/compute/live_migration/[live migration].
+. Use NFSv4.1 for file system based sharing.
+. Suitable for general shared storage and multi-node file access workloads.
 
 image::diagrams/rwx/rwx-arch.png[Image]
 
-== Requirements
+=== Migratable RWX volumes
 
-It is necessary to meet the following requirements in order to use RWX volumes.
+Migratable RWX volumes are designed specifically for virtualized workloads such as KubeVirt VMs that require [live migration](https://kubevirt.io/user-guide/compute/live_migration/) while maintaining ongoing I/O operations. These volumes enable seamless VM movement between nodes during maintenance, failover, or rebalancing operations without service disruption.
+
+==== Characteristics
+
+. Designed for live migration scenarios.
+. Require `volumeMode: Block` (`Filesystem` mode is not supported).
+. Require ReadWriteMany access mode and a StorageClass with `migratable: "true"` (which sets `volume.spec.migratable=true` on the Longhorn volume).
+. Not intended for general shared file system workloads.
+
+[NOTE]
+====
+You can distinguish migratable RWX volumes by checking the `volume.spec.migratable` field in the volume specification. Non-migratable volumes lack this field.
+====
+
+== Requirements for Generic (Non-Migratable) RWX Volumes
 
 . Each NFS client node needs to have a NFSv4 client installed.
 +
 Please refer to xref:installation-setup/requirements.adoc#_installing_nfsv4_client[Installing NFSv4 client] for more installation details.
 +
-____
-*Troubleshooting:* If the NFSv4 client is not available on the node, when trying to mount the volume the below message will be part of the error:
+.Troubleshooting:
+[NOTE]
+====
+If the NFSv4 client is not available on the node, attempting to mount the volume results in an error message that includes the following text:
 
 ----
 for several filesystems (e.g. nfs, cifs) you might need a /sbin/mount.<type> helper program.
 ----
-____
+====
 
 . The hostname of each node is unique in the Kubernetes cluster.
 +
-There is a dedicated recovery backend service for NFS servers in Longhorn system. When a client connects to an NFS server, the client's information, including its hostname, will be stored in the recovery backend. When a share-manager Pod or NFS server is abnormally terminated, Longhorn will create a new one. Within the 90-seconds grace period, clients will reclaim locks using the client information stored in the recovery backend.
-+
+There is a dedicated recovery backend service for NFS servers in Longhorn system. When a client connects to an NFS server, the client's information, including its hostname, will be stored in the recovery backend. When a share-manager Pod or NFS server is abnormally terminated, {longhorn-product-name} will create a new one. Within the 90-seconds grace period, clients will reclaim locks using the client information stored in the recovery backend.
 
-== Creation and Usage of an RWX Volume
+== Creation and Usage of Generic (Non-Migratable) RWX Volumes
 
-____
-*Notice* +
+[NOTE]
+====
 An RWX volume must have the access mode set to `ReadWriteMany` and the "migratable" flag disabled (_parameters.migratable: `false`_).
-____
+====
 
-. For dynamically provisioned Longhorn volumes, the access mode is based on the PVC's access mode.
-. For manually created Longhorn volumes (restore, DR volume) the access mode can be specified during creation in the Longhorn UI.
+. For dynamically provisioned Longhorn volumes, the access mode is based on the access mode of the PVC.
+. For manually created Longhorn volumes (restore, DR volume) the access mode can be specified during creation in the {longhorn-product-name} UI.
 . When creating a PV/PVC for a Longhorn volume via the UI, the access mode of the PV/PVC will be based on the volume's access mode.
-. One can change the Longhorn volume's access mode via the UI as long as the volume is not bound to a PVC.
+. One can change the Longhorn volume's access mode via the UI if the volume is not bound to a PVC.
 . For a Longhorn volume that gets used by an RWX PVC, the volume access mode will be changed to RWX.
 
-== Configuring Volume Locality for RWX Volumes
+== Configuring Volume Locality for Generic (Non-Migratable) RWX Volumes
 
-Longhorn provides new settings that allow you to precisely control the data locality of RWX volumes (through identification of associated Share Manager pods). These granular settings work with related global settings to provide optimal performance, resilience, and adherence to organizational policies or constraints.
+{longhorn-product-name} provides new settings that allow you to precisely control the data locality of RWX volumes (through identification of associated Share Manager pods). These granular settings work with related global settings to provide optimal performance, resilience and adherence to organizational policies or constraints.
 
 === `shareManagerNodeSelector`
 
@@ -107,11 +134,11 @@ Example:
 
 In this example, the Share Manager pods will tolerate the `nodetype=storage:NoSchedule` taint on nodes, allowing them to be scheduled on those nodes.
 
-== Configuring Volume Mount Options
+== Configuring Volume Mount Options for Generic (Non-Migratable) RWX Volumes
 
-An RWX volume is accessible only when mounted via NFS. By default Longhorn uses NFS version 4.1 with the `softerr` mount option, a `timeo` value of "600", and a `retrans` value of "5".
+An RWX volume is accessible only when mounted via NFS. By default {longhorn-product-name} uses NFS version 4.1 with the `softerr` mount option, a `timeo` value of "600", and a `retrans` value of "5".
 
-If the NFS server becomes inaccessible, requests from NFS clients are retried according to the configured `retrans` value. Longer-duration events such as power outages and factors such as network partitions cause the requests to eventually fail. An NFS error (`ETIMEDOUT` for the `softerr` mount option) is returned to the calling application and data loss may occur. If `softerr` is not supported, Longhorn automatically uses the `soft` mount option instead, which returns an `EIO` as the error.
+If the NFS server becomes inaccessible, requests from NFS clients are retried according to the configured `retrans` value. Longer-duration events such as power outages and factors such as network partitions cause the requests to eventually fail. An NFS error (`ETIMEDOUT` for the `softerr` mount option) is returned to the calling application and data loss may occur. If `softerr` is not supported, {longhorn-product-name} automatically uses the `soft` mount option instead, which returns an `EIO` as the error.
 
 You can use specific mount options for new volumes. First, create a customized StorageClass with an `nfsOptions` parameter, and then create PVCs for RWX volumes using that specific StorageClass.
 
@@ -135,13 +162,16 @@ Example:
     nfsOptions: "vers=4.2,noresvport,softerr,timeo=600,retrans=5"
 ----
 
-IMPORTANT: To create PVCs for RWX volumes using the sample StorageClass, replace the `nfsOptions` string with a customized comma-separated list of legal options.
+[IMPORTANT]
+====
+To create PVCs for RWX volumes using the sample StorageClass, replace the `nfsOptions` string with a customized comma-separated list of legal options.
+====
 
 === Notes
 
-. You must provide the complete set of desired options. Any options not supplied will use the NFS-server side defaults, not Longhorn's own.
-. Longhorn does not validate the `nfsOptions` string, so erroneous values and typographical errors are not flagged. When the string is invalid, the mount is rejected by the NFS server and the volume is not created nor attached.
-. In Longhorn v1.4.0 to 1.4.3 and v1.5.0 to v1.5.1, volumes within a share manager pod (specifically, in the `NodeStageVolume` step) are hard mounted by default by the Longhorn CSI plugin. Hard mounting allows Longhorn to persistently retry sending NFS requests, ensuring that IOs do not fail even when the NFS server becomes inaccessible for some time. IOs resume seamlessly when the server regains connectivity or a replacement server is created.
+. You must provide the complete set of desired options. Any options not supplied will use the NFS-server side defaults, not {longhorn-product-name}'s own.
+. {longhorn-product-name} does not validate the `nfsOptions` string, so erroneous values and typographical errors are not flagged. When the string is invalid, the mount is rejected by the NFS server and the volume is not created nor attached.
+. In {longhorn-product-name} v1.4.0 to 1.4.3 and v1.5.0 to v1.5.1, volumes within a share manager pod (specifically, in the `NodeStageVolume` step) are hard mounted by default by the Longhorn CSI plugin. Hard mounting allows {longhorn-product-name} to persistently retry sending NFS requests, ensuring that IOs do not fail even when the NFS server becomes inaccessible for some time. IOs resume seamlessly when the server regains connectivity or a replacement server is created.
 +
 This mechanism for guaranteeing data integrity, however, comes with some risk. To maintain stability, the Linux kernel does not allow unmounting of a file system until all pending IOs are completed. This is a concern because the system cannot shut down until all file systems are unmounted. If the NFS server is unable to recover, the client nodes must undergo a forced reboot.
 +
@@ -151,11 +181,11 @@ To mitigate the issue, upgrade to v1.4.4, v1.5.2, or a later version. After upgr
 
 For more information, see https://github.com/longhorn/longhorn/issues/6655[#6655].
 
-== Failure Handling
+== Failure Handling for Generic (Non-Migratable) RWX Volumes
 
 . share-manager Pod is abnormally terminated
 +
-Client IO will be blocked until Longhorn creates a new share-manager Pod and the associated volume. Once the Pod is successfully created, the 90-seconds grace period for lock reclamation is started, and users would expect
+Client IO will be blocked until {longhorn-product-name} creates a new share-manager Pod and the associated volume. Once the Pod is successfully created, the 90-seconds grace period for lock reclamation is started, and users would expect
 
  ** Before the grace period ends, client IO to the RWX volume will still be blocked.
  ** The server rejects READ and WRITE operations and non-reclaim locking requests with an error of NFS4ERR_GRACE.
@@ -170,11 +200,11 @@ Each Pod of the DaemonSet is writing data to the RWX volume. If the node where t
 
 . If the Kubernetes DNS service goes down, share-manager Pods will not be able to communicate with longhorn-nfs-recovery-backend
 +
-The NFS-ganesha server in a share-manager Pod communicates with longhorn-nfs-recovery-backend via the service ``longhorn-recovery-backend``'s IP. If the DNS service is out of service, the creation and deletion of RWX volumes as well as the recovery of NFS servers will be inoperable. Thus, the high availability of the DNS service is recommended for avoiding the communication failure.
+The NFS-ganesha server in a share-manager Pod communicates with `longhorn-nfs-recovery-backend` via the service `longhorn-recovery-backend`'s IP. If the DNS service is out of service, the creation and deletion of RWX volumes as well as the recovery of NFS servers will be inoperable. Thus, the high availability of the DNS service is recommended for avoiding the communication failure.
 
 . Fast failover feature.
 +
-Longhorn supports a feature that can improve availability by shortening the time it takes to recover from a failure of the node on which the volume's share-manager NFS server pod is running.  The feature uses a direct heartbeat to monitor the server. If the server is unresponsive it acts to create a new one faster than the usual sequence. It also configures the NFS server differently, to shorten the recovery grace period from 90 to 30 seconds. +
+{longhorn-product-name} supports a feature that can improve availability by shortening the time it takes to recover from a failure of the node on which the volume's share-manager NFS server pod is running. The feature uses a direct heartbeat to monitor the server. If the server is unresponsive it acts to create a new one faster than the usual sequence. It also configures the NFS server differently, to shorten the recovery grace period from 90 to 30 seconds. +
  More details are at xref:high-availability/rwx-volume-fast-failover.adoc[RWX Volume Fast Failover].
 
 == Migration from Previous External Provisioner
