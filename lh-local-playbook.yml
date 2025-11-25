@@ -1,12 +1,12 @@
 site:
   title: SUSE® Storage
-  start_page: 1.9@storage:en:longhorn-documentation.adoc
+  start_page: 1.10@storage:en:longhorn-documentation.adoc
 
 content:
   sources:
     - url: ./
       branches: HEAD
-      start_paths: [shared, docs/*]
+      start_paths: [shared, docs/version*]
 
 ui:
   bundle:
@@ -25,6 +25,8 @@ antora:
   - require: '@antora/lunr-extension'
   - require: ./product-docs-common/extensions/dynamic-loading-attributes/load-global-site-attributes.js
     attributefile: ./product-docs-common/global-attributes.yml
+    enabled: true
+  - require: ./product-docs-common/extensions/versions-latest-prerelease/vlp.js
     enabled: true
 
 output:
