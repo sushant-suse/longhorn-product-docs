@@ -1147,3 +1147,11 @@ DO NOT CHANGE THIS SETTING WITH ATTACHED VOLUMES. {longhorn-product-name} will b
 *Default value*: `/var/lib/longhorn/logs/`
 
 Specifies the directory on the host where {longhorn-product-name} stores log files for the instance manager pod. Currently, it is only used for the instance manager pods in the v2 data engine.
+
+=== Snapshot Heavy Task Concurrent Limit
+
+*Default value*: `5`
+
+* `< 1`: unlimited concurrent heavy snapshot tasks.
+
+This setting controls how many snapshot-heavy tasks, such as purge and clone operations, can run concurrently on each node. It is a best-effort mechanism. Because the system is distributed, temporary oversubscription can occur. The limiter reduces worst-case overload but does not guarantee perfect enforcement.
