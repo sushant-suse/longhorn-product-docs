@@ -1,5 +1,5 @@
 = Important Notes
-:revdate: 2025-11-12
+:revdate: 2025-11-29
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -149,6 +149,23 @@ If {longhorn-product-name} was installed by using Helm, the downgrade is allowed
 ===== Post-Downgrade
 
 Once the downgrade is complete and the Longhorn system is stable on the v1.9.x version, you must immediately follow the steps outlined in the xref:#manual-crd-migration[Manual CRD Migration Guide]. This step is crucial to migrate all remaining `v1beta1` CRs to `v1beta2` before you try the {longhorn-product-name} v1.10 upgrade again.
+
+=== Hotfix
+
+The `longhorn-manager:v1.10.1` image is affected by a regression issue that can trigger a nil-pointer dereference under certain conditions and may cause unexpected crashes. To mitigate this issue, replace `longhorn-manager:v1.10.1` with the hotfixed image `longhorn-manager:v1.10.1-hotfix-1`. For details, see the related issue on GitHub.
+
+Follow these steps to apply the update:
+
+. Disable the upgrade version check.
+* For Helm, set `upgradeVersionCheck` to `false` in the `values.yaml` file.
+* For manifests, remove the `--upgrade-version-check` flag from the deployment manifest.
+
+. Update the `longhorn-manager` image.
+* Change the image tag from `v1.10.1` to `v1.10.1-hotfix-1` in the appropriate file.
+** For Helm, update the `values.yaml` file.
+** For manifests, update the deployment manifest.
+
+. Apply the upgrade by running your standard Helm upgrade command or by applying the updated manifest.
 
 == Important Fixes
 
