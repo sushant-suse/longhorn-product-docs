@@ -1,83 +1,156 @@
 = Quick Start Guide
-:revdate: 2025-08-28
+:revdate: 2025-11-29
 :page-revdate: {revdate}
 :aliases: ["/spdk/quick-start.md"]
 :current-version: {page-component-version}
 
-The Longhorn V2 Data Engine harnesses the power of the Storage Performance Development Kit (SPDK) to significantly reduce I/O latency while boosting IOPS and throughput. The result is a high-performance storage solution that is capable of meeting diverse workload demands.
+The Longhorn V2 data engine uses the Storage Performance Development Kit (SPDK) to improve performance. The integration reduces I/O latency and increases IOPS and throughput. This enhancement provides a high-performance storage option that supports a wide range of workloads.
 
-[NOTE]
+[WARNING]
 ====
-The V2 Data Engine is an experimental feature and should not be used in production environments.
+The V2 data engine is experimental and is not supported for production use.
 ====
 
-At present, a volume with the V2 Data Engine only supports the following:
+A volume using the V2 data engine currently supports:
 
-* Volume lifecycle (creation, attachment, detachment and deletion)
-* Degraded volume
+* Volume lifecycle (creation, attachment, detachment, and deletion)
+* Degraded volumes
 * Block disk management
 * Orphaned replica management
 
-Additional functionalities such as replica number adjustment, online replica rebuilding, snapshot, backup, restore and so on will be introduced in future versions.
+Additional features, including replica number changes, online replica rebuilding, snapshots, backups, and restores, will be available in later versions.
 
-This tutorial will guide you through the process of configuring the environment and create Kubernetes persistent storage resources of persistent volumes (PVs) and persistent volume claims (PVCs) that correspond to Longhorn volumes using V2 Data Engine.
+This page describes how to configure the environment and create PersistentVolume (PV) and PersistentVolumeClaim (PVC) resources that use Longhorn volumes with the V2 data engine.
 
 == Prerequisites
 
-=== Configure Kernel Modules and Huge Pages
+=== Load kernel modules
 
-For Debian and Ubuntu, please install Linux kernel extra modules before loading the kernel modules
+On Debian and Ubuntu, install the Linux kernel extra modules before loading the required kernel modules:
 
+[,bash]
 ----
 apt install -y linux-modules-extra-`uname -r`
 ----
 
-To configure the necessary kernel modules and huge pages for SPDK, you can use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI].
+You can configure the required kernel modules and hugepages for SPDK with the xref:longhorn-system/system-access/install-longhorn-cli.adoc[Longhorn CLI].
 
-Or, you can install them manually by following these steps.
+You can install them manually:
 
-* Load the kernel modules on the each Longhorn node
-+
+Load the kernel modules on each Longhorn node:
+
+[,bash]
 ----
 modprobe vfio_pci
 modprobe uio_pci_generic
-----
-
-* Configure huge pages
-SPDK leverages huge pages for enhancing performance and minimizing memory overhead. You must configure 2 MiB-sized huge pages on each Longhorn node to enable usage of huge pages. Specifically, 1024 pages (equivalent to a total of 2 GiB) must be available on each Longhorn node.
-
-To allocate huge pages, run the following commands on each node.
-
-----
-  echo 1024 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
-----
-
-To make the change permanent, add the following line to the file /etc/sysctl.conf.
-
-----
-  echo "vm.nr_hugepages=1024" >> /etc/sysctl.conf
-----
-
-=== Load `nvme-tcp` Kernel Module
-
-To ensure the necessary prerequisites for NVMe are met, you can use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI].
-
-Alternatively, you can manually load the `nvme-tcp` kernel module on each Longhorn node by running the following command:
-
-[,console]
-----
 modprobe nvme-tcp
 ----
 
-=== Load Kernel Modules Automatically on Boot
+Alternatively, rather than manually loading kernel modules vfio_pci, uio_pci_generic and nvme-tcp each time after reboot, you can streamline the process by configuring automatic module loading during the boot sequence. For detailed instructions, please consult the manual provided by your operating system.
 
-Rather than manually loading kernel modules `vfio_pci`, `uio_pci_generic` and `nvme-tcp` each time after reboot, you can streamline the process by configuring automatic module loading during the boot sequence. For detailed instructions, please consult the manual provided by your operating system.
+*Reference*:
 
-Reference:
+* SUSE or openSUSE: https://documentation.suse.com/sles/15-SP4/html/SLES-all/cha-mod.html#sec-mod-modprobe-d[Loading kernel modules at boot]
+* Ubuntu: https://manpages.ubuntu.com/manpages/jammy/man5/modules-load.d.5.html[Configure kernel modules to load at boot]
+* RHEL: https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/managing_monitoring_and_updating_the_kernel/managing-kernel-modules_managing-monitoring-and-updating-the-kernel[Loading kernel modules automatically at system boot time]
 
-* https://documentation.suse.com/sles/15-SP4/html/SLES-all/cha-mod.html#sec-mod-modprobe-d[SUSE/OpenSUSE: Loading kernel modules automatically on boot]
-* https://manpages.ubuntu.com/manpages/jammy/man5/modules-load.d.5.html[Ubuntu: Configure kernel modules to load at boot]
-* https://access.redhat.com/documentation/zh-tw/red_hat_enterprise_linux/8/html/managing_monitoring_and_updating_the_kernel/managing-kernel-modules_managing-monitoring-and-updating-the-kernel[RHEL: Loading kernel modules automatically at system boot time]
+=== Enable hugepages
+
+==== Configure hugepages
+
+SPDK uses hugepages for enhancing performance and minimizing memory overhead. You must configure 2 MiB-sized hugepages on each Longhorn node to enable usage of hugepages. Specifically, 1024 pages (equivalent to a total of 2 GiB) must be available on each Longhorn node.
+
+To allocate hugepages, run the following commands on each node.
+
+[,bash]
+----
+echo 1024 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
+----
+
+Allocations made under `/sys/kernel/mm/hugepages` are not persistent and reset after reboot. To make the allocation persistent, use one of the following methods:
+
+===== Persistent allocation (recommended)
+
+To pre-allocate hugepages permanently, update the kernel boot parameters.
+
+. Update GRUB configuration
++
+Edit `/etc/default/grub` and add the hugepages parameters. This example allocates `1024 × 2` MiB pages (2 GiB total):
++
+[,bash]
+----
+GRUB_CMDLINE_LINUX="hugepagesz=2M hugepages=1024"
+----
++
+If the node already has kernel parameters, append these values rather than overwrite them.
+
+. Apply the GRUB configuration
++
+BIOS systems:
++
+[,bash]
+----
+sudo update-grub
+----
++
+RHEL or SUSE (GRUB2):
++
+[,bash]
+----
+sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+----
++
+UEFI systems:
++
+[,bash]
+----
+sudo grub2-mkconfig -o /boot/efi/EFI/<distro>/grub.cfg
+----
+
+. Reboot the node:
++
+[,bash]
+----
+sudo reboot
+----
+
+. Verify hugepages:
++
+[,bash]
+----
+grep Huge /proc/meminfo
+----
++
+Expected output:
++
+----
+HugePages_Total:    1024
+Hugepagesize:       2048 kB
+----
+
+. Verify hugepages as a Kubernetes resource:
++
+[,bash]
+----
+kubectl describe node <node-name>
+----
++
+Expected under *Capacity* and *Allocatable*:
++
+----
+hugepages-2Mi: 2Gi
+----
+
+===== Alternative: sysctl configuration (not recommended)
+
+Add the following line to `/etc/sysctl.conf`:
+
+[,bash]
+----
+vm.nr_hugepages=1024
+----
+
+This does not persist across reboot on many distributions because hugepages must be allocated early in the boot process. Use only when GRUB modification is not allowed.
 
 === Restart `kubelet`
 
@@ -141,7 +214,7 @@ INFO[2024-01-01T00:00:10Z] Completed preflight installer. Use 'longhornctl check
 
 [NOTE]
 ====
-Some immutable Linux distributions, such as SUSE Linux Enterprise Micro (SLE Micro), require you to reboot worker nodes after running the `install` sub-command. After the reboot, you must run the `install` sub-command again to complete the operation.
+Certain immutable Linux distributions, such as SUSE Linux Enterprise Micro (SLE Micro), require you to reboot worker nodes after running the `install` sub-command. After the reboot, you must run the `install` sub-command again to complete the operation.
 
 The documentation for your Linux distribution should outline such requirements. For example, the https://documentation.suse.com/sle-micro/6.0/html/Micro-transactional-updates/index.html#reference-transactional-update-usage[SLE Micro documentation] explains that all changes made by the `transactional-update` command become active only after the node is rebooted.
 ====
@@ -219,7 +292,7 @@ longhorn-ui-58db78b68-bzzz8                         0m           2Mi
 longhorn-ui-58db78b68-ffbxr                         0m           2Mi
 ----
 
-You can observe the utilization of allocated huge pages on each node by running the command `kubectl get node <node name> -o yaml`.
+You can observe the utilization of allocated hugepages on each node by running the command `kubectl get node <node name> -o yaml`.
 
 ----
 # kubectl get node sles-pool1-07437316-4jw8f -o yaml
@@ -308,5 +381,3 @@ Create a Pod that uses Longhorn volumes using V2 Data Engine by running this com
 ----
 kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/pod_with_pvc.yaml
 ----
-
-Or, if you are creating a volume on Longhorn UI, please specify the `Data Engine` as `v2`.
