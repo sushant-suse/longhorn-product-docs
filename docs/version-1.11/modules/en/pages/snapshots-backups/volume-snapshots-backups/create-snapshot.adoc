@@ -1,5 +1,5 @@
 = Create a Snapshot
-:revdate: 2025-11-06
+:revdate: 2025-11-29
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -14,6 +14,49 @@ To create a snapshot of an existing cluster, follow these steps:
 . Click the *Take Snapshot* button.
 
 Once the snapshot is created, you can view it in the list of snapshots for the volume before the Volume Head.
+
+=== Understanding the Snapshot Chain Visualization
+
+On the *Volume Details* page, the *Snapshots and Backups* section displays the snapshot history as a chain. By default, the *Show System Snapshots* option is enabled, and all system-created snapshots appear in the view.
+
+Each snapshot in the chain is color coded to indicate its type or status. If a snapshot meets multiple criteria, the visualization uses the color with the highest priority.
+
+[cols="1,1,2,1", options="header"]
+|===
+| Snapshot Type
+| Color
+| Description
+| Priority (1 = highest)
+
+| Error
+| Red
+| Indicates that snapshot creation failed or that the snapshot has an issue.
+| 1
+
+| Removed
+| Light grey
+| Indicates that the snapshot is marked for removal or has been deleted.
+| 2
+
+| System created
+| Orange/Yellow
+| Automatically created by Longhorn, often for recurring jobs or internal operations.
+| 3
+
+| Backup
+| Green
+| Indicates that the snapshot has a backup stored on a configured backup target.
+| 4
+
+| Default (user created)
+| Blue
+| A user-initiated snapshot taken manually with the *Take Snapshot* action.
+| 5
+|===
+
+The following figure shows an example of the snapshot chain visualization:
+
+image::diagrams/snapshot/snapshot_volumes_page.png[Snapshot Volume Page]
 
 == Snapshot Management with Custom Resources (CRs)
 

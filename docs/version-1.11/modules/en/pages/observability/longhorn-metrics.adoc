@@ -1,5 +1,5 @@
 = SUSE® Storage Metrics for Monitoring
-:revdate: 2025-07-15
+:revdate: 2025-11-29
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -17,12 +17,12 @@
 | longhorn_volume_capacity_bytes{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 6.442450944e+09
 
 | longhorn_volume_state
-| State of this volume: 1=creating, 2=attached, 3=Detached, 4=Attaching, 5=Detaching, 6=Deleting
-| longhorn_volume_state{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 2
+| Volume state. This metric uses the `state` label to indicate the current volume state. The value is 1 for the current state and 0 for others. States: creating, attached, detached, attaching, detaching, deleting 
+| longhorn_volume_state{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol",state="attached"} 1
 
 | longhorn_volume_robustness
-| Robustness of this volume: 0=unknown, 1=healthy, 2=degraded, 3=faulted
-| longhorn_volume_robustness{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 1
+| Volume robustness. This metric uses the `state` label to indicate the current robustness. The value is 1 for the current state and 0 for others. States: unknown, healthy, degraded, faulted
+| longhorn_volume_robustness{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol",state="healthy"} 1
 
 | longhorn_volume_read_throughput
 | Read throughput of this volume (Bytes/s)
@@ -173,6 +173,14 @@
 | longhorn_disk_write_latency
 | Write latency of this disk (nanoseconds)
 | longhorn_disk_write_latency{disk="default-disk-8b28ee3134628183",node="worker-3",disk_path="/dev/sda"} 95000
+
+| longhorn_disk_health
+| Disk health status (1 = healthy, 0 = unhealthy). See [Disk Health Monitoring](../disk-heath) for details
+| longhorn_disk_health{disk="default-disk-8b28ee3134628183",node="worker-3"} 1 
+
+| longhorn_disk_health_attribute_raw
+| Raw SMART health attribute value for the disk. Available only when SMART data is supported. See xref:observability/disk-health.md[Disk Health Monitoring] for details
+| longhorn_disk_health_attribute_raw{attribute="Temperature Celsius",attribute_id="",disk="default-disk-db0dcb3d43bdcd05",node="longhorn-worker"} 37
 |===
 
 == Instance Manager
