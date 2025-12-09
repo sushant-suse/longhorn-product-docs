@@ -1,5 +1,5 @@
 = Red Hat OpenShift Container Platform and OKD
-:revdate: 2025-07-29
+:revdate: 2025-12-09
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -70,13 +70,11 @@ One way to monitor the progress of the installation is to watch pods being creat
     --watch
 ----
 
-For more information, see xref:installation-setup/installation/install-using-kubectl.adoc[Install with Kubectl].
-
 == Prepare A Customized Default Disk (Optional)
 
 To understand more about configuring the disks for {longhorn-product-name}, please refer to the section xref:nodes/default-disk-and-node-config.adoc#_launch_longhorn_with_multiple_disks[Configuring Defaults for Nodes and Disks]
 
-{longhorn-product-name} will use the directory `/var/lib/longhorn` as default storage mount point and that means {longhorn-product-name} uses the root device as the default storage. If you don't want to use the root device as the {longhorn-product-name} storage, set *_defaultSettings.createDefaultDiskLabeledNodes_* true when installing {longhorn-product-name} using Helm:
+{longhorn-product-name} will use the directory `/var/lib/longhorn` as default storage mount point and that means {longhorn-product-name} uses the root device as the default storage. If you do not want to use the root device as the {longhorn-product-name} storage, set *_defaultSettings.createDefaultDiskLabeledNodes_* true when installing {longhorn-product-name} using Helm:
 
 [,txt]
 ----
