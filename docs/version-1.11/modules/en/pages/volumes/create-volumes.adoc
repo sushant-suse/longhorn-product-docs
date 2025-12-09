@@ -1,5 +1,5 @@
 = Create Volumes
-:revdate: 2025-11-29
+:revdate: 2025-12-09
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -72,7 +72,7 @@ The parameter `mkfsParams` can be used to specify file system format options for
 +
 The parameter `backupTargetName` can be used to specify the backup target. The name of the default backup target (`default`) is used if `backupTargetName` is not specified.
 +
-Parameters may be omitted from the StorageClass specification. When the StorageClass is used to create a PV and a volume, parameters that are not specified will generally be set using a default value taken from the global settings. For the full list of global settings, see xref:storageclass-parameters.adoc[StorageClass Parameters] and xref:longhorn-system/settings.adoc[Settings].
+Parameters may be omitted from the StorageClass specification. When the StorageClass is used to create a PV and a volume, parameters that are not specified will generally be set using a default value taken from the global settings. For the full list of global settings, see xref:volumes/storageclass-parameters.adoc[StorageClass Parameters] and xref:longhorn-system/settings.adoc[Settings].
 
 . Create a Pod that uses Longhorn volumes by running this command:
 +
@@ -123,7 +123,7 @@ spec:
       claimName: longhorn-volv-pvc
 ----
 +
-More examples are available xref:longhorn-system/examples-resources.adoc[here.]
+More examples are available xref:longhorn-system/examples-resources.adoc[here].
 
 == Binding Workloads to PVs without a Kubernetes StorageClass
 
@@ -171,7 +171,7 @@ Creating a Longhorn volume can fail for different reasons. The issues are catego
 
 The failure results in the workload failing to use the provisioned PV and showing a warning message
 
-[subs="+attributes", bash]
+[subs="+attributes", console]
 ----
 # kubectl describe pod workload-test
 
@@ -185,7 +185,7 @@ Events:
 
 To help users understand the error causes, {longhorn-product-name} summarizes them in the PV annotation, `longhorn.io/volume-scheduling-error`. Failures are combined in this annotation and separated by a semicolon, for example, `longhorn.io/volume-scheduling-error: insufficient storage;disks are unavailable`. The annotation can be checked by using `kubectl describe pv <pvc name>`.
 
-[subs="+attributes", bash]
+[subs="+attributes", console]
 ----
 # kubectl describe pv pvc-e130e369-274d-472d-98d1-f6074d2725e8
 Name:            pvc-e130e369-274d-472d-98d1-f6074d2725e8

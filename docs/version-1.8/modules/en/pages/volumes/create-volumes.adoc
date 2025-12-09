@@ -1,12 +1,12 @@
 = Create Volumes
-:revdate: 2025-07-26
+:revdate: 2025-12-09
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
-You can create Kubernetes persistent storage resources of persistent volumes (PVs) and persistent volume claims (PVCs) that correspond to Longhorn volumes. You will use kubectl to dynamically provision storage for workloads using a Longhorn StorageClass. For help creating volumes from the Longhorn UI, refer to <<_creating_longhorn_volumes_with_the_longhorn_ui,this section.>>
+You can create Kubernetes persistent storage resources of persistent volumes (PVs) and persistent volume claims (PVCs) that correspond to Longhorn volumes. You will use kubectl to dynamically provision storage for workloads using a Longhorn StorageClass. For help creating volumes from the Longhorn UI, refer to <<_creating_longhorn_volumes_with_the_longhorn_ui,this section>>.
 
 ____
-This section assumes that you understand how Kubernetes persistent storage works. For more information, see the https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetes documentation.]
+This section assumes that you understand how Kubernetes persistent storage works. For more information, see the https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetes documentation].
 ____
 
 == Creating Longhorn Volumes with kubectl
@@ -21,99 +21,102 @@ When the Pod is deployed, the Kubernetes master will check the PersistentVolumeC
 +
 [subs="+attributes", console]
 ----
- kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/storageclass.yaml
+kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/storageclass.yaml
 ----
 +
 The following example StorageClass is created:
 +
+[subs="+attributes", yaml]
 ----
- kind: StorageClass
- apiVersion: storage.k8s.io/v1
- metadata:
-   name: longhorn
- provisioner: driver.longhorn.io
- allowVolumeExpansion: true
- parameters:
-   numberOfReplicas: "3"
-   staleReplicaTimeout: "2880" # 48 hours in minutes
-   fromBackup: ""
-   fsType: "ext4"
- #  backupTargetName: "default"
- #  mkfsParams: "-I 256 -b 4096 -O ^metadata_csum,^64bit"
- #  diskSelector: "ssd,fast"
- #  nodeSelector: "storage,fast"
- #  recurringJobSelector: '[
- #   {
- #     "name":"snap",
- #     "isGroup":true,
- #   },
- #   {
- #     "name":"backup",
- #     "isGroup":false,
- #   }
- #  ]'
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  fsType: "ext4"
+#  backupTargetName: "default"
+#  mkfsParams: "-I 256 -b 4096 -O ^metadata_csum,^64bit"
+#  diskSelector: "ssd,fast"
+#  nodeSelector: "storage,fast"
+#  recurringJobSelector: '[
+#   {
+#     "name":"snap",
+#     "isGroup":true,
+#   },
+#   {
+#     "name":"backup",
+#     "isGroup":false,
+#   }
+#  ]'
 ----
 +
-The parameter `mkfsParams` can be used to specify filesystem format options for each StorageClass.
+The parameter `mkfsParams` can be used to specify file system format options for each StorageClass.
 +
 Starting with v1.8.0, the parameter `backupTargetName` can be used to specify the backup target. The name of the default backup target (`default`) is used if `backupTargetName` is not specified.
 +
-Parameters may be omitted from the StorageClass specification. When the StorageClass is used to create a PV and a volume, parameters that are not specified will generally be set using a default value taken from the global settings. For the full list of global settings, see xref:storageclass-parameters.adoc[StorageClass Parameters] and xref:longhorn-system/settings.adoc[Settings].
+Parameters may be omitted from the StorageClass specification. When the StorageClass is used to create a PV and a volume, parameters that are not specified will generally be set using a default value taken from the global settings. For the full list of global settings, see xref:volumes/storageclass-parameters.adoc[StorageClass Parameters] and xref:longhorn-system/settings.adoc[Settings].
 
 . Create a Pod that uses Longhorn volumes by running this command:
 +
 [subs="+attributes", console]
 ----
- kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/pod_with_pvc.yaml
+kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/pod_with_pvc.yaml
 ----
 +
 A Pod named `volume-test` is launched, along with a PersistentVolumeClaim named `longhorn-volv-pvc`. The PersistentVolumeClaim references the Longhorn StorageClass:
 +
+[subs="+attributes", yaml]
 ----
- apiVersion: v1
- kind: PersistentVolumeClaim
- metadata:
-   name: longhorn-volv-pvc
- spec:
-   accessModes:
-     - ReadWriteOnce
-   storageClassName: longhorn
-   resources:
-     requests:
-       storage: 2Gi
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: longhorn-volv-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi
 ----
 +
 The persistentVolumeClaim is mounted in the Pod as a volume:
 +
+[subs="+attributes", yaml]
 ----
- apiVersion: v1
- kind: Pod
- metadata:
-   name: volume-test
-   namespace: default
- spec:
-   containers:
-   - name: volume-test
-     image: nginx:stable-alpine
-     imagePullPolicy: IfNotPresent
-     volumeMounts:
-     - name: volv
-       mountPath: /data
-     ports:
-     - containerPort: 80
-   volumes:
-   - name: volv
-     persistentVolumeClaim:
-       claimName: longhorn-volv-pvc
+apiVersion: v1
+kind: Pod
+metadata:
+  name: volume-test
+  namespace: default
+spec:
+  containers:
+  - name: volume-test
+    image: nginx:stable-alpine
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+    - name: volv
+      mountPath: /data
+    ports:
+    - containerPort: 80
+  volumes:
+  - name: volv
+    persistentVolumeClaim:
+      claimName: longhorn-volv-pvc
 ----
 +
-More examples are available xref:longhorn-system/examples-resources.adoc[here.]
+More examples are available xref:longhorn-system/examples-resources.adoc[here].
 
 == Binding Workloads to PVs without a Kubernetes StorageClass
 
 It is possible to use a Longhorn StorageClass to bind a workload to a PV without creating a StorageClass object in Kubernetes.
 
-Since the StorageClass is also a field used to match a PVC with a PV, which doesn't have to be created by a Provisioner, you can create a PV manually with a custom StorageClass name, then create a PVC asking for the same StorageClass name.
+Since the StorageClass is also a field used to match a PVC with a PV, which does not have to be created by a Provisioner, you can create a PV manually with a custom StorageClass name, then create a PVC asking for the same StorageClass name.
 
 When a PVC requests a StorageClass that does not exist as a Kubernetes resource, Kubernetes will try to bind your PVC to a PV with the same StorageClass name. The StorageClass will be used like a label to find the matching PV, and only existing PVs labeled with the StorageClass name will be used.
 
@@ -137,7 +140,7 @@ Only detached volume can be used by a newly created pod.
 
 == The Failure of the Longhorn Volume Creation
 
-Creating a Longhorn volume will fail if there are no available nodes, disks, or insufficient storage. The failures are categorized into:
+Creating a Longhorn volume will fail if there are no available nodes, disks or insufficient storage. The failures are categorized into:
 
 * insufficient storage,
 * disk not found,
@@ -152,6 +155,7 @@ Creating a Longhorn volume will fail if there are no available nodes, disks, or 
 
 The failure results in the workload failing to use the provisioned PV and showing a warning message
 
+[subs="+attributes", console]
 ----
 # kubectl describe pod workload-test
 
@@ -163,8 +167,9 @@ Events:
   desc = volume pvc-e130e369-274d-472d-98d1-f6074d2725e8 is not ready for workloads
 ----
 
-In order to help users understand the error causes, Longhorn summarizes them in the PV annotation, `longhorn.io/volume-scheduling-error`. Failures are combined in this annotation and separated by a semicolon, for example, `longhorn.io/volume-scheduling-error: insufficient storage;disks are unavailable`. The annotation can be checked by using `kubectl describe pv <pvc name>`.
+To help users understand the error causes, Longhorn summarizes them in the PV annotation, `longhorn.io/volume-scheduling-error`. Failures are combined in this annotation and separated by a semicolon, for example, `longhorn.io/volume-scheduling-error: insufficient storage;disks are unavailable`. The annotation can be checked by using `kubectl describe pv <pvc name>`.
 
+[subs="+attributes", console]
 ----
 # kubectl describe pv pvc-e130e369-274d-472d-98d1-f6074d2725e8
 Name:            pvc-e130e369-274d-472d-98d1-f6074d2725e8
