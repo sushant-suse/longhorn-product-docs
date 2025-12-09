@@ -1,24 +1,24 @@
 = Create an Ingress with Basic Authentication (nginx)
-:revdate: 2025-07-29
+:revdate: 2025-12-09
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 If you install {longhorn-product-name} on a Kubernetes cluster with kubectl or Helm, you will need to create an Ingress to allow external traffic to reach the {longhorn-product-name} UI.
 
-Authentication is not enabled by default for kubectl and Helm installations. In these steps, you'll learn how to create an Ingress with basic authentication using annotations for the nginx ingress controller.
+Authentication is not enabled by default for kubectl and Helm installations. In these steps, you will learn how to create an Ingress with basic authentication using annotations for the nginx ingress controller.
 
-. Create a basic auth file `auth`. It's important the file generated is named auth (actually - that the secret has a key `data.auth`), otherwise the Ingress returns a 503.
+. Create a basic auth file `auth`. It is important the file generated is named auth (actually - that the secret has a key `data.auth`), otherwise the Ingress returns a 503.
 +
-[subs="+attributes",console]
+[,console]
 ----
- $ USER=<USERNAME_HERE>; PASSWORD=<PASSWORD_HERE>; echo "${USER}:$(openssl passwd -stdin -apr1 <<< ${PASSWORD})" >> auth
+$ USER=<USERNAME_HERE>; PASSWORD=<PASSWORD_HERE>; echo "${USER}:$(openssl passwd -stdin -apr1 <<< ${PASSWORD})" >> auth
 ----
 
 . Create a secret:
 +
 [subs="+attributes",console]
 ----
- $ kubectl -n longhorn-system create secret generic basic-auth --from-file=auth
+$ kubectl -n longhorn-system create secret generic basic-auth --from-file=auth
 ----
 
 . Create an Ingress manifest `longhorn-ingress.yml` :
@@ -29,46 +29,46 @@ ____
 +
 [subs="+attributes",console]
 ----
- apiVersion: networking.k8s.io/v1
- kind: Ingress
- metadata:
-   name: longhorn-ingress
-   namespace: longhorn-system
-   annotations:
-     # type of authentication
-     nginx.ingress.kubernetes.io/auth-type: basic
-     # prevent the controller from redirecting (308) to HTTPS
-     nginx.ingress.kubernetes.io/ssl-redirect: 'false'
-     # name of the secret that contains the user/password definitions
-     nginx.ingress.kubernetes.io/auth-secret: basic-auth
-     # message to display with an appropriate context why the authentication is required
-     nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required '
-     # custom max body size for file uploading like backing image uploading
-     nginx.ingress.kubernetes.io/proxy-body-size: 10000m
- spec:
-   ingressClassName: nginx
-   rules:
-   - http:
-       paths:
-       - pathType: Prefix
-         path: "/"
-         backend:
-           service:
-             name: longhorn-frontend
-             port:
-               number: 80
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: longhorn-ingress
+  namespace: longhorn-system
+  annotations:
+    # type of authentication
+    nginx.ingress.kubernetes.io/auth-type: basic
+    # prevent the controller from redirecting (308) to HTTPS
+    nginx.ingress.kubernetes.io/ssl-redirect: 'false'
+    # name of the secret that contains the user/password definitions
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth
+    # message to display with an appropriate context why the authentication is required
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required '
+    # custom max body size for file uploading like backing image uploading
+    nginx.ingress.kubernetes.io/proxy-body-size: 10000m
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: longhorn-frontend
+            port:
+              number: 80
 ----
 
 . Create the Ingress:
 +
 [subs="+attributes",console]
 ----
- $ kubectl -n longhorn-system apply -f longhorn-ingress.yml
+$ kubectl -n longhorn-system apply -f longhorn-ingress.yml
 ----
 
 For example:
 
-[subs="+attributes",yaml]
+[,yaml]
 ----
 $ USER=foo; PASSWORD=bar; echo "$\{USER}:$(openssl passwd -stdin -apr1 <<< $\{PASSWORD})" >> auth
 $ cat auth
