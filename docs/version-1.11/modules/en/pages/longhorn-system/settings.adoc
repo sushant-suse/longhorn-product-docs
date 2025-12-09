@@ -146,7 +146,7 @@ If disabled, {longhorn-product-name} does not delete the workload pod that is ma
 [NOTE]
 ====
 * This setting does not apply to workload pods without a controller. {longhorn-product-name} never deletes such pods.
-* Workload pods with *cluster network* RWX volumes. The setting does not apply to such pods because the Longhorn Share Manager, which provides the RWX NFS service, has its own resilience mechanism. This mechanism ensures availability until the volume is reattached without relying on the pod lifecycle to trigger volume reattachment. The setting does apply, however, to workload pods with *endpoint network* RWX volumes. For more information, see xref:volumes/rwx-volumes.adoc[ReadWriteMany (RWX) Volume] and xref:longhorn-system/networking/storage-network.adoc_limitation[Storage Network].
+* Workload pods with *cluster network* RWX volumes. The setting does not apply to such pods because the Longhorn Share Manager, which provides the RWX NFS service, has its own resilience mechanism. This mechanism ensures availability until the volume is reattached without relying on the pod lifecycle to trigger volume reattachment. The setting does apply, however, to workload pods with *endpoint network* RWX volumes. For more information, see xref:volumes/rwx-volumes.adoc[ReadWriteMany (RWX) Volume] and xref:longhorn-system/networking/storage-network.adoc#limitation[Storage Network].
 ====
 
 === Blacklist for Automatic Workload Pod Deletion on Unexpected Volume Detachment
