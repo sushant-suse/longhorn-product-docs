@@ -1,5 +1,5 @@
 = StorageClass Parameters
-:revdate: 2025-12-09
+:revdate: 2025-12-10
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -46,6 +46,12 @@ parameters:
 #  nfsOptions: "soft,timeo=150,retrans=3"
 #  dataEngine: "v1"
 #  freezeFSForSnapshot: "ignored"
+# allowedTopologies:
+#   - matchLabelExpressions:
+#       - key: topology.kubernetes.io/zone
+#         values:
+#           - us-central-1a
+#           - us-central-1b
 ----
 
 == Built-in Fields
@@ -94,7 +100,21 @@ Default `Immediate`
 See https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode[Kubernetes Storage Class: Volume Binding Mode].
 ____
 
-== Longhorn-specific Parameters
+
+[discrete]
+==== Allowed Topologies _(field: `allowedTopologies`)_
+
+____
+See the Kubernetes reference: https://kubernetes.io/docs/concepts/storage/storage-classes/#allowed-topologies[StorageClass — Allowed Topologies].
+____
+
+It specifies the set of nodes where volumes may be provisioned by matching node labels.
+{longhorn-product-name} uses this field to populate the `nodeAffinity` of PV via the CSI `accessibleTopology` field.
+
+Do *not* use `allowedTopologies` together with `parameters.dataLocality: strict-local`.
+The resulting PV `nodeAffinity` becomes immutable and it would conflict with strict-local volume pinning of {longhorn-product-name}.
+
+== {longhorn-product-name}-specific Parameters
 
 Note that some of these parameters also exist and may be specified in global settings. When a volume is provisioned with Kubernetes against a particular StorageClass, StorageClass parameters override the global settings.
 These fields will be applied for new volume creation only. If a StorageClass is modified, neither Longhorn nor Kubernetes handles propagating changes to its parameters back to volumes previously created with it.
