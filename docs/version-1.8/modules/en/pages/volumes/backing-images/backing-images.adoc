@@ -1,5 +1,5 @@
 = Backing Images
-:revdate: 2025-07-26
+:revdate: 2025-12-10
 :page-revdate: {revdate}
 :experimental:
 :current-version: {page-component-version}
@@ -34,8 +34,8 @@ A backing image serves as the initial snapshot in the snapshot chain of a {longh
 ==== Checksum
 
 * The checksum of a backing image is *the SHA512 checksum* of the whole backing image *file* rather than that of the actual content.
-What's the difference? When {longhorn-product-name} calculates the checksum of a qcow2 file, it will read the file as a raw file instead of using the qcow library to read the correct content. In other words, users always get the correct checksum by executing `shasum -a 512 <the file path>` regardless of the file format.
-* It's recommended to provide the expected checksum during backing image creation.
+What is the difference? When {longhorn-product-name} calculates the checksum of a qcow2 file, it will read the file as a raw file instead of using the qcow library to read the correct content. In other words, users always get the correct checksum by executing `shasum -a 512 <the file path>` regardless of the file format.
+* It is recommended to provide the expected checksum during backing image creation.
 Otherwise, {longhorn-product-name} will consider the checksum of the first file as the correct one. Once there is something wrong with the first file preparation, which then leads to an incorrect checksum as the expected value, this backing image is probably unavailable.
 
 ==== Scheduling
@@ -58,7 +58,7 @@ On menu:Setting[Backing Image] page, users can create backing images with any ki
 ==== Create a V1 Backing Image Using YAML
 
 You can download a file or export an existing volume as a backing image via YAML.
-It's better not to "upload" a file via YAML. Otherwise, you need to manually handle the data upload via HTTP requests.
+It is better not to "upload" a file via YAML. Otherwise, you need to manually handle the data upload via HTTP requests.
 
 Here are some examples:
 
@@ -106,7 +106,7 @@ spec:
 
 . In a Longhorn StorageClass.
 . Setting parameter `backingImageName` means asking {longhorn-product-name} to use this backing image during volume creation.
-. If you want to create the backing image, as long as it does not exist during the CSI volume creation, parameters `backingImageDataSourceType` and `backingImageDataSourceParameters` should be set. Similarly to YAML, it's better not to create a backing image via "upload" in StorageClass. Note that if all of these parameters are set and the backing image already exists, {longhorn-product-name} will validate if the parameters match the existing one before using it.
+. If you want to create the backing image, as long as it does not exist during the CSI volume creation, parameters `backingImageDataSourceType` and `backingImageDataSourceParameters` should be set. Similarly to YAML, it is better not to create a backing image via "upload" in StorageClass. Note that if all of these parameters are set and the backing image already exists, {longhorn-product-name} will validate if the parameters match the existing one before using it.
 
  ** For `download`:
 +
@@ -271,7 +271,7 @@ You can prepare a V2 Data Engine backing image using any of the supported data s
 == Warning
 
 * The download URL of the backing image should be public. We will improve this part in the future.
-* If there is high memory usage of one backing image manager pod after <<_download_the_backing_image_file_to_the_local_machine,file download>>, this is caused by the system cache/buffer. The memory usage will decrease automatically hence you don't need to worry about it. See https://github.com/longhorn/longhorn/issues/4055[the GitHub ticket] for more details.
+* If there is high memory usage of one backing image manager pod after <<_download_a_backing_image_file,file download>>,, this is caused by the system cache/buffer. The memory usage will decrease automatically hence you do not need to worry about it. See https://github.com/longhorn/longhorn/issues/4055[the GitHub ticket] for more details.
 
 == History
 

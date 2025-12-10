@@ -1,5 +1,5 @@
 = Install the CLI
-:revdate: 2025-07-29
+:revdate: 2025-12-10
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -13,7 +13,7 @@
 ARCH="amd64"
 
 # Download the release binary.
-curl -LO "https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-${ARCH}"
+curl -LO "https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-$\{ARCH}"
 ----
 
 . Validate the binary:
@@ -21,7 +21,7 @@ curl -LO "https://github.com/longhorn/cli/releases/download/v{patch-version}/lon
 [subs="+attributes",bash]
 ----
 # Download the checksum for your architecture.
-curl -LO "https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-${ARCH}.sha256"
+curl -LO "https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-$\{ARCH}.sha256"
 
 # Verify the downloaded binary matches the checksum.
 echo "$(cat longhornctl-linux-$\{ARCH}.sha256 | awk '{print $1}') longhornctl-linux-$\{ARCH}" | sha256sum --check
@@ -36,7 +36,7 @@ sudo install longhornctl-linux-${ARCH} /usr/local/bin/longhornctl
 
 . Verify installation:
 +
-[subs="+attributes",bash]
+[,bash]
 ----
 longhornctl version
 ----

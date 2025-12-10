@@ -1,11 +1,11 @@
 = StorageClass Parameters
-:revdate: 2025-08-28
+:revdate: 2025-12-09
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 == Overview
 
-StorageClass as a resource object has a number of configurable parameters.  
+StorageClass as a resource object has several configurable parameters.  
 
 Example:
 
@@ -50,13 +50,13 @@ parameters:
 
 == Built-in Fields
 
-Some fields are common to all Kubernetes storage classes.
+Certain fields are common to all Kubernetes storage classes.
 See also https://kubernetes.io/docs/concepts/storage/storage-classes[Kubernetes Storage Class].
 
 [discrete]
 ==== Provisioner _(field: `provisioner`)_
 
-Specifies the plugin that will be used for dynamic creation of persistent volumes.  For Longhorn, that is always "driver.longhorn.io".
+Specifies the plug-in that will be used for dynamic creation of persistent volumes. For Longhorn, that is always `"driver.longhorn.io"`.
 
 ____
 See https://kubernetes.io/docs/concepts/storage/storage-classes/#provisioner[Kubernetes Storage Class: Provisioner].
@@ -96,8 +96,8 @@ ____
 
 == Longhorn-specific Parameters
 
-Note that some of these parameters also exist and may be specified in global settings.  When a volume is provisioned with Kubernetes against a particular StorageClass, StorageClass parameters override the global settings.
-These fields will be applied for new volume creation only.  If a StorageClass is modified, neither Longhorn nor Kubernetes is responsible for propagating changes to its parameters back to volumes previously created with it.
+Note that some of these parameters also exist and may be specified in global settings. When a volume is provisioned with Kubernetes against a particular StorageClass, StorageClass parameters override the global settings.
+These fields will be applied for new volume creation only. If a StorageClass is modified, neither Longhorn nor Kubernetes is responsible for propagating changes to its parameters back to volumes previously created with it.
 
 [discrete]
 ==== Number Of Replicas _(field: `parameters.numberOfReplicas`)_
@@ -139,7 +139,7 @@ URL of a backup to be restored from.
 
 ____
 Default: `ext4`
-For more details, see xref:volumes/create-volumes.adoc#_creating_longhorn_volumes_with_kubectl[Creating Longhorn Volumes with Kubernetes]
+For more details, see xref:volumes/create-volumes.adoc#creating_longhorn_volumes_with_kubectl[Creating Longhorn Volumes with Kubernetes].
 ____
 
 [discrete]
@@ -147,7 +147,7 @@ ____
 
 ____
 Default: `""`
-For more details, see xref:volumes/create-volumes.adoc#_creating_longhorn_volumes_with_kubectl[Creating Longhorn Volumes with Kubernetes]
+For more details, see xref:volumes/create-volumes.adoc#creating_longhorn_volumes_with_kubectl[Creating Longhorn Volumes with Kubernetes].
 ____
 
 [discrete]
@@ -157,14 +157,14 @@ ____
 Default: `false`
 ____
 
-Allows for a Longhorn volume to be live migrated from one node to another.  Useful for volumes used by Harvester.
+Allows for a Longhorn volume to be live migrated from one node to another. Useful for volumes used by Harvester.
 
 [discrete]
 ==== Encrypted _(field: `parameters.encrypted`)_
 
 ____
 Default: `false`
-More details in xref:volumes/volume-encryption.adoc[Encrypted Volumes]
+More details in xref:volumes/volume-encryption.adoc[Encrypted Volumes].
 ____
 
 [discrete]
@@ -176,13 +176,13 @@ ____
 
 If enabled, try to keep the data on the same node as the workload for better performance.
 
-* For "best-effort", a replica will be co-located if possible, but is permitted to find another node if not.
-* For "strict-local" the Replica count should be 1, or volume creation will fail with a parameter validation error.
-* If "strict-local" is not possible for whatever other reason, volume creation will be failed.  A "strict-local" replica that becomes displaced from its workload will be marked as "Stopped".
+* For `"best-effort"`, a replica will be co-located if possible, but is permitted to find another node if not.
+* For `"strict-local"` the Replica count should be 1, or volume creation will fail with a parameter validation error.
+* If `"strict-local"` is not possible for whatever other reason, volume creation will be failed. A `"strict-local"` replica that becomes displaced from its workload will be marked as `"Stopped"`.
 
 ____
-Global setting: xref:longhorn-system/settings.adoc#_default_data_locality[Default Data Locality]
- More details in xref:high-availability/data-locality.adoc[Data Locality].
+Global setting: xref:longhorn-system/settings.adoc#_default_data_locality[Default Data Locality].
+More details in xref:high-availability/data-locality.adoc[Data Locality].
 ____
 
 [discrete]
@@ -192,13 +192,13 @@ ____
 Default: `ignored`
 ____
 
-If enabled, move replicas to more lightly-loaded nodes.
+If enabled, move replicas to more lightly loaded nodes.
 
-* "ignored" means use the global setting.
-* Other options are "disabled", "least-effort", "best-effort".
+* `"ignored"` means use the global setting.
+* Other options are `"disabled"`, `"least-effort"`, `"best-effort"`.
 
 ____
-Global setting: xref:longhorn-system/settings.adoc#_replica_auto_balance[Replica Auto Balance]
+Global setting: xref:longhorn-system/settings.adoc#_replica_auto_balance[Replica Auto Balance].
 More details in xref:high-availability/automatic-replica-balancing.adoc[Auto Balance Replicas].
 ____
 
@@ -213,7 +213,7 @@ ____
 A list of tags to select which disks are candidates for replica placement.
 
 ____
-More details in xref:nodes/storage-tags.adoc[Storage Tags]
+More details in xref:nodes/storage-tags.adoc[Storage Tags].
 ____
 
 [discrete]
@@ -227,7 +227,7 @@ ____
 A list of tags to select which nodes are candidates for replica placement.
 
 ____
-More details in xref:nodes/storage-tags.adoc[Storage Tags]
+More details in xref:nodes/storage-tags.adoc[Storage Tags].
 ____
 
 [discrete]
@@ -241,7 +241,7 @@ ____
 A list of recurring jobs that are to be run on a volume.
 
 ____
-More details in xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[]
+More details in xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[Creating Recurring Backup and Snapshot Jobs].
 ____
 
 [discrete]
@@ -249,7 +249,7 @@ ____
 
 ____
 Default: `""`
-See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image]
+See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
 ____
 
 [discrete]
@@ -257,7 +257,7 @@ ____
 
 ____
 Default: `""`
-See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image]
+See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
 ____
 
 [discrete]
@@ -265,7 +265,7 @@ ____
 
 ____
 Default: `""`
-See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image]
+See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
 ____
 
 [discrete]
@@ -273,7 +273,7 @@ ____
 
 ____
 Default: `""`
-See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image]
+See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
 ____
 
 [discrete]
@@ -283,8 +283,8 @@ ____
 Default: `ignored`
 ____
 
-* "ignored" means use the global setting.
-* Other values are "enabled" and "disabled".
+* `"ignored"` means use the global setting.
+* Other values are `"enabled"` and `"disabled"`.
 
 ____
 Global setting: xref:longhorn-system/settings.adoc#_remove_snapshots_during_filesystem_trim[Remove Snapshots During Filesystem Trim].
@@ -310,8 +310,8 @@ ____
 Default: `ignored`
 ____
 
-* "ignored" means use the global setting.
-* Other values are "enabled" and "disabled".
+* `"ignored"` means use the global setting.
+* Other values are `"enabled"` and `"disabled"`.
 
 ____
 Global setting: xref:longhorn-system/settings.adoc#_replica_node_level_soft_anti_affinity[Replica Node Level Soft Anti-Affinity].
@@ -325,8 +325,8 @@ ____
 Default: `ignored`
 ____
 
-* "ignored" means use the global setting.
-* Other values are "enabled" and "disabled".
+* `"ignored"` means use the global setting.
+* Other values are `"enabled"` and `"disabled"`.
 
 ____
 Global setting: xref:longhorn-system/settings.adoc#_replica_zone_level_soft_anti_affinity[Replica Zone Level Soft Anti-Affinity].
@@ -340,8 +340,8 @@ ____
 Default: `ignored`
 ____
 
-* "ignored" means use the global setting.
-* Other values are "enabled" and "disabled".
+* `"ignored"` means use the global setting.
+* Other values are `"enabled"` and `"disabled"`.
 
 ____
 Global setting: xref:longhorn-system/settings.adoc#_replica_disk_level_soft_anti_affinity[Replica Disk Level Soft Anti-Affinity].
@@ -356,11 +356,14 @@ Default: `""`
 Example: `"hard,sync"`
 ____
 
-* Overrides for NFS mount of RWX volumes to the share-manager.  Use this field with caution.
-* NOTE:  Built-in options vary by release.  Check your release details before setting this.
-
+* Overrides for NFS mount of RWX volumes to the share-manager. Use this field with caution.
++
+[NOTE]
+====
+Built-in options vary by release. Check your release details before setting this.
+====
 ____
-More details in xref:volumes/rwx-volumes.adoc#_configuring_volume_mount_options[RWX Workloads]
+More details in xref:volumes/rwx-volumes.adoc#_configuring_volume_mount_options[RWX Workloads].
 ____
 
 [discrete]
@@ -384,8 +387,8 @@ ____
 Default: `ignored`
 ____
 
-* "ignored" instructs Longhorn to use the global setting.
-* Other values are "enabled" and "disabled".
+* `"ignored"` instructs Longhorn to use the global setting.
+* Other values are `"enabled"` and `"disabled"`.
 
 ____
 Global setting: xref:longhorn-system/settings.adoc#_freeze_filesystem_for_snapshot[Freeze File System For Snapshot].
@@ -398,7 +401,7 @@ ____
 Default: `default`
 ____
 
-* More details are available in xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_default_backup_target[default backup target] and xref:create-volumes.adoc[Create Volumes].
+* More details are available in xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_default_backup_target[default backup target] and xref:volumes/create-volumes.adoc[Create Volumes].
 
 [discrete]
 ==== Backup Block Size _(field: `parameters.backupBlockSize`)_
@@ -413,9 +416,9 @@ A Kubernetes quantity string. Use an empty string "" to apply the global setting
 
 For more information, see:
 
-* xref:longhorn-system/settings.adoc[default backup block size].
+* xref:longhorn-system/settings.adoc[default backup block size]
 * xref:snapshots-backups/volume-snapshots-backups/configure-backup-block-size.adoc[Configure the Block Size of a Backup]
 
 == Helm Installs
 
-If {longhorn-product-name} is installed via Helm, values in the default storage class can be set by editing the corresponding item in https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[`values.yaml`].  All of the Storage Class parameters have a prefix of "persistence".  For example, `persistence.defaultNodeSelector`.
+If {longhorn-product-name} is installed via Helm, values in the default storage class can be set by editing the corresponding item in https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[`values.yaml`].  All of the Storage Class parameters have a prefix of `"persistence"`.  For example, `persistence.defaultNodeSelector`.
