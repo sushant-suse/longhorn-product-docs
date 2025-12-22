@@ -1,5 +1,5 @@
 = Clone Volumes
-:revdate: 2025-06-27
+:revdate: 2025-12-22
 :page-revdate: {revdate}
 :description: Creating a new volume as a duplicate of an existing volume
 :current-version: {page-component-version}
@@ -82,6 +82,7 @@ image::screenshots/snapshots-and-backups/clone-volume-modal.png[Image]
 ====
 * The {longhorn-product-name} UI pre-fills certain fields and prevents you from modifying the values to ensure that those match the settings of the source volume.
 * {longhorn-product-name} automatically attaches the new volume, clones the source volume, and then detaches the new volume.
+* With efficient cloning enabled, a newly cloned and detached volume is degraded and has only one replica, with its clone status set to `copy-completed-awaiting-healthy`. To bring the volume to a healthy state, transition the clone status to `completed` and rebuild the remaining replica by either enabling offline replica rebuilding or attaching the volume to trigger replica rebuilding. See https://github.com/longhorn/longhorn/issues/12341[Issue #12341] and https://github.com/longhorn/longhorn/issues/12328[Issue #12328].
 ====
 
 == Volume Creation

@@ -1,5 +1,5 @@
 = Important Notes
-:revdate: 2025-11-29
+:revdate: 2025-12-22
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -9,7 +9,20 @@ Please see https://github.com/longhorn/longhorn/releases/tag/v{patch-version}[he
 
 === HotFix
 
-The `longhorn-manager:v1.10.0` image is affected by a https://github.com/longhorn/longhorn/issues/1193[regression issue] introduced by the new `share-manager` pod backoff logic. This bug may cause a nil pointer dereference panic in the `longhorn-manager`, leading to repeated crashes and failure to deploy new `share-manager` pods after an upgrade. To mitigate this issue, replace `longhorn-manager:v1.10.0` with the hotfixed image `longhorn-manager:v1.10.0-hotfix-1`.
+The `longhorn-manager:v1.10.1` image is affected by the following issues:
+
+* *Regression*
+** https://github.com/longhorn/longhorn/issues/12233[[BUG\] Invalid memory address or nil pointer dereference] that can trigger a nil-pointer dereference under certain conditions, potentially causing unexpected crashes.
+** https://github.com/longhorn/longhorn/issues/12311[[BUG\] Block Mode Volume Migration Stuck] that can cause block mode volume migration to get stuck indefinitely.
+
+* *Day-one issues*
+** *V2 volume clone*
+*** https://github.com/longhorn/longhorn/issues/12328[[BUG\] V2 Volume CSI Clone Slowness Caused by VolumeAttachment Webhook] that can lead to significant delays during V2 volume cloning operations.
+*** https://github.com/longhorn/longhorn/issues/12206[[BUG\] A cloned volume cannot be attached to a workload] that prevents cloned volumes from being attached to workloads.
+** *Replica Auto Balance*
+*** https://github.com/longhorn/longhorn/issues/10837[[BUG\] Replica Auto Balance disk pressure threshold stalled with stopped volumes] that can cause the Replica Auto Balance feature to stall when volumes are stopped under disk pressure conditions.
+
+To mitigate these issues, replace `longhorn-manager:v1.10.1` with the hotfixed image `longhorn-manager:v1.10.1-hotfix-2`.
 
 You can apply the update by following these steps:
 
@@ -161,7 +174,7 @@ Follow these steps to apply the update:
 * For manifests, remove the `--upgrade-version-check` flag from the deployment manifest.
 
 . Update the `longhorn-manager` image.
-* Change the image tag from `v1.10.1` to `v1.10.1-hotfix-1` in the appropriate file.
+* Change the image tag from `v1.10.1` to `v1.10.1-hotfix-2` in the appropriate file.
 ** For Helm, update the `values.yaml` file.
 ** For manifests, update the deployment manifest.
 

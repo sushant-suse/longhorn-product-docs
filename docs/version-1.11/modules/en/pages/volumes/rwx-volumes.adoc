@@ -1,5 +1,5 @@
 = ReadWriteMany (RWX) Volumes
-:revdate: 2025-11-19
+:revdate: 2025-12-22
 :page-revdate: {revdate}
 :doctype: book
 :current-version: {page-component-version}
@@ -23,6 +23,13 @@ These volumes are ideal for workloads that need concurrent file access but do no
 . Suitable for general shared storage and multi-node file access workloads.
 
 image::diagrams/rwx/rwx-arch.png[Image]
+
+[NOTE]
+====
+*Notice: Deferred Share-Manager Pod Image Updates on Active RWX Volumes*
+
+Following a Longhorn system upgrade, when a Generic (Non-Migratable) RWX volume remains attached, modifications to the `spec.image` of the corresponding `share-manager` pod do not take effect immediately. The updated image is applied only after the volume is detached, at which point the pod is recreated with the new share-manager image. This behavior ensures volume stability and prevents disruption of active I/O operations.
+====
 
 === Migratable RWX volumes
 
