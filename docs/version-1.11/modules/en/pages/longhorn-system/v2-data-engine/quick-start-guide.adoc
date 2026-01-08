@@ -1,5 +1,5 @@
 = Quick Start Guide
-:revdate: 2025-11-29
+:revdate: 2026-01-08
 :page-revdate: {revdate}
 :aliases: ["/spdk/quick-start.md"]
 :current-version: {page-component-version}
@@ -338,7 +338,18 @@ losetup -j blockfile
 
 ==== Add disks to `node.longhorn.io`
 
-You can add the disk by navigating to the Node UI page and specify the `Disk Type` as `Block`. Next, provide the block device's path in the `Path` field.
+[NOTE]
+====
+Starting with version 1.11.0, {longhorn-product-name} prevents adding block disks that contain an existing file system or partition table to avoid unexpected data loss. Ensure the disk is clean before adding it by running:
+
+----
+wipefs -a /path/to/block/device
+----
+
+If the disk contains an existing filesystem or partition table, the disk add operation will fail. 1Code has comments. Press enter to view.
+====
+
+You can add the disk by navigating to the Node UI page and specifying the `Disk Type` as `Block`. Next, provide the block device's path in the `Path` field.
 
 Or, edit the `node.longhorn.io` resource.
 
