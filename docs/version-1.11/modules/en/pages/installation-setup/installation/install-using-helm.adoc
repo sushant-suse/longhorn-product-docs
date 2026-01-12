@@ -1,78 +1,88 @@
 = Install {longhorn-product-name} Using Helm
-:revdate: 2025-07-26
+:revdate: 2026-01-12
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 == Prerequisites
 
-* Kubernetes cluster: Ensure that each node fulfills the xref:installation-setup/requirements.adoc[installation requirements].
-* Your workstation: Install https://helm.sh/docs/[Helm] v3.0 or later.
+[NOTE]
+====
+{longhorn-product-name} installation requires authenticated access to SUSE Application Collection. For more details, check https://docs.apps.rancher.io/get-started/authentication[authentication guide].
+====
 
-____
-The xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the Longhorn environment for potential issues.
-____
+=== Tools
+
+* https://helm.sh/docs/[Helm] v3.0 or later is required.
+* The xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the {longhorn-product-name} environment for potential issues.
+
+=== Kubernetes Environment
+
+* A Kubernetes cluster, with each node fulfilling the xref:installation-setup/requirements.adoc[installation requirements], is required.
+
+=== Authentication
+
+* To authenticate Helm with SUSE Application Collection OCI chart repository, refer to the https://docs.apps.rancher.io/get-started/authentication/#helm[Helm authentication documentation].
+* To allow Kubernetes to pull images from the registry, follow the https://docs.apps.rancher.io/get-started/authentication/#kubernetes[Kubernetes authentication documentation] to create a secret and set the `global.imagePullSecrets` chart value.
 
 == Installation
 
-____
-*Note*:
-
-* The initial settings can be found in xref:longhorn-system/customize-default-settings.adoc#_using_helm[customized using Helm options or by editing the deployment configuration file.]
-* For Kubernetes v1.25 or earlier, if your cluster still enables Pod Security Policy admission controller, set the helm value `enablePSP` to `true` to install `longhorn-psp` PodSecurityPolicy resource which allows privileged Longhorn pods to start.
-____
-
-. Add the Longhorn Helm repository:
+. Install {longhorn-product-name} with default configuration, run:
 +
 [subs="+attributes",shell]
 ----
-helm repo add longhorn https://charts.longhorn.io
-----
-
-. Fetch the latest charts from the repository:
-+
-[subs="+attributes",shell]
-----
-helm repo update
-----
-
-. Install {longhorn-product-name} in the `longhorn-system` namespace.
-+
-[subs="+attributes",shell]
-----
- helm install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace --version {patch-version}
+helm install longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+  --namespace longhorn-system \
+  --create-namespace \
+  --version <version> \ # Replace with the version you would like to install
+  --set global.imagePullSecrets=<PULL_IMAGE_SECRET>
 ----
 
 . To confirm that the deployment succeeded, run:
 +
-[subs="+attributes",bash]
+[,bash]
 ----
- kubectl -n longhorn-system get pod
+kubectl -n longhorn-system get pod
 ----
 +
 The result should look like the following:
 +
-[subs="+attributes",bash]
+[,bash]
 ----
- NAME                                                READY   STATUS    RESTARTS   AGE
- longhorn-ui-b7c844b49-w25g5                         1/1     Running   0          2m41s
- longhorn-manager-pzgsp                              1/1     Running   0          2m41s
- longhorn-driver-deployer-6bd59c9f76-lqczw           1/1     Running   0          2m41s
- longhorn-csi-plugin-mbwqz                           2/2     Running   0          100s
- csi-snapshotter-588457fcdf-22bqp                    1/1     Running   0          100s
- csi-snapshotter-588457fcdf-2wd6g                    1/1     Running   0          100s
- csi-provisioner-869bdc4b79-mzrwf                    1/1     Running   0          101s
- csi-provisioner-869bdc4b79-klgfm                    1/1     Running   0          101s
- csi-resizer-6d8cf5f99f-fd2ck                        1/1     Running   0          101s
- csi-provisioner-869bdc4b79-j46rx                    1/1     Running   0          101s
- csi-snapshotter-588457fcdf-bvjdt                    1/1     Running   0          100s
- csi-resizer-6d8cf5f99f-68cw7                        1/1     Running   0          101s
- csi-attacher-7bf4b7f996-df8v6                       1/1     Running   0          101s
- csi-attacher-7bf4b7f996-g9cwc                       1/1     Running   0          101s
- csi-attacher-7bf4b7f996-8l9sw                       1/1     Running   0          101s
- csi-resizer-6d8cf5f99f-smdjw                        1/1     Running   0          101s
- instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc   1/1     Running   0          114s
- engine-image-ei-df38d2e5-cv6nc                      1/1     Running   0          114s
+NAME                                                READY   STATUS    RESTARTS   AGE
+longhorn-ui-b7c844b49-w25g5                         1/1     Running   0          2m41s
+longhorn-manager-pzgsp                              1/1     Running   0          2m41s
+longhorn-driver-deployer-6bd59c9f76-lqczw           1/1     Running   0          2m41s
+longhorn-csi-plugin-mbwqz                           2/2     Running   0          100s
+csi-snapshotter-588457fcdf-22bqp                    1/1     Running   0          100s
+csi-snapshotter-588457fcdf-2wd6g                    1/1     Running   0          100s
+csi-provisioner-869bdc4b79-mzrwf                    1/1     Running   0          101s
+csi-provisioner-869bdc4b79-klgfm                    1/1     Running   0          101s
+csi-resizer-6d8cf5f99f-fd2ck                        1/1     Running   0          101s
+csi-provisioner-869bdc4b79-j46rx                    1/1     Running   0          101s
+csi-snapshotter-588457fcdf-bvjdt                    1/1     Running   0          100s
+csi-resizer-6d8cf5f99f-68cw7                        1/1     Running   0          101s
+csi-attacher-7bf4b7f996-df8v6                       1/1     Running   0          101s
+csi-attacher-7bf4b7f996-g9cwc                       1/1     Running   0          101s
+csi-attacher-7bf4b7f996-8l9sw                       1/1     Running   0          101s
+csi-resizer-6d8cf5f99f-smdjw                        1/1     Running   0          101s
+instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc   1/1     Running   0          114s
+engine-image-ei-df38d2e5-cv6nc                      1/1     Running   0          114s
 ----
 
-. To enable access to the UI, you will need to set up an Ingress controller. Authentication to the UI is not enabled by default. For information on creating an NGINX Ingress controller with basic authentication, refer to xref:longhorn-system/system-access/create-ingress.adoc[this section.]
-. Access the UI using xref:longhorn-system/system-access/system-access.adoc[these steps.]
+. To enable access to the UI, you will need to set up an Ingress controller. Authentication to the UI is not enabled by default. For information on creating an NGINX Ingress controller with basic authentication, refer to xref:longhorn-system/system-access/create-ingress.adoc[create ingress section].
+. Access the UI using xref:longhorn-system/system-access/system-access.adoc[system access steps].
+
+=== Configuration
+
+The {longhorn-product-name} Helm chart provides extensive configuration options according your specific needs. You can configure these options by providing a `values.yaml` file or by using `--set` flags during `helm install` or `helm upgrade`.
+
+Common configurable aspects include:
+
+* **Storage Class**: Default StorageClass settings.
+* **UI Settings**: Ingress configuration, service type, and authentication options for the {longhorn-product-name} UI.
+* **Manager & Engine Settings**: Resource limits, replica counts, and other operational parameters for the {longhorn-product-name} core components.
+* **Node & Disk Management**: Automatic disk provisioning, node selectors, and tolerations.
+* **CSI Driver**: Configuration specific to the Container Storage Interface components.
+* **Networking**: Service types and network policies.
+
+For a comprehensive list of all available parameters and their descriptions, refer to the official xref:installation-setup/installation/helm-values.adoc[{longhorn-product-name} Helm Chart documentation] and the `values.yaml` file in the chart's repository.

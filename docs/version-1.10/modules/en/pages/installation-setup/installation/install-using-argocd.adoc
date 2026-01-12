@@ -1,16 +1,21 @@
-= Install {longhorn-product-name} Using ArgoCD
-:revdate: 2025-12-09
+= Install {longhorn-product-name} Using Argo CD
+:revdate: 2026-01-12
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 == Prerequisites
+
+[NOTE]
+====
+{longhorn-product-name} installation requires authenticated access to SUSE Application Collection. For more details, check https://docs.apps.rancher.io/get-started/authentication[authentication guide].
+====
 
 * Your workstation: Install the https://argo-cd.readthedocs.io/en/stable/cli_installation/[Argo CD CLI].
 * Kubernetes cluster:
  ** Ensure that each node fulfills the xref:installation-setup/requirements.adoc[installation requirements].
  ** Install https://argo-cd.readthedocs.io/en/stable/[Argo CD].
 +
-[subs="+attributes",bash]
+[,bash]
 ----
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/core-install.yaml
@@ -19,26 +24,26 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 Allow some time for the deployment of Argo CD components in the `argocd` namespace.
 
 ____
-The xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the Longhorn environment for potential issues.
+The xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the {longhorn-product-name} environment for potential issues.
 ____
 
 == Installation
 
 . Log in to Argo CD.
 +
-[subs="+attributes",bash]
+[,bash]
 ----
  argocd login --core
 ----
 
 . Set the current namespace to `argocd`.
 +
-[subs="+attributes",bash]
+[,bash]
 ----
  kubectl config set-context --current --namespace=argocd
 ----
 
-. Create the Longhorn Application custom resource.
+. Create the {longhorn-product-name} Application custom resource.
 +
 [subs="+attributes",bash]
 ----
@@ -100,21 +105,21 @@ kubectl apply -f longhorn-application.yaml
 
 . Deploy {longhorn-product-name} with the configured settings.
 +
-[subs="+attributes",bash]
+[,bash]
 ----
  argocd app sync longhorn
 ----
 
 . Verify that {longhorn-product-name} was installed successfully.
 +
-[subs="+attributes",bash]
+[,bash]
 ----
  kubectl -n longhorn-system get pod
 ----
 +
 Example of a successful installation:
 +
-[subs="+attributes",bash]
+[,bash]
 ----
  NAME                                                READY   STATUS    RESTARTS   AGE
  longhorn-ui-b7c844b49-w25g5                         1/1     Running   0          2m41s
