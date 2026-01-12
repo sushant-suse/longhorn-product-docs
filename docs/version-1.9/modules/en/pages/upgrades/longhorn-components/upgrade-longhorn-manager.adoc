@@ -1,5 +1,5 @@
 = Upgrade Longhorn Manager
-:revdate: 2025-11-10
+:revdate: 2026-01-12
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -46,7 +46,7 @@ The following procedure describes how to upgrade the {longhorn-product-name} App
 . Select the OCI repository.
 . In the *OCI Repository Host URL* field, enter:
 +
-`oci://dp.apps.rancher.io/charts/suse-storage:1.9.2`
+`oci://dp.apps.rancher.io/charts/suse-storage`
 +
 image::screenshots/install/add-repo.png[Add Repository, width=80%]
 
@@ -86,30 +86,24 @@ global:
   imageRegistry: ''
 ----
 
-. This installs `suse-storage` `v1.9.1`.
+. This installs `suse-storage` `{patch-version}`.
 +
 image::screenshots/install/update-repo.png[Update Repository, width=80%]
 
 . After installation, go to *Apps > Repositories*.
 . Select the `suse-storage` repository, click the three-dot menu on the right, and choose *Edit Config*.
-. Update the URL from:
-+
-`oci://dp.apps.rancher.io/charts/suse-storage:1.9.1`
-+
-to:
-+
-`oci://dp.apps.rancher.io/charts/suse-storage:1.9.2`
+. select `suse-storage` chart and select the desired upgrade version.
 
 . The repository should be updated successfully.
 +
 image::screenshots/install/updated-repo.png[Update Repository, width=80%]
 
 . Go to *Apps > Installed Apps*.
-. In the `longhorn-system` namespace, under the *Upgradable* column, look for a yellow-highlighted `1.9.2` label. If you do not see the yellow label, refresh the page.
+. In the `longhorn-system` namespace, under the *Upgradable* column, look for a yellow-highlighted `{patch-version}` label. If you do not see the yellow label, refresh the page.
 +
 image::screenshots/install/upgradable-column.png[Upgradable Version, width=80%]
 
-. Click the yellow `1.9.2` label to open the upgrade page.
+. Click the yellow `{patch-version}` label to open the upgrade page.
 +
 image::screenshots/install/upgrade-page.png[Upgrade Page, width=80%]
 
@@ -118,7 +112,7 @@ image::screenshots/install/upgrade-page.png[Upgrade Page, width=80%]
 +
 image::screenshots/install/upgrade-progress.png[Upgrade Progress, width=80%]
 
-. After the upgrade completes, verify that the `suse-storage` chart version is updated to `1.9.2`.
+. After the upgrade completes, verify that the `suse-storage` chart version is updated to `{patch-version}`.
 +
 image::screenshots/install/upgrade-success.png[Upgrade Success, width=80%]
 
@@ -203,27 +197,27 @@ Then wait for all the pods to become running and {longhorn-product-name} UI work
 
 [,shell]
 ----
- $ kubectl -n longhorn-system get pod
- NAME                                                  READY   STATUS    RESTARTS      AGE
- engine-image-ei-4dbdb778-nw88l                        1/1     Running   0             4m29s
- longhorn-ui-b7c844b49-jn5g6                           1/1     Running   0             75s
- longhorn-manager-z2p8h                                1/1     Running   0             71s
- instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc     1/1     Running   0             65s
- longhorn-driver-deployer-6bd59c9f76-jp6pg             1/1     Running   0             75s
- engine-image-ei-df38d2e5-zccq5                        1/1     Running   0             65s
- csi-snapshotter-588457fcdf-h2lgc                      1/1     Running   0             30s
- csi-resizer-6d8cf5f99f-8v4sp                          1/1     Running   1 (30s ago)   37s
- csi-snapshotter-588457fcdf-6pgf4                      1/1     Running   0             30s
- csi-provisioner-869bdc4b79-7ddwd                      1/1     Running   1 (30s ago)   44s
- csi-snapshotter-588457fcdf-p4kkn                      1/1     Running   0             30s
- csi-attacher-7bf4b7f996-mfbdn                         1/1     Running   1 (30s ago)   50s
- csi-provisioner-869bdc4b79-4dc7n                      1/1     Running   1 (30s ago)   43s
- csi-resizer-6d8cf5f99f-vnspd                          1/1     Running   1 (30s ago)   37s
- csi-attacher-7bf4b7f996-hrs7w                         1/1     Running   1 (30s ago)   50s
- csi-attacher-7bf4b7f996-rt2s9                         1/1     Running   1 (30s ago)   50s
- csi-resizer-6d8cf5f99f-7vv89                          1/1     Running   1 (30s ago)   37s
- csi-provisioner-869bdc4b79-sn6zr                      1/1     Running   1 (30s ago)   43s
- longhorn-csi-plugin-b2zzj                             2/2     Running   0             24s
+$ kubectl -n longhorn-system get pod
+NAME                                                  READY   STATUS    RESTARTS      AGE
+engine-image-ei-4dbdb778-nw88l                        1/1     Running   0             4m29s
+longhorn-ui-b7c844b49-jn5g6                           1/1     Running   0             75s
+longhorn-manager-z2p8h                                1/1     Running   0             71s
+instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc     1/1     Running   0             65s
+longhorn-driver-deployer-6bd59c9f76-jp6pg             1/1     Running   0             75s
+engine-image-ei-df38d2e5-zccq5                        1/1     Running   0             65s
+csi-snapshotter-588457fcdf-h2lgc                      1/1     Running   0             30s
+csi-resizer-6d8cf5f99f-8v4sp                          1/1     Running   1 (30s ago)   37s
+csi-snapshotter-588457fcdf-6pgf4                      1/1     Running   0             30s
+csi-provisioner-869bdc4b79-7ddwd                      1/1     Running   1 (30s ago)   44s
+csi-snapshotter-588457fcdf-p4kkn                      1/1     Running   0             30s
+csi-attacher-7bf4b7f996-mfbdn                         1/1     Running   1 (30s ago)   50s
+csi-provisioner-869bdc4b79-4dc7n                      1/1     Running   1 (30s ago)   43s
+csi-resizer-6d8cf5f99f-vnspd                          1/1     Running   1 (30s ago)   37s
+csi-attacher-7bf4b7f996-hrs7w                         1/1     Running   1 (30s ago)   50s
+csi-attacher-7bf4b7f996-rt2s9                         1/1     Running   1 (30s ago)   50s
+csi-resizer-6d8cf5f99f-7vv89                          1/1     Running   1 (30s ago)   37s
+csi-provisioner-869bdc4b79-sn6zr                      1/1     Running   1 (30s ago)   43s
+longhorn-csi-plugin-b2zzj                             2/2     Running   0             24s
 ----
 
 Next, xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[upgrade Longhorn engine].

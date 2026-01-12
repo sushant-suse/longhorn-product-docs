@@ -1,9 +1,14 @@
 = Install SUSE® Storage Using Flux
-:revdate: 2025-07-29
+:revdate: 2026-01-12
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 == Prerequisites
+
+[NOTE]
+====
+{longhorn-product-name} installation requires authenticated access to SUSE Application Collection. For more details, check https://docs.apps.rancher.io/get-started/authentication[authentication guide].
+====
 
 * Your workstation: Install https://helm.sh/docs/[Helm] v3.0 or later.
 * Kubernetes cluster:
@@ -12,7 +17,7 @@
  ** https://fluxcd.io/flux/installation/bootstrap/github/[Bootstrap Flux with GitHub] using the Flux CLI.
 Run the following commands to export your GitHub personal access token (PAT) as an environment variable, deploy the Flux controllers on your cluster, and configure the controllers to sync the cluster state from the specified GitHub repository.
 +
-[subs="+attributes",bash]
+[,bash]
 ----
 export GITHUB_TOKEN=<gh-token>
 flux bootstrap github \
@@ -30,9 +35,9 @@ ____
 
 == Installation
 
-. Create a HelmRepository custom resource (CR) that points to the Longhorn Helm chart URL.
+. Create a HelmRepository custom resource (CR) that points to the {longhorn-product-name} Helm chart URL.
 +
-[subs="+attributes",bash]
+[,bash]
 ----
  kubectl create ns longhorn-system
  flux create source helm longhorn-repo \
@@ -57,21 +62,21 @@ ____
 
 . Verify that the HelmRelease CR was created and synced successfully.
 +
-[subs="+attributes",bash]
+[,bash]
 ----
  flux get helmrelease longhorn-release -n longhorn-system
 ----
 
 . Verify that {longhorn-product-name} was installed successfully.
 +
-[subs="+attributes",bash]
+[,bash]
 ----
  kubectl -n longhorn-system get pod
 ----
 +
 Example of a successful installation:
 +
-[subs="+attributes",bash]
+[,bash]
 ----
  NAME                                                READY   STATUS    RESTARTS   AGE
  longhorn-ui-b7c844b49-w25g5                         1/1     Running   0          2m41s
@@ -103,9 +108,9 @@ You can commit and push exported manifests to your GitOps repository.
 
 [subs="+attributes",bash]
 ----
-git add helmrepo.yaml helmrelease.yaml
-git commit -m "Add HelmRepository and HelmRelease for Longhorn installation"
-git push origin <branch_name>
+ git add helmrepo.yaml helmrelease.yaml
+ git commit -m "Add HelmRepository and HelmRelease for {longhorn-product-name} installation"
+ git push origin <branch_name>
 ----
 
 Afterwards, you can modify the HelmRelease and HelmRepository CRs by editing the YAML manifests in your GitOps repository. Flux automatically detects and applies the changes without requiring direct access to your Kubernetes cluster.

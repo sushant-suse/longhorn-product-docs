@@ -1,5 +1,5 @@
 = Install {longhorn-product-name} Using Helm Controller
-:revdate: 2025-07-29
+:revdate: 2026-01-12
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -7,10 +7,15 @@ You can install {longhorn-product-name} using the Helm Controller that is built 
 
 == Prerequisites
 
+[NOTE]
+====
+{longhorn-product-name} installation requires authenticated access to SUSE Application Collection. For more details, check https://docs.apps.rancher.io/get-started/authentication[authentication guide].
+====
+
 * Kubernetes cluster: Ensure that each node fulfills the xref:installation-setup/requirements.adoc[installation requirements]. The cluster should be running RKE2 or K3s.
 
 ____
-The xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the Longhorn environment for potential issues.
+The xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the {longhorn-product-name} environment for potential issues.
 ____
 
 == Installation
@@ -83,7 +88,7 @@ NAME                                  READY   STATUS      RESTARTS   AGE
 helm-install-longhorn-install-lngm8   0/1     Completed   0          25s
 $ kubectl get helmcharts
 NAME               JOB                     CHART      TARGETNAMESPACE   VERSION   REPO                         HELMVERSION   BOOTSTRAP
-longhorn-install   helm-install-longhorn   longhorn   longhorn-system   v{patch-version}   https://charts.longhorn.io
+longhorn-install   helm-install-longhorn   longhorn   longhorn-system   v{patch-version}    https://charts.longhorn.io
 ----
 +
 . Verify that the deployment succeeded.

@@ -1,5 +1,5 @@
 = Important Notes
-:revdate: 2025-12-24
+:revdate: 2026-01-12
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -36,6 +36,22 @@ Automated pre-upgrade checks does not cover all scenarios. A manual check is rec
 * Avoid upgrading if a failed `BackingImage` exists. For more information, see xref:volumes/backing-images/backing-images.adoc[Backing Image] for details.
 * Create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn System Backup] upgrading is recommended to ensure recoverability.
 
+=== Manager URL for External API Access
+
+{longhorn-product-name} v{patch-version} introduces the `manager-url` setting that allows explicit configuration of the external URL for accessing the Longhorn Manager API.
+
+*Background*: When Longhorn Manager is accessed through Ingress or Gateway API HTTPRoute, API responses may contain internal cluster IPs (for example, `10.42.x.x:9500`) in the `actions` and `links` fields. This occurs when the ingress controller does not properly set `X-Forwarded-*` headers, causing the API to fall back to the internal pod IP.
+
+*Solution*: Configure the `manager-url` setting with your external URL (for example, `pass:[https://longhorn.example.com]`). The Manager injects proper forwarded headers to ensure API responses contain correct external URLs.
+
+*Configuration*:
+
+* *Via Helm*: `--set defaultSettings.managerUrl="https://longhorn.example.com"`
+* *Via kubectl*: `kubectl -n longhorn-system patch settings.longhorn.io manager-url --type='merge' -p '{"value":"https://longhorn.example.com"}'`
+* *Via UI*: Settings > General > Manager URL
+
+For more details, see xref:longhorn-system/settings.adoc#_manager_url[Manager URL].
+
 == Scheduling
 
 === Replica Scheduling with Balance Algorithm
@@ -43,6 +59,12 @@ Automated pre-upgrade checks does not cover all scenarios. A manual check is rec
 To improve data distribution and resource utilization, {longhorn-product-name} introduces a *balance algorithm* that schedules replicas evenly across nodes and disks based on calculated balance scores.
 
 For more information, see xref:nodes/scheduling.adoc[Scheduling].
+
+=== Supports StorageClass `allowedTopologies`
+
+{longhorn-product-name} CSI now supports StorageClass `allowedTopologies`, enabling Kubernetes to automatically restrict pod and volume scheduling to nodes where {longhorn-product-name} is available.
+
+For more information, see https://github.com/longhorn/longhorn/issues/12261[Issue #12261] and xref:volumes/storageclass-parameters.adoc[Storage Class Parameters].
 
 == Monitoring
 
@@ -63,6 +85,14 @@ Starting with {longhorn-product-name} v1.11.0, disk health monitoring is availab
 ====
 
 For more information, see: xref:observability/disk-health.adoc[Disk health monitoring].
+
+## Rebuilding
+
+### Scale Replica Rebuilding
+
+Starting with {longhorn-product-name} v1.11.0, a new *scale replica rebuilding* feature allows a rebuilding replica to fetch snapshot data from multiple healthy replicas concurrently, potentially improving rebuild performance.
+
+For more information, see xref:high-availability/scale-replica-rebuilding.adoc[Scale Replica Rebuilding].
 
 == V2 Data Engine
 

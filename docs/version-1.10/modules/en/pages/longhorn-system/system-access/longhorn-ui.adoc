@@ -1,34 +1,34 @@
 = Access the User Interface
-:revdate: 2025-06-27
+:revdate: 2026-01-12
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
-Once Longhorn has been installed in your Kubernetes cluster, you can access the UI dashboard.
+Once {longhorn-product-name} has been installed in your Kubernetes cluster, you can access the UI dashboard.
 
-. Get the Longhorn's external service IP:
+. Get the {longhorn-product-name}'s external service IP:
 +
-[subs="+attributes",shell]
+[,shell]
 ----
- kubectl -n longhorn-system get svc
+kubectl -n longhorn-system get svc
 ----
 +
-For Longhorn v0.8.0, the output should look like this, and the `CLUSTER-IP` of the `longhorn-frontend` is used to access the Longhorn UI:
+For {longhorn-product-name} v0.8.0, the output should look like this, and the `CLUSTER-IP` of the `longhorn-frontend` is used to access the {longhorn-product-name} UI:
 +
-[subs="+attributes",shell]
+[,shell]
 ----
- NAME                TYPE           CLUSTER-IP      EXTERNAL-IP      PORT(S)        AGE
- longhorn-backend    ClusterIP      10.20.248.250   <none>           9500/TCP       58m
- longhorn-frontend   ClusterIP      10.20.245.110   <none>           80/TCP         58m
+NAME                TYPE           CLUSTER-IP      EXTERNAL-IP      PORT(S)        AGE
+longhorn-backend    ClusterIP      10.20.248.250   <none>           9500/TCP       58m
+longhorn-frontend   ClusterIP      10.20.245.110   <none>           80/TCP         58m
 ----
 +
 In the example above, the IP is `10.20.245.110`.
 +
 ____
-For Longhorn v0.8.0+, UI service type changed from `LoadBalancer` to `ClusterIP.`
+For {longhorn-product-name} v0.8.0+, UI service type changed from `LoadBalancer` to `ClusterIP.`
 ____
 
 . Navigate to the IP of `longhorn-frontend` in your browser.
 +
-The Longhorn UI looks like this:
+The {longhorn-product-name} UI looks like this:
 +
 image::screenshots/getting-started/v1.10.0/longhorn-ui.png[Image]
