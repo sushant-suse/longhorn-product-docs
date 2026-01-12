@@ -1,5 +1,5 @@
 = Important Notes
-:revdate: 2025-12-24
+:revdate: 2026-01-12
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -35,6 +35,22 @@ Automated pre-upgrade checks does not cover all scenarios. A manual check is rec
 * Avoid upgrading when volumes are Faulted. Unusable replicas may be deleted, causing permanent data loss if no backups exist.
 * Avoid upgrading if a failed `BackingImage` exists. For more information, see xref:volumes/backing-images/backing-images.adoc[Backing Image] for details.
 * Create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn System Backup] upgrading is recommended to ensure recoverability.
+
+=== Manager URL for External API Access
+
+{longhorn-product-name} v{patch-version} introduces the `manager-url` setting that allows explicit configuration of the external URL for accessing the Longhorn Manager API.
+
+*Background*: When Longhorn Manager is accessed through Ingress or Gateway API HTTPRoute, API responses may contain internal cluster IPs (for example, `10.42.x.x:9500`) in the `actions` and `links` fields. This occurs when the ingress controller does not properly set `X-Forwarded-*` headers, causing the API to fall back to the internal pod IP.
+
+*Solution*: Configure the `manager-url` setting with your external URL (for example, `pass:[https://longhorn.example.com]`). The Manager injects proper forwarded headers to ensure API responses contain correct external URLs.
+
+*Configuration*:
+
+* *Via Helm*: `--set defaultSettings.managerUrl="https://longhorn.example.com"`
+* *Via kubectl*: `kubectl -n longhorn-system patch settings.longhorn.io manager-url --type='merge' -p '{"value":"https://longhorn.example.com"}'`
+* *Via UI*: Settings > General > Manager URL
+
+For more details, see xref:longhorn-system/settings.adoc#_manager_url[Manager URL].
 
 == Scheduling
 
