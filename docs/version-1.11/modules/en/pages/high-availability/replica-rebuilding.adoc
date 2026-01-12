@@ -1,5 +1,5 @@
 = Replica Rebuilding
-:revdate: 2025-08-19
+:revdate: 2026-01-12
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -166,6 +166,16 @@ For more details, see https://github.com/longhorn/longhorn/issues/9335[Avoid "fu
 . Use a recurring job to take snapshots regularly.
 --
 
+* *Scale Replica Rebuilding*
+** *Why it matters*:
++
+Scale replica rebuilding allows a rebuilding replica to fetch snapshots from multiple healthy replicas concurrently, significantly improving rebuild performance for certain workload patterns.
+** *How to enable*:
++
+Set `replica-rebuild-concurrent-sync-limit` > 1 to allow multiple healthy replicas to start sync servers. The rebuilding replica then fetches different snapshots from different source replicas simultaneously. This feature is particularly beneficial for volumes with scattered small data chunks and holes in their snapshots.
++
+For more details, see xref:high-availability/scale-replica-rebuilding.adoc[Scale Replica Rebuilding].
+
 == Use Cases
 
 === Node Reboot During Upgrade
@@ -231,6 +241,10 @@ If a worker node is drained for short-term maintenance and then quickly restored
 |`5`
 |Limits the number of concurrent replica rebuilds per node.
 
+| `replica-rebuild-concurrent-sync-limit`
+| `1` 
+| Maximum number of healthy replicas that can sync to a rebuilding replica concurrently. Range: 1-5. Setting to 1 disables scale rebuilding. 
+
 |`offline-replica-rebuilding`
 |`false`
 |Determines whether degraded replicas are rebuilt while the volume is detached.
@@ -295,4 +309,12 @@ If `snapshot-data-integrity` is enabled, this defines when snapshot checksums ar
 
 ** *Low limit*:  
   Reduces resource contention but increases rebuild time due to queueing.
+--
+
+* xref:longhorn-system/settings.adoc#_replica_rebuild_concurrent_sync_limit[replica-rebuild-concurrent-sync-limit]
++
+--
+** Default: `1`
+*** When set to `1`, scale rebuilding is disabled and only traditional single-source rebuilding is used with minimal resource consumption. When set to values 2-5, enables scale rebuilding with multiple source replicas, providing significant performance improvement for volumes. However, higher values increase CPU consumption on source and destination replicas.
+*** This setting can be overridden by `volume.spec.RebuildConcurrentSyncLimit` on a per-volume basis.
 --

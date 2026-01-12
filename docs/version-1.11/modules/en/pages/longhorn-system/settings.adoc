@@ -988,6 +988,18 @@ Typically, {longhorn-product-name} can block the replica starting once the curre
 * When the value is 0, the eviction and data locality feature will not work. But this should not have any impact to any current replica rebuild and backup restore.
 ====
 
+=== Replica Rebuild Concurrent Sync Limit
+
+*Default value*: `{"v1":"1"}`
+
+This setting defines the maximum number of healthy replicas (from 1 to 5) that can concurrently synchronize snapshots to a single rebuilding replica, enabling scaled replica rebuilding.
+
+When set to `1` (default), only one source replica syncs to the rebuilding replica at a time, which is the traditional single-source rebuilding behavior. When set to a higher value (for example, `2` to `5`), multiple healthy replicas can sync different snapshots to the rebuilding replica simultaneously, potentially reducing rebuild time.
+
+*Per-volume override*: This setting can be overridden for individual volumes through the Longhorn UI or by modifying the `spec.rebuildConcurrentSyncLimit` field in the Volume custom resource.
+
+For more details, see xref:high-availability/scale-replica-rebuilding.adoc[Scale Replica Rebuilding].
+
 === Concurrent Backing Image Replenish Per Node Limit
 
 *Default value*: `5`
