@@ -1,11 +1,14 @@
 = Red Hat OpenShift Container Platform and OKD
-:revdate: 2025-07-30
+:revdate: 2026-01-12
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 To deploy {longhorn-product-name} on a cluster provisioned with OpenShift 4.x, some additional configurations are required.
 
-NOTE: OKD currently does not support the ARM platform. For more information, see the https://www.okd.io[OKD website] and https://github.com/okd-project/okd/issues/1165[GitHub issue #1165] (_OKD in ARM platform_).
+[NOTE] 
+====
+OKD currently does not support the ARM platform. For more information, see the https://www.okd.io[OKD website] and https://github.com/okd-project/okd/issues/1165[GitHub issue #1165] (_OKD in ARM platform_).
+====
 
 == Installation
 
@@ -31,7 +34,7 @@ Install Longhorn with the following settings:
 | `4.18`
 |===
 
-[subs="+attributes",bash]
+[,bash]
 ----
 helm install longhorn longhorn/longhorn \
   --namespace longhorn-system \
@@ -56,21 +59,19 @@ wget https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy
 +
 . Run the following command:
 +
-[subs="+attributes",shell]
+[,shell]
 ----
 oc apply -f longhorn-okd.yaml
 ----
 
 One way to monitor the progress of the installation is to watch pods being created in the `longhorn-system` namespace:
 
-[subs="+attributes",shell]
+[,shell]
 ----
-    oc get pods \
-    --namespace longhorn-system \
-    --watch
+oc get pods \
+--namespace longhorn-system \
+--watch
 ----
-
-For more information, see xref:installation-setup/installation/install-using-kubectl.adoc[Install with Kubectl].
 
 == Prepare A Customized Default Disk (Optional)
 
@@ -109,7 +110,7 @@ sudo mkfs.ext4 -L longhorn /dev/${DEVICE_NAME}
 
 The secondary drive needs to be mounted automatically when node boots up by the `MachineConfig` that can be created and deployed by:
 
-[subs="+attributes",bash]
+[,bash]
 ----
 cat <<EOF >>auto-mount-machineconfig.yaml
 apiVersion: machineconfiguration.openshift.io/v1

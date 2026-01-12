@@ -46,7 +46,7 @@ The following procedure describes how to upgrade the {longhorn-product-name} App
 . Select the OCI repository.
 . In the *OCI Repository Host URL* field, enter:
 +
-`oci://dp.apps.rancher.io/charts/suse-storage:1.9.2`
+`oci://dp.apps.rancher.io/charts/suse-storage`
 +
 image::screenshots/install/add-repo.png[Add Repository, width=80%]
 
@@ -86,30 +86,24 @@ global:
   imageRegistry: ''
 ----
 
-. This installs `suse-storage` `v1.9.1`.
+. This installs `suse-storage` `{patch-version}`.
 +
 image::screenshots/install/update-repo.png[Update Repository, width=80%]
 
 . After installation, go to *Apps > Repositories*.
 . Select the `suse-storage` repository, click the three-dot menu on the right, and choose *Edit Config*.
-. Update the URL from:
-+
-`oci://dp.apps.rancher.io/charts/suse-storage:1.9.1`
-+
-to:
-+
-`oci://dp.apps.rancher.io/charts/suse-storage:1.9.2`
+. select `suse-storage` chart and select the desired upgrade version.
 
 . The repository should be updated successfully.
 +
 image::screenshots/install/updated-repo.png[Update Repository, width=80%]
 
 . Go to *Apps > Installed Apps*.
-. In the `longhorn-system` namespace, under the *Upgradable* column, look for a yellow-highlighted `1.9.2` label. If you do not see the yellow label, refresh the page.
+. In the `longhorn-system` namespace, under the *Upgradable* column, look for a yellow-highlighted `{patch-version}` label. If you do not see the yellow label, refresh the page.
 +
 image::screenshots/install/upgradable-column.png[Upgradable Version, width=80%]
 
-. Click the yellow `1.9.2` label to open the upgrade page.
+. Click the yellow `{patch-version}` label to open the upgrade page.
 +
 image::screenshots/install/upgrade-page.png[Upgrade Page, width=80%]
 
@@ -118,7 +112,7 @@ image::screenshots/install/upgrade-page.png[Upgrade Page, width=80%]
 +
 image::screenshots/install/upgrade-progress.png[Upgrade Progress, width=80%]
 
-. After the upgrade completes, verify that the `suse-storage` chart version is updated to `1.9.2`.
+. After the upgrade completes, verify that the `suse-storage` chart version is updated to `{patch-version}`.
 +
 image::screenshots/install/upgrade-success.png[Upgrade Success, width=80%]
 
