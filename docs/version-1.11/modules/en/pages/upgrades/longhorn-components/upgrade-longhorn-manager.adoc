@@ -1,5 +1,5 @@
 = Upgrade Longhorn Manager
-:revdate: 2026-01-12
+:revdate: 2026-01-22
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -36,11 +36,11 @@ parameters:
 Always back up volumes before upgrading. If anything goes wrong, you can restore the volume using the backup.
 ====
 
-=== Upgrade Using the Rancher Prime UI
+=== Upgrade Using the {rancher-product-name} UI
 
 For Kubernetes clusters managed by Rancher, you can upgrade the {longhorn-product-name} App by updating the repository to reference a newer Helm chart version.  
 
-The following procedure describes how to upgrade the {longhorn-product-name} App on Rancher Prime.
+The following procedure describes how to upgrade the {longhorn-product-name} App on {rancher-product-name}.
 
 . Go to *Apps > Repositories*.
 . Select the OCI repository.
@@ -48,19 +48,19 @@ The following procedure describes how to upgrade the {longhorn-product-name} App
 +
 `oci://dp.apps.rancher.io/charts/suse-storage`
 +
-image::screenshots/install/add-repo.png[Add Repository, width=80%]
+image::screenshots/install/add-repo.png[Add Repository, width=100%]
 
 . Verify that the repository has been added successfully.
 +
-image::screenshots/install/add-repo-success.png[Repository Added, width=80%]
+image::screenshots/install/add-repo-success.png[Repository Added, width=100%]
 
 . Go to *Apps > Charts* and find the `suse-storage` chart.
 +
-image::screenshots/install/find-chart.png[Find Chart, width=80%]
+image::screenshots/install/find-chart.png[Find Chart, width=100%]
 
 . Click the chart, and then click *Install*.
 +
-image::screenshots/install/install-chart.png[Install Chart, width=80%]
+image::screenshots/install/install-chart.png[Install Chart, width=100%]
 
 . On the next page, set `global.imagePullSecrets` to `application-collection`, and then click *Install*.
 +
@@ -86,46 +86,46 @@ global:
   imageRegistry: ''
 ----
 
-. This installs `suse-storage` `{patch-version}`.
+. This installs `suse-storage` `{current-version}`
 +
-image::screenshots/install/update-repo.png[Update Repository, width=80%]
-+
-[NOTE]
-====
-Starting from Rancher Prime v2.13, you no longer need to manually edit the repository configuration to upgrade. You can simply go to *Apps > Charts*, select the `suse-storage` chart, and choose the target version from the *Chart Versions* panel before clicking *Upgrade to this version*.
-====
+image::screenshots/install/update-repo.png[Update Repository, width=100%]
 
 . After installation, go to *Apps > Repositories*.
-. Select the `suse-storage` repository, click the three-dot menu on the right, and choose *Edit Config*.
-. Update the URL from:
 +
-`oci://dp.apps.rancher.io/charts/suse-storage:<your-current-version>`
-+
-to:
-+
-`oci://dp.apps.rancher.io/charts/suse-storage:{patch-version}`
-. Or, you can select `suse-storage` chart and choose the desired upgrade version.
+[NOTE]
+.For {rancher-product-name} versions earlier than v2.13 follow these steps:
+====
+[lowerroman]
+. Select the `suse-storage` repository, click the three-dot menu, and choose *Edit Config*.
+. *Workaround:* Update the URL to `oci://dp.apps.rancher.io/charts/suse-storage:{patch-version}` to ensure the version is detected.
 . The repository should be updated successfully.
 +
-image::screenshots/install/updated-repo.png[Update Repository, width=80%]
+image::screenshots/install/updated-repo.png[Update Repository, width=100%]
 
 . Go to *Apps > Installed Apps*.
-. In the `longhorn-system` namespace, under the *Upgradable* column, look for a yellow-highlighted `{patch-version}` label. If you do not see the yellow label, refresh the page.
+. In the `longhorn-system` namespace, under the *Upgradable* column, look for a yellow-highlighted `{patch-version}` label.
 +
-image::screenshots/install/upgradable-column.png[Upgradable Version, width=80%]
+image::screenshots/install/upgradable-column.png[Upgradable Version, width=100%]
 
 . Click the yellow `{patch-version}` label to open the upgrade page.
 +
-image::screenshots/install/upgrade-page.png[Upgrade Page, width=80%]
+image::screenshots/install/upgrade-page.png[Upgrade Page, width=100%]
 
 . Click *Next*.
-. Ensure that `global.imagePullSecrets` is set to `application-collection`, and then click *Upgrade* to start the process.
+. Ensure that `global.imagePullSecrets` is set to `application-collection`, and then click *Upgrade*.
 +
-image::screenshots/install/upgrade-progress.png[Upgrade Progress, width=80%]
+image::screenshots/install/upgrade-progress.png[Upgrade Progress, width=100%]
+====
++
+. Go to *Apps > Charts* and select the `suse-storage` chart.
+. Select the desired upgrade version from the *Chart Versions* panel.
++
+image::screenshots/install/current-version-rancher-2-13_and_above.png[Update Repository in Rancher 2.13+, width=100%]
 
+. Click *Upgrade to this version*.
 . After the upgrade completes, verify that the `suse-storage` chart version is updated to `{patch-version}`.
 +
-image::screenshots/install/upgrade-success.png[Upgrade Success, width=80%]
+image::screenshots/install/upgrade-success.png[Upgrade Success, width=100%]
 
 === Upgrade with Helm
 
