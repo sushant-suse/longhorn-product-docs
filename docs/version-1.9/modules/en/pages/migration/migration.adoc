@@ -1,5 +1,5 @@
 = Migrating to {longhorn-product-name}
-:revdate: 2025-07-25
+:revdate: 2026-01-28
 :page-revdate: {revdate}
 	
 [WARNING]
@@ -48,7 +48,9 @@ helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	
 == Migrating Longhorn deployed via Rancher Apps Marketplace to {longhorn-product-name}
 
-If your existing Longhorn installation was deployed via Rancher Apps Marketplace, you will see two Helm releases associated with Longhorn when running `helm list --all-namespaces | grep longhorn`.
+If your existing Longhorn installation was deployed via Rancher Apps Marketplace, you would see two Helm releases associated with Longhorn when running `helm list --all-namespaces | grep longhorn`.
+
+The following example is migrating Longhorn {patch-version} installed via Rancher charts to {longhorn-product-name} {patch-version}.
 
 [,shell]
 ----
@@ -70,7 +72,7 @@ To remove the `longhorn-crd` Helm release from your system while ensuring the Lo
 helm list --all-namespaces | grep longhorn-crd
 ----
 +
-The output will show your `longhorn-crd` release details, for example:
+The output shows your `longhorn-crd` release details, for example:
 +
 [,bash]
 ----
@@ -90,7 +92,7 @@ Navigate into the directory corresponding to your `longhorn-crd` chart version w
 +
 Or, you can execute this link:{attachmentsdir}/download-longhorn-crd-chart.sh[script] to `longhorn-crd` chart.
 +
-After running the command `bash ./download-longhorn-crd-chart.sh 106.2.1+up1.8.2`, the `longhorn-crd` chart will be downloaded to the local directory `106.2.1+up1.8.2`. Then, open `106.2.1+up1.8.2/Chart.yaml` to verify that the chart version matches `106.2.1+up1.8.2`.
+After running the command `bash ./download-longhorn-crd-chart.sh 106.2.1+up1.8.2`, the `longhorn-crd` chart is downloaded to the local directory `106.2.1+up1.8.2`. Then, open `106.2.1+up1.8.2/Chart.yaml` to verify that the chart version matches `106.2.1+up1.8.2`.
 
 . Manually patch the `helm.sh/resource-policy: keep` annotation to *each Custom Resource Definitions (CRDs)* in `templates/crds.yaml` within the `longhorn-crd` chart that you cloned. This ensures that Helm does not delete the CRDs when the release is uninstalled.
 Alternatively, you can use the link:{attachmentsdir}/patch-resource-policy-annotation.sh[script] to automatically patch the annotation:
@@ -114,14 +116,14 @@ vimdiff /tmp/crds.yaml.original 106.2.1+up1.8.2/templates/crds.yaml
 helm upgrade longhorn-crd -n longhorn-system ./106.2.1+up1.8.2
 ----
 
-. Uninstall the `longhorn-crd` Helm release from your system. Due to the applied patch, the CRDs will remain.
+. Uninstall the `longhorn-crd` Helm release from your system. Due to the applied patch, the CRDs remain intact.
 +
 [,shell]
 ----
 helm uninstall longhorn-crd --namespace longhorn-system
 ----
 +
-You will see the CRDs are kept while uninstalling `longhorn-crd` Helm release.
+You can see the CRDs are kept while uninstalling `longhorn-crd` Helm release.
 +
 [,shell]
 ----
