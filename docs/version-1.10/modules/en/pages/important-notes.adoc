@@ -7,37 +7,6 @@ Please see https://github.com/longhorn/longhorn/releases/tag/v{patch-version}[he
 
 == Warning
 
-=== HotFix
-
-The `longhorn-manager:v1.10.1` image is affected by the following issues:
-
-* *Regression*
-** https://github.com/longhorn/longhorn/issues/12233[[BUG\] Invalid memory address or nil pointer dereference] that can trigger a nil-pointer dereference under certain conditions, potentially causing unexpected crashes.
-** https://github.com/longhorn/longhorn/issues/12311[[BUG\] Block Mode Volume Migration Stuck] that can cause block mode volume migration to get stuck indefinitely.
-
-* *Day-one issues*
-** *V2 volume clone*
-*** https://github.com/longhorn/longhorn/issues/12328[[BUG\] V2 Volume CSI Clone Slowness Caused by VolumeAttachment Webhook] that can lead to significant delays during V2 volume cloning operations.
-*** https://github.com/longhorn/longhorn/issues/12206[[BUG\] A cloned volume cannot be attached to a workload] that prevents cloned volumes from being attached to workloads.
-** *Replica Auto Balance*
-*** https://github.com/longhorn/longhorn/issues/10837[[BUG\] Replica Auto Balance disk pressure threshold stalled with stopped volumes] that can cause the Replica Auto Balance feature to stall when volumes are stopped under disk pressure conditions.
-
-To mitigate these issues, replace `longhorn-manager:v1.10.1` with the hotfixed image `longhorn-manager:v1.10.1-hotfix-2`.
-
-You can apply the update by following these steps:
-
-. *Disable the upgrade version check*
-** *Helm users*: Set `upgradeVersionCheck` to `false` in the `values.yaml` file.
-** *Manifest users*: Remove the `--upgrade-version-check` flag from the deployment manifest.
-
-. *Update the `longhorn-manager` image*
-** Change the image tag from `v1.10.0` to `v1.10.0-hotfix-1` in the appropriate file:
-*** For Helm: Update `values.yaml`
-*** For manifests: Update the deployment manifest directly.
-
-. *Proceed with the upgrade*
-** Apply the changes using your standard Helm upgrade command or reapply the updated manifest.
-
 === Upgrade
 
 If your {longhorn-product-name} cluster was initially deployed with a version earlier than v1.3.0, the Custom Resources (CRs) were created by using the `v1beta1` APIs. While the upgrade from {longhorn-product-name} `v1.8` to `v1.9` automatically migrates all CRs to the new `v1beta2` version, a manual CR migration is strongly advised before you upgrade from {longhorn-product-name} `v1.9` to `v1.10`.
@@ -286,17 +255,17 @@ A new *System Info* category has been added to show cluster-level information mo
 
 For more details, see https://github.com/longhorn/longhorn/issues/11656[Issue #11656].
 
-==== Configurable Backup Block Size
+=== Volume Attachment Summary
 
 The {longhorn-product-name} UI now display a summary of attachment tickets on each volume overview page for improved visibility into volume state.
 
-For more details, see https://github.com/longhorn/longhorn/issues/11400[Issue #11400] and https://github.com/longhorn/longhorn/issues/11401[Issue #11400].
+For more details, see https://github.com/longhorn/longhorn/issues/11400[Issue #11400] and https://github.com/longhorn/longhorn/issues/11401[Issue #11401].
 
 == Scheduling
 
 === Pod Scheduling with CSIStorageCapacity
 
-{longhorn-product-name} now supports Kubernetes *CSIStorageCapacity*, which enables the scheduler to verify node storage before it schedules pods that use StorageClasses with *WaitForFirstConsumer*. This reduces scheduling errors and and improves reliability.
+{longhorn-product-name} now supports Kubernetes *CSIStorageCapacity*, which enables the scheduler to verify node storage before it schedules pods that use StorageClasses with *WaitForFirstConsumer*. This reduces scheduling errors and improves reliability.
 
 For more details, see https://github.com/longhorn/longhorn/issues/10685[Issue #10685].
 
@@ -304,7 +273,7 @@ For more details, see https://github.com/longhorn/longhorn/issues/10685[Issue #1
 
 === Configurable Backup Block Size
 
-Backup block size can now be configured when you create a volume, starting in {longhorn-product-name} v1.10.0. This allows you to optimize for performance, efficiency, and cost.
+Backup block size can now be configured when you create a volume, starting in {longhorn-product-name} v1.10.0. This allows you to optimize for performance, efficiency and cost.
 
 For more information, see xref:volumes/create-volumes.adoc[Create Longhorn Volumes].
 
