@@ -1,5 +1,5 @@
 = StorageClass Parameters
-:revdate: 2025-12-22
+:revdate: 2026-01-30
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -9,7 +9,7 @@ StorageClass as a resource object has several configurable parameters.
 
 Example:
 
-[subs="+attributes",yaml]
+[,yaml]
 ----
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
@@ -56,7 +56,7 @@ parameters:
 
 == Built-in Fields
 
-Some fields are common to all Kubernetes storage classes.
+Certain fields are common to all Kubernetes storage classes.
 See also https://kubernetes.io/docs/concepts/storage/storage-classes[Kubernetes Storage Class].
 
 [discrete]
@@ -89,7 +89,7 @@ ____
 
 ____
 Default `[]`
-See https://kubernetes.io/docs/concepts/storage/storage-classes/#mount-options[Kubernetes Storage Class: Mount Options].
+See https://kubernetes.io/docs/concepts/storage/storage-classes/#mount-options[Kubernetes Storage Class - Mount Options].
 ____
 
 [discrete]
@@ -97,7 +97,7 @@ ____
 
 ____
 Default `Immediate`
-See https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode[Kubernetes Storage Class: Volume Binding Mode].
+See https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode[Kubernetes Storage Class - Volume Binding Mode].
 ____
 
 
@@ -105,7 +105,7 @@ ____
 ==== Allowed Topologies _(field: `allowedTopologies`)_
 
 ____
-See the Kubernetes reference: https://kubernetes.io/docs/concepts/storage/storage-classes/#allowed-topologies[StorageClass — Allowed Topologies].
+See the Kubernetes reference https://kubernetes.io/docs/concepts/storage/storage-classes/#allowed-topologies[StorageClass — Allowed Topologies].
 ____
 
 It specifies the set of nodes where volumes may be provisioned by matching node labels.
@@ -117,7 +117,7 @@ The resulting PV `nodeAffinity` becomes immutable and it would conflict with str
 == {longhorn-product-name}-specific Parameters
 
 Note that some of these parameters also exist and may be specified in global settings. When a volume is provisioned with Kubernetes against a particular StorageClass, StorageClass parameters override the global settings.
-These fields will be applied for new volume creation only. If a StorageClass is modified, neither Longhorn nor Kubernetes handles propagating changes to its parameters back to volumes previously created with it.
+These fields will be applied for new volume creation only. If a StorageClass is modified, neither {longhorn-product-name} nor Kubernetes handles propagating changes to its parameters back to volumes previously created with it.
 
 [discrete]
 ==== Number Of Replicas _(field: `parameters.numberOfReplicas`)_
@@ -132,7 +132,7 @@ The desired number of copies (replicas) for redundancy.
 * Replicas will be placed across the widest possible set of zones, nodes, and disks in a cluster, subject to other constraints, such as NodeSelector.
 
 ____
-Global setting: xref:longhorn-system/settings.adoc#_default_replica_count[Default Replica Count].
+Global setting - xref:longhorn-system/settings.adoc#_default_replica_count[Default Replica Count].
 ____
 
 [discrete]
@@ -206,12 +206,12 @@ ____
 
 If enabled, try to keep the data on the same node as the workload for better performance.
 
-* For `best-effort`, a replica will be co-located if possible, but is permitted to find another node if not.
-* For `strict-local` the Replica count should be 1, or volume creation will fail with a parameter validation error.
-* If `strict-local` is not possible for whatever other reason, volume creation will be failed. A `strict-local` replica that becomes displaced from its workload will be marked as `"Stopped"`.
+* For `best-effort`, a replica would be co-located if possible, but is permitted to find another node if not.
+* For `strict-local` the Replica count should be 1, or volume creation would fail with a parameter validation error.
+* If `strict-local` is not possible for whatever other reason, volume creation would be failed. A `strict-local` replica that becomes displaced from its workload would be marked as `"Stopped"`.
 
 ____
-Global setting: xref:longhorn-system/settings.adoc#_default_data_locality[Default Data Locality].
+Global setting - xref:longhorn-system/settings.adoc#_default_data_locality[Default Data Locality].
 For more details, please check xref:high-availability/data-locality.adoc[Data Locality].
 ____
 
@@ -228,7 +228,7 @@ If enabled, move replicas to more lightly loaded nodes.
 * Other options are `disabled`, `least-effort`, `best-effort`.
 
 ____
-Global setting: xref:longhorn-system/settings.adoc#_replica_auto_balance[Replica Auto Balance].
+Global setting - xref:longhorn-system/settings.adoc#_replica_auto_balance[Replica Auto Balance].
 For more details, please check the xref:high-availability/automatic-replica-balancing.adoc[Auto Balance Replicas].
 ____
 
@@ -317,7 +317,7 @@ ____
 * Other values are `enabled` and `disabled`.
 
 ____
-Global setting: xref:longhorn-system/settings.adoc#_remove_snapshots_during_filesystem_trim[Remove Snapshots During Filesystem Trim].
+Global setting - xref:longhorn-system/settings.adoc#_remove_snapshots_during_filesystem_trim[Remove Snapshots During Filesystem Trim].
 For more details, please check the xref:volumes/trim-filesystem.adoc[Trim Filesystem].
 ____
 
@@ -329,7 +329,7 @@ Default: `true`
 ____
 
 ____
-Global setting: xref:longhorn-system/settings.adoc#_disable_revision_counter[Disable Revision Counter].
+Global setting - xref:longhorn-system/settings.adoc#_disable_revision_counter[Disable Revision Counter].
 For more details, please check the xref:high-availability/revision_counter.adoc[Revision Counter].
 ____
 
@@ -344,7 +344,7 @@ ____
 * Other values are `enabled` and `disabled`.
 
 ____
-Global setting: xref:longhorn-system/settings.adoc#_replica_node_level_soft_anti_affinity[Replica Node Level Soft Anti-Affinity].
+Global setting - xref:longhorn-system/settings.adoc#_replica_node_level_soft_anti_affinity[Replica Node Level Soft Anti-Affinity].
 For more details, please check the xref:nodes/scheduling.adoc[Scheduling] and xref:installation-setup/best-practices.adoc#_replica_node_level_soft_anti_affinity[Best Practices].
 ____
 
@@ -359,7 +359,7 @@ ____
 * Other values are `enabled` and `disabled`.
 
 ____
-Global setting: xref:longhorn-system/settings.adoc#_replica_zone_level_soft_anti_affinity[Replica Zone Level Soft Anti-Affinity].
+Global setting - xref:longhorn-system/settings.adoc#_replica_zone_level_soft_anti_affinity[Replica Zone Level Soft Anti-Affinity].
 For more details, please check xref:nodes/scheduling.adoc[Scheduling].
 ____
 
@@ -374,7 +374,7 @@ ____
 * Other values are `enabled` and `disabled`.
 
 ____
-Global setting: xref:longhorn-system/settings.adoc#_replica_disk_level_soft_anti_affinity[Replica Disk Level Soft Anti-Affinity].
+Global setting - xref:longhorn-system/settings.adoc#_replica_disk_level_soft_anti_affinity[Replica Disk Level Soft Anti-Affinity].
 For more details, please check xref:nodes/scheduling.adoc[Scheduling].
 ____
 
@@ -404,7 +404,7 @@ ____
 Default: `"v1"`
 ____
 
-* Specify "v2" to enable the V2 Data Engine (experimental feature). When unspecified, Longhorn uses the default value ("v1").
+* Specify "v2" to enable the V2 Data Engine (Technical Preview feature). When unspecified, {longhorn-product-name} uses the default value ("v1").
 
 ____
 Global setting: xref:longhorn-system/settings.adoc#_v2_data_engine[V2 Data Engine].
@@ -418,11 +418,11 @@ ____
 Default: `ignored`
 ____
 
-* `ignored` instructs Longhorn to use the global setting.
+* `ignored` instructs {longhorn-product-name} to use the global setting.
 * Other values are `enabled` and `disabled`.
 
 ____
-Global setting: xref:longhorn-system/settings.adoc#_freeze_filesystem_for_snapshot[Freeze File System For Snapshot].
+Global setting - xref:longhorn-system/settings.adoc#_freeze_filesystem_for_snapshot[Freeze File System For Snapshot].
 ____
 
 [discrete]
@@ -452,4 +452,4 @@ For more information, see:
 
 == Helm Installs
 
-If {longhorn-product-name} is installed via Helm, values in the default storage class can be set by editing the corresponding item in https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[`values.yaml`].  All of the Storage Class parameters have a prefix of `persistence`.  For example, `persistence.defaultNodeSelector`.
+If {longhorn-product-name} is installed via Helm, values in the default storage class can be set by editing the corresponding item in https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[`values.yaml`].  All the Storage Class parameters have a prefix of `persistence`.  For example, `persistence.defaultNodeSelector`.

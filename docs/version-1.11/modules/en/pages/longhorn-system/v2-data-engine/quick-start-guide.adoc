@@ -1,26 +1,14 @@
 = Quick Start Guide
-:revdate: 2026-01-08
+:revdate: 2026-01-30
 :page-revdate: {revdate}
 :aliases: ["/spdk/quick-start.md"]
 :current-version: {page-component-version}
 
-The Longhorn V2 data engine uses the Storage Performance Development Kit (SPDK) to improve performance. The integration reduces I/O latency and increases IOPS and throughput. This enhancement provides a high-performance storage option that supports a wide range of workloads.
+The {longhorn-product-name}'s V2 Data Engine uses the Storage Performance Development Kit (SPDK) to deliver enhanced performance. This integration lowers I/O latency while increasing both IOPS and throughput, providing a high-performance storage solution that can handle a wide range of workloads.
 
-[WARNING]
-====
-The V2 data engine is experimental and is not supported for production use.
-====
+The V2 Data Engine is currently a Technical Preview feature. Its supported functionalities are documented https://github.com/longhorn/longhorn/wiki/V1-and-V2-Feature-Parities[here].
 
-A volume using the V2 data engine currently supports:
-
-* Volume lifecycle (creation, attachment, detachment, and deletion)
-* Degraded volumes
-* Block disk management
-* Orphaned replica management
-
-Additional features, including replica number changes, online replica rebuilding, snapshots, backups, and restores, will be available in later versions.
-
-This page describes how to configure the environment and create PersistentVolume (PV) and PersistentVolumeClaim (PVC) resources that use Longhorn volumes with the V2 data engine.
+This tutorial guides you through the process of configuring the environment and create Kubernetes persistent storage resources of persistent volumes (PVs) and persistent volume claims (PVCs) that correspond to Longhorn volumes using V2 Data Engine.
 
 == Prerequisites
 
