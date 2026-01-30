@@ -1,5 +1,5 @@
 = Important Notes
-:revdate: 2026-01-12
+:revdate: 2026-01-30
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -52,6 +52,18 @@ Automated pre-upgrade checks does not cover all scenarios. A manual check is rec
 
 For more details, see xref:longhorn-system/settings.adoc#_manager_url[Manager URL].
 
+=== Gateway API HTTPRoute Support
+
+{longhorn-product-name} v{patch-version} introduces built-in support for https://gateway-api.sigs.k8s.io/api-types/httproute[Gateway API HTTPRoute] as a modern alternative to Ingress for exposing the {longhorn-product-name} UI.
+
+For detailed setup instructions, prerequisites and advanced configuration, see xref:longhorn-system/system-access/longhorn-httproute.adoc[Create an HTTPRoute with Gateway API].
+
+=== Concurrent Job Limit for Snapshot Operations
+
+{longhorn-product-name} v{patch-version} introduces the *Snapshot Heavy Task Concurrent Limit* to prevent disk exhaustion and resource contention. This setting limits concurrent heavy operations—such as snapshot purge and clone—per node by queuing additional tasks until ongoing ones complete. By controlling these processes, the system reduces the risk of storage spikes typically triggered by snapshot merges.
+
+For further details, refer to xref:longhorn-system/settings.adoc#_snapshot_heavy_task_concurrent_limit[Snapshot Heavy Task Concurrent Limit] and https://github.com/longhorn/longhorn/issues/11635[Issue #11635].
+
 == Scheduling
 
 === Replica Scheduling with Balance Algorithm
@@ -84,18 +96,61 @@ Starting with {longhorn-product-name} v1.11.0, disk health monitoring is availab
 * Available health attributes vary depending on disk type and hardware.
 ====
 
-For more information, see: xref:observability/disk-health.adoc[Disk health monitoring].
+For more information, see xref:observability/disk-health.adoc[Disk health monitoring].
 
-## Rebuilding
+== Access Mode Stability
 
-### Scale Replica Rebuilding
+=== ReadWriteOncePod Access Mode
+
+{longhorn-product-name} v{patch-version} introduces support for the *ReadWriteOncePod (RWOP)* access mode, addressing the need for stricter single-pod volume access guarantees in stateful workloads. Unlike ReadWriteOnce (RWO), which permits multiple pods on the same node to mount a volume, RWOP ensures that only one pod across the entire cluster can access the volume at any given time. This capability is particularly valuable for stateful applications requiring exclusive write access, such as databases or other workloads where concurrent access could lead to data corruption or consistency issues.
+
+For more information, see xref:volumes/create-volumes.adoc#_access_modes[Access Modes] and https://github.com/longhorn/longhorn/issues/9727[Issue #9727].
+
+== Rebuilding
+
+=== Scale Replica Rebuilding
 
 Starting with {longhorn-product-name} v1.11.0, a new *scale replica rebuilding* feature allows a rebuilding replica to fetch snapshot data from multiple healthy replicas concurrently, potentially improving rebuild performance.
 
 For more information, see xref:high-availability/scale-replica-rebuilding.adoc[Scale Replica Rebuilding].
+
+=== Offline Replica Rebuilding
+
+Starting with {longhorn-product-name} v1.11.0, the *Offline Replica Rebuilding* setting is updated from a data engine-specific setting to a global setting. Previously, users could configure offline replica rebuilding separately for v1 and v2 data engines. During the upgrade to v1.11.0, {longhorn-product-name} automatically checks the existing configuration. If offline replica rebuilding is enabled for either the v1 or v2 data engine, the new global setting defaults to `true`. Otherwise, it remains disabled (`false`).
+
+For more information, see xref:longhorn-system/settings.adoc#offline_replica_rebuilding[Offline Replica Rebuilding Setting].
+
+== Command-Line Tool
+
+=== Package Manager Detection for Unsupported Distributions
+
+{longhorn-product-name} v{patch-version} enhances the Longhorn CLI preflight install and check behavior. When `/etc/os-release` does not match a known distribution, the CLI attempts to detect a supported package manager and continues in a compatibility mode.
+
+For more information, see https://github.com/longhorn/longhorn/issues/12153[Issue #12153].
 
 == V2 Data Engine
 
 === {longhorn-product-name} System Upgrade
 
 Live upgrades of V2 volumes are not supported. Before you upgrade, make sure all V2 volumes are detached.
+
+=== Technical Preview
+
+The V2 Data Engine is a *Technical Preview* feature in {longhorn-product-name} v1.11.0.
+
+It is nearly complete, with no significant functional changes expected, and has been validated in controlled environments. Users should evaluate the feature thoroughly before enabling it in production.
+
+=== SPDK UBLK Performance Parameters
+
+Starting with {longhorn-product-name} v1.11.0, the SPDK UBLK front-end exposes performance-tuning parameters that can be configured globally or per-volume:
+
+* *Queue Depth* (`ublkQueueDepth`): It is the depth of each I/O queue for the UBLK front-end. The default value is `128`.
+* *Number of Queues* (`ublkNumberOfQueue`): It is the number of I/O queues for the UBLK front-end. The default value is `1`.
+
+These parameters can be configured:
+
+* *Globally*: Via the `Default Ublk Queue Depth` and `Default Ublk Number Of Queue` settings (see xref:longhorn-system/settings.adoc#_default_ublk_queue_depth[Settings]).
+* *Per-volume*: Via the `ublkQueueDepth` and `ublkNumberOfQueue` volume parameters.
+* *StorageClass*: Via the `ublkQueueDepth` and `ublkNumberOfQueue` parameters in the StorageClass definition.
+
+For more information, see https://github.com/longhorn/longhorn/issues/11039[Issue #11039].
