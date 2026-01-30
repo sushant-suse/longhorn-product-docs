@@ -114,7 +114,13 @@ Starting with {longhorn-product-name} v1.11.0, a new *scale replica rebuilding* 
 
 For more information, see xref:high-availability/scale-replica-rebuilding.adoc[Scale Replica Rebuilding].
 
-== Command Line Tool
+=== Offline Replica Rebuilding
+
+Starting with {longhorn-product-name} v1.11.0, the *Offline Replica Rebuilding* setting is updated from a data engine-specific setting to a global setting. Previously, users could configure offline replica rebuilding separately for v1 and v2 data engines. During the upgrade to v1.11.0, {longhorn-product-name} automatically checks the existing configuration. If offline replica rebuilding is enabled for either the v1 or v2 data engine, the new global setting defaults to `true`. Otherwise, it remains disabled (`false`).
+
+For more information, see xref:longhorn-system/settings.adoc#offline_replica_rebuilding[Offline Replica Rebuilding Setting].
+
+== Command-Line Tool
 
 === Package Manager Detection for Unsupported Distributions
 
