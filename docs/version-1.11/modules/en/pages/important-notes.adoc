@@ -102,10 +102,9 @@ For more information, see xref:observability/disk-health.adoc[Disk health monito
 
 === ReadWriteOncePod Access Mode
 
-{longhorn-product-name} v{patch-version} introduces support for the *ReadWriteOncePod (RWOP)* access mode, addressing the need for stricter single-pod volume access guarantees in stateful workloads. Unlike ReadWriteOnce (RWO), which permits multiple pods on the same node to mount a volume, RWOP ensures that only one pod across the entire cluster can access the volume at any given time. This enforcement is managed by the Kubernetes scheduler, which prevents additional pods from being scheduled if they request the same RWOP volume. This capability is particularly valuable for stateful applications requiring exclusive write access, such as databases or other workloads where concurrent access could lead to data corruption or consistency issues.
+{longhorn-product-name} v{patch-version} introduces support for the *ReadWriteOncePod (RWOP)* access mode, addressing the need for stricter single-pod volume access guarantees in stateful workloads. Unlike ReadWriteOnce (RWO), which permits multiple pods on the same node to mount a volume, RWOP ensures that only one pod across the entire cluster can access the volume at any given time. This capability is particularly valuable for stateful applications requiring exclusive write access, such as databases or other workloads where concurrent access could lead to data corruption or consistency issues.
 
 For more information, see xref:volumes/create-volumes.adoc#_access_modes[Access Modes] and https://github.com/longhorn/longhorn/issues/9727[Issue #9727].
-
 
 == Rebuilding
 
@@ -114,6 +113,14 @@ For more information, see xref:volumes/create-volumes.adoc#_access_modes[Access 
 Starting with {longhorn-product-name} v1.11.0, a new *scale replica rebuilding* feature allows a rebuilding replica to fetch snapshot data from multiple healthy replicas concurrently, potentially improving rebuild performance.
 
 For more information, see xref:high-availability/scale-replica-rebuilding.adoc[Scale Replica Rebuilding].
+
+== Command Line Tool
+
+=== Package Manager Detection for Unsupported Distributions
+
+{longhorn-product-name} v{patch-version} enhances the Longhorn CLI preflight install and check behavior. When `/etc/os-release` does not match a known distribution, the CLI attempts to detect a supported package manager and continues in a compatibility mode.
+
+For more information, see https://github.com/longhorn/longhorn/issues/12153[Issue #12153].
 
 == V2 Data Engine
 
