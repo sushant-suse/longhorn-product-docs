@@ -54,9 +54,15 @@ For more details, see xref:longhorn-system/settings.adoc#_manager_url[Manager UR
 
 === Gateway API HTTPRoute Support
 
-{longhorn-product-name} v{current-version} introduces built-in support for https://gateway-api.sigs.k8s.io/api-types/httproute/[Gateway API HTTPRoute] as a modern alternative to Ingress for exposing the Longhorn UI.
+{longhorn-product-name} v{patch-version} introduces built-in support for https://gateway-api.sigs.k8s.io/api-types/httproute[Gateway API HTTPRoute] as a modern alternative to Ingress for exposing the {longhorn-product-name} UI.
 
 For detailed setup instructions, prerequisites and advanced configuration, see xref:longhorn-system/system-access/longhorn-httproute.adoc[Create an HTTPRoute with Gateway API].
+
+=== Concurrent Job Limit for Snapshot Operations
+
+{longhorn-product-name} v{patch-version} introduces the *Snapshot Heavy Task Concurrent Limit* to prevent disk exhaustion and resource contention. This setting limits concurrent heavy operations—such as snapshot purge and clone—per node by queuing additional tasks until ongoing ones complete. By controlling these processes, the system reduces the risk of storage spikes typically triggered by snapshot merges.
+
+For further details, refer to xref:longhorn-system/settings.adoc#snapshot_heavy_task_concurrent_limit[Snapshot Heavy Task Concurrent Limit] and https://github.com/longhorn/longhorn/issues/11635[Issue #11635].
 
 == Scheduling
 
@@ -90,7 +96,7 @@ Starting with {longhorn-product-name} v1.11.0, disk health monitoring is availab
 * Available health attributes vary depending on disk type and hardware.
 ====
 
-For more information, see: xref:observability/disk-health.adoc[Disk health monitoring].
+For more information, see xref:observability/disk-health.adoc[Disk health monitoring].
 
 ## Rebuilding
 
