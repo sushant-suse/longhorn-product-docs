@@ -62,7 +62,7 @@ For detailed setup instructions, prerequisites and advanced configuration, see x
 
 {longhorn-product-name} v{patch-version} introduces the *Snapshot Heavy Task Concurrent Limit* to prevent disk exhaustion and resource contention. This setting limits concurrent heavy operations—such as snapshot purge and clone—per node by queuing additional tasks until ongoing ones complete. By controlling these processes, the system reduces the risk of storage spikes typically triggered by snapshot merges.
 
-For further details, refer to xref:longhorn-system/settings.adoc#snapshot_heavy_task_concurrent_limit[Snapshot Heavy Task Concurrent Limit] and https://github.com/longhorn/longhorn/issues/11635[Issue #11635].
+For further details, refer to xref:longhorn-system/settings.adoc#_snapshot_heavy_task_concurrent_limit[Snapshot Heavy Task Concurrent Limit] and https://github.com/longhorn/longhorn/issues/11635[Issue #11635].
 
 == Scheduling
 
@@ -98,9 +98,18 @@ Starting with {longhorn-product-name} v1.11.0, disk health monitoring is availab
 
 For more information, see xref:observability/disk-health.adoc[Disk health monitoring].
 
-## Rebuilding
+== Access Mode Stability
 
-### Scale Replica Rebuilding
+=== ReadWriteOncePod Access Mode
+
+{longhorn-product-name} v{patch-version} introduces support for the *ReadWriteOncePod (RWOP)* access mode, addressing the need for stricter single-pod volume access guarantees in stateful workloads. Unlike ReadWriteOnce (RWO), which permits multiple pods on the same node to mount a volume, RWOP ensures that only one pod across the entire cluster can access the volume at any given time. This enforcement is managed by the Kubernetes scheduler, which prevents additional pods from being scheduled if they request the same RWOP volume. This capability is particularly valuable for stateful applications requiring exclusive write access, such as databases or other workloads where concurrent access could lead to data corruption or consistency issues.
+
+For more information, see xref:volumes/create-volumes.adoc#_access_modes[Access Modes] and https://github.com/longhorn/longhorn/issues/9727[Issue #9727].
+
+
+== Rebuilding
+
+=== Scale Replica Rebuilding
 
 Starting with {longhorn-product-name} v1.11.0, a new *scale replica rebuilding* feature allows a rebuilding replica to fetch snapshot data from multiple healthy replicas concurrently, potentially improving rebuild performance.
 
@@ -121,7 +130,7 @@ Starting with {longhorn-product-name} v1.11.0, the SPDK UBLK front-end exposes p
 
 These parameters can be configured:
 
-* *Globally*: Via the `Default Ublk Queue Depth` and `Default Ublk Number Of Queue` settings (see xref:longhorn-system/settings.adoc#default_ublk_queue_depth[Settings]).
+* *Globally*: Via the `Default Ublk Queue Depth` and `Default Ublk Number Of Queue` settings (see xref:longhorn-system/settings.adoc#_default_ublk_queue_depth[Settings]).
 * *Per-volume*: Via the `ublkQueueDepth` and `ublkNumberOfQueue` volume parameters.
 * *StorageClass*: Via the `ublkQueueDepth` and `ublkNumberOfQueue` parameters in the StorageClass definition.
 
