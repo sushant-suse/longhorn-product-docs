@@ -1,5 +1,5 @@
 = Best Practices
-:revdate: 2026-01-30
+:revdate: 2026-02-03
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -63,28 +63,12 @@ The following Linux OS distributions and versions have been verified during the 
 | 4.
 | Red Hat Enterprise Linux
 | 10.1
-
-| 5.
-| Oracle Linux
-| 10.0
-
-| 6.
-| Rocky Linux
-| 10.1
-
-| 7.
-| Talos Linux
-| 1.11.5
-
-| 8.
-| Container-Optimized OS (GKE)
-| 121
 |===
 
 {longhorn-product-name} relies heavily on kernel functionality and performs better on certain kernel versions. The following activities,
 in particular, benefit from usage of specific kernel versions.
 
-* Optimizing or improving the filesystem: Use a kernel with version `v5.8` or later. See https://github.com/longhorn/longhorn/issues/2507#issuecomment-857195496[Issue
+* Optimizing or improving the file system: Use a kernel with version `v5.8` or later. See https://github.com/longhorn/longhorn/issues/2507#issuecomment-857195496[Issue
 #2507] for details.
 * Enabling the xref:longhorn-system/settings.adoc#_freeze_filesystem_for_snapshot[Freeze Filesystem for Snapshot] setting: Use a
 kernel with version `5.17` or later to ensure that a volume crash during a file system freeze cannot lock up a node.
@@ -122,7 +106,7 @@ The list below contains known broken kernel versions that users should avoid usi
 
 Ensure that your cluster is running Kubernetes v1.21 or later before upgrading {longhorn-product-name}.
 
-We recommend running your Kubernetes cluster on one of the following versions. These versions are the active supported versions prior to the {longhorn-product-name} release, and have been tested with {longhorn-product-name} v{patch-version}.
+We recommend running your Kubernetes cluster on one of the following versions. These versions are the active supported versions before the {longhorn-product-name} release, and have been tested with {longhorn-product-name} v{patch-version}.
 
 |===
 | Release | Released | End-of-life
@@ -164,7 +148,7 @@ If you need to use the root disk, use the default `minimal available storage per
 
 If you are using a dedicated disk for {longhorn-product-name}, you can lower the setting `minimal available storage percentage` to 10%.
 
-For the Over-provisioning percentage, it depends on how much space your volume uses on average. For example, if your workload only uses half of the available volume size, you can set the Over-provisioning percentage to `200`, which means {longhorn-product-name} will consider the disk to have twice the schedulable size as its full size minus the reserved space.
+For the Over-provisioning percentage, it depends on how much space your volume uses on average. For example, if your workload only uses half of the available volume size, you can set the Over-provisioning percentage to `200`, which means {longhorn-product-name} considers the disk to have twice the schedulable size as its full size minus the reserved space.
 
 === Disk Space Management
 
