@@ -1,15 +1,131 @@
-# longhorn-product-docs
+= SUSE Storage (Longhorn) Documentation
 
-SUSE product documentation for Longhorn
+This repository contains the documentation for **SUSE Storage (Longhorn)**.
 
-## Local working
+== Build the Documentation Site
 
-* Clone the repository.
-* Run `make environment` to install antora.
-* Run `make local` to build the site into `build/site`. Open `build/site/index.html` to view.
+It uses [Antora Playbooks](https://docs.antora.org/antora/latest/) to locally or remotely build the AsciiDoc content into a static website.
 
-## Versions
+=== Prerequisites
 
-Versioned documentation is in folders in `docs/`.
+==== `git`
 
-Good luck‽
+You need `git` to get the source code of this repository. Run the command below to check whether `git` is installed on your machine.
+
+[,bash]
+----
+git --version
+----
+
+If you do not have `git` installed on your machine, download and install it for your operating system from the https://git-scm.com/downloads[`git` downloads] page.
+
+==== `Node.js`
+
+Antora requires an active long term support (LTS) release of Node.js. Run the command below to check if you have Node.js installed, and which version. This command should return an https://nodejs.org/en/about/releases/[active Node.js LTS version number].
+
+[,bash]
+----
+node -v
+----
+
+If you do not have Node.js installed on your machine, install it, preferably via https://github.com/nvm-sh/nvm[nvm].
+
+== Getting Started
+
+=== 1. Clone the repository
+
+Run the git command to clone this repository.
+
+[,bash]
+----
+git clone https://github.com/rancher/longhorn-product-docs.git
+----
+
+This playbook repository uses a https://git-scm.com/book/en/v2/Git-Tools-Submodules[git submodule] to get the custom Antora supplemental files that provide a custom GUI theme for the documentation website. Run the command below to get the submodule.
+
+[,bash]
+----
+git submodule update --init
+----
+
+=== 2. Install Dependencies
+
+Before building, ensure all required Node modules are installed:
+
+[,bash]
+----
+make environment
+----
+
+=== 3. Build the Site Locally
+
+To build the documentation using your local files and the local playbook:
+
+[,bash]
+----
+make local
+----
+
+This command generates the static site in the `./build` directory and creates a log file at `./tmp/local-build.log`.
+
+=== 4. Preview the Site
+
+Once the build is complete, launch a local web server to view the documentation:
+
+[,bash]
+----
+make preview
+----
+
+After running this, open your browser and navigate to:
+`http://127.0.0.1:8080`
+
+=== 5. Clean up the build:
+
+To remove the build and temporary directories, use the following command:
+
+[,bash]
+----
+make clean
+----
+
+This will delete the `build` directory.
+
+== Makefile Command Reference
+
+The `Makefile` simplifies the build and preview lifecycle:
+
+[cols="^,^", options="header"]
+|===
+| Command | Description
+
+| `make local`
+| Builds the site using `lh-local-playbook.yml`.
+
+| `make remote`
+| Performs a clean install (`npm ci`) and builds using `lh-remote-playbook.yml`.
+
+| `make environment`
+| Installs project dependencies defined in `package.json`.
+
+| `make preview`
+| Serves the `./build/site` directory on a local web server.
+
+| `make clean`
+| Removes the `build` directory to start a fresh build.
+|===
+
+== Versions
+
+The supported versioned documentation is in folders in `docs/`.
+The unsupported versioned documentation is in folders in `archived_docs/`.
+
+== How to report issues related to the SUSE Rancher Product Documentation
+
+=== If you are a SUSE Rancher Customer
+
+It is recommended to report the issue via the https://scc.suse.com/[SUSE Customer Center].
+
+=== If you are a SUSE Internal Employee
+
+It is recommended to file a Jira ticket. If you do not have access to Jira then you can file a GitHub ticket on the respective product documentation repository.

@@ -1,5 +1,5 @@
 = Requirements
-:revdate: 2025-12-10
+:revdate: 2026-02-05
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -29,10 +29,6 @@ You must perform additional setups before using {longhorn-product-name} with cer
 
 * Google Kubernetes Engine (GKE): See xref:installation-setup/os-distro/gke.adoc[GKE].
 * K3s clusters: See xref:installation-setup/os-distro/k3s.adoc[K3s].
-* RKE clusters with CoreOS: See xref:installation-setup/os-distro/rke-coreos.adoc[RKE and CoreOS].
-* OCP/OKD clusters: See xref:installation-setup/os-distro/ocp-okd.adoc[OKD].
-* Talos Linux clusters: See xref:installation-setup/os-distro/talos-linux.adoc[Talos Linux].
-* Container-Optimized OS: See xref:installation-setup/os-distro/container-optimized-os.adoc[Container-Optimized OS].
 
 [discrete]
 == Checking the Kubernetes Version
@@ -140,9 +136,6 @@ echo "InitiatorName=$(/sbin/iscsi-iname)" > /etc/iscsi/initiatorname.iscsi
 systemctl enable iscsid
 systemctl start iscsid
 ----
-
-* Talos Linux: See xref:installation-setup/os-distro/talos-linux.adoc[Talos Linux Support].
-* Container-Optimized OS: See xref:installation-setup/os-distro/container-optimized-os.adoc[Container-Optimized OS Support]
 
 Please ensure iscsi_tcp module has been loaded before iscsid service starts. Generally, it should be automatically loaded along with the package installation.
 
