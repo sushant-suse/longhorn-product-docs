@@ -1,0 +1,177 @@
+= Important Notes
+:revdate: 2026-03-06
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+This page summarizes the key notes for {longhorn-product-name} v{patch-version}. Please see https://github.com/longhorn/longhorn/releases/tag/v{patch-version}[here] for the full release notes.
+
+== Warning
+
+=== Hotfix 
+
+==== `longhorn-instance-manager` Image
+
+The `longhorn-instance-manager:v1.11.0` image is affected by a https://github.com/longhorn/longhorn/issues/12573[regression issue] introduced by the new longhorn-instance-manager Proxy service APIs. The bug causes Proxy connection leaks in the longhorn-instance-manager pods, resulting in increased memory usage. To mitigate this issue, replace `longhornio/longhorn-instance-manager:v1.11.0` with the hotfixed image `longhornio/longhorn-instance-manager:v1.11.0-hotfix-1`.
+
+To apply the update:
+
+. *Update the `longhorn-instance-manager` image*:
++
+Change the image tag from `v1.11.0` to `v1.11.0-hotfix-1` in the configuration file:
++
+** For Helm - Update `values.yaml`.
+** For manifests - Update the deployment manifest.
+
+. *Proceed with the installation or upgrade*:
++
+Apply the changes using the standard Helm install or upgrade command, or reapply the updated manifest.
+
+== Deprecation
+
+V2 Backing Image is deprecated and it is to be removed in a future release. Users can use containerized data importer (CDI) to import images into {longhorn-product-name} as an alternative. For more information, see xref:volumes/containerized-data-importer.adoc[{longhorn-product-name} with CDI Imports].
+
+== Behavior Change
+
+=== Cloned Volume Health After Efficient Cloning
+
+With efficient cloning enabled, a newly cloned and detached volume is degraded and has only one replica, with its clone status set to `copy-completed-awaiting-healthy`. To bring the volume to a healthy state, transition the clone status to `completed` and rebuild the remaining replica by either enabling offline replica rebuilding or attaching the volume to trigger replica rebuilding. See https://github.com/longhorn/longhorn/issues/12341[Issue #12341] and https://github.com/longhorn/longhorn/issues/12328[Issue #12328].
+
+== General
+
+=== Kubernetes Version Requirement
+
+Due to the upgrade of the CSI external snapshotter to v8.2.0, you must be running Kubernetes v1.25 or later to upgrade to {longhorn-product-name}  v1.8.0 or a newer version.
+
+=== Upgrade Check Events
+
+When you upgrade with Helm or the Rancher App Marketplace, {longhorn-product-name} performs pre-upgrade checks. If a check fails, the upgrade stops and the reason for the failure is recorded in an event.
+
+For more details, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrading Longhorn Manager].
+
+=== Manual Checks Before Upgrade
+
+Automated pre-upgrade checks does not cover all scenarios. A manual check is recommended using `kubectl` or the {longhorn-product-name} UI.
+
+* Ensure all V2 Data Engine volumes are detached and replicas are stopped. The V2 engine does not support live upgrades.
+* Avoid upgrading when volumes are Faulted. Unusable replicas may be deleted, causing permanent data loss if no backups exist.
+* Avoid upgrading if a failed `BackingImage` exists. For more information, see xref:volumes/backing-images/backing-images.adoc[Backing Image] for details.
+* Create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn System Backup] upgrading is recommended to ensure recoverability.
+
+=== Manager URL for External API Access
+
+{longhorn-product-name} v{patch-version} introduces the `manager-url` setting that allows explicit configuration of the external URL for accessing the Longhorn Manager API.
+
+*Background*: When Longhorn Manager is accessed through Ingress or Gateway API HTTPRoute, API responses may contain internal cluster IPs (for example, `10.42.x.x:9500`) in the `actions` and `links` fields. This occurs when the ingress controller does not properly set `X-Forwarded-*` headers, causing the API to fall back to the internal pod IP.
+
+*Solution*: Configure the `manager-url` setting with your external URL (for example, `pass:[https://longhorn.example.com]`). The Manager injects proper forwarded headers to ensure API responses contain correct external URLs.
+
+*Configuration*:
+
+* *Via Helm*: `--set defaultSettings.managerUrl="https://longhorn.example.com"`
+* *Via kubectl*: `kubectl -n longhorn-system patch settings.longhorn.io manager-url --type='merge' -p '{"value":"https://longhorn.example.com"}'`
+* *Via UI*: Settings > General > Manager URL
+
+For more details, see xref:longhorn-system/settings.adoc#_manager_url[Manager URL].
+
+=== Gateway API HTTPRoute Support
+
+{longhorn-product-name} v{patch-version} introduces built-in support for https://gateway-api.sigs.k8s.io/api-types/httproute[Gateway API HTTPRoute] as a modern alternative to Ingress for exposing the {longhorn-product-name} UI.
+
+For detailed setup instructions, prerequisites and advanced configuration, see xref:longhorn-system/system-access/longhorn-httproute.adoc[Create an HTTPRoute with Gateway API].
+
+=== Concurrent Job Limit for Snapshot Operations
+
+{longhorn-product-name} v{patch-version} introduces the *Snapshot Heavy Task Concurrent Limit* to prevent disk exhaustion and resource contention. This setting limits concurrent heavy operations—such as snapshot purge and clone—per node by queuing additional tasks until ongoing ones complete. By controlling these processes, the system reduces the risk of storage spikes typically triggered by snapshot merges.
+
+For further details, refer to xref:longhorn-system/settings.adoc#_snapshot_heavy_task_concurrent_limit[Snapshot Heavy Task Concurrent Limit] and https://github.com/longhorn/longhorn/issues/11635[Issue #11635].
+
+== Scheduling
+
+=== Replica Scheduling with Balance Algorithm
+
+To improve data distribution and resource utilization, {longhorn-product-name} introduces a *balance algorithm* that schedules replicas evenly across nodes and disks based on calculated balance scores.
+
+For more information, see xref:nodes/scheduling.adoc[Scheduling].
+
+=== Supports StorageClass `allowedTopologies`
+
+{longhorn-product-name} CSI now supports StorageClass `allowedTopologies`, enabling Kubernetes to automatically restrict pod and volume scheduling to nodes where {longhorn-product-name} is available.
+
+For more information, see https://github.com/longhorn/longhorn/issues/12261[Issue #12261] and xref:volumes/storageclass-parameters.adoc[Storage Class Parameters].
+
+== Monitoring
+
+=== Disk health monitoring
+
+Starting with {longhorn-product-name} v1.11.0, disk health monitoring is available for both the V1 and V2 data engines. {longhorn-product-name} collects disk health data and exposes it through Prometheus metrics and the `Node` custom resources.
+
+. *Key features*:
+
+* Automatic health data collection every 10 minutes.
+* Disk health status and detailed attributes exposed as Prometheus metrics.
+* Health data available in the `nodes.longhorn.io` custom resources.
+
+[NOTE]
+====
+* SMART data may not be fully available in virtualized or cloud environments (for example, AWS EBS). This can result in zero values for some attributes.
+* Available health attributes vary depending on disk type and hardware.
+====
+
+For more information, see xref:observability/disk-health.adoc[Disk health monitoring].
+
+== Access Mode Stability
+
+=== ReadWriteOncePod Access Mode
+
+{longhorn-product-name} v{patch-version} introduces support for the *ReadWriteOncePod (RWOP)* access mode, addressing the need for stricter single-pod volume access guarantees in stateful workloads. Unlike ReadWriteOnce (RWO), which permits multiple pods on the same node to mount a volume, RWOP ensures that only one pod across the entire cluster can access the volume at any given time. This capability is particularly valuable for stateful applications requiring exclusive write access, such as databases or other workloads where concurrent access could lead to data corruption or consistency issues.
+
+For more information, see xref:volumes/create-volumes.adoc#_access_modes[Access Modes] and https://github.com/longhorn/longhorn/issues/9727[Issue #9727].
+
+== Rebuilding
+
+=== Scale Replica Rebuilding
+
+Starting with {longhorn-product-name} v1.11.0, a new *scale replica rebuilding* feature allows a rebuilding replica to fetch snapshot data from multiple healthy replicas concurrently, potentially improving rebuild performance.
+
+For more information, see xref:high-availability/scale-replica-rebuilding.adoc[Scale Replica Rebuilding].
+
+=== Offline Replica Rebuilding
+
+Starting with {longhorn-product-name} v1.11.0, the *Offline Replica Rebuilding* setting is updated from a data engine-specific setting to a global setting. Previously, users could configure offline replica rebuilding separately for v1 and v2 data engines. During the upgrade to v1.11.0, {longhorn-product-name} automatically checks the existing configuration. If offline replica rebuilding is enabled for either the v1 or v2 data engine, the new global setting defaults to `true`. Otherwise, it remains disabled (`false`).
+
+For more information, see xref:longhorn-system/settings.adoc#offline_replica_rebuilding[Offline Replica Rebuilding Setting].
+
+== Command-Line Tool
+
+=== Package Manager Detection for Unsupported Distributions
+
+{longhorn-product-name} v{patch-version} enhances the Longhorn CLI preflight install and check behavior. When `/etc/os-release` does not match a known distribution, the CLI attempts to detect a supported package manager and continues in a compatibility mode.
+
+For more information, see https://github.com/longhorn/longhorn/issues/12153[Issue #12153].
+
+== V2 Data Engine
+
+=== {longhorn-product-name} System Upgrade
+
+Live upgrades of V2 volumes are not supported. Before you upgrade, make sure all V2 volumes are detached.
+
+=== Technical Preview
+
+The V2 Data Engine is a *Technical Preview* feature in {longhorn-product-name} v1.11.0.
+
+It is nearly complete, with no significant functional changes expected, and has been validated in controlled environments. Users should evaluate the feature thoroughly before enabling it in production.
+
+=== SPDK UBLK Performance Parameters
+
+Starting with {longhorn-product-name} v1.11.0, the SPDK UBLK front-end exposes performance-tuning parameters that can be configured globally or per-volume:
+
+* *Queue Depth* (`ublkQueueDepth`): It is the depth of each I/O queue for the UBLK front-end. The default value is `128`.
+* *Number of Queues* (`ublkNumberOfQueue`): It is the number of I/O queues for the UBLK front-end. The default value is `1`.
+
+These parameters can be configured:
+
+* *Globally*: Via the `Default Ublk Queue Depth` and `Default Ublk Number Of Queue` settings (see xref:longhorn-system/settings.adoc#_default_ublk_queue_depth[Settings]).
+* *Per-volume*: Via the `ublkQueueDepth` and `ublkNumberOfQueue` volume parameters.
+* *StorageClass*: Via the `ublkQueueDepth` and `ublkNumberOfQueue` parameters in the StorageClass definition.
+
+For more information, see https://github.com/longhorn/longhorn/issues/11039[Issue #11039].
