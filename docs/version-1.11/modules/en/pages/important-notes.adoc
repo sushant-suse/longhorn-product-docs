@@ -1,5 +1,5 @@
 = Important Notes
-:revdate: 2026-02-25
+:revdate: 2026-03-06
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -11,48 +11,18 @@ This page summarizes the key notes for {longhorn-product-name} v{patch-version}.
 
 ==== `longhorn-instance-manager` Image
 
-The `longhornio/longhorn-instance-manager:v1.11.0` image is affected by regressions introduced by recent changes in the instance manager:
-
-* Proxy service API regression causing connection leaks and increased memory usage https://github.com/longhorn/longhorn/issues/12573[Issue #12573]
-* V2 data engine block-type disk check regression https://github.com/longhorn/longhorn/issues/12599[Issue #12599]
-
-These issues are resolved in hotfix images. If you are running version `v1.11.0`, update the image to `longhornio/longhorn-instance-manager:v1.11.0-hotfix-2`. This image contains fixes for both regressions.
-
-The earlier hotfix image, `longhornio/longhorn-instance-manager:v1.11.0-hotfix-1`, only includes the fix for the proxy connection leak. Users can choose to apply either hotfix image based on their needs.
+The `longhorn-instance-manager:v1.11.0` image is affected by a https://github.com/longhorn/longhorn/issues/12573[regression issue] introduced by the new longhorn-instance-manager Proxy service APIs. The bug causes Proxy connection leaks in the longhorn-instance-manager pods, resulting in increased memory usage. To mitigate this issue, replace `longhornio/longhorn-instance-manager:v1.11.0` with the hotfixed image `longhornio/longhorn-instance-manager:v1.11.0-hotfix-1`.
 
 To apply the update:
 
-. *Update the `longhorn-instance-manager` image*.
-+
-Change the image tag from `v1.11.0` to `v1.11.0-hotfix-2` (or `v1.11.0-hotfix-1`) in the configuration file:
-+
-** For Helm - Update `values.yaml`.
-** For manifests - Update the deployment manifest.
-
-. *Proceed with the installation or upgrade*.
-+
-Apply the changes using the standard Helm install or upgrade command, or reapply the updated manifest.
-
-==== `longhorn-manager` Image
-
-The `longhorn-manager:v1.11.0` image is affected by a https://github.com/longhorn/longhorn/issues/12578[regression issue] introduced by the `Kubernetes Node` validator. This bug prevents setting Kubernetes node CNI labels because the validator waits for the {longhorn-product-name} webhook server to run, while the webhook server waits for the CNI network to be ready.
-
-To mitigate this issue, replace `longhornio/longhorn-manager:v1.11.0` with the hotfix image `longhornio/longhorn-manager:v1.11.0-hotfix-1`.
-
-To apply the update:
-
-. *Disable the upgrade version check*.
-** For Helm - Set `upgradeVersionCheck` to `false` in `values.yaml`.
-** For manifests - Remove the `--upgrade-version-check` flag from the deployment manifest.
-
-. *Update the `longhorn-manager` image*.
+. *Update the `longhorn-instance-manager` image*:
 +
 Change the image tag from `v1.11.0` to `v1.11.0-hotfix-1` in the configuration file:
 +
 ** For Helm - Update `values.yaml`.
 ** For manifests - Update the deployment manifest.
 
-. *Proceed with the installation or upgrade*.
+. *Proceed with the installation or upgrade*:
 +
 Apply the changes using the standard Helm install or upgrade command, or reapply the updated manifest.
 
