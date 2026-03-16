@@ -1,5 +1,5 @@
 = StorageClass Parameters
-:revdate: 2026-01-30
+:revdate: 2026-03-16
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -111,8 +111,11 @@ ____
 It specifies the set of nodes where volumes may be provisioned by matching node labels.
 {longhorn-product-name} uses this field to populate the `nodeAffinity` of PV via the CSI `accessibleTopology` field.
 
-Do *not* use `allowedTopologies` together with `parameters.dataLocality: strict-local`.
-The resulting PV `nodeAffinity` becomes immutable and it would conflict with strict-local volume pinning of {longhorn-product-name}.
+For `allowedTopologies` to take effect, the {longhorn-product-name} setting xref:longhorn-system/settings.adoc#_csi_allowed_topology_keys[`csi-allowed-topology-keys`] must be configured with the corresponding topology keys (for example, `topology.kubernetes.io/zone`). Without this setting, no topology information is passed through and the PV will have no `nodeAffinity`.
+
+Do *not* use `allowedTopologies` together with `parameters.dataLocality: strict-local`. The resulting PV `nodeAffinity` becomes immutable and it would conflict with strict-local volume pinning of {longhorn-product-name}.
+
+For a complete walkthrough with examples, see the xref:nodes/topology-aware-provisioning.adoc[Topology-Aware Provisioning].
 
 == {longhorn-product-name}-specific Parameters
 
