@@ -5,51 +5,31 @@
 
 This page summarizes the key notes for {longhorn-product-name} v{patch-version}. Please see https://github.com/longhorn/longhorn/releases/tag/v{patch-version}[here] for the full release notes.
 
-== Warning
-
-=== Hotfix
-
-==== `longhorn-instance-manager` Image
-
-The `longhorn-instance-manager:v1.11.0` image is affected by a https://github.com/longhorn/longhorn/issues/12573[regression issue] introduced by the new longhorn-instance-manager Proxy service APIs. The bug causes Proxy connection leaks in the longhorn-instance-manager pods, resulting in increased memory usage. To mitigate this issue, replace `longhornio/longhorn-instance-manager:v1.11.0` with the hotfixed image `longhornio/longhorn-instance-manager:v1.11.0-hotfix-1`.
-
-You can apply the update by following these steps:
-
-. *Update the `longhorn-instance-manager` image*
-** Change the longhorn-instance-manager image tag from `v1.11.0` to `v1.11.0-hotfix-1` in the appropriate file:
-*** For Helm: Update `values.yaml`.
-*** For manifests: Update the deployment manifest directly.
-
-. *Proceed with the installation or upgrade*
-** Apply the changes using your standard Helm install/upgrade command or reapply the updated manifest.
-
-==== `longhorn-manager` Image
-
-The `longhorn-manager:v1.11.0` image is affected by a https://github.com/longhorn/longhorn/issues/12578[regression issue] introduced by the new `Kubernetes Node` validator. The bug blocks setting Kubernetes node CNI labels because it waits for the Longhorn webhook server to be running, while the Longhorn webhook server waits for CNI network to be ready. To mitigate this issue, replace `longhornio/longhorn-manager:v1.11.0` with the hotfixed image `longhornio/longhorn-manager:v1.11.0-hotfix-1`.
-
-You can apply the update by following these steps:
-
-. *Disable the upgrade version check*
-** Helm users: Set `upgradeVersionCheck` to `false` in the `values.yaml` file.
-** Manifest users: Remove the `--upgrade-version-check` flag from the deployment manifest.
-
-. *Update the `longhorn-manager` image*
-** Change the `longhorn-manager` image tag from `v1.11.0` to `v1.11.0-hotfix-1` in the appropriate file:
-*** For Helm: Update `values.yaml`.
-*** For manifests: Update the deployment manifest directly.
-
-. *Proceed with the installation or upgrade*
-** Apply the changes using your standard Helm install/upgrade command or reapply the updated manifest.
-
 == Deprecation
 
-V2 Backing Image is deprecated and it is to be removed in a future release. Users can use containerized data importer (CDI) to import images into {longhorn-product-name} as an alternative. For more information, see xref:volumes/containerized-data-importer.adoc[{longhorn-product-name} with CDI Imports].
+V2 Backing Image is deprecated and will be removed in a future release. Users can use containerized data importer (CDI) to import images into Longhorn as an alternative. For more information, see xref:volumes/containerized-data-importer.adoc[{longhorn-product-name} with CDI Imports].
 
 == Behavior Change
 
 === Cloned Volume Health After Efficient Cloning
 
 With efficient cloning enabled, a newly cloned and detached volume is degraded and has only one replica, with its clone status set to `copy-completed-awaiting-healthy`. To bring the volume to a healthy state, transition the clone status to `completed` and rebuild the remaining replica by either enabling offline replica rebuilding or attaching the volume to trigger replica rebuilding. See https://github.com/longhorn/longhorn/issues/12341[Issue #12341] and https://github.com/longhorn/longhorn/issues/12328[Issue #12328].
+
+== Important Fixes
+
+This release includes critical stability fixes.
+
+=== {longhorn-product-name} Workload Pods Memory Leak
+
+Fixed a critical regression where proxy connection leaks in the longhorn-instance-manager pods caused high memory consumption.
+
+For more details, see https://github.com/longhorn/longhorn/issues/12575[#12575].
+
+=== PV nodeAffinity Regression
+
+Fixed a regression where PV nodeAffinity was overly configured after introducing `AccessibleTopology` in the CSI server and `allowedTopologies` in Longhorn StorageClasses since v1.11.0.
+
+For more details, see https://github.com/longhorn/longhorn/issues/12689[#12689] and https://github.com/longhorn/longhorn/issues/12656[#12656].
 
 == General
 
@@ -108,11 +88,11 @@ To improve data distribution and resource utilization, {longhorn-product-name} i
 
 For more information, see xref:nodes/scheduling.adoc[Scheduling].
 
-=== Supports StorageClass `allowedTopologies`
+=== Supports Topology-aware PV Node Affinity control
 
-{longhorn-product-name} CSI now supports StorageClass `allowedTopologies`, enabling Kubernetes to automatically restrict pod and volume scheduling to nodes where {longhorn-product-name} is available.
+Longhorn CSI now applies StorageClass parameter `allowedTopologies` and Setting `csi-allowed-topology-keys`, which awares topologies correctly with configurable keys then set up PV `nodeAffinity` precisely. 
 
-For more information, see https://github.com/longhorn/longhorn/issues/12261[Issue #12261], xref:volumes/storageclass-parameters.adoc[Topology-Aware Provisioning], and xref:volumes/storageclass-parameters.adoc[Storage Class Parameters].
+For more information, see https://github.com/longhorn/longhorn/issues/12261[Issue #12261], https://github.com/longhorn/longhorn/issues/12689[Issue #12689], xref:nodes/topology-aware-provisioning.adoc[Topology-Aware Provisioning], and xref:volumes/storageclass-parameters.adoc[Storage Class Parameters].
 
 == Monitoring
 
