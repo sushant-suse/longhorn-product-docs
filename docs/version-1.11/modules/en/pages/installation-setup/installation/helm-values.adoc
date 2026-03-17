@@ -1,5 +1,5 @@
 = Helm Values
-:revdate: 2026-03-16
+:revdate: 2026-03-17
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -455,7 +455,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 | `persistence.volumeBindingMode`
 | string
 | `"Immediate"`
-| VolumeBindingMode controls when volume binding and dynamic provisioning should occur. (Options: `"Immediate"`, `"WaitForFirstConsumer"`) (Defaults to `"Immediate"`) |
+| VolumeBindingMode controls when volume binding and dynamic provisioning should occur. (Options: `"Immediate"`, `"WaitForFirstConsumer"`) (Defaults to `"Immediate"`)
 |===
 
 === CSI Settings
@@ -609,7 +609,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 | `ingress.extraHosts`
 | list
 | `[]`
-| Extra hostnames for TLS (Subject Alternative Names - SAN). Used when you need multiple FQDNs for the same ingress. Example: extraHosts:   - longhorn.example.com   - longhorn-ui.internal.local |
+| Extra hostnames for TLS (Subject Alternative Names - SAN). Used when you need multiple FQDNs for the same ingress. Example: extraHosts:   - longhorn.example.com   - longhorn-ui.internal.local
 
 | `ingress.host`
 | string
@@ -619,17 +619,17 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 | `ingress.ingressClassName`
 | string
 | `nil`
-| IngressClass resource that contains ingress configuration, including the name of the Ingress controller. ingressClassName can replace the kubernetes.io/ingress.class annotation used in earlier Kubernetes releases.
+| IngressClass resource that contains ingress configuration, including the name of the Ingress controller. ingressClassName can replace the `kubernetes.io/ingress.class` annotation used in earlier Kubernetes releases.
 
 | `ingress.path`
 | string
 | `"/"`
-| Default ingress path. You can access the {longhorn-product-name} UI by following the full ingress path {\{host}}+{\{path}}.
+| Default ingress path. You can access the {longhorn-product-name} UI by following the full ingress path `{\{host}}+{\{path}}`.
 
 | `ingress.pathType`
 | string
 | `"ImplementationSpecific"`
-| Ingress path type. To maintain backward compatibility, the default value is "ImplementationSpecific".
+| Ingress path type. To maintain backward compatibility, the default value is `"ImplementationSpecific"`.
 
 | `ingress.secrets`
 | string
@@ -685,7 +685,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 | `httproute.pathType`
 | string
 | `"PathPrefix"`
-| Path match type for HTTPRoute. (Options: `"Exact"`, `"PathPrefix"`) |
+| Path match type for HTTPRoute. (Options: `"Exact"`, `"PathPrefix"`)
 |===
 
 === Private Registry Settings
@@ -972,7 +972,7 @@ During installation, you can either allow {longhorn-product-name} to use the def
 | Percentage of the total allocatable CPU resources on each node to be reserved for each instance manager pod. The default value is {"v1":"12","v2":"12"}.
 
 | `defaultSettings.instanceManagerPodLivenessProbeTimeout`
-| In seconds. The setting specifies the timeout for the instance manager pod liveness probe. The default value is 10 seconds. |
+| In seconds. The setting specifies the timeout for the instance manager pod liveness probe. The default value is 10 seconds.
 
 | `defaultSettings.kubernetesClusterAutoscalerEnabled`
 | Setting that notifies {longhorn-product-name} that the cluster is using the Kubernetes Cluster Autoscaler.
@@ -1064,19 +1064,20 @@ During installation, you can either allow {longhorn-product-name} to use the def
 | `defaultSettings.snapshotDataIntegrityImmediateCheckAfterSnapshotCreation`
 | Setting that allows disabling of snapshot hashing after snapshot creation to minimize impact on system performance.
 
-| `defaultSettings.snapshotHeavyTaskConcurrentLimit` | Setting that controls how many snapshot heavy task operations (such as purge and clone) can run concurrently per node. This is a best-effort mechanism: due to the distributed nature of the system, temporary oversubscription may occur. The limiter reduces worst-case overload but does not guarantee perfect enforcement.
+| `defaultSettings.snapshotHeavyTaskConcurrentLimit`
+| Setting that controls how many snapshot heavy task operations (such as purge and clone) can run concurrently per node. This is a best-effort mechanism: due to the distributed nature of the system, temporary oversubscription may occur. The limiter reduces worst-case overload but does not guarantee perfect enforcement.
 
 | `defaultSettings.snapshotMaxCount`
 | Maximum snapshot count for a volume. The value should be between 2 to 250
 
 | `defaultSettings.storageMinimalAvailablePercentage`
-| Percentage of minimum available disk capacity. When the minimum available capacity exceeds the total available capacity, the disk becomes unschedulable until more space is made available for use. The default value is "25".
+| Percentage of minimum available disk capacity. When the minimum available capacity exceeds the total available capacity, the disk becomes unschedulable until more space is made available for use. The default value is `"25"`.
 
 | `defaultSettings.storageNetwork`
 | Storage network for in-cluster traffic. When unspecified, {longhorn-product-name} uses the Kubernetes cluster network.
 
 | `defaultSettings.storageOverProvisioningPercentage`
-| Percentage of storage that can be allocated relative to hard drive capacity. The default value is "100".
+| Percentage of storage that can be allocated relative to hard drive capacity. The default value is `"100"`.
 
 | `defaultSettings.storageReservedPercentageForDefaultDisk`
 | Percentage of disk space that is not allocated to the default disk on each new Longhorn node.
@@ -1097,7 +1098,7 @@ During installation, you can either allow {longhorn-product-name} to use the def
 | Taint or toleration for system-managed Longhorn components. Specify values using a semicolon-separated list in `kubectl taint` syntax (Example: key1=value1:effect; key2=value2:effect).
 
 | `defaultSettings.upgradeChecker`
-| Upgrade Checker that periodically checks for new {longhorn-product-name} versions. When a new version is available, a notification appears on the {longhorn-product-name} UI. This setting is enabled by default
+| Upgrade Checker that periodically checks for new {longhorn-product-name} versions. When a new version is available, a notification appears on the {longhorn-product-name} UI. This setting is enabled by default.
 
 | `defaultSettings.upgradeResponderURL`
 | The Upgrade Responder sends a notification whenever a new Longhorn version that you can upgrade to becomes available. The default value is `https://longhorn-upgrade-responder.rancher.io/v1/checkupgrade`.
