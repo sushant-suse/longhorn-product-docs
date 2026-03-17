@@ -1,7 +1,14 @@
 = Create an Ingress with Basic Authentication (nginx)
-:revdate: 2025-12-09
+:revdate: 2026-03-17
 :page-revdate: {revdate}
 :current-version: {page-component-version}
+
+[NOTE]
+====
+As of November 2025, the Kubernetes project has announced the retirement of the ingress-nginx controller. For details, https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/[see the official announcement].
+
+*Recommended Alternative*: To ensure continued support and security, we recommend using the *Traefik Ingress* method to expose the Longhorn UI. See xref:longhorn-system/system-access/longhorn-ingress-traefik.adoc[Create an Ingress with Traefik] for more details.
+====
 
 If you install {longhorn-product-name} on a Kubernetes cluster with kubectl or Helm, you will need to create an Ingress to allow external traffic to reach the {longhorn-product-name} UI.
 
