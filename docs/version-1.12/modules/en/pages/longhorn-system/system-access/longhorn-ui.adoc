@@ -1,13 +1,13 @@
 = Access the User Interface
-:revdate: 2026-01-12
+:revdate: 2026-03-17
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
-Exposing the {longhorn-product-name} UI allows external access to the management console. The choice of Ingress controller (for example, *ingress-nginx*, *Traefik*, or *HAProxy*) affects only how the UI is accessed. It has *no impact on the Longhorn backend, storage operations, or data integrity*.
+Exposing the {longhorn-product-name} UI allows external access to the management console. The choice of Ingress controller (for example, *Traefik*, *HAProxy*, etc.) affects only how the UI is accessed. It has *no impact on the {longhorn-product-name} backend, storage operations, or data integrity*.
 
 [NOTE]
 ====
-As of November 2025, the Kubernetes project has announced the retirement of the ingress-nginx controller. For details, see https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/[the official announcement].
+As of November 2025, the Kubernetes project has announced the retirement of the ingress-nginx controller. For details, https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement[see the official announcement].
 ====
 
 == Prerequisites for Access and Authentication
@@ -16,7 +16,7 @@ These instructions assume that {longhorn-product-name} is already installed in t
 
 If you installed {longhorn-product-name} using the YAML manifest, you must set up an Ingress controller to allow external traffic into the cluster. Authentication is *not enabled by default*. This applies to both Helm and `kubectl` installations.
 
-For information on creating an NGINX Ingress controller with basic authentication, see xref:longhorn-system/system-access/create-ingress.adoc[this section]. Alternatively, you can use the xref:longhorn-system/system-access/longhorn-httproute.adoc[Gateway API HTTPRoute] as a modern approach to exposing the {longhorn-product-name} UI.
+For information on creating a Traefik Ingress controller with basic authentication, see xref:longhorn-system/system-access/longhorn-ingress-traefik.adoc[this section]. Alternatively, you can also use the xref:longhorn-system/system-access/longhorn-httproute.adoc[Gateway API HTTPRoute] as a modern approach to exposing the {longhorn-product-name} UI.
 
 If {longhorn-product-name} was installed as a Rancher catalog app, Rancher automatically creates an Ingress controller with access control (the `rancher-proxy`).
 
@@ -49,6 +49,6 @@ Starting with {longhorn-product-name} v0.8.0, the UI service type changed from `
 
 . Open a browser and navigate to the IP address of the `longhorn-frontend` service.
 +
-The {longhorn-product-name} UI appears as follows:
+The {longhorn-product-name} UI looks like this:
 +
 image::screenshots/getting-started/v1.10.0/longhorn-ui.png[Image]

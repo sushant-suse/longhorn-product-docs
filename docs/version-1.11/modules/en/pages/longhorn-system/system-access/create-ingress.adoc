@@ -1,9 +1,17 @@
 = Create an Ingress with Basic Authentication (nginx)
-:revdate: 2026-01-12
+:revdate: 2026-03-17
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
-As of November 2025, the Kubernetes project has https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/[announced the retirement of the ingress-nginx controller]. While it is used here as a configuration example, users are encouraged to explore maintained alternatives such as Traefik, HAProxy, or other Gateway API-compliant controllers.
+[NOTE]
+====
+As of November 2025, the Kubernetes project has announced the retirement of the ingress-nginx controller. For details, https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/[see the official announcement].
+
+*Recommended Alternative*:
+
+* **Traefik Ingress**: The current default for RKE2/K3s environments. See xref:longhorn-system/system-access/longhorn-ingress-traefik.adoc[Create an Ingress with Traefik].
+* **Gateway API**: The modern successor to Ingress for advanced routing. See xref:longhorn-system/system-access/longhorn-httproute.adoc[Create an HTTPRoute with Gateway API].
+====
 
 If you install {longhorn-product-name} on a Kubernetes cluster with kubectl or Helm, you will need to create an Ingress to allow external traffic to reach the {longhorn-product-name} UI.
 
