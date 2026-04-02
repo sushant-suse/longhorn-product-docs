@@ -1,5 +1,5 @@
 = Important Notes
-:revdate: 2026-01-28
+:revdate: 2026-04-02
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -131,6 +131,28 @@ If {longhorn-product-name} was installed by using Helm, the downgrade is allowed
 ===== Post-Downgrade
 
 Once the downgrade is complete and the Longhorn system is stable on the v1.9.x version, you must immediately follow the steps outlined in the xref:#manual-crd-migration[Manual CRD Migration Guide]. This step is crucial to migrate all remaining `v1beta1` CRs to `v1beta2` before you try the {longhorn-product-name} v1.10 upgrade again.
+
+=== HotFix
+
+The `backing-image-manager:v1.10.2` image is affected by
+
+* Regression:
+** https://github.com/longhorn/longhorn/issues/12779[BUG-Backing image data source pod fails when HTTP proxy is enabled] that can cause failure of backing image upload when HTTP proxy is enabled.
+
+To mitigate the issues, replace `backing-image-manager:v1.10.2` with the hotfixed image `backing-image-manager:v1.10.2-hotfix-1`.
+
+Follow these steps to apply the update:
+
+. *Update the `backing-image-manager` image*
++
+* Change the image tag from `v1.10.2` to `v1.10.2-hotfix-1` in the appropriate file:
++
+*** *For Helm* - Update `values.yaml`
+*** *For manifests* - Update the deployment manifest directly.
+
+. **Proceed with the upgrade**
++
+* Apply the changes using your standard Helm upgrade command or reapply the updated manifest.
 
 == Important Fixes
 
