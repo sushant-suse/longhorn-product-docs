@@ -1,5 +1,5 @@
 = SUSE® Storage Metrics for Monitoring
-:revdate: 2025-12-22
+:revdate: 2026-04-02
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -15,6 +15,10 @@
 | longhorn_volume_capacity_bytes
 | Configured size in bytes for this volume
 | longhorn_volume_capacity_bytes{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 6.442450944e+09
+
+| longhorn_volume_encrypted
+| Encrypted volume
+| longhorn_volume_encrypted{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 1
 
 | longhorn_volume_state
 | Volume state. This metric uses the `state` label to indicate the current volume state. The value is 1 for the current state and 0 for others. States: creating, attached, detached, attaching, detaching, deleting 
