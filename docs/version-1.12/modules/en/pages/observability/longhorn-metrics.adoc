@@ -1,5 +1,5 @@
 = SUSE® Storage Metrics for Monitoring
-:revdate: 2026-04-02
+:revdate: 2026-04-14
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -104,6 +104,7 @@
 |===
 
 == Replica
+
 |===
 | Name | Description | Example
 | longhorn_replica_info 
@@ -243,6 +244,30 @@
 | longhorn_backup_state
 | State of this backup: 0=New, 1=Pending, 2=InProgress, 3=Completed, 4=Error, 5=Unknown
 | longhorn_backup_state{backup="backup-4ab66eca0d60473e",volume="testvol", recurring_job=""} 3
+
+| longhorn_backup_uploaded_data_size_bytes
+| Uploaded data size of this backup
+| longhorn_backup_uploaded_data_size_bytes{backup="backup-4ab66eca0d60473e",volume="testvol",recurring_job=""} 2.012112434e+09
+|===
+
+== Backup Target
+
+|===
+| Name | Description | Example
+
+| longhorn_backup_target_backup_volume_count
+| Number of backup volumes on this backup target
+| longhorn_backup_target_backup_volume_count{backup_target="default"} 1
+|===
+
+== Backup Volume
+
+|===
+| Name | Description | Example
+
+| longhorn_backup_volume_backups_count
+| Number of backups belonging to this backup volume
+| longhorn_backup_volume_backups_count{backup_volume="testvol"} 1
 |===
 
 == Snapshot
@@ -283,7 +308,7 @@
 | longhorn_backup_backing_image_state{backup_backing_image="parrot"} 3
 |===
 
-## CSI
+== CSI
 
 The CSI sidecar component has built-in metrics for users to get insights into CSI operations. The CSI operations metrics cover total count, error count, and call latency. Longhorn enables the metrics by adding the flag `--http-endpoint` for each CSI sidecar component. You can use https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#podmonitor[Prometheus's PodMonitor] to collect these metrics. 
 
