@@ -1,5 +1,5 @@
 = Settings
-:revdate: 2026-04-02
+:revdate: 2026-04-14
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -9,20 +9,20 @@ Each setting supports only one of the following formats, based on its definition
 The supported format determines which data engines can be configured and whether their values can differ.
 
 * *Single value for all supported data engines*
-** *Format:* Non-JSON string (for example, `1024`)
+** *Format*: Non-JSON string (for example, `1024`)
 ** The value applies to all supported data engines and must be the same across them.
 ** Data-engine-specific values are not allowed.
 
 * *Data-engine-specific values for V1 and V2 data engines*
-** *Format:* JSON object (for example, `{"v1": "value1", "v2": "value2"}`)
+** *Format*: JSON object (for example, `{"v1": "value1", "v2": "value2"}`)
 ** Allows specifying different values for V1 and V2 data engines.
 
 * *Data-engine-specific values for V1 data engine only*
-** *Format:* JSON object with `v1` key only (for example, `{"v1": "value1"}`)
+** *Format*: JSON object with `v1` key only (for example, `{"v1": "value1"}`)
 ** Only the V1 data engine can be configured. The V2 data engine is not affected.
 
 * *Data-engine-specific values for V2 data engine only*
-** *Format:* JSON object with `v2` key only (for example, `{"v2": "value1"}`)
+** *Format*: JSON object with `v2` key only (for example, `{"v2": "value1"}`)
 ** Only the V2 data engine can be configured. The V1 data engine is not affected.
 
 == Customizing Default Settings
@@ -153,7 +153,7 @@ If disabled, {longhorn-product-name} does not delete the workload pod that is ma
 
 *Default value*: `""`
 
-Blacklist of controller `api/kind` values for the setting <<_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly,Automatically Delete Workload Pod when the Volume Is Detached Unexpectedly>>. If a workload pod is managed by a controller whose `api/kind` is listed in this blacklist, {longhorn-product-name} will not automatically delete the pod when its volume is unexpectedly detached. Multiple controller `api/kind` entries can be specified, separated by semicolons. For example: `apps/v1/StatefulSet;apps/v1/DaemonSet`.
+Blacklist of controller `api/kind` values for the setting <<_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly,Automatically Delete Workload Pod when the Volume Is Detached Unexpectedly>>. If a workload pod is managed by a controller whose `api/kind` is listed in this blacklist, {longhorn-product-name} does not automatically delete the pod when its volume is unexpectedly detached. Multiple controller `api/kind` entries can be specified, separated by semicolons. For example: `apps/v1/StatefulSet;apps/v1/DaemonSet`.
 
 [NOTE]
 ====
@@ -274,7 +274,7 @@ When enabled, this setting allows {longhorn-product-name} to send anonymous usag
 
 These metrics help provide insight into how {longhorn-product-name} is used and support future product improvements.
 
-*Node Information collected from all cluster nodes includes:*
+*Node Information collected from all cluster nodes includes*:
 
 * Number of disks of each device type (HDD, SSD, NVMe, unknown).
 +
@@ -286,7 +286,7 @@ This value may not be accurate for virtual machines.
 * Host operating system (OS) distribution.
 * Kubernetes node provider.
 
-*Cluster Information collected from one of the cluster nodes includes:*
+*Cluster Information collected from one of the cluster nodes includes*:
 
 * Longhorn namespace UID.
 * Number of Longhorn nodes.
@@ -387,9 +387,12 @@ The Kubernetes Secret name.
 
 *Default value*: `600`
 
-When there is at least one failed replica volume in a degraded volume, this interval in seconds determines how long {longhorn-product-name} will wait at most in order to reuse the existing data of the failed replicas rather than directly creating a new replica for this volume.
+When there is at least one failed replica volume in a degraded volume, this interval in seconds determines how long {longhorn-product-name} wait at most to reuse the existing data of the failed replicas rather than directly creating a new replica for this volume.
 
-WARNING: This wait interval works only when there is at least one failed replica in the volume. And this option may block the rebuilding for a while.
+[WARNING]
+====
+This wait interval works only when there is at least one failed replica in the volume. And this option may block the rebuilding for a while.
+====
 
 === System Managed Pod Image Pull Policy
 
@@ -577,7 +580,7 @@ The default depth of each queue for Ublk front-end. This setting applies to volu
 
 *Default value*: `{"v2":"1"}`
 
-The default the number of queues for ublk front-end. This setting applies to volumes using the V2 Data Engine with Ublk front-end.
+The default the number of queues for Ublk front-end. This setting applies to volumes using the V2 Data Engine with Ublk front-end.
 
 === Node Disk Health Monitoring
 
@@ -633,9 +636,10 @@ Snapshots created with file system freezing enabled are more likely to be consis
 When this setting is disabled, {longhorn-product-name} flushes data to disk before creating the snapshot, but it cannot fully block writes between the system sync and snapshot creation.  
 Workloads typically do not notice the snapshot operation because input and output continue during the sync.
 
-The default value is `false`. Kernels `v5.17` and earlier may not recover correctly if a volume crashes during an active file system freeze. In this situation, the kernel might prevent unmounting the file system or stopping processes that use it until you reboot the node. Enable this setting only when using kernel version `5.17` or later and ext4 or XFS filesystems.
+The default value is `false`. Kernels `v5.17` and earlier may not recover correctly if a volume crashes during an active file system freeze. In this situation, the kernel might prevent unmounting the file system or stopping processes that use it until you reboot the node. Enable this setting only when using kernel version `5.17` or later and `ext4` or XFS filesystems.
 
-You can override this setting per volume by using the `freezeFilesystemForSnapshot` field in the {longhorn-product-name} UI, a StorageClass, or by editing an existing volume.  
+You can override this setting per volume by using the `freezeFilesystemForSnapshot` field in the {longhorn-product-name} UI, a StorageClass, or by editing an existing volume.
+
 `freezeFilesystemForSnapshot` accepts the following values:
 
 *Default value*: `ignored`
@@ -760,7 +764,10 @@ Specifies the default backup block size (in MiB), used when creating a new volum
 
 This setting allows user to create and attach a volume that does not have all the replicas scheduled at the time of creation.
 
-NOTE: It is recommended to disable this setting when using {longhorn-product-name} in the production environment. See xref:installation-setup/best-practices.adoc[Best Practices] for details.
+[NOTE]
+====
+It is recommended to disable this setting when using {longhorn-product-name} in the production environment. See xref:installation-setup/best-practices.adoc[Best Practices] for details.
+====
 
 === Disable Scheduling On Cordoned Node
 
@@ -919,11 +926,11 @@ Settings are synchronized hourly. When all volumes are detached, the settings in
 
 If you do not detach all volumes before the settings are synchronized, the settings are not applied and you must reconfigure the same settings after detaching the remaining volumes. You can view the list of unapplied settings in the *Danger Zone* section of the {longhorn-product-name} UI, or run the following CLI command to check the value of the field `APPLIED`.
 
-[subs="+attributes",shell]
+[,shell]
 ----
-  ~# kubectl -n longhorn-system get setting priority-class
-  NAME             VALUE               APPLIED   AGE
-  priority-class   longhorn-critical   true      3h26m
+~# kubectl -n longhorn-system get setting priority-class
+NAME             VALUE               APPLIED   AGE
+priority-class   longhorn-critical   true      3h26m
 ----
 
 |===
@@ -1017,7 +1024,7 @@ Typically, {longhorn-product-name} can block the backing image copy starting onc
 
 *Example*: `nodetype=storage:NoSchedule`
 
-If you want to dedicate nodes to just store {longhorn-product-name} replicas and reject other general workloads, you can set tolerations for *all* {longhorn-product-name} components and add taints to the nodes dedicated for storage.
+To dedicate nodes to just store {longhorn-product-name} replicas and reject other general workloads, you can set tolerations for *all* {longhorn-product-name} components and add taints to the nodes dedicated for storage.
 
 Longhorn system contains user deployed components (for example, Longhorn manager, Longhorn driver, Longhorn UI) and system managed components (for example, instance manager, engine image, CSI driver, etc.)
 This setting only sets taint tolerations for system managed components.
@@ -1082,7 +1089,10 @@ Setting the Kubernetes Cluster Autoscaler Enabled to `true` allows {longhorn-pro
 
 See xref:high-availability/kubernetes-cluster-autoscaler.adoc[Kubernetes Cluster Autoscaler Support] for details.
 
-WARNING: Replica rebuilding could be expensive because nodes with reusable replicas could get removed by the Kubernetes Cluster Autoscaler.
+[WARNING]
+====
+Replica rebuilding could be expensive because nodes with reusable replicas could get removed by the Kubernetes Cluster Autoscaler.
+====
 
 === Storage Network
 
@@ -1092,7 +1102,10 @@ The storage network uses Multus NetworkAttachmentDefinition to segregate the in-
 
 By default, this setting applies only to Longhorn's data-plan traffic path. For RWX (Read-Write-Many) volume endpoint traffic, see  <<_endpoint_network_for_rwx_volume,Endpoint Network for RWX Volume>>.
 
-WARNING: This setting should change after all Longhorn volumes are detached because some pods that run Longhorn system components are recreated to apply the setting. When all volumes are detached, {longhorn-product-name} attempts to restart all Instance Manager and Backing Image Manager pods immediately. When volumes are in use, {longhorn-product-name} components are not restarted, and you need to reconfigure the settings after detaching the remaining volumes; otherwise, you can wait for the setting change to be reconciled in an hour.
+[WARNING]
+====
+This setting should change after all Longhorn volumes are detached because some pods that run Longhorn system components are recreated to apply the setting. When all volumes are detached, {longhorn-product-name} attempts to restart all Instance Manager and Backing Image Manager pods immediately. When volumes are in use, {longhorn-product-name} components are not restarted, and you need to reconfigure the settings after detaching the remaining volumes; otherwise, you can wait for the setting change to be reconciled in an hour.
+====
 
 See xref:longhorn-system/networking/storage-network.adoc[Storage Network] for details.
 
@@ -1117,11 +1130,11 @@ For more information, see xref:longhorn-system/networking/storage-network.adoc[S
 
 *Example*: `false`
 
-This setting allows Longhorn filesystem trim feature to automatically mark the latest snapshot and its ancestors as removed and stops at the snapshot containing multiple children.
+This setting allows Longhorn file system trim feature to automatically mark the latest snapshot and its ancestors as removed and stops at the snapshot containing multiple children.
 
-Since Longhorn filesystem trim feature can be applied to the volume head and the followed continuous removed or system snapshots only.
+Since Longhorn file system trim feature can be applied to the volume head and the followed continuous removed or system snapshots only.
 
-Notice that trying to trim a removed files from a valid snapshot will do nothing but the filesystem will discard this kind of in-memory trimmable file info. Later on if you mark the snapshot as removed and want to retry the trim, you may need to unmount and remount the filesystem so that the filesystem can recollect the trimmable file info.
+Notice that trying to trim a removed files from a valid snapshot will do nothing but the file system will discard this kind of in-memory trimmable file info. Later on if you mark the snapshot as removed and want to retry the trim, you may need to unmount and remount the file system so that the file system can recollect the trimmable file info.
 
 See xref:volumes/trim-filesystem.adoc[Trim Filesystem] for details.
 
@@ -1131,9 +1144,11 @@ See xref:volumes/trim-filesystem.adoc[Trim Filesystem] for details.
 
 Percentage of the total allocatable CPU resources on each node to reserve for each instance manager pod. For example, a value of `10` means 10% of the total CPU on a node will be allocated to each instance manager pod on that node. This helps maintain engine and replica stability during periods of high node workload.
 
-In order to prevent unexpected volume instance (engine/replica) crash as well as guarantee a relative acceptable IO performance, you can use the following formula to calculate a value for this setting:
+To prevent unexpected volume instance (engine or replica) crash as well as guarantee a relative acceptable IO performance, you can use the following formula to calculate a value for this setting:
 
- Guaranteed Instance Manager CPU = The estimated max Longhorn volume engine and replica count on a node * 0.1 / The total allocatable CPUs on the node * 100.
+----
+Guaranteed Instance Manager CPU = The estimated max Longhorn volume engine and replica count on a node * 0.1 / The total allocatable CPUs on the node * 100.
+----
 
 The result of above calculation does not mean that is the maximum CPU resources the {longhorn-product-name} workloads require. To fully exploit the Longhorn volume input or output performance, you can allocate or guarantee more CPU resources via this setting.
 
@@ -1152,7 +1167,7 @@ If it is hard to estimate the usage now, you can leave it with the default value
 
 *Default value*: `false`
 
-When set to true, temporarily prevent all attempts to purge volume snapshots.
+When set to `true`, temporarily prevent all attempts to purge volume snapshots.
 
 {longhorn-product-name} typically purges snapshots during replica rebuilding and user-initiated snapshot deletion. While purging,
 {longhorn-product-name} coalesces unnecessary snapshots into their newer counterparts, freeing space consumed by historical data.
@@ -1164,7 +1179,46 @@ space. If insufficient disk space prevents the process from continuing, consider
 
 *Default value*: `false`
 
-When set to true, the snapshot used by the backup will be automatically cleaned up when the backup is deleted.
+When set to `true`, the snapshot used by the backup will be automatically cleaned up when the backup is deleted.
+
+=== Auto Cleanup Snapshot After On-Demand Backup Completed
+
+*Default value*: `false`
+
+When set to `true`, the snapshot used by the backup will be automatically cleaned up after the on-demand backup is completed.
+
+=== Engine Image Pod Liveness Probe Period
+
+*Default value*: `5`
+
+Interval (in seconds) between liveness probes for engine image pods.
+
+[WARNING]
+====
+Applying this setting causes {longhorn-product-name} to update existing engine image DaemonSets immediately.
+====
+
+=== Engine Image Pod Liveness Probe Timeout
+
+*Default value*: `4`
+
+Timeout (in seconds) for each liveness probe.
+
+[WARNING]
+====
+Applying this setting causes {longhorn-product-name} to update existing engine image DaemonSets immediately.
+====
+
+=== Engine Image Pod Liveness Probe Failure Threshold
+
+*Default value*: `3`
+
+Number of consecutive failed probes required to trigger a pod restart.
+
+[WARNING]
+====
+Applying this setting causes {longhorn-product-name} to update existing engine image DaemonSets immediately.
+====
 
 === Instance Manager Pod Liveness Probe Timeout
 
