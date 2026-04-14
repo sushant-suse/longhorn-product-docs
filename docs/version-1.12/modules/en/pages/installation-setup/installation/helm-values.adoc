@@ -1,5 +1,5 @@
 = Helm Values
-:revdate: 2026-01-30
+:revdate: 2026-04-14
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -257,6 +257,11 @@ The `values.yaml` file contains items used to tweak a deployment of this chart.
 | string
 | `nil`
 | Backing image to be used for creating and restoring volumes in a Longhorn StorageClass. When no backing images are available, specify the data source type and parameters that {longhorn-product-name} can use to create a backing image.
+
+| persistence.createStorageClass
+| bool
+| `true`
+| Setting that enables creation of the default Longhorn StorageClass ConfigMap. Set to `false` to skip the creation.
 
 | persistence.defaultClass
 | bool
