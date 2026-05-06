@@ -1,5 +1,5 @@
 = Helm Values
-:revdate: 2026-03-17
+:revdate: 2026-05-06
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -101,7 +101,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 
 | `image.csi.attacher.tag`
 | string
-| `"v4.10.0-20251226"`
+| `"v4.10.0-20260428"`
 | Tag for the CSI attacher image. When unspecified, {longhorn-product-name} uses the default value.
 
 | `image.csi.livenessProbe.registry`
@@ -116,7 +116,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 
 | `image.csi.livenessProbe.tag`
 | string
-| `"v2.17.0-20251226"`
+| `"v2.17.0-20260428"`
 | Tag for the CSI liveness probe image. When unspecified, {longhorn-product-name} uses the default value.
 
 | `image.csi.nodeDriverRegistrar.registry`
@@ -131,7 +131,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 
 | `image.csi.nodeDriverRegistrar.tag`
 | string
-| `"v2.15.0-20251226"`
+| `"v2.15.0-20260428"`
 | Tag for the CSI Node Driver Registrar image. When unspecified, {longhorn-product-name} uses the default value.
 
 | `image.csi.provisioner.registry`
@@ -146,7 +146,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 
 | `image.csi.provisioner.tag`
 | string
-| `"v5.3.0-20251226"`
+| `"v5.3.0-20260428"`
 | Tag for the CSI Provisioner image. When unspecified, {longhorn-product-name} uses the default value.
 
 | `image.csi.resizer.registry`
@@ -161,7 +161,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 
 | `image.csi.resizer.tag`
 | string
-| `"v2.0.0-20251226"`
+| `"v2.0.0-20260428"`
 | Tag for the CSI Resizer image. When unspecified, {longhorn-product-name} uses the default value.
 
 | `image.csi.snapshotter.registry`
@@ -176,7 +176,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 
 | `image.csi.snapshotter.tag`
 | string
-| `"v8.4.0-20251226"`
+| `"v8.4.0-20260428"`
 | Tag for the CSI Snapshotter image. When unspecified, {longhorn-product-name} uses the default value.
 
 | `image.longhorn.backingImageManager.registry`
@@ -191,7 +191,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 
 | `image.longhorn.backingImageManager.tag`
 | string
-| `"v1.11.0"`
+| `"v1.11.2"`
 | Tag for the Backing Image Manager image. When unspecified, {longhorn-product-name} uses the default value.
 
 | `image.longhorn.engine.registry`
@@ -206,7 +206,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 
 | `image.longhorn.engine.tag`
 | string
-| `"v1.11.0"`
+| `"v1.11.2"`
 | Tag for the Longhorn Engine image.
 
 | `image.longhorn.instanceManager.registry`
@@ -221,7 +221,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 
 | `image.longhorn.instanceManager.tag`
 | string
-| `"v1.11.0"`
+| `"v1.11.2"`
 | Tag for the Longhorn Instance Manager image.
 
 | `image.longhorn.manager.registry`
@@ -236,7 +236,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 
 | `image.longhorn.manager.tag`
 | string
-| `"v1.11.0"`
+| `"v1.11.2"`
 | Tag for the Longhorn Manager image.
 
 | `image.longhorn.shareManager.registry`
@@ -251,7 +251,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 
 | `image.longhorn.shareManager.tag`
 | string
-| `"v1.11.0"`
+| `"v1.11.2"`
 | Tag for the Longhorn Share Manager image.
 
 | `image.longhorn.supportBundleKit.registry`
@@ -266,7 +266,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 
 | `image.longhorn.supportBundleKit.tag`
 | string
-| `"v0.0.79"`
+| `"v0.0.84"`
 | Tag for the Longhorn Support Bundle Manager image.
 
 | `image.longhorn.ui.registry`
@@ -281,7 +281,7 @@ The `values.yaml` contains items used to tweak a deployment of this chart.
 
 | `image.longhorn.ui.tag`
 | string
-| `"v1.11.0"`
+| `"v1.11.2"`
 | Tag for the {longhorn-product-name} UI image.
 
 | `image.openshift.oauthProxy.registry`
@@ -902,8 +902,14 @@ During installation, you can either allow {longhorn-product-name} to use the def
 | `defaultSettings.createDefaultDiskLabeledNodes`
 | Setting that allows {longhorn-product-name} to automatically create a default disk only on nodes with the label "node.longhorn.io/create-default-disk=true" (if no other disks exist). When this setting is disabled, {longhorn-product-name} creates a default disk on each node that is added to the cluster.
 
+| `defaultSettings.csiAllowedTopologyKeys`
+| Comma-separated list of topology keys that the {longhorn-product-name} CSI driver is allowed to pass through. When empty (default), no topology keys are passed through, and PVs will have no nodeAffinity. When configured (for example, `"topology.kubernetes.io/zone,topology.kubernetes.io/region"`), only the specified keys are kept in topology segments. All other keys are filtered out from both `CreateVolumeResponse.AccessibleTopology` and `NodeGetInfo` topology.
+
+| `defaultSettings.csiStorageCapacityTracking`
+| Setting that controls CSI storage capacity tracking, which allows the kube-scheduler to filter nodes that cannot fit the requested volume.
+
 | `defaultSettings.dataEngineCPUMask`
-| Applies only to the V2 Data Engine. Specifies the CPU cores on which the Storage Performance Development Kit (SPDK) target daemon runs. The daemon is deployed in each Instance Manager pod. Ensure that the number of assigned cores does not exceed the guaranteed Instance Manager CPUs for the V2 Data Engine. The default value is "{"v2":"0x1"}".
+| Applies only to the V2 Data Engine. Specifies the CPU cores on which the Storage Performance Development Kit (SPDK) target daemon runs. The daemon is deployed in each Instance Manager pod. Ensure that the number of assigned cores does not exceed the guaranteed Instance Manager CPUs for the V2 Data Engine. The default value is `{"v2":"0x1"}`.
 
 | `defaultSettings.dataEngineHugepageEnabled`
 | Applies only to the V2 Data Engine. Enables hugepages for the Storage Performance Development Kit (SPDK) target daemon. If disabled, legacy memory is used. Allocation size is set via the Data Engine Memory Size setting.

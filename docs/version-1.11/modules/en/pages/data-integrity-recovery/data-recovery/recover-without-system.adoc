@@ -1,11 +1,11 @@
 = Recover from a {longhorn-product-name-tm} Backup without the System Installed
-:revdate: 2026-05-04
+:revdate: 2026-05-06
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 This command gives users the ability to restore a backup to a `raw` image or a `qcow2` image. If the backup is based on a backing file, users should provide the backing file as a `qcow2` image with `--backing file` parameter.
 
-. Copy the https://github.com/longhorn/longhorn/blob/v{patch-version}/examples/restore_to_file.yaml.template[yaml template]: Make a copy of `examples/restore_to_file.yaml.template`, for example `restore.yaml`. 
+. Copy the https://github.com/longhorn/longhorn/blob/v{current-version}.x/examples/restore_to_file.yaml.template[yaml template]: Make a copy of `examples/restore_to_file.yaml.template`, for example `restore.yaml`. 
 . Set the node which the output file should be placed on by replacing `<NODE_NAME>`, for example `node1`.
 . Specify the host path of output file by modifying field `hostpath` of volume `disk-directory`. By default the directory is `/tmp/restore/`.
 . Set the first argument (backup url) by replacing `<BACKUP_URL>`, for example `s3://<your-bucket-name>@<your-aws-region>/backupstore?backup=<backup-name>&volume=<volume-name>`.
@@ -34,7 +34,7 @@ kubectl -n longhorn-system get pod restore-to-file -w
 ----
 After the pod status changed to `Completed`, you should able to find `<OUTPUT_FILE>` at `/tmp/restore` on the `<NODE_NAME>`.
 
-We also provide a script, https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/restore-backup-to-file.sh[restore-backup-to-file.sh], to restore a backup. The following parameters should be specified:
+We also provide a script, https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}.x/scripts/restore-backup-to-file.sh[restore-backup-to-file.sh], to restore a backup. The following parameters should be specified:
 
 * `--backup-url`: Specifies the backups S3/NFS URL. For example, `s3://backupbucket@us-east-1/backupstore?backup=backup-bd326da2c4414b02&volume=volumeexamplename"`
 * `--output-file`: Set the output file name. For example, `volume.raw`
