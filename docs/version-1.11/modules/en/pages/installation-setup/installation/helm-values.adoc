@@ -1,5 +1,5 @@
 = Helm Values
-:revdate: 2026-03-17
+:revdate: 2026-05-06
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -902,8 +902,14 @@ During installation, you can either allow {longhorn-product-name} to use the def
 | `defaultSettings.createDefaultDiskLabeledNodes`
 | Setting that allows {longhorn-product-name} to automatically create a default disk only on nodes with the label "node.longhorn.io/create-default-disk=true" (if no other disks exist). When this setting is disabled, {longhorn-product-name} creates a default disk on each node that is added to the cluster.
 
+| `defaultSettings.csiAllowedTopologyKeys`
+| Comma-separated list of topology keys that the {longhorn-product-name} CSI driver is allowed to pass through. When empty (default), no topology keys are passed through, and PVs will have no nodeAffinity. When configured (for example, `"topology.kubernetes.io/zone,topology.kubernetes.io/region"`), only the specified keys are kept in topology segments. All other keys are filtered out from both `CreateVolumeResponse.AccessibleTopology` and `NodeGetInfo` topology.
+
+| `defaultSettings.csiStorageCapacityTracking`
+| Setting that controls CSI storage capacity tracking, which allows the kube-scheduler to filter nodes that cannot fit the requested volume.
+
 | `defaultSettings.dataEngineCPUMask`
-| Applies only to the V2 Data Engine. Specifies the CPU cores on which the Storage Performance Development Kit (SPDK) target daemon runs. The daemon is deployed in each Instance Manager pod. Ensure that the number of assigned cores does not exceed the guaranteed Instance Manager CPUs for the V2 Data Engine. The default value is "{"v2":"0x1"}".
+| Applies only to the V2 Data Engine. Specifies the CPU cores on which the Storage Performance Development Kit (SPDK) target daemon runs. The daemon is deployed in each Instance Manager pod. Ensure that the number of assigned cores does not exceed the guaranteed Instance Manager CPUs for the V2 Data Engine. The default value is `{"v2":"0x1"}`.
 
 | `defaultSettings.dataEngineHugepageEnabled`
 | Applies only to the V2 Data Engine. Enables hugepages for the Storage Performance Development Kit (SPDK) target daemon. If disabled, legacy memory is used. Allocation size is set via the Data Engine Memory Size setting.
