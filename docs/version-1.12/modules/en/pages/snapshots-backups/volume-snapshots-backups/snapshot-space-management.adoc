@@ -22,7 +22,7 @@ When you create a volume without changing the default value of `.Spec.SnapshotMa
 
 You must specify a value between "2" and "250". The default value is "100".
 
-When the number of snapshots on a volume reaches this threshold, {longhorn-product-name} sets the `TooManySnapshots` condition. This threshold is independent of the hard limit enforced by `snapshot-max-count`. See <<count-based-threshold, Count-Based Threshold>>.
+When the number of snapshots on a volume reaches this threshold, {longhorn-product-name} sets the `TooManySnapshots` condition. This threshold is independent of the hard limit enforced by `snapshot-max-count`. See xref:#count-based-threshold[Count-Based Threshold].
 
 === Volume-Specific Settings
 
@@ -32,7 +32,7 @@ You can specify "0" or any value between "2" and "250". The default value is "0"
 
 When you create a volume without changing the default value of this setting, {longhorn-product-name} applies the value of the `snapshot-max-count` setting.
 
-This value also serves as the upper bound for the `TooManySnapshots` condition when the value is greater than 0. See <<toomanysnapshots-condition, TooManySnapshots Condition>>.
+This value also serves as the upper bound for the `TooManySnapshots` condition when the value is greater than 0. See xref:#toomanysnapshots-condition[TooManySnapshots Condition].
 
 *SnapshotMaxSize*: Maximum aggregate size of snapshots for a specific volume.
 
@@ -42,8 +42,9 @@ The default value is "0", which effectively disables the setting.
 
 When you expand the volume size, {longhorn-product-name} automatically increases the value of this setting to `Volume.Spec.Size` multiplied by 2 (if the current value is smaller).
 
-When `SnapshotMaxSize` is set to a non-zero value, {longhorn-product-name} also uses it as the threshold for the `TooManySnapshots` condition. See <<toomanysnapshots-condition, TooManySnapshots Condition>>.
+When `SnapshotMaxSize` is set to a non-zero value, {longhorn-product-name} also uses it as the threshold for the `TooManySnapshots` condition. See xref:#toomanysnapshots-condition[TooManySnapshots Condition].
 
+[#toomanysnapshots-condition]
 == TooManySnapshots Condition
 
 {longhorn-product-name} sets the `TooManySnapshots` volume condition when snapshot usage approaches or exceeds the configured limits. The condition is evaluated against two independent thresholds.
@@ -53,6 +54,7 @@ When `SnapshotMaxSize` is set to a non-zero value, {longhorn-product-name} also 
 Removed snapshots, backing images, and the volume head are excluded from both calculations.
 ====
 
+[#count-based-threshold]
 === Count-Based Threshold
 
 The condition is set when the number of snapshots reaches or exceeds the effective count threshold.
