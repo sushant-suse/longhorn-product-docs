@@ -48,6 +48,18 @@ When you upgrade with Helm or the Rancher App Marketplace, {longhorn-product-nam
 
 For more details, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrading Longhorn Manager].
 
+[#dual-stack-cluster-support]
+=== Dual-Stack Cluster Support
+
+{longhorn-product-name} supports dual-stack Kubernetes clusters under a limited condition: all nodes must be configured with their IP families in the same order (either all IPv4-first, or all IPv6-first). When the order is consistent, {longhorn-product-name} uses the first IP family of each node and operates correctly. This applies to both the V1 and V2 data engines.
+
+[WARNING]
+====
+Dual-stack clusters with mixed IP family ordering across nodes are not supported and may result in connectivity failures between replicas and the engine.
+====
+
+For details, see https://github.com/longhorn/longhorn/issues/11531[Issue #11531].
+
 === Manual Checks Before Upgrade
 
 Automated pre-upgrade checks does not cover all scenarios. A manual check is recommended using `kubectl` or the {longhorn-product-name} UI.
@@ -153,12 +165,7 @@ For more information, see https://github.com/longhorn/longhorn/issues/12153[Issu
 
 === IPv6 Support
 
-V2 volumes now support single-stack IPv6 Kubernetes clusters.
-
-[WARNING]
-====
-Dual-stack Kubernetes clusters are not supported in this release.
-====
+V2 volumes now support single-stack IPv6 Kubernetes clusters. For dual-stack cluster support and its limitations, see xref:important-notes.adoc#dual-stack-cluster-support[Dual-Stack Cluster Support].
 
 For details, see https://github.com/longhorn/longhorn/issues/10928[Issue #10928].
 
