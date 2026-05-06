@@ -1,5 +1,5 @@
 = Settings
-:revdate: 2026-04-14
+:revdate: 2026-05-06
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -588,6 +588,18 @@ The default the number of queues for Ublk front-end. This setting applies to vol
 
 This setting controls whether {longhorn-product-name} monitors and records health information for node disks. When this setting is disabled, disk health checks and status updates are skipped.
 
+=== CSI Storage Capacity Tracking
+
+*Default value*: `false`
+
+Controls CSI storage capacity tracking, which allows the kube-scheduler to filter nodes that cannot fit the requested volume.
+
+=== Kubernetes Metrics Server Metrics Enabled
+
+*Default value*: `true`
+
+Allows {longhorn-product-name} to query the Kubernetes Metrics Server (`'metrics.k8s.io'`) for pod and node resource usage.
+
 == Snapshot
 
 === Snapshot Data Integrity
@@ -622,6 +634,14 @@ Hashing snapshot disk files impacts the performance of the system. It is recomme
 *Default value*: `250`
 
 Maximum snapshot count for a volume. The value should be between 2 to 250.
+
+=== Snapshot Count Warning Threshold
+
+*Default value*: `100`
+
+Warning threshold for the count-based `TooManySnapshots` volume condition. The value should be between 2 to 250.
+
+When the number of snapshots on a volume reaches `min(snapshot-count-warning-threshold, SnapshotMaxCount)`, {longhorn-product-name} sets the `TooManySnapshots` condition. For more information, see xref:snapshots-backups/volume-snapshots-backups/snapshot-space-management.adoc#_toomanysnapshots_condition[Snapshot Space Management].
 
 === Freeze Filesystem For Snapshot
 
