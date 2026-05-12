@@ -1,5 +1,5 @@
 = Helm Values
-:revdate: 2026-01-30
+:revdate: 2026-05-10
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -687,6 +687,9 @@ During installation, you can either allow {longhorn-product-name} to use the def
 
 | defaultSettings.createDefaultDiskLabeledNodes
 | Setting that allows {longhorn-product-name} to automatically create a default disk only on nodes with the label "node.longhorn.io/create-default-disk=true" (if no other disks exist). When this setting is disabled, {longhorn-product-name} creates a default disk on each node that is added to the cluster.
+
+| defaultSettings.csiStorageCapacityTracking
+| Setting that controls CSI storage capacity tracking, which allows the kube-scheduler to filter nodes that cannot fit the requested volume.
 
 | defaultSettings.defaultDataLocality
 | Default data locality. A {longhorn-product-name} volume has data locality if a local replica of the volume exists on the same node as the pod that is using the volume.
