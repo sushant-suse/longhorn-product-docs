@@ -1,5 +1,5 @@
 = Configure a Backup Target
-:revdate: 2025-11-19
+:revdate: 2026-05-11
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -60,7 +60,7 @@ Starting with v1.8.0, you can use a new `ConfigMap` resource named `longhorn-def
 
 * `backup-target`: Endpoint used to access the default backupstore.
 * `backup-target-credential-secret`: Name of the Kubernetes secret associated with the default backup target.
-* `backupstore-poll-interval`: Number of seconds that Longhorn waits before checking the default backupstore for new backups.
+* `backupstore-poll-interval`: Number of seconds that {longhorn-product-name} waits before checking the default backupstore for new backups.
 
 [,yaml]
 ----
@@ -172,7 +172,7 @@ https://github.com/jtblin/kube2iam[kube2iam] or https://github.com/uswitch/kiam[
 }
 ----
 
- .. Create a Kubernetes secret with a name such as `aws-secret` in the namespace where Longhorn is placed (`longhorn-system` by default). The secret must be created in the `longhorn-system` namespace for {longhorn-product-name} to access it:
+ .. Create a Kubernetes secret with a name such as `aws-secret` in the namespace where {longhorn-product-name} is placed (`longhorn-system` by default). The secret must be created in the `longhorn-system` namespace for {longhorn-product-name} to access it:
 +
 [subs="+attributes",shell]
 ----
@@ -426,19 +426,31 @@ Example:
 nfs://longhorn-test-nfs-svc.default:/opt/backupstore
 ----
 
-The default mount options are `actimeo=1,soft,timeo=300,retry=2`.  To use other options, append the keyword "nfsOptions" and the options string to the target URL.
+*Result*: {longhorn-product-name} can store backups in NFS. To create a backup, see xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[this section].
+
+If `nfsOptions` is not set, {longhorn-product-name} uses the default mount options `actimeo=1,soft,timeo=300,retry=2`.
+
+To use custom mount options, append the `nfsOptions` query parameter to the target URL.
 
 Example:
 
 ----
-nfs://longhorn-test-nfs-svc.default:/opt/backupstore?nfsOptions=soft,timeo=330,retrans=3
+nfs://longhorn-test-nfs-svc.default:/opt/backupstore?nfsOptions=rw,nolock
 ----
 
-Any mount options that you specify will replace, not add to, the default options.
+When `nfsOptions` is specified, {longhorn-product-name} adjusts the options to ensure NFS operations fail instead of hanging indefinitely when the NFS service is unstable:
 
-You can find an example NFS backupstore for testing purpose https://github.com/longhorn/longhorn/blob/v{patch-version}/deploy/backupstores/nfs-backupstore.yaml[here].
+* `hard` is removed if present.
+* `soft` is added if absent.
+* `timeo` and `retry` are added with their default values (`timeo=300`, `retry=2`) only if you have not specified them. Custom values are preserved.
 
-*Result*: {longhorn-product-name} can store backups in NFS. To create a backup, see xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[this section].
+For example, `nfsOptions=rw,nolock` becomes `rw,nolock,soft,timeo=300,retry=2` after {longhorn-product-name} applies its defaults. To extend the timeout, you can override `timeo` explicitly:
+
+----
+nfs://longhorn-test-nfs-svc.default:/opt/backupstore?nfsOptions=timeo=600
+----
+
+This results in `timeo=600,soft,retry=2`. The customized timeout is kept and the other defaults are filled in.
 
 == Set up SMB/CIFS Backupstore
 
