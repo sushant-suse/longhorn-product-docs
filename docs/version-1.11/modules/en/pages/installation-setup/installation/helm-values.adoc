@@ -1,5 +1,5 @@
 = Helm Values
-:revdate: 2026-05-06
+:revdate: 2026-05-14
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -993,7 +993,7 @@ During installation, you can either allow {longhorn-product-name} to use the def
 | Number of seconds that {longhorn-product-name} allows for the completion of replica rebuilding and snapshot cloning operations.
 
 | `defaultSettings.managerUrl`
-| The external URL used to access the Longhorn Manager API. When set, this URL is returned in API responses (the actions and links fields) instead of the internal pod IP. This is useful when accessing the API through Ingress or Gateway API HTTPRoute. Format: `scheme://host[:port]` (for example, `https://longhorn.example.com` or `https://longhorn.example.com:8443`). Leave it empty to use the default behavior.
+| The external URL used to access the Longhorn Manager API. When set, this URL is returned in API responses (the actions and links fields) instead of the internal pod IP. This is useful when accessing the API through Ingress or Gateway API HTTPRoute. Format: `scheme://host[:port]` (for example, `pass:[https://longhorn.example.com]` or `pass:[https://longhorn.example.com:8443]`). Leave it empty to use the default behavior.
 
 | `defaultSettings.nodeDiskHealthMonitoring`
 | Controls whether Longhorn monitors and records health information for node disks. When disabled, disk health checks and status updates are skipped.
@@ -1107,7 +1107,7 @@ During installation, you can either allow {longhorn-product-name} to use the def
 | Upgrade Checker that periodically checks for new {longhorn-product-name} versions. When a new version is available, a notification appears on the {longhorn-product-name} UI. This setting is enabled by default.
 
 | `defaultSettings.upgradeResponderURL`
-| The Upgrade Responder sends a notification whenever a new Longhorn version that you can upgrade to becomes available. The default value is `https://longhorn-upgrade-responder.rancher.io/v1/checkupgrade`.
+| The Upgrade Responder sends a notification whenever a new Longhorn version that you can upgrade to becomes available. The default value is `pass:[https://longhorn-upgrade-responder.rancher.io/v1/checkupgrade]`.
 
 | `defaultSettings.v1DataEngine`
 | Setting that allows you to enable the V1 Data Engine.
