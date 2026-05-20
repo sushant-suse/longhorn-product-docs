@@ -1,0 +1,250 @@
+= 创建定期快照或备份任务
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+在{longhorn-product-name}用户界面中，卷可以将定期快照和备份视为独立的定期作业或定期作业组。
+
+要创建定期作业，您可以在`Recurring Jobs`的页面{longhorn-product-name}和`Create Recurring Job`，或在{longhorn-product-name}的卷详细视图中进行操作。
+
+您可以配置，
+
+* 任务应属于的任何组
+* 调度类型，可以是`backup`、`backup-force-create`、`snapshot`、`snapshot-force-create`、`snapshot-cleanup`、`snapshot-delete`或`filesystem-trim`
+* 备份或快照创建的时间，格式为 https://en.wikipedia.org/wiki/Cron#CRON_expression[CRON表达式]
+* 要保留的备份或快照数量
+* 同时运行的任务数量
+* 应应用于备份或快照的任何标签
+* 应应用于备份的参数
+ ** `full-backup-interval`：在{longhorn-product-name}执行完整备份之前，必须完成的增量备份数量。此整数参数仅适用于备份。请注意，如果值为0，{longhorn-product-name}每次都会执行增量备份。有关更多信息，请参见<<_periodic_full_backup,定期完整备份>>和xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[创建备份]。
+
+可以使用{longhorn-product-name}用户界面、`kubectl`或通过使用{longhorn-product-name} `RecurringJob`来设置定期任务。
+
+要将定期任务添加到卷，您需要进入{longhorn-product-name}的卷详细视图。然后您可以设置`Recurring Jobs Schedule`。
+
+* 创建一个新的定期作业
+* 从现有的定期作业中选择
+* 从现有的定期作业组中选择
+
+然后{longhorn-product-name}将在定期作业安排的时间自动为卷创建快照或备份，只要卷附加到节点上。
+如果您希望在卷被分离时仍然设置定期快照和备份，请参见<<_allow_recurring_job_while_volume_is_detached,允许在卷分离时进行定期作业>>部分。
+
+您可以在 Longhorn 卷、Kubernetes 持久卷声明 (PVC) 或 Kubernetes 存储类上设置定期作业。
+
+[NOTE]
+====
+当 PVC 具有定期作业标签时，它们将覆盖关联卷的所有定期作业标签。
+====
+
+有关快照和备份工作原理的更多信息，请参阅xref:introduction/concepts.adoc[概念]部分。
+
+[NOTE]
+====
+为了避免定期作业在卷长时间没有新数据时可能用相同的备份和空快照覆盖旧备份/快照的问题，Longhorn 采取了以下措施：
+
+. 定期备份作业仅在卷自上次备份以来有新数据时才会进行新的备份。
+. 定期快照作业仅在卷头（实时数据）中有新数据时才会进行新的快照。
+====
+
+== 设置定期作业
+
+=== 使用{longhorn-product-name}用户界面
+
+可以从`Recurring Job`页面或卷详细信息页面配置定期快照和备份。
+
+=== 使用清单
+
+您还可以通过直接与 Longhorn RecurringJob 自定义资源交互来配置定期作业。
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: snapshot-1
+  namespace: longhorn-system
+spec:
+  cron: "* * * * *"
+  task: "snapshot"
+  groups:
+  - default
+  - group1
+  retain: 1
+  concurrency: 2
+  labels:
+    label/1: a
+    label/2: b
+----
+
+每个定期作业选择器应指定以下参数：
+
+* `name`：定期作业的名称。请勿使用重复的名称。并且`name`的长度不得超过 40 个字符。
+* `task`：作业类型。{longhorn-product-name} 支持以下类型：
+ ** `backup`：定期创建快照，然后在清理过时快照后进行备份
+ ** `backup-force-create`: 定期创建快照，然后进行备份
+ ** `snapshot`: 定期在清理过时快照后创建快照
+ ** `snapshot-force-create`: 定期创建快照
+ ** `snapshot-cleanup`: 定期清除可移除快照和系统快照
++
+NOTE: 保留值对该任务没有影响，{longhorn-product-name} 会自动将 `retain` 值变更为 0。
+
+ ** `snapshot-delete`: 定期去除和清除所有超过保留计数的快照。
++
+[NOTE]
+====
+`retain` 值与每个定期作业是独立的。
+
+以一个有 2 个定期作业的卷为例：
+
+* `snapshot` 的保留值设置为 5
+* `snapshot-delete`: 保留值设置为 2
+
+最终，在完整执行 `snapshot-delete` 任务后，将保留 2 个快照。
+====
+
+ ** `filesystem-trim`: 定期修剪文件系统以回收磁盘空间
+* `cron`：Cron 表达式。它指示作业的执行时间。
+* `retain`：{longhorn-product-name} 将为每个卷作业保留多少个快照/备份。它应该不少于 1。
+* `concurrency`：并发运行的作业数量。它应该不少于 1。
+
+可以指定可选参数：
+
+* `groups`：作业应属于的任何组。在组中拥有 `default` 将自动将此定期作业调度到任何没有定期作业的卷。
+* `labels`：任何应应用于备份或快照的标签。
+
+== 将定期作业添加到默认组
+
+可以通过勾选复选框 `default` 使用用户界面或将 `default` 添加到定期作业 `groups` 来设置默认定期作业。
+
+当卷没有定期作业时，{longhorn-product-name} 将自动将卷添加到 `default` 组。
+
+== 删除定期作业
+
+当相应的 RecurringJob 自定义资源被删除时，{longhorn-product-name} 会自动去除卷和 PVC 的定期作业标签。然而，如果在没有现有 RecurringJob 自定义资源的情况下添加了定期作业标签，{longhorn-product-name} 不会对该标签执行清理过程。
+
+== 将定期作业应用于 {longhorn-product-name} 卷
+
+=== 使用{longhorn-product-name}用户界面
+
+定期作业可以在卷详细信息页面上分配。要导航到卷详细信息页面，请点击 *卷* 然后点击卷的名称。
+
+== 使用 kubectl
+
+添加定期作业组：
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job-group.longhorn.io/<RECURRING-JOB-GROUP-NAME≥enabled
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job-group.longhorn.io/default=enabled
+----
+
+添加定期作业：
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job.longhorn.io/<RECURRING-JOB-NAME≥enabled
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job.longhorn.io/backup=enabled
+----
+
+去除定期作业：
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> <RECURRING-JOB-LABEL>-
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job.longhorn.io/backup-
+----
+
+== 使用 kubectl 的 PersistentVolumeClaim
+
+默认情况下，将定期作业应用于持久卷声明 (PVC) 不会产生任何效果。您可以使用定期作业源标签启用或禁用此功能。
+
+一旦 PVC 被标记为源，任何从 PVC 添加或去除的定期作业标签将由 {longhorn-product-name} 定期同步到相关的卷。
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job.longhorn.io/source=enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/source=enabled
+----
+
+添加定期作业组：
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job-group.longhorn.io/<RECURRING-JOB-GROUP-NAME≥enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job-group.longhorn.io/default=enabled
+----
+
+添加定期作业：
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job.longhorn.io/<RECURRING-JOB-NAME≥enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/backup=enabled
+----
+
+去除定期作业：
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> <RECURRING-JOB-LABEL>-
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/backup-
+----
+
+== 使用 StorageClass 参数
+
+定期作业分配可以在 StorageClass 的 `recurringJobSelector` 参数中配置。
+
+使用此存储类创建的任何未来卷将自动分配这些定期作业。
+
+`recurringJobSelector` 字段应遵循 JSON 格式：
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  recurringJobSelector: '[
+    {
+      "name":"snap",
+      "isGroup":true
+    },
+    {
+      "name":"backup",
+      "isGroup":false
+    }
+  ]'
+----
+
+每个定期作业选择器应指定以下参数：
+
+. `name`：现有定期作业或现有定期作业组的名称。
+. `isGroup`：是属于定期作业或定期作业组的名称，可以是 `true` 或 `false`。
+
+== 在卷分离时允许定期作业
+
+{longhorn-product-name} 提供设置 `allow-recurring-job-while-volume-detached`，允许您在卷分离时进行定期备份。
+您可以在 {longhorn-product-name} 界面中找到该设置。
+
+当启用该设置时，{longhorn-product-name} 将在进行定期快照/备份时自动附加卷并进行快照/备份。
+
+请注意，在卷自动附加期间，卷尚未准备好进行工作负载。工作负载必须等待直到定期作业完成。
+
+== 定期全量备份
+
+{longhorn-product-name} 默认执行增量备份，这意味着仅上传自上次备份以来更改的数据。然而，当备份存储中的数据块损坏时，{longhorn-product-name} 在后续备份操作中不会用健康的数据块替换该数据块。备份存储中的损坏数据块可能导致恢复操作失败。
+当设置非零 `full-backup-interval` 参数时，{longhorn-product-name} 每进行 `full-backup-interval` 次增量备份执行一次全量备份。在全量备份期间，{longhorn-product-name} 上传卷中的所有数据块。备份存储中存在的数据块，包括损坏的数据块，将被覆盖。
+
+IMPORTANT: 执行全量备份可能比默认的增量备份花费更长时间，并产生更高的网络吞吐量和成本。

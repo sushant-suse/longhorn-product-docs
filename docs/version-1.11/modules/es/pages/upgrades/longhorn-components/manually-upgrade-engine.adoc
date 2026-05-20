@@ -1,0 +1,42 @@
+= Actualiza manualmente el Longhorn Engine
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Puedes actualizar manualmente el Longhorn Engine utilizando la interfaz de usuario de Longhorn.
+
+== Requisitos previos
+
+Siempre haz copias de seguridad antes de actualizar las imágenes del Longhorn Engine.
+
+Actualiza el Longhorn Manager antes de actualizar el Longhorn Engine.
+
+== Actualización fuera de línea
+
+Sigue estos pasos si la actualización en vivo no está disponible, o si el volumen está atascado en estado degradado:
+
+. Sigue xref:data-integrity-recovery/disaster-recovery-volumes.adoc[el procedimiento de separación para las cargas de trabajo relevantes].
+. Selecciona todos los volúmenes utilizando la selección por lotes. Haz clic en el botón de operación por lotes *Actualizar Longhorn Engine*, y elige la imagen del Longhorn Engine disponible en la lista. Es el Longhorn Engine predeterminado que se envía con el Longhorn Manager para esta versión.
+. Reanuda todas las cargas de trabajo. Cualquier volumen que no forme parte de una carga de trabajo de Kubernetes debe ser adjuntado desde la interfaz de usuario de Longhorn.
+
+== Actualización en vivo
+
+{longhorn-product-name} v1.8.x a v{current-version} soporta actualizaciones en vivo de Longhorn Engine.
+
+El `iSCSI` frontend no soporta actualizaciones en vivo.
+
+La actualización en vivo solo debe realizarse con volúmenes saludables.
+
+. Selecciona el volumen que deseas actualizar.
+. Haz clic en `Upgrade Engine` en el menú desplegable.
+. Selecciona la imagen del Longhorn Engine a la que deseas actualizar.
+ .. Normalmente es la única imagen de Longhorn Engine en la lista, ya que la interfaz de usuario excluye la imagen actual.
+. Haga clic en Aceptar.
+
+Durante la actualización en vivo, el usuario verá temporalmente el doble de réplicas. Después de que la actualización se complete, el usuario debería ver el mismo número de réplicas que antes, y el campo `Engine Image` del volumen debería estar actualizado.
+
+Ten en cuenta que, después de la actualización en vivo, Rancher o Kubernetes seguirán mostrando la versión antigua de la imagen de Longhorn Engine, y la nueva versión para las réplicas. Es lo esperado. La actualización es exitosa si ves la nueva versión de la imagen listada como la imagen del volumen en la página de Detalles del Volumen.
+
+== Limpia la imagen antigua.
+
+Después de que hayas realizado la actualización de todas las imágenes, selecciona `Settings/Engine Image` desde la interfaz de usuario de Longhorn. Ahora deberías poder eliminar la imagen no predeterminada.

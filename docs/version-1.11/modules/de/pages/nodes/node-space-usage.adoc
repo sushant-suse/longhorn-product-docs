@@ -1,0 +1,61 @@
+= Knoten-Speicherplatznutzung
+:revdate: 2025-11-19
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Speicherplatznutzung des gesamten Clusters
+
+Auf der `Dashboard` Seite zeigt {longhorn-product-name} Ihnen die Informationen zur Cluster-Speicherplatznutzung an:
+
+image::screenshots/volumes-and-nodes/space-usage-info-dashboard-page.png[Bild]
+
+`Schedulable`: Der tatsächliche Speicherplatz, der für die Planung von Longhorn-Volumes verwendet werden kann.
+
+`Reserved`: Der Speicherplatz, der für andere Anwendungen und das System reserviert ist.
+
+`Used`: Der tatsächliche Speicherplatz, der vom Longhorn-System und anderen Anwendungen verwendet wurde.
+
+`Disabled`: Der gesamte Speicherplatz der Festplatten/Knoten, auf denen die Planung von Longhorn-Volumes nicht erlaubt ist.
+
+== Speicherplatznutzung pro Knoten
+
+Auf der `Nodes` Seite zeigt {longhorn-product-name} die Speicherzuweisung, Planung und Nutzungsdaten für jeden Knoten an:
+
+image::screenshots/volumes-and-nodes/space-usage-info-node-page.png[Bild]
+
+`Size`: Der *maximal tatsächlich verfügbare Speicherplatz*, der von Longhorn-Volumes verwendet werden kann. Er entspricht dem gesamten Speicherplatz der Festplatte des Knotens abzüglich des reservierten Speicherplatzes.
+
+`Allocated`: Die linke Zahl zeigt die Größe, die für die *Planung von Volumes* verwendet wurde, und bedeutet nicht, dass der Speicherplatz für den Longhorn-Volume-Datenspeicher verwendet wurde. Die rechte Zahl entspricht der *maximalen* Größe für die Planung von Volumes, die sich aus der Multiplikation von `Size` mit `Storage Over Provisioning Percentage` ergibt. (In der obigen Abbildung ist `Storage Over Provisioning Percentage` 500.) Daher bestimmt der Unterschied zwischen den 2 Zahlen (nennen wir es den zuweisbaren Speicherplatz), ob eine Volume-Replik auf diesem Knoten geplant werden kann.
+
+`Used`: Der linke Teil zeigt den derzeit verwendeten Speicherplatz dieses Knotens an. Die gesamte Leiste zeigt den gesamten Speicherplatz des Knotens an.
+
+Beachten Sie, dass der zuweisbare Speicherplatz größer sein kann als der tatsächlich verfügbare Speicherplatz des Knotens, wenn `Storage Over Provisioning Percentage` auf einen Wert größer als 100 gesetzt wird. Wenn die Volumes stark genutzt werden und viele historische Daten in den Volume-Snapshots gespeichert werden, seien Sie vorsichtig bei der Verwendung eines großen Wertes für diese Einstellung. Für weitere Informationen zur Einstellung finden Sie Details unter xref:longhorn-system/settings.adoc#_storage_over_provisioning_percentage[hier].
+
+=== Status der Festplattenplanbarkeit und Fehlermeldung
+
+Wenn eine Festplatte *nicht planbar* wird, zeigt {longhorn-product-name} den zugrunde liegenden Grund direkt in der Benutzeroberfläche an.
+Auf der Seite *Knoten*, wenn der interne `Schedulable` Zustand der Festplatte `False` ist, zeigt die Benutzeroberfläche die genaue Nachricht von `node.diskStatus[x].conditions[Schedulable]` an.
+Diese Informationen sind entscheidend für die Diagnose von Problemen im Zusammenhang mit Speichergrenzen oder Überprovisionierung.
+
+*Beispiel für eine Fehlermeldung*:
+
+[,bash]
+----
+Disk default-disk-1030100000000 (/var/lib/longhorn/) on the node ip-192-168-203-144.ap-southeast-1.compute.internal is not schedulable for more replica; Scheduling space condition failed: ScheduledTotal = 4294967296 (Size + StorageScheduled) is greater than ProvisionedLimit = -64504221696 (100% of StorageMax - StorageReserved).
+----
+
+*Wie man diese Nachricht interpretiert*:
+
+* *`ScheduledTotal`*: Der gesamte Speicherplatz, der derzeit für Replikate (sowohl bestehende als auch ausstehende) auf dieser Festplatte *geplant* ist.
++
+[NOTE]
+====
+Dies stellt nicht die tatsächliche Festplattennutzung dar.
+====
+
+* *`ProvisionedLimit`*: Die *maximal zulässige Planungskapazität* für diese Festplatte. Es leitet sich ab von:
+** physikalische Größe der Festplatte (`StorageMax`)
+** ihrem reservierten Speicher (`StorageReserved`)
+** multipliziert mit dem `Storage Over Provisioning Percentage` des Clusters
+
+Wenn `ScheduledTotal` `ProvisionedLimit` überschreitet, wird die Festplatte nicht planbar und akzeptiert keine neuen Replikate, bis die Festplattenkonfiguration oder die Cluster-Einstellungen angepasst werden.

@@ -1,0 +1,12 @@
+= Accès au système
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Conditions préalables pour l'accès et l'authentification
+
+Ces instructions supposent que {longhorn-product-name} est installé.
+
+Si vous avez installé le manifeste YAML de {longhorn-product-name}, vous devrez configurer un contrôleur Ingress pour permettre le trafic externe dans le cluster, et l'authentification ne sera pas activée par défaut. Cela s'applique aux installations Helm et kubectl. Pour des informations sur la création d'un contrôleur Ingress NGINX avec authentification de base, reportez-vous à xref:longhorn-system/system-access/create-ingress.adoc[cette section]. Alternativement, vous pouvez utiliser xref:longhorn-system/system-access/longhorn-httproute.adoc[Gateway API HTTPRoute] comme une approche moderne pour exposer l'interface utilisateur {longhorn-product-name}.
+
+Si {longhorn-product-name} a été installé en tant qu'appli de catalogue Rancher, Rancher a automatiquement créé un contrôleur Ingress pour vous avec un contrôle d'accès (le rancher-proxy).

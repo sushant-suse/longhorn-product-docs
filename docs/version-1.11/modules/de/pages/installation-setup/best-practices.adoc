@@ -1,0 +1,262 @@
+= Best Practices
+:revdate: 2026-02-03
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Das folgende Setup wird für Produktionsumgebungen empfohlen.
+
+== Mindestempfohlene Hardware
+
+* 3 Knoten
+* 4 vCPUs pro Knoten
+* 4 GiB pro Knoten
+* SSD/NVMe oder ein ähnliches leistungsstarkes Blockgerät auf dem Knoten für die Speicherung (empfohlen)
+* HDD/Spinning Disk oder ein ähnliches leistungsstarkes Blockgerät auf dem Knoten für die Speicherung (verifiziert)
+ ** 500/250 max IOPS pro Volume (1 MiB I/O)
+ ** 500/250 max Durchsatz pro Volume (MiB/s)
+
+[WARNING]
+====
+Während {longhorn-product-name} mit HDDs (spinning disks) als Speicher funktionieren kann, ist es wichtig zu verstehen, dass *Latenz* eine viel wichtigere Rolle für die Stabilität des Volumes spielt als IOPS oder Durchsatz. Das liegt daran, dass HDDs mechanisch sind und auf rotierenden Platten und beweglichen Lese- oder Schreibköpfen basieren, um auf Daten zuzugreifen. Diese physische Bewegung führt zu inhärenten Verzögerungen (Suchzeit und Rotationsverzögerung), was zu einer viel höheren Latenz im Vergleich zu SSDs oder NVMe-Laufwerken führt, die Flash-Speicher nutzen und keine beweglichen Teile haben. Dies kann direkt zu Instabilität führen, insbesondere wenn mehrere I/O-intensive Aufgaben gleichzeitig ausgeführt werden, wie zum Beispiel:
+
+* Vordergrund-IOs zu den Replikaten
+* Vordergrund-IOs von den Replikaten
+* Wiederherstellung von Volumes
+* Backups oder andere Arbeitslasten
+
+Die erhöhte Latenz aufgrund der Verwendung von HDDs, kombiniert mit anderen I/O-Arbeitslasten, kann zu *Volumeninstabilität* führen. Daher empfehlen wir *SSD oder NVMe* Laufwerke für bessere Leistung und Stabilität, insbesondere für Produktionsarbeitslasten.
+
+Die genannten IOPS und der Durchsatz (500/250 max IOPS pro Volume und 500/250 max Durchsatz pro Volume) sind als allgemeine Referenzen, basierend auf dem Test-Setup, gedacht, sollten jedoch *nicht als feste Anforderungen betrachtet werden*. Latenz, nicht nur Durchsatz, ist der wichtigste Faktor für die Gewährleistung der Systemstabilität.
+====
+
+== Architektur
+
+{longhorn-product-name} unterstützt die folgenden Architekturen:
+
+. AMD64
+. ARM64
+
+== Betriebssystem
+
+[NOTE]
+====
+CentOS Linux wurde von der untenstehenden Liste der verifizierten Betriebssysteme entfernt, da es zugunsten von CentOS Stream [https://www.redhat.com/en/blog/faq-centos-stream-updates#Q5[ref]] eingestellt wurde, einer Rolling-Release-Linux-Distribution. Die Tests für RHEL-basierte Downstream Open Source-Distributionen konzentrieren sich auf Unternehmensversionen wie Rocky Linux und Oracle Linux.
+====
+
+Die folgenden Linux-Betriebssystem-Distributionen und -Versionen wurden während der v{patch-version} Release-Tests verifiziert. Dies impliziert jedoch nicht, dass {longhorn-product-name} ausschließlich diese Distributionen unterstützt. {longhorn-product-name} sollte gut auf jedem zertifizierten Kubernetes-Cluster funktionieren, das auf Linux-Knoten mit einer Vielzahl von allgemeinen Betriebssystemen sowie verifizierten Container-optimierten Betriebssystemen wie SLE Micro läuft.
+
+|===
+| Anzahl | BS | Version
+
+| 1.
+| Ubuntu
+| 24.04
+
+| 2.
+| SUSE Linux Enterprise Server
+| 16
+
+| 3.
+| SUSE Linux Enterprise Micro
+| 6.1
+
+| 4.
+| Red Hat Enterprise Linux
+| 10.1
+|===
+
+{longhorn-product-name} ist stark von der Kernel-Funktionalität abhängig und funktioniert besser mit bestimmten Kernel-Versionen. Die folgenden Aktivitäten profitieren insbesondere von der Verwendung spezifischer Kernel-Versionen.
+
+* Optimierung oder Verbesserung des Dateisystems: Verwenden Sie einen Kernel mit der Version `v5.8` oder höher. Siehe https://github.com/longhorn/longhorn/issues/2507#issuecomment-857195496[Issue
+#2507] für Details.
+* Aktivierung der xref:longhorn-system/settings.adoc#_freeze_filesystem_for_snapshot[Freeze Filesystem for Snapshot] Einstellung: Verwenden Sie einen Kernel mit der Version `5.17` oder höher, um sicherzustellen, dass ein Volumenabsturz während eines Dateisystem-Freeze einen Knoten nicht blockieren kann.
+* Aktivierung des xref:longhorn-system/v2-data-engine/prerequisites.adoc[V2 Data Engine]: Verwenden Sie einen Kernel mit der Version `5.19` oder höher, um sicherzustellen,
+
+Die folgende Liste enthält bekannte fehlerhafte Kernel-Versionen, die Benutzer vermeiden sollten:
+
+|===
+| Anzahl | Version | Distro | Zusätzlicher Kontext
+
+| 1.
+| 6.5.6
+| Vanille-Kernel
+| In Bezug auf diesen Fehler https://longhorn.io/kb/troubleshooting-rwx-volume-fails-to-attached-caused-by-protocol-not-supported/
+
+| 2.
+| 5.15.0-94
+| Ubuntu
+| In Bezug auf diesen Fehler https://longhorn.io/kb/troubleshooting-rwx-volume-fails-to-attached-caused-by-protocol-not-supported/
+
+| 3.
+| 6.5.0-21
+| Ubuntu
+| In Bezug auf diesen Fehler https://longhorn.io/kb/troubleshooting-rwx-volume-fails-to-attached-caused-by-protocol-not-supported/
+
+| 4.
+| 6.5.0-1014-aws
+| Ubuntu
+| In Bezug auf diesen Fehler https://longhorn.io/kb/troubleshooting-rwx-volume-fails-to-attached-caused-by-protocol-not-supported/
+|===
+
+== Kubernetes
+
+=== Kubernetes Version
+
+Stellen Sie sicher, dass Ihr Cluster Kubernetes v1.21 oder höher ausführt, bevor Sie {longhorn-product-name} aktualisieren.
+
+Wir empfehlen, Ihren Kubernetes-Cluster auf einer der folgenden Versionen auszuführen. Diese Versionen sind die aktiven unterstützten Versionen vor der {longhorn-product-name}-Version und wurden mit {longhorn-product-name} v{patch-version} getestet.
+
+|===
+| Freigabe | Veröffentlicht | Ende der Lebensdauer
+
+| 1.35
+| 17. Dez. 2025
+| 28. Feb. 2027
+
+| 1.34
+| 27. Aug. 2025
+| 27. Okt. 2026
+
+| 1.33
+| 23. Apr. 2025
+| 28. Jun 2026
+
+| 1.32
+| 11. Dez. 2024
+| 28. Feb. 2026
+|===
+
+Verweist auf https://endoflife.date/kubernetes.
+
+=== CoreDNS-Setup
+
+Stellen Sie sicher, dass CoreDNS mit mindestens zwei Replikaten läuft, um eine hohe Verfügbarkeit aufrechtzuerhalten. Dieses Setup minimiert Unterbrechungen bei der DNS-Auflösung, wenn ein CoreDNS-Pod eine vorübergehende Störung erfährt.
+
+== Knoten- und Festplatten-Setup
+
+Wir empfehlen das folgende Setup für Knoten und Festplatten.
+
+=== Verwenden Sie eine dedizierte Festplatte
+
+Es wird empfohlen, eine Festplatte für die Speicherung von {longhorn-product-name} für die Produktion zu widmen, anstatt die Root-Festplatte zu verwenden.
+
+=== Minimal verfügbarer Speicher und Überprovisionierung
+
+Wenn Sie die Root-Festplatte verwenden müssen, verwenden Sie das Standard-Setup von `minimal available storage percentage`, das 25 % beträgt, und setzen Sie `overprovisioning percentage` auf 100 %, um die Wahrscheinlichkeit von DiskPressure zu minimieren.
+
+Wenn Sie eine dedizierte Festplatte für {longhorn-product-name} verwenden, können Sie die Einstellung `minimal available storage percentage` auf 10 % senken.
+
+Der Überprovisionierungsprozentsatz hängt davon ab, wie viel Speicherplatz Ihr Volume im Durchschnitt nutzt. Wenn Ihre Arbeitslast beispielsweise nur die Hälfte der verfügbaren Volumengröße nutzt, können Sie den Überprovisionierungsprozentsatz auf `200` setzen, was bedeutet, dass {longhorn-product-name} die Festplatte als doppelt so groß betrachtet, wie ihre volle Größe minus den reservierten Speicherplatz.
+
+=== Speicherplatzverwaltung
+
+Da {longhorn-product-name} derzeit keine Sharding zwischen den verschiedenen Festplatten unterstützt, empfehlen wir die Verwendung von https://en.wikipedia.org/wiki/Logical_Volume_Manager_(Linux)[LVM], um alle Festplatten für {longhorn-product-name} in einer einzigen Partition zu aggregieren, damit sie in Zukunft leicht erweitert werden kann.
+
+=== Einrichten zusätzlicher Festplatten
+
+Alle zusätzlichen Festplatten müssen in der `/etc/fstab`-Datei eingetragen werden, um eine automatische Montage nach dem Neustart der Maschine zu ermöglichen.
+
+Verwenden Sie keinen symbolischen Link für die zusätzlichen Festplatten. Verwenden Sie `mount --bind` anstelle von `ln -s` und stellen Sie sicher, dass es sich in der `fstab`-Datei befindet. Für Details siehe xref:nodes/multiple-disks.adoc#_use_an_alternative_path_for_a_disk_on_the_node[den Abschnitt über die Unterstützung mehrerer Festplatten.]
+
+=== Konfigurieren der Standardfestplatten vor und nach der Installation
+
+Um ein anderes Verzeichnis als das Standardverzeichnis `/var/lib/longhorn` für die Speicherung zu verwenden, kann die Einstellung `Default Data Path` vor der Installation des Systems geändert werden. Für Details zur Änderung der Voreinstellungen vor der Installation siehe xref:longhorn-system/customize-default-settings.adoc[diesen Abschnitt.]
+
+Die xref:nodes/default-disk-and-node-config.adoc[Standard-Knoten-/Festplattenkonfiguration] Funktion kann verwendet werden, um die Standardfestplatte nach der Installation anzupassen. Die Anpassung der Standardkonfigurationen für Festplatten und Knoten ist nützlich für die Skalierung des Clusters, da sie die Notwendigkeit beseitigt, {longhorn-product-name} manuell für jeden neuen Knoten zu konfigurieren, wenn der Knoten mehr als eine Festplatte enthält oder wenn die Festplattenkonfiguration für neue Knoten unterschiedlich ist. Denken Sie daran, `Create default disk only on labeled node` zu aktivieren, falls zutreffend.
+
+== Leistungsoptimierung von Volumes
+
+Stellen Sie vor der Konfiguration von Workloads sicher, dass Sie die folgenden grundlegenden Anforderungen für eine optimale Volumenleistung eingerichtet haben.
+
+* SATA/NVMe SSDs oder Festplatten mit ähnlicher Leistung
+* 10 Gbps Netzwerkbandbreite zwischen den Knoten
+* Dedizierte Prioritätsklasse für systemverwaltete und benutzerbereitgestellte {longhorn-product-name} Komponenten. Standardmäßig installiert {longhorn-product-name} die Standard-Prioritätsklasse `longhorn-critical`.
+
+Die folgenden Abschnitte skizzieren weitere Empfehlungen für Produktionsumgebungen.
+
+=== IO-Leistung
+
+* *Speichernetzwerk*: Verwenden Sie ein xref:longhorn-system/networking/storage-network.adoc#_setting_storage_network[dediziertes Speichernetzwerk], um die IO-Leistung und Stabilität zu verbessern.
+* *{longhorn-product-name} Festplatte*: Verwenden Sie eine xref:nodes/multiple-disks.adoc#_add_a_disk[dedizierte Festplatte] für {longhorn-product-name} Speicher anstelle der Root-Festplatte.
+* *Replikazahl*: Setzen Sie die xref:longhorn-system/settings.adoc#_default_replica_count[Standard-Replikazahl] auf "2", um die Datenverfügbarkeit mit besserer Festplattenspeichernutzung oder weniger Auswirkungen auf die Systemleistung zu erreichen. Diese Praxis ist besonders vorteilhaft für datenintensive Anwendungen.
+* *Speichermarke*: Verwenden Sie xref:nodes/storage-tags.adoc[Speichermarken], um die Speicherhierarchie für datenintensive Anwendungen zu definieren. Zum Beispiel können nur Hochleistungsfestplatten zum Speichern von leistungsintensiven Daten verwendet werden.
+* *Datenlokalität*: Verwenden Sie `best-effort` als die Standard-xref:high-availability/data-locality.adoc[Datenlokalität] der {longhorn-product-name} StorageClasses.
++
+Für Anwendungen, die Datenreplikation unterstützen (zum Beispiel eine verteilte Datenbank), können Sie die `strict-local` Option verwenden, um sicherzustellen, dass nur ein Replikat für jedes Volume erstellt wird. Diese Praxis verhindert die zusätzliche Nutzung von Speicherplatz und die IO-Leistungsüberlastung, die mit der Volumenreplikation verbunden sind.
++
+Für datenintensive Anwendungen können Sie Pod-Planungsfunktionen wie Knotenauswahl oder Taint-Toleranz verwenden. Diese Funktionen ermöglichen es Ihnen, die Arbeitslast auf einen bestimmten, mit einem Speicher-Tag versehenen Knoten zusammen mit einem Replikat zu planen.
+
+=== Raumeffizienz
+
+* *Wiederkehrende Snapshots*: Reinigen Sie regelmäßig systemgenerierte Snapshots und behalten Sie nur die Anzahl von Snapshots, die für Ihre Implementierung sinnvoll ist.
++
+Für Anwendungen mit Replikationsfähigkeit löschen Sie regelmäßig xref:introduction/concepts.adoc#_2_4_3_deleting_snapshots[alle Arten von Snapshots].
+
+* *Wiederkehrendes Dateisystem-Trimming*: Trimmen Sie regelmäßig xref:volumes/trim-filesystem.adoc[das Dateisystem] innerhalb von Volumes, um Speicherplatz zurückzugewinnen.
+* *Snapshot-Speicherverwaltung*: xref:snapshots-backups/volume-snapshots-backups/snapshot-space-management.adoc[Konfigurieren Sie globale und volumen-spezifische Einstellungen], um unerwartete Speicherplatzerschöpfung zu verhindern.
+
+=== Problembehebung
+
+* *Wiederkehrende Sicherungen*: Erstellen Sie xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[wiederkehrende Sicherungs-Jobs] für geschäftskritische Anwendungsvolumes.
+* *Systemsicherung*: Erstellen Sie regelmäßige xref:snapshots-backups/system-backups/create-system-backup.adoc#_create_a_longhorn_system_backup[Systemsicherungen].
+
+== Bereitstellung von Workloads
+
+Wenn Sie `ext4` als Dateisystem des Volumes verwenden, empfehlen wir, eine Liveness-Prüfung für Workloads hinzuzufügen, um automatisch von einer netzwerkbedingten Unterbrechung, einem Knotenneustart oder einem Docker-Neustart wiederherzustellen. Siehe xref:high-availability/volume-recovery.adoc[diesen Abschnitt] für Details.
+
+== Wartung von Volumes
+
+Die Verwendung der integrierten Backup-Funktion von {longhorn-product-name} wird dringend empfohlen. Sie können Backups in einem Objektspeicher wie S3 oder auf einem NFS-Server speichern. Das Speichern in einem Objektspeicher ist vorzuziehen, da es im Allgemeinen eine bessere Zuverlässigkeit bietet. Ein weiterer Vorteil ist, dass Sie das Ziel nicht einhängen und aushängen müssen, was Failover und Upgrades komplizieren kann.
+
+Planen Sie für jedes Volume mindestens eine wiederkehrende Sicherung. Wenn Sie {longhorn-product-name} in der Produktion ohne Sicherungsspeicher ausführen müssen, planen Sie mindestens einen wiederkehrenden Snapshot für jedes Volume.
+
+{longhorn-product-name} erstellt automatisch Snapshots, wenn ein Replica wiederhergestellt wird. Wiederkehrende Snapshots oder Sicherungen können auch automatisch den systemgenerierten Snapshot bereinigen.
+
+=== Garantierter Instanzmanager-CPU
+
+Wir empfehlen, die CPU-Anforderung für {longhorn-product-name} Instanzmanager-Pods festzulegen.
+
+=== V1 Daten-Engine
+
+Die `Guaranteed Instance Manager CPU` Einstellung ermöglicht es Ihnen, einen Prozentsatz der insgesamt zuweisbaren CPU-Ressourcen auf jedem Knoten für jeden Instanzmanager-Pod zu reservieren, wenn die V1 Daten-Engine aktiviert ist. Der Standardwert ist 12.
+
+Legen Sie einen bestimmten Milli-CPU-Wert für die Instanzmanager-Pods auf einem bestimmten Knoten fest, indem Sie das Feld für die CPU-Anforderung des Instanzmanagers für diesen Knoten aktualisieren.
+
+[NOTE]
+====
+Dieses Feld überschreibt die obige Einstellung für den angegebenen Knoten.
+====
+
+Verweisen Sie auf xref:longhorn-system/settings.adoc#_guaranteed_instance_manager_cpu[Garantierter Instanzmanager-CPU] für weitere Details.
+
+=== V2 Data Engine
+
+Die `Guaranteed Instance Manager CPU for V2 Data Engine` Einstellung ermöglicht es Ihnen, eine bestimmte Anzahl von Milli-CPUs auf jedem Knoten für jeden Instanzmanager-Pod zu reservieren, wenn die V2 Daten-Engine aktiviert ist. Standardmäßig verwendet der Storage Performance Development Kit (SPDK) Ziel-Daemon innerhalb jedes Instanz-Manager-Pods 1 CPU-Kernel. Die Konfiguration eines minimalen CPU-Nutzungswerts ist entscheidend für die Aufrechterhaltung der Stabilität von Engine und Replikaten, insbesondere während Zeiten hoher Knotenlast. Der Standardwert ist 1250.
+
+== StorageClass
+
+Vermeiden Sie es, die Standard-StorageClass mit dem Namen `longhorn` zu ändern. Änderungen an ihren Parametern können bei zukünftigen Upgrades Probleme verursachen. Um die in der StorageClass festgelegten Parameter zu ändern, können Sie eine neue StorageClass erstellen, indem Sie auf die xref:longhorn-system/examples-resources.adoc#_storageclass[StorageClass-Beispiele] verweisen.
+
+== Planungseinstellungen
+
+=== Replica-Knoten-Level Soft Anti-Affinität
+
+Empfehlung: `false`
+
+Diese Einstellung sollte in der Produktionsumgebung auf `false` gesetzt werden, um die beste Verfügbarkeit des Volumens sicherzustellen. Andernfalls kann ein Ausfallereignis eines Knotens mehr als ein Replikat eines Volumens zum Absturz bringen.
+
+=== Erlauben Sie die Erstellung von Volumen mit degradierter Verfügbarkeit
+
+Empfehlung: `false`
+
+Deaktivieren Sie diese Einstellung (`false`) in Produktionsumgebungen, um die maximale Verfügbarkeit des Volumens bei der Erstellung sicherzustellen. Wenn aktiviert (`true`), gelingt die Erstellung des Volumens, selbst wenn das System nur ein Replikat planen kann. Dies schafft ein Risiko, dass der Cluster ohne sofortige Benachrichtigung des Benutzers keinen Speicherplatz mehr hat.
+
+=== Replica Auto-Balance
+
+Empfehlung: `least-effort`
+
+Für Produktionsumgebungen empfehlen wir, die Replica Auto Balance auf `least-effort` einzustellen. Diese Einstellung stellt sicher, dass mindestens eine Replica auf einem anderen Knoten in jeder Zone platziert wird, was eine hohe Verfügbarkeit (HA) bietet.
+
+In bestimmten Grenzfällen könnten Sie in Erwägung ziehen, die `best-effort` zu verwenden, die kontinuierlich versucht, die Replikate gleichmäßig über Knoten und Zonen zu verteilen. Diese Einstellung kann jedoch zu häufigen Wiederaufbauten führen, wenn der Cluster instabil ist.
+
+Für die meisten Benutzer ist es ausreichend, mehrere Replikate ohne die Einstellung Replica Auto Balance zu haben, um eine grundlegende HA zu erreichen, insbesondere wenn Sie übermäßige Wiederaufbauten und Ressourcenverbrauch vermeiden möchten.

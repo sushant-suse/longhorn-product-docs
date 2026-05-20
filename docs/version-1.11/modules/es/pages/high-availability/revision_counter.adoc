@@ -1,0 +1,66 @@
+= Contador de Revisión
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+El contador de revisión es un mecanismo que {longhorn-product-name} utiliza para rastrear las actualizaciones de cada réplica.
+
+Durante la creación de la réplica, {longhorn-product-name} creará un archivo `revision.counter` con su contador inicial establecido en 0. Y por cada escritura en la réplica, el contador en el archivo `revision.counter` se incrementará en 1.
+
+El motor {longhorn-product-name} utiliza estos contadores como una heurística para lograr una consistencia de mejor esfuerzo entre las réplicas durante el inicio. Ten en cuenta que, debido a que las escrituras de IO en {longhorn-product-name} son paralelas, habilitar el contador de revisión no garantiza la consistencia de los datos. {longhorn-product-name} también utiliza estos contadores durante la auto-recuperación para identificar la réplica con la última actualización.
+
+Deshabilitar el Contador de Revisión es una opción en la que no se rastrea cada escritura en las réplicas. Cuando se utiliza esta configuración, se mejora el rendimiento. Esta opción puede ser útil si prefieres un rendimiento más alto y tienes una infraestructura de red estable (por ejemplo, una red interna) con suficientes recursos de CPU. Cuando el contador de revisión está deshabilitado, el Longhorn Engine omite la verificación del contador de revisión para todas las réplicas al inicio. Sin embargo, la auto-recuperación sigue funcionando porque {longhorn-product-name} puede utilizar el estado del archivo de cabecera de la réplica para identificar la réplica que se utilizará para la recuperación. Para más información sobre cómo funciona la auto-recuperación sin el contador de revisión, consulta <<_auto_salvage_support_with_revision_counter_disabled,Soporte de Auto-Recuperación con Contador de Revisión Deshabilitado>>.
+
+Por defecto, el contador de revisión está deshabilitado.
+
+[NOTE]
+====
+'Recuperación' es {longhorn-product-name} intentando recuperar un volumen en un estado de fallo. Un volumen está en un estado de fallo cuando el Longhorn Engine pierde la conexión con todas las réplicas, y todas las réplicas están marcadas como en un estado de error.
+====
+
+= Deshabilitar Contador de Revisión
+
+== Usando la interfaz de usuario de {longhorn-product-name}
+
+Para deshabilitar o habilitar el contador de revisión desde la interfaz de usuario de {longhorn-product-name}, haz clic en menu:Configuración[Deshabilitar Contador de Revisión].
+
+Para crear volúmenes individuales con configuraciones que están personalizadas en relación con las configuraciones generales, ve a la página *Volúmenes* y haz clic en *Crear Volumen*.
+
+== Usando un archivo de manifiesto
+
+Un `StorageClass` se puede personalizar para añadir un parámetro `disableRevisionCounter`.
+
+Por defecto, el `disableRevisionCounter` es falso, por lo que el contador de revisión está habilitado.
+
+Establece `disableRevisionCounter` en verdadero para deshabilitar el contador de revisión:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: best-effort-longhorn
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "1"
+  disableRevisionCounter: "true"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+----
+
+== Soporte de Auto-Recuperación con el contador de revisión deshabilitado.
+
+La lógica de la auto-recuperación es diferente cuando el contador de revisión está deshabilitado.
+
+Cuando el contador de revisión está habilitado y todas las réplicas en el volumen están en estado 'ERR', el controlador del Longhorn Engine estará en un estado de fallo, y para que el Longhorn Engine recupere el volumen, tomará la réplica con el mayor contador de revisión como 'Fuente de Verdad' para reconstruir el resto de las réplicas.
+
+Cuando el contador de revisión está deshabilitado en este caso, el controlador del Longhorn Engine obtendrá el `volume-head-xxx.img` tiempo de última modificación y el tamaño del archivo de cabecera de todas las réplicas. También realizará los siguientes pasos:
+
+. Identificar la réplica con la marca de tiempo de última modificación más reciente, basándose en el momento en que `volume-head-xxx.img` fue modificado por última vez.
+. Seleccionar todas las réplicas con la marca de tiempo de última modificación dentro de 5 segundos de la marca de tiempo de última modificación de la réplica anterior
+. De los candidatos a réplica del paso anterior, comparar el tamaño del archivo de cabecera de cada uno y elegir aquellos con el mayor tamaño de archivo.
+. De los candidatos a réplica del paso anterior, elegir la mejor réplica con la marca de tiempo de modificación más reciente
+. Cambiar la mejor réplica a modo 'RW', y las otras réplicas se marcan como modo 'ERR'. Las réplicas con errores se reconstruyen basándose en la mejor réplica.

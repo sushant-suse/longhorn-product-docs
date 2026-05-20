@@ -1,0 +1,28 @@
+= ボリューム条件
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== ボリューム条件
+
+ボリューム条件は、ボリュームの現在の状態と発生する可能性のある問題を説明します。
+
+* `Scheduled`:すべてのレプリカは正常にスケジュールされました。
+  Longhornがレプリカのいずれかをスケジュールできなかった場合、状態は`false`に設定され、エラーメッセージが表示されます。設定xref:longhorn-system/settings.adoc#_allow_volume_creation_with_degraded_availability[可用性が低下した状態でのボリューム作成を許可]が有効で、少なくとも1つのレプリカがスケジュールされている場合、状態は`true`に設定されます。
+* `TooManySnapshots`:この特定のボリュームには100以上のスナップショットがあります。
+  Longhornは各ボリュームに対して最大250のスナップショットを作成することを許可します。最大スナップショット数の設定に関する詳細は、xref:snapshots-backups/volume-snapshots-backups/snapshot-space-management.adoc[スナップショットスペース管理]を参照してください。
+* `Restore`:Longhornはバックアップからボリュームを復元しています。
+* `WaitForBackingImage`:レプリカは、バックイメージが最初にディスクとsyncされる必要があるため、開始されていません。
+* `OfflineRebuildingInProgress`:ボリュームはオフライン再構築を使用して再構築されています。
+
+== エンジン条件
+
+エンジン条件は、エンジンの現在の状態と発生する可能性のある問題を説明します。`FilesystemReadOnly`:現在のマウントポイントの状態が読み取り専用に変更されました。
+この変更により、ワークロードがボリュームにデータを書き込むことができなくなる可能性があります。トラブルシューティング情報については、xref:high-availability/volume-recovery.adoc[]を参照してください。
+
+== レプリカ条件
+
+レプリカ条件は、レプリカの現在の状態と発生する可能性のある問題を説明します。
+
+* `RebuildFailed`:レプリカの再構築に失敗しました。
+* `WaitForBackingImage`:レプリカは、バックイメージが最初にディスクとsyncされる必要があるため、開始されていません。

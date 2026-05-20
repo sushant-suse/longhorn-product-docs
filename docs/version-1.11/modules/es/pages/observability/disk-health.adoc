@@ -1,0 +1,54 @@
+= Monitorización de la salud del disco
+:revdate: 2025-11-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Métricas de salud del disco
+
+A partir de {longhorn-product-name} v1.11.0, las métricas de monitorización de la salud del disco están disponibles para los motores de datos V1 y V2. Estas métricas proporcionan información sobre el estado de salud del disco.
+
+[NOTE]
+====
+* {longhorn-product-name} recopila datos de salud cada 10 minutos.
+* Ciertos entornos virtualizados o en la nube (por ejemplo, AWS EBS) no exponen todos los datos SMART, lo que resulta en valores cero para ciertos atributos.
+* Los atributos de salud disponibles varían según el tipo de disco y el hardware.
+* El conjunto completo de datos de salud recopilados está disponible en los `nodes.longhorn.io` recursos personalizados (CRs).
+====
+
+=== Data sources (Orígenes de datos)
+
+* *Motor de datos V1*: Los datos de salud se recopilan utilizando la herramienta de monitorización SMART (`smartctl`).
+* *Motor de datos V2*:
+** *Discos NVMe*: Los datos de salud se obtienen a través de SPDK.
+** *Discos AIO*: Los datos de salud se recopilan utilizando la herramienta de monitorización SMART (`smartctl`).
+
+[NOTE]
+====
+Los datos de salud se obtienen de manera diferente según el tipo de disco:
+
+* Discos V1 y discos AIO V2: a través de SMART
+* Discos NVMe V2: a través de SPDK
+
+Los atributos y formatos disponibles varían según el tipo de disco y el hardware. Para obtener detalles:
+
+* Atributos SMART: https://www.smartmontools.org/wiki/TocDoc[documentación de smartmontools]
+* Datos de salud NVMe de SPDK: https://github.com/spdk/spdk/blob/v25.09/doc/jsonrpc.md.jinja2#L4805-L4856[`bdev_nvme_get_controller_health_info` JSON-RPC]
+====
+
+=== Atributos de salud
+
+La métrica `longhorn_disk_health_attribute_raw` expone valores de atributo en bruto con las siguientes etiquetas:
+
+* `attribute`: Nombre del atributo.
+* `attribute_id`: ID del atributo, cuando es proporcionado por el método de recopilación.
+* `disk`: Identificador del disco Longhorn.
+* `node`: Nombre del nodo.
+
+[NOTE]
+====
+Los datos SMART pueden no estar disponibles en todas las plataformas, especialmente en proveedores de nube. Si SMART no es compatible, las métricas de salud aparecen como `0`.
+====
+
+=== Referencias
+
+* Problema relacionado en GitHub https://github.com/longhorn/longhorn/issues/12016[#12016].

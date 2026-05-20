@@ -1,0 +1,156 @@
+= Crear una instantánea
+:revdate: 2026-01-08
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Una xref:introduction/concepts.adoc#_2_4_snapshots[instantánea] es el estado de un volumen de Kubernetes en un momento dado.
+
+== Gestión de instantáneas a través de la {longhorn-product-name} interfaz
+
+Para crear una instantánea de un clúster existente, sigue estos pasos:
+
+. En la barra de navegación superior de la {longhorn-product-name} interfaz, haz clic en *Volumen*.
+. Haz clic en el nombre del volumen para el que deseas crear una instantánea. Esto lleva a la página de detalles del volumen.
+. Haz clic en el botón *Tomar instantánea*.
+
+Una vez creada la instantánea, puedes verla en la lista de instantáneas para el volumen, antes de Volume Head.
+
+=== Comprender la visualización de la cadena de instantáneas
+
+En la página de *Detalles del Volumen*, la sección *Instantáneas y Copias de Seguridad* muestra el historial de instantáneas como una cadena. Por defecto, la opción *Mostrar Instantáneas del Sistema* está habilitada, y todas las instantáneas creadas por el sistema aparecen en la vista.
+
+Cada instantánea en la cadena está codificada por colores para indicar su tipo o estado. Si una instantánea cumple con múltiples criterios, la visualización utiliza el color con la mayor prioridad.
+
+[cols="1,1,2,1", options="header"]
+|===
+| Tipo de instantánea
+| Color
+| Descripción
+| Prioridad (1 = más alta)
+
+| configuración
+| Rojo
+| Indica que la creación de la instantánea falló o que la instantánea tiene un problema.
+| 1
+
+| Removed
+| Gris claro
+| Indica que la instantánea está marcada para eliminación o ha sido eliminada.
+| 2
+
+| Creado por el sistema
+| Naranja/Amarillo
+| Creado automáticamente por Longhorn, a menudo para trabajos recurrentes u operaciones internas.
+| 3
+
+| Copia de seguridad
+| Verde
+| Indica que la instantánea tiene una copia de seguridad almacenada en un destino de copia de seguridad configurado.
+| 4
+
+| Predeterminado (creado por el usuario)
+| Azul
+| Una instantánea iniciada por el usuario tomada manualmente con la acción *Tomar instantánea*.
+| 5
+|===
+
+La siguiente figura muestra un ejemplo de la visualización de la cadena de instantáneas:
+
+image::diagrams/snapshot/snapshot_volumes_page.png[Página de volumen de instantánea]
+
+== Gestión de instantáneas con recursos personalizados (CRs)
+
+Esta sección demuestra cómo crear, listar, restaurar y eliminar instantáneas de Longhorn directamente a través de `kubectl` utilizando los *Recursos Personalizados (CRs)* de {longhorn-product-name}.
+
+[NOTE]
+====
+{longhorn-product-name} utiliza su propio `Snapshot` CRD bajo el grupo de API `longhorn.io` (por ejemplo, `v1beta2`), no el `VolumeSnapshot` genérico de Kubernetes de `snapshot.storage.k8s.io`.
+====
+
+=== Crear una instantánea
+
+. *Preparar el manifiesto* - Crea un archivo llamado `longhorn-snapshot.yaml` con el siguiente contenido:
++
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: longhorn-test-snapshot
+  namespace: longhorn-system
+spec:
+  volume: pvc-840804d8-6f11-49fd-afae-54bc5be639de   # replace with your actual Longhorn volume name
+  createSnapshot: true
+----
++
+. *Aplica el manifiesto*:
++
+[,bash]
+----
+kubectl apply -f longhorn-snapshot.yaml
+----
++
+Salida esperada:
++
+[,bash]
+----
+snapshot.longhorn.io/longhorn-test-snapshot created
+----
++
+[NOTE]
+====
+Si el volumen está desconectado, aparece una breve advertencia sobre el motor que no está en funcionamiento. {longhorn-product-name} reintenta automáticamente y la instantánea se completa cuando el volumen está conectado.
+====
+
+=== Listar instantáneas
+
+Para listar todas las instantáneas de un volumen específico, utiliza el siguiente comando:
+
+[,bash]
+----
+kubectl get snapshots.longhorn.io -l longhornvolume=pvc-840804d8-6f11-49fd-afae-54bc5be639de -n longhorn-system
+----
+
+=== Eliminar una instantánea
+
+Para eliminar una instantánea específica, utiliza el siguiente comando:
+
+[,bash]
+----
+kubectl delete snapshot.longhorn.io longhorn-test-snapshot -n longhorn-system
+----
+
+Salida esperada:
+
+[,bash]
+----
+snapshot.longhorn.io "longhorn-test-snapshot" deleted
+----
+
+[NOTE]
+====
+{longhorn-product-name} maneja automáticamente la limpieza de los datos subyacentes.
+====
+
+== Diferencias Comportamentales del Motor de Datos
+
+Al eliminar una instantánea que es el padre directo del *Volume Head* (el estado activo actual), el comportamiento del Recurso Personalizado de Instantánea (CR) depende del Motor de Datos que se esté utilizando:
+
+[cols="1,1,1", options="header"]
+|===
+| Comportamiento | Motor de Datos v1 | Motor de Datos v2
+
+| *CR Persistencia*
+| El CR de Instantánea *permanece* en el sistema.
+| El CR de Instantánea es *eliminado inmediatamente*.
+
+| *Campos de Estado*
+| `READYTOUSE` se convierte en `false` y la instantánea se marca como `Removed`.
+| No aplicable, porque el CR de Instantánea ha sido eliminado.
+
+| *Explicación*
+| Los volúmenes v1 no pueden fusionar físicamente el padre del Volume Head en vivo de inmediato. El CR permanece para rastrear los datos de la instantánea hasta una fusión o operación de eliminación posterior.
+| Los volúmenes v2 soportan la fusión en vivo de la instantánea padre en el Volume Head, permitiendo la limpieza inmediata tanto de los datos como de los metadatos.
+|===
+
+Esta diferencia de comportamiento es esperada. En *volúmenes v2*, la desaparición inmediata del CR de Instantánea indica que el motor ha finalizado con éxito la eliminación y ha fusionado los datos.

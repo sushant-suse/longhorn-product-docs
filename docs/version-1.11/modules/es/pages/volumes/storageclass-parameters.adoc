@@ -1,0 +1,458 @@
+= Parámetros de StorageClass
+:revdate: 2026-03-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Descripción general
+
+StorageClass como un objeto de recurso tiene varios parámetros configurables.
+
+Ejemplo:
+
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-test
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  backupTargetName: "default"
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  fromBackup: ""
+  fsType: "ext4"
+#  mkfsParams: ""
+#  migratable: false
+#  encrypted: false
+#  dataLocality: "disabled"
+#  replicaAutoBalance: "ignored"
+#  diskSelector: "ssd,fast"
+#  nodeSelector: "storage,fast"
+#  recurringJobSelector: '[{"name":"snap-group", "isGroup":true},
+#                          {"name":"backup", "isGroup":false}]'
+#  backingImageName: ""
+#  backingImageChecksum: ""
+#  backingImageDataSourceType: ""
+#  backingImageDataSourceParameters: ""
+#  unmapMarkSnapChainRemoved: "ignored"
+#  disableRevisionCounter: false
+#  replicaSoftAntiAffinity: "ignored"
+#  replicaZoneSoftAntiAffinity: "ignored"
+#  replicaDiskSoftAntiAffinity: "ignored"
+#  nfsOptions: "soft,timeo=150,retrans=3"
+#  dataEngine: "v1"
+#  freezeFSForSnapshot: "ignored"
+# allowedTopologies:
+#   - matchLabelExpressions:
+#       - key: topology.kubernetes.io/zone
+#         values:
+#           - us-central-1a
+#           - us-central-1b
+----
+
+== Campos integrados
+
+Ciertos campos son comunes a todas las clases de almacenamiento de Kubernetes.
+Ver también https://kubernetes.io/docs/concepts/storage/storage-classes[Kubernetes Storage Class].
+
+[discrete]
+==== Proveedor _(campo: `provisioner`)_
+
+Especifica el complemento que se utilizará para la creación dinámica de volúmenes persistentes. Para {longhorn-product-name}, siempre es `driver.longhorn.io`.
+
+____
+Ver https://kubernetes.io/docs/concepts/storage/storage-classes/#provisioner[Kubernetes Storage Class: Proveedor].
+____
+
+[discrete]
+==== Permitir expansión de volumen _(campo: `allowVolumeExpansion`)_
+
+____
+Por defecto: `true`
+Ver https://kubernetes.io/docs/concepts/storage/storage-classes/#allow-volume-expansion[Kubernetes Storage Class: Permitir expansión de volumen].
+____
+
+[discrete]
+==== Directiva de recuperación _(campo: `reclaimPolicy`)_
+
+____
+Por defecto: `Delete`
+Ver https://kubernetes.io/docs/concepts/storage/storage-classes/#reclaim-policy[Kubernetes Storage Class: Directiva de recuperación].
+____
+
+[discrete]
+==== Opciones de montaje _(campo: `mountOptions`)_
+
+____
+Por defecto `[]`
+Ver https://kubernetes.io/docs/concepts/storage/storage-classes/#mount-options[Kubernetes Storage Class - Opciones de montaje].
+____
+
+[discrete]
+==== Modo de vinculación de volumen _(campo: `volumeBindingMode`)_
+
+____
+Por defecto `Immediate`
+Ver https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode[Kubernetes Storage Class - Modo de vinculación de volumen].
+____
+
+
+[discrete]
+==== Topologías permitidas _(campo: `allowedTopologies`)_
+
+____
+Ver la referencia de Kubernetes https://kubernetes.io/docs/concepts/storage/storage-classes/#allowed-topologies[StorageClass — Topologías permitidas].
+____
+
+Especifica el conjunto de nodos donde los volúmenes pueden ser provisionados al coincidir con las etiquetas de nodo.
+{longhorn-product-name} utiliza este campo para poblar el `nodeAffinity` de PV a través del campo CSI `accessibleTopology`.
+
+Para que `allowedTopologies` tenga efecto, la configuración {longhorn-product-name} xref:longhorn-system/settings.adoc#_csi_allowed_topology_keys[`csi-allowed-topology-keys`] debe configurarse con las claves de topología correspondientes (por ejemplo, `topology.kubernetes.io/zone`). Sin esta configuración, no se pasa información de topología y el PV no tendrá `nodeAffinity`.
+
+*No* utilices `allowedTopologies` junto con `parameters.dataLocality: strict-local`. El PV resultante `nodeAffinity` se vuelve inmutable y entraría en conflicto con la fijación de volumen estricta-local de {longhorn-product-name}.
+
+Para un recorrido completo con ejemplos, consulta el xref:nodes/topology-aware-provisioning.adoc[Provisionamiento Consciente de Topología].
+
+== Parámetros específicos de {longhorn-product-name}
+
+Ten en cuenta que algunos de estos parámetros también existen y pueden especificarse en configuraciones globales. Cuando un volumen se aprovisiona con Kubernetes contra una clase de almacenamiento particular, los parámetros de la clase de almacenamiento anulan las configuraciones globales.
+Estos campos se aplicarán solo para la creación de nuevos volúmenes. Si se modifica una clase de almacenamiento, ni {longhorn-product-name} ni Kubernetes se encargan de propagar los cambios a sus parámetros de vuelta a los volúmenes creados previamente con ella.
+
+[discrete]
+==== Número de Réplicas _(campo: `parameters.numberOfReplicas`)_
+
+____
+Por defecto: `3`
+____
+
+El número deseado de copias (réplicas) para redundancia.
+
+* Debe estar entre 1 y 20.
+* Las réplicas se colocarán en el conjunto más amplio posible de zonas, nodos y discos en un clúster, sujeto a otras restricciones, como NodeSelector.
+
+____
+Configuración global - xref:longhorn-system/settings.adoc#_default_replica_count[Conteo de Réplicas por Defecto].
+____
+
+[discrete]
+==== Tiempo de espera de réplicas obsoletas _(campo: `parameters.staleReplicaTimeout`)_
+
+____
+Por defecto: `30`
+____
+
+Minutos después de que una réplica se marque como no saludable antes de que se considere inútil para reconstrucciones y simplemente se elimine.
+
+[discrete]
+==== Desde copia de seguridad _(campo: `parameters.fromBackup`)_
+
+____
+Por defecto: `""`
+Ejemplo: `"s3://backupbucket@us-east-1?volume=minio-vol01&backup=backup-eeb2782d5b2f42bb"`
+____
+
+URL de una copia de seguridad que se va a restaurar.
+
+[discrete]
+==== Tipo de FS _(campo: `parameters.fsType`)_
+
+____
+Por defecto: `ext4`
+Para más detalles, por favor consulta xref:volumes/create-volumes.adoc#creating_longhorn_volumes_with_kubectl[Crear volúmenes Longhorn con Kubernetes].
+____
+
+[discrete]
+==== Parámetros de Mkfs _(campo: `parameters.mkfsParams`)_
+
+____
+Por defecto: `""`
+Para más detalles, por favor consulta xref:volumes/create-volumes.adoc#creating_longhorn_volumes_with_kubectl[Crear volúmenes Longhorn con Kubernetes].
+____
+
+[discrete]
+==== Migrable _(campo: `parameters.migratable`)_
+
+____
+Por defecto: `false`
+____
+
+Habilita capacidades de migración en vivo para un volumen Longhorn, permitiendo que se migre de un nodo a otro mientras se mantienen operaciones de E/S activas.
+
+*Cuándo usar*:
+
+. *`migratable: true`*: Para cargas de trabajo que requieren migración en vivo. Debe usarse con el modo de acceso `ReadWriteMany` y `volumeMode: Block`.
+. *`migratable: false`*: Para volúmenes estándar que no requieren capacidades de migración en vivo.
+
+[NOTE]
+====
+Para más detalles, por favor consulta el xref:/volumes/rwx-volumes.adoc[Volumen ReadWriteMany (RWX)].
+====
+
+[discrete]
+==== Encriptado _(campo: `parameters.encrypted`)_
+
+____
+Por defecto: `false`
+Para más detalles, por favor consulta los xref:volumes/volume-encryption.adoc[Volúmenes Encriptados].
+____
+
+[discrete]
+==== Localidad de datos _(campo: `parameters.dataLocality`)_
+
+____
+Por defecto: `disabled`
+____
+
+Si está habilitado, intenta mantener los datos en el mismo nodo que la carga de trabajo para un mejor rendimiento.
+
+* Para `best-effort`, una réplica estaría co-localizada si es posible, pero se permite encontrar otro nodo si no lo es.
+* Para `strict-local` el conteo de réplicas debe ser 1, o la creación del volumen fallará con un error de validación de parámetros.
+* Si `strict-local` no es posible por cualquier otra razón, la creación del volumen fallará. Una réplica de `strict-local` que se desplaza de su carga de trabajo se marcará como `"Stopped"`.
+
+____
+Configuración global - xref:longhorn-system/settings.adoc#_default_data_locality[Localidad de datos predeterminada].
+Para más detalles, por favor consulta xref:high-availability/data-locality.adoc[Localidad de datos].
+____
+
+[discrete]
+==== Replica auto balance _(campo: `parameters.replicaAutoBalance`)_
+
+____
+Por defecto: `ignored`
+____
+
+Si está habilitado, mueve las réplicas a nodos con menor carga.
+
+* `ignored` significa usar la configuración global.
+* Otras opciones son `disabled`, `least-effort`, `best-effort`.
+
+____
+Configuración global - xref:longhorn-system/settings.adoc#_replica_auto_balance[Replica auto balance].
+Para más detalles, por favor consulta xref:high-availability/automatic-replica-balancing.adoc[Réplicas de Balanceo Automático].
+____
+
+[discrete]
+==== Selector de Disco _(campo: `parameters.diskSelector`)_
+
+____
+Por defecto: `""`
+Ejemplo: `"ssd,fast"`
+____
+
+Una lista de etiquetas para seleccionar qué discos son candidatos para la colocación de réplicas.
+
+____
+Para más detalles, por favor consulta xref:nodes/storage-tags.adoc[Etiquetas de Almacenamiento].
+____
+
+[discrete]
+==== Selector de Nodo _(campo: `parameters.nodeSelector`)_
+
+____
+Por defecto: `""`
+Ejemplo: `"storage,fast"`
+____
+
+Una lista de etiquetas para seleccionar qué nodos son candidatos para la colocación de réplicas.
+
+____
+Para más detalles, por favor consulta xref:nodes/storage-tags.adoc[Etiquetas de Almacenamiento].
+____
+
+[discrete]
+==== Selector de Trabajo Recurrente _(campo: `parameters.recurringJobSelector`)_
+
+____
+Por defecto: `""`
+Ejemplo:  `[{"name":"backup", "isGroup":true}]`
+____
+
+Una lista de trabajos recurrentes que deben ejecutarse en un volumen.
+
+____
+Para más detalles, por favor consulta xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[Crear Trabajo de Respaldo/Instantánea Recurrente].
+____
+
+[discrete]
+==== Nombre de Imagen de Respaldo _(campo: `parameters.backingImageName`)_
+
+____
+Por defecto: `""`
+Ver xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Imagen de Respaldo].
+____
+
+[discrete]
+==== Checksum de Imagen de Respaldo _(campo: `parameters.backingImageChecksum`)_
+
+____
+Por defecto: `""`
+Ver xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Imagen de Respaldo].
+____
+
+[discrete]
+==== Tipo de Fuente de Datos de Imagen de Respaldo _(campo: `parameters.backingImageDataSourceType`)_
+
+____
+Por defecto: `""`
+Ver xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Imagen de Respaldo].
+____
+
+[discrete]
+==== Parámetros de la fuente de datos de imagen de respaldo _(campo: `parameters.backingImageDataSourceParameters`)_
+
+____
+Por defecto: `""`
+Ver xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Imagen de Respaldo].
+____
+
+[discrete]
+==== Desmarcar cadena de instantáneas eliminadas del mapa _(campo: `parameters.unmapMarkSnapChainRemoved`)_
+
+____
+Por defecto: `ignored`
+____
+
+* `ignored` significa usar la configuración global.
+* Otros valores son `enabled` y `disabled`.
+
+____
+Configuración global - xref:longhorn-system/settings.adoc#_remove_snapshots_during_filesystem_trim[Eliminar instantáneas durante el recorte del sistema de archivos].
+Para más detalles, por favor consulta el xref:volumes/trim-filesystem.adoc[Recorte del sistema de archivos].
+____
+
+[discrete]
+==== Deshabilitar contador de revisiones _(campo: `parameters.disableRevisionCounter`)_
+
+____
+Por defecto: `true`
+____
+
+____
+Configuración global - xref:longhorn-system/settings.adoc#_disable_revision_counter[Deshabilitar contador de revisiones].
+Para más detalles, por favor consulta el xref:high-availability/revision_counter.adoc[Contador de revisiones].
+____
+
+[discrete]
+==== Anti-afinidad suave de réplica _(campo: `parameters.replicaSoftAntiAffinity`)_
+
+____
+Por defecto: `ignored`
+____
+
+* `ignored` significa usar la configuración global.
+* Otros valores son `enabled` y `disabled`.
+
+____
+Configuración global - xref:longhorn-system/settings.adoc#_replica_node_level_soft_anti_affinity[Nivel de anti-afinidad suave de nodo de réplica].
+Para más detalles, por favor consulta el xref:nodes/scheduling.adoc[Programación] y xref:installation-setup/best-practices.adoc#_replica_node_level_soft_anti_affinity[Mejores prácticas].
+____
+
+[discrete]
+==== Anti-afinidad suave de zona de réplica _(campo: `parameters.replicaZoneSoftAntiAffinity`)_
+
+____
+Por defecto: `ignored`
+____
+
+* `ignored` significa usar la configuración global.
+* Otros valores son `enabled` y `disabled`.
+
+____
+Configuración global - xref:longhorn-system/settings.adoc#_replica_zone_level_soft_anti_affinity[Nivel de anti-afinidad suave de zona de réplica].
+Para más detalles, por favor consulta xref:nodes/scheduling.adoc[Programación].
+____
+
+[discrete]
+==== Anti-afinidad suave de disco de réplica _(campo: `parameters.replicaDiskSoftAntiAffinity`)_
+
+____
+Por defecto: `ignored`
+____
+
+* `ignored` significa usar la configuración global.
+* Otros valores son `enabled` y `disabled`.
+
+____
+Configuración global - xref:longhorn-system/settings.adoc#_replica_disk_level_soft_anti_affinity[Nivel de anti-afinidad suave de disco de réplica].
+Para más detalles, por favor consulta xref:nodes/scheduling.adoc[Programación].
+____
+
+[discrete]
+==== Opciones NFS _(campo: `parameters.nfsOptions`)_
+
+____
+Por defecto: `""`
+Ejemplo: `"hard,sync"`
+____
+
+* Anulaciones para el montaje NFS de volúmenes RWX al gestor de comparticiones. Usa este campo con precaución.
++
+[NOTE]
+====
+Las opciones integradas varían según la versión. Verifica los detalles de tu versión antes de establecer esto.
+====
+
+____
+Para más detalles, consulta el xref:volumes/rwx-volumes.adoc#_configuring_volume_mount_options_for_generic_non_migratable_rwx_volumes[RWX Workloads].
+____
+
+[discrete]
+==== Motor de datos _(campo: `parameters.dataEngine`)_
+
+____
+Por defecto: `"v1"`
+____
+
+* Especifica "v2" para habilitar el Motor de Datos V2 (característica en vista previa técnica). Cuando no se especifique, {longhorn-product-name} utiliza el valor predeterminado ("v1").
+
+____
+Configuración global: xref:longhorn-system/settings.adoc#_v2_data_engine[Motor de Datos V2].
+Más detalles en xref:longhorn-system/v2-data-engine/quick-start-guide.adoc#_create_a_storageclass[Inicio rápido del Motor de Datos V2].
+____
+
+[discrete]
+==== Congelar el sistema de archivos para la instantánea _(campo: `parameters.freezeFilesystemForSnapshot`)_
+
+____
+Por defecto: `ignored`
+____
+
+* `ignored` instruye a {longhorn-product-name} a utilizar la configuración global.
+* Otros valores son `enabled` y `disabled`.
+
+____
+Configuración global - xref:longhorn-system/settings.adoc#_freeze_filesystem_for_snapshot[Congelar el sistema de archivos para la instantánea].
+____
+
+[discrete]
+==== Nombre del objetivo de copia de seguridad _(campo: `parameters.backupTargetName`)_
+
+____
+Por defecto: `default`
+____
+
+* Más detalles están disponibles en xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_default_backup_target[objetivo de copia de seguridad predeterminado] y xref:volumes/create-volumes.adoc[Crear volúmenes].
+
+[discrete]
+==== Tamaño del bloque de copia de seguridad _(campo: `parameters.backupBlockSize`)_
+
+____
+Por defecto: `""`
+____
+
+Ejemplo: `"2Mi"` o `"16Mi"`
+
+Una cadena de cantidad de Kubernetes. Utiliza una cadena vacía "" para aplicar la configuración global.
+
+Para obtener más información, consulte:
+
+* xref:longhorn-system/settings.adoc[tamaño de bloque de copia de seguridad predeterminado]
+* xref:snapshots-backups/volume-snapshots-backups/configure-backup-block-size.adoc[Configurar el tamaño de bloque de una copia de seguridad]
+
+== Instalaciones de Helm
+
+Si {longhorn-product-name} está instalado a través de Helm, los valores en la clase de almacenamiento predeterminada se pueden establecer editando el elemento correspondiente en https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[`values.yaml`].  Todos los parámetros de la clase de almacenamiento tienen un prefijo de `persistence`.  Por ejemplo, `persistence.defaultNodeSelector`.

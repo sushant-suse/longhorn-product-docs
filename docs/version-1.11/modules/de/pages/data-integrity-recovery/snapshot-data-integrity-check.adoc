@@ -1,0 +1,64 @@
+= Snapshot-Datenintegritätsprüfung
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn ist in der Lage, Snapshot-Diskdateien zu hashen und deren Integrität regelmäßig zu überprüfen.
+
+== Einführung
+
+Das Longhorn-System unterstützt die Erstellung von Volumensnapshots und speichert die Snapshot-Diskdateien auf der lokalen Festplatte. Es ist jedoch unmöglich, die Datenintegrität von Snapshots zu überprüfen, da zuvor keine Prüfsummen für die Snapshots vorhanden waren. Wenn die Daten aufgrund von beispielsweise Bitrot im zugrunde liegenden Speicher beschädigt sind, gibt es keine Möglichkeit, die Beschädigung zu erkennen und die Replikate zu reparieren. Nach der Aktivierung der Funktion ist Longhorn in der Lage, Snapshot-Diskdateien zu hashen und deren Integrität regelmäßig zu überprüfen. Wenn eine Snapshot-Diskdatei in einer Replik beschädigt ist, beginnt Longhorn automatisch den Wiederherstellungsprozess, um sie zu reparieren.
+
+== Einstellungen
+
+=== Globale Einstellungen
+
+* *snapshot-data-integrity* +
++
+Diese Einstellung ermöglicht es den Benutzern, das Hashing von Snapshots und die Überprüfung der Datenintegrität zu aktivieren oder zu deaktivieren. Folgende Optionen stehen zur Verfügung:
+
+ ** *deaktiviert*: Deaktiviert das Hashing von Snapshot-Diskdateien und die Überprüfung der Datenintegrität.
+ ** *aktiviert*: Aktiviert das regelmäßige Hashing von Snapshot-Diskdateien und die Überprüfung der Datenintegrität. Um die dateisystemunabhängige Beschädigung, die durch Bitrot oder andere Probleme in Snapshot-Diskdateien verursacht wird, zu erkennen, hasht das Longhorn-System regelmäßig Dateien und findet beschädigte Dateien. Daher wird die Systemleistung während der regelmäßigen Überprüfung beeinträchtigt.
+ ** *schnelle Überprüfung*: Aktiviert das Hashing von Snapshot-Diskdateien und die schnelle Überprüfung der Datenintegrität. Das Longhorn-System hasht Snapshot-Diskdateien nur, wenn sie nicht gehasht sind oder sich die Änderungszeit geändert hat. In diesem Modus kann dateisystemunabhängige Beschädigung nicht erkannt werden, aber die Auswirkungen auf die Systemleistung können minimiert werden.
+
+* *snapshot-data-integrity-immediate-check-after-snapshot-creation* +
++
+Das Hashing von Snapshot-Diskdateien wirkt sich auf die Leistung des Systems aus. Das sofortige Hashing und Überprüfen von Snapshots kann deaktiviert werden, um die Auswirkungen nach der Erstellung eines Snapshots zu minimieren.
+
+* *snapshot-data-integrity-cronjob* +
++
+Ein Zeitplan, der im Format der Unix-Cron-Zeichenfolge definiert ist, gibt an, wann Longhorn die Datenintegrität von Snapshot-Diskdateien überprüft.
++
+WARNING: Das Hashing von Snapshot-Diskdateien wirkt sich auf die Leistung des Systems aus. Es wird empfohlen, Datenintegritätsprüfungen außerhalb der Spitzenzeiten durchzuführen und die Häufigkeit der Prüfungen zu reduzieren.
+
+=== Pro-Volume-Einstellungen
+
+Longhorn unterstützt auch die Pro-Volume-Einstellung durch Konfiguration von `Volume.Spec.SnapshotDataIntegrity`. Der Standardwert beträgt `ignored`, sodass die Datenintegritätsprüfung durch die globale Einstellung `snapshot-data-integrity` bestimmt wird. `Volume.Spec.SnapshotDataIntegrity` unterstützt `ignored`, `disabled`, `enabled` und `fast-check`. Jedes Volume kann seine Einstellung zur Datenintegritätsprüfung anpassen.
+
+== Leistungsbeeinträchtigung
+
+Um Datenbeschädigung zu erkennen, müssen Prüfsummen von Snapshot-Diskdateien berechnet werden. Die Berechnungen verbrauchen Speicher- und Rechenressourcen. Daher wird die Speicherleistung negativ beeinflusst. Um ein klares Verständnis der Auswirkungen zu ermöglichen, haben wir die Speicherleistung beim Berechnen der Prüfsummen von Diskdateien gemessen. Die Lese-IOPS, Bandbreite und Latenz sind negativ betroffen.
+
+* Umgebung
+ ** Host: AWS EC2 c5d.2xlarge
+ ** CPU (Central Processing Unit, Prozessor): Intel(R) Xeon(R) Platinum 8124M CPU @ 3.00GHz
+ ** Arbeitsspeicher: 16 GB
+ ** Netzwerk: Bis zu 10Gbps
+ ** Kubernetes: v1.24.4+rke2r1
+* Ergebnis
+ ** Festplatte: 200 GiB NVMe SSD als Instanzspeicher
+  *** 100 GiB Snapshot mit vollständigen Zufallsdaten
++
+image::diagrams/snapshot/snapshot_hash_ssd_perf.png[Bild]
++
+ ** Festplatte: 200 GiB durchsatzoptimierte HDD (st1)
+  *** 30 GiB Snapshot mit vollständigen Zufallsdaten
++
+image::diagrams/snapshot/snapshot_hash_hdd_perf.png[Bild]
+
+== Empfehlung
+
+Die Funktion hilft, Datenkorruption in Snapshot-Diskdateien von Volumes zu erkennen. Die Berechnung der Prüfsumme hat jedoch negative Auswirkungen auf die Speicherleistung. Um die Auswirkungen zu verringern, lauten die Empfehlungen wie folgt:
+
+* Das Berechnen der Prüfsumme und die Überprüfung von Snapshot-Diskdateien können durch die globale Einstellung `snapshot-data-integrity-cronjob` außerhalb der Spitzenzeiten geplant werden.
+* Deaktivieren Sie die globale Einstellung `snapshot-data-integrity-immediate-check-after-snapshot-creation`.

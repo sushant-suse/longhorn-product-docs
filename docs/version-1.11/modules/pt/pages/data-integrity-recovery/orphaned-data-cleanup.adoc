@@ -1,0 +1,181 @@
+= Limpeza de Dados Órfãos
+:revdate: 2025-07-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} suporta a limpeza de dados órfãos. Atualmente, {longhorn-product-name} pode identificar e limpar os diretórios de réplicas órfãs nos discos.
+
+== Diretórios de Réplicas Órfãs
+
+Quando um usuário introduz um disco em um nó {longhorn-product-name}, ele pode conter diretórios de réplicas que não são rastreados pelo sistema {longhorn-product-name}. Os diretórios de réplicas não rastreados podem pertencer a outros clusters {longhorn-product-name}. Ou, os CRs de réplica associados aos diretórios de réplicas são removidos após o nó ou o disco ficarem fora do ar. Quando o nó ou o disco volta, os diretórios de dados de réplica correspondentes não são mais rastreados pelo sistema {longhorn-product-name}. Esses diretórios de dados de réplica são chamados de órfãos.
+
+{longhorn-product-name} suporta a detecção e limpeza de diretórios de réplicas órfãs. Ele identifica os diretórios e fornece uma lista de recursos `orphan` que descrevem esses diretórios. Por padrão, {longhorn-product-name} não exclui automaticamente os recursos `orphan` e seus diretórios. Os usuários podem acionar a exclusão de diretórios de réplicas órfãs manualmente ou fazê-lo automaticamente.
+
+Quando a exclusão automática de órfãos está habilitada, {longhorn-product-name} exclui automaticamente os Recursos Personalizados (CRs) órfãos e seus diretórios associados após o atraso definido pela configuração `orphan-resource-auto-deletion-grace-period`. Se um usuário excluir manualmente um CR órfão, a exclusão ocorre imediatamente e não respeita este período extra.
+
+=== Exemplo
+
+O seguinte exemplo demonstra como gerenciar diretórios de réplicas órfãs identificados por {longhorn-product-name} via `kubectl` e {longhorn-product-name} UI.
+
+==== Gerenciar Diretórios de Réplicas Órfãs via kubectl
+
+. Introduzir discos contendo diretórios de réplicas órfãs.
+ ** Diretórios de réplicas órfãs nos discos do Nó `worker1`
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+ pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
+----
+
+ ** Diretórios de réplicas órfãs nos discos do Nó `worker2`
++
+[,console]
+----
+# ls /var/lib/longhorn/replicas/
+ pvc-28255b31-161f-5621-eea3-a1cbafb4a12a-866aa0a5
+
+# ls /mnt/disk/replicas/
+ pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-a86771c0
+----
+
+. {longhorn-product-name} detecta os diretórios de réplicas órfãs e cria um recurso `orphan` descrevendo os diretórios.
++
+[,console]
+----
+ # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
+ NAME                                                                      TYPE      NODE
+ orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272   replica   rancher60-worker1
+ orphan-637f6c01660277b5333f9f942e4b10071d89379dbe7b4164d071f4e1861a1247   replica   rancher60-worker2
+ orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
+----
+
+. Recupere uma lista de recursos órfãos criados por {longhorn-product-name} usando o comando `kubectl -n longhorn-system get orphan`.
++
+[,console]
+----
+ kubectl -n longhorn-system get orphan
+----
+
+. Obtenha as informações detalhadas de um dos diretórios de réplica órfãos em `spec.parameters` por `kubectl -n longhorn-system get orphan <name>`.
++
+[,yaml]
+----
+ # kubectl -n longhorn-system get orphans orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272 -o yaml
+ apiVersion: longhorn.io/v1beta2
+ kind: Orphan
+ metadata:
+ creationTimestamp: "2022-04-29T10:17:40Z"
+ finalizers:
+ ** longhorn.io
+ generation: 1
+ labels:
+  longhorn.io/component: orphan
+  longhorn.io/managed-by: longhorn-manager
+  longhorn.io/orphan-type: replica
+  longhornnode: rancher60-worker1
+
+......
+
+spec:
+ nodeID: rancher60-worker1
+ orphanType: replica
+ parameters:
+     DataName: pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
+     DiskName: disk-1
+     DiskPath: /mnt/disk/
+     DiskUUID: 90f00e61-d54e-44b9-a095-35c2b56a0462
+ status:
+ conditions:
+ ** lastProbeTime: ""
+  lastTransitionTime: "2022-04-29T10:17:40Z"
+  message: ""
+  reason: ""
+  status: "True"
+  type: DataCleanable
+ ** lastProbeTime: ""
+  lastTransitionTime: "2022-04-29T10:17:40Z"
+  message: ""
+  reason: ""
+  status: "False"
+  type: Error
+ ownerID: rancher60-worker1
+----
+
+. Pode-se excluir o recurso `orphan` por `kubectl -n longhorn-system delete orphan <name>` e, em seguida, o diretório de réplica órfão correspondente será excluído.
++
+[,console]
+----
+ # kubectl -n longhorn-system delete orphan orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272
+
+ # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
+ NAME                                                                      TYPE      NODE
+ orphan-637f6c01660277b5333f9f942e4b10071d89379dbe7b4164d071f4e1861a1247   replica   rancher60-worker2
+ orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
+----
++
+O diretório de réplica órfão é excluído.
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+----
+
+. Por padrão, {longhorn-product-name} não excluirá automaticamente o diretório de réplica órfão. Você pode habilitar a exclusão automática definindo a configuração `orphan-resource-auto-deletion`.
++
+[,console]
+----
+ # kubectl -n longhorn-system edit settings.longhorn.io orphan-resource-auto-deletion
+----
++
+Em seguida, adicione `replica-data` à lista incluindo-o como um dos itens separados por ponto e vírgula.
++
+[,console]
+----
+ # kubectl -n longhorn-system get settings.longhorn.io orphan-resource-auto-deletion
+ NAME                           VALUE          APPLIED     AGE
+ orphan-resource-auto-deletion  replica-data   true        26m
+----
+
+. Após habilitar a exclusão automática e esperar um tempo, os recursos e diretórios `orphan` são excluídos automaticamente.
++
+[,console]
+----
+ # kubectl -n longhorn-system get orphans.longhorn.io -l "longhorn.io/orphan-type=replica"
+ No resources found in longhorn-system namespace.
+----
++
+Os diretórios de réplica órfãos são excluídos.
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+
+ # ls /var/lib/longhorn/replicas/
+----
++
+Além disso, pode-se excluir todos os diretórios de réplica órfãos no nó especificado por
++
+[,console]
+----
+ # kubectl -n longhorn-system delete orphan -l "longhorn.io/orphan-type=replica-instance,longhornnode=<node name>”
+----
+
+==== Gerenciar Diretórios de Réplica Órfãos via {longhorn-product-name} UI.
+
+. Na barra de navegação superior, selecione *Configurações > Dados Órfãos > Dados de Réplica*.
+. Revise a lista exibida de diretórios de réplica órfãos. Estes estão agrupados por nó e disco.
+. Para o diretório que você deseja excluir, selecione *Operação > Excluir*.
+
+Por padrão, {longhorn-product-name} não exclui automaticamente diretórios de réplica órfãos. Para habilitar a exclusão automática, navegue até *Configurações > Órfãos* e configure a opção relevante para exclusão automática.
+
+=== Exceção
+
+{longhorn-product-name} não criará um recurso `orphan` para um diretório órfão quando
+
+* O diretório órfão não é um *diretório de réplica órfão*.
+ ** O nome do diretório não segue a convenção de nomenclatura do diretório de réplica.
+ ** O arquivo volume.meta está faltando.
+* O diretório de réplica órfão está em um nó desalojado.
+* O diretório de réplica órfão está em um disco desalojado.
+* O mecanismo de limpeza de dados órfãos não limpa uma réplica obsoleta, também conhecida como réplica de erro. Em vez disso, a réplica obsoleta é limpa de acordo com a configuração xref:volumes/create-volumes.adoc#_creating_longhorn_volumes_with_kubectl[staleReplicaTimeout].

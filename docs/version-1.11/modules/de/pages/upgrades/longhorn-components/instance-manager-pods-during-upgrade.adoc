@@ -1,0 +1,30 @@
+= Instanzmanager-Pods während des Upgrades
+:revdate: 2026-01-08
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Nach einem Live-Upgrade kann es sein, dass einige *alte Instanzmanager-Pods* weiterhin laufen. Dies ist das erwartete Verhalten und *kein Fehler*.
+
+== Warum das passiert
+
+{longhorn-product-name} verwendet die folgende Strategie, um Instanzmanager-Pods während eines Live-Upgrades zu verwalten:
+
+* Alte Instanzmanager-Pods werden sofort entfernt, sobald keine Engine- oder Replikatprozesse mehr in ihnen laufen.
+* Während eines *Live-Engine-Upgrade* eines Volumes:
+** Replikatprozesse werden in neuen Instanzmanager-Pods mit dem aktualisierten Engine-Image neu erstellt.
+** Um E/A-Unterbrechungen zu vermeiden, kann {longhorn-product-name} keinen neuen Engine-Prozess mit dem aktualisierten Engine-Image in einem neuen Instanzmanager-Pod starten, während das Volume angeschlossen ist. Stattdessen verwaltet der alte Instanzmanager-Pod weiterhin den Lebenszyklus des neuen Engine-Prozesses, bis das Volume abgetrennt ist. Infolgedessen läuft der neue Engine-Prozess im alten Instanzmanager-Pod.
+
+Infolgedessen bleibt ein alter Instanzmanager-Pod so lange aktiv, wie er einen aktiven Engine-Prozess hostet. Sobald das Volume abgetrennt ist und keine Engine- oder Replikatprozesse mehr vorhanden sind, wird {longhorn-product-name} den alten Instanzmanager-Pod automatisch entfernen.
+
+== Wie man überprüft, welche Volumes alte Instanzmanager-Pods verwenden
+
+Sie können überprüfen, welche Volumes noch die alten Instanzmanager-Pods verwenden, über die {longhorn-product-name} UI:
+
+* Navigieren Sie zu *Volume* > *Name* > *Volumendetails* > *Instanzmanager*.
+
+== Wie man alte Instanzmanager-Pods vollständig entfernt
+
+Um {longhorn-product-name} zu ermöglichen, alle alten Instanzmanager-Pods zu entfernen:
+
+. Trennen Sie alle Volumes, die noch alte Instanzmanager-Pods verwenden.
+. Sobald keine Engine- oder Replikatprozesse mehr vorhanden sind, wird {longhorn-product-name} die alten Instanzmanager-Pods automatisch entfernen.

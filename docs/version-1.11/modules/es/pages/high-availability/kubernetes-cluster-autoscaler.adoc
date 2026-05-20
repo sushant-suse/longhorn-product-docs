@@ -1,0 +1,21 @@
+= Soporte de Kubernetes Cluster Autoscaler (Experimental)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Por defecto, Longhorn bloquea el Kubernetes Cluster Autoscaler para eliminar nodos porque:
+
+* Longhorn crea PodDisruptionBudgets para todos los pods del gestor de instancias de motor y de réplica.
+* Los pods del gestor de instancias de Longhorn tienen PodDisruptionBudgets estrictos.
+* Los pods del gestor de instancias de Longhorn no están respaldados por un controlador de carga de trabajo integrado de Kubernetes.
+* Los pods de Longhorn están utilizando montajes de volúmenes de almacenamiento local.
+
+Para más información, consulta https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/FAQ.md#what-types-of-pods-can-prevent-ca-from-removing-a-node[¿Qué tipos de pods pueden impedir que el CA elimine un nodo?]
+
+Si deseas desbloquear el escalado del Kubernetes Cluster Autoscaler, puedes configurar la opción xref:longhorn-system/settings.adoc#_kubernetes_cluster_autoscaler_enabled_experimental[Kubernetes Cluster Autoscaler Habilitado].
+
+Cuando esta opción esté habilitada, Longhorn retendrá la mínima cantidad posible de PodDisruptionBudgets para el gestor de instancias. Cada volumen tendrá al menos una réplica bajo la protección de un PodDisruptionBudget del gestor de instancias mientras no haya un PodDisruptionBudget redundante que bloquee al Cluster Autoscaler de eliminar nodos.
+
+Cuando esta opción está habilitada, Longhorn también añadirá la `cluster-autoscaler.kubernetes.io/safe-to-evict` anotación a las cargas de trabajo de Longhorn que no están respaldadas por un controlador de carga de trabajo integrado de Kubernetes o que están utilizando montajes de almacenamiento local.
+
+WARNING: La reconstrucción de réplicas podría ser costosa porque los nodos con réplicas reutilizables podrían ser eliminados por el Kubernetes Cluster Autoscaler.

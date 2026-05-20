@@ -1,0 +1,71 @@
+= ボリュームを切り離す
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+ボリュームを切り離すために、Longhornボリュームを使用しているすべてのKubernetesポッドをシャットダウンします。これを達成する最も簡単な方法は、すべてのワークロードを削除し、アップグレード後に再作成することです。これが望ましくない場合は、一部のワークロードを一時停止することができます。
+
+各ワークロードは、そのポッドをシャットダウンするように変更できます。
+
+== 展開
+
+デプロイメントを`kubectl edit deploy/<name>`で編集します。
+
+`.spec.replicas`を`0`に設定します。
+
+== StatefulSet
+
+`kubectl edit statefulset/<name>`を使用してステートフルセットを編集します。
+
+`.spec.replicas`を`0`に設定します。
+
+== DaemonSet
+
+`kubectl edit ds/<name>`を使用してデーモンセットを編集します。
+
+ポッド仕様にnodeSelectorを追加します：
+
+[,yaml]
+----
+spec:
+  template:
+    spec:
+      nodeSelector:
+        no-schedule: "true"
+----
+
+== Pod
+
+`kubectl delete pod/<name>`を使用してポッドを削除します。
+
+ワークロードコントローラーによって管理されていないポッドを一時停止する方法はありません。
+
+== CronJob
+
+`kubectl edit cronjob/<name>`を使用してCronJobを編集します。
+
+`.spec.suspend`を`true`に設定します。
+
+現在実行中のジョブが完了するのを待つか、関連するポッドを削除してそれらを終了させます。
+
+== Job
+
+単一実行ジョブが完了するのを許可することを検討してください。
+
+そうでなければ、`kubectl delete job/<name>`を使用してジョブを削除します。
+
+== ReplicaSet
+
+`kubectl edit replicaset/<name>`を使用してレプリカセットを編集します。
+
+`.spec.replicas`を`0`に設定します。
+
+== ReplicationController
+
+`kubectl edit rc/<name>`を使用してレプリケーションコントローラーを編集します。
+
+`.spec.replicas`を`0`に設定します。
+
+Kubernetesによって使用されているボリュームが切り離されるのを待ってください。
+
+次に、Longhorn UIから残りのボリュームをすべて切り離してください。これらのボリュームは、おそらくKubernetesの外部でLonghorn UIまたはREST APIを介して作成され、接続されました。

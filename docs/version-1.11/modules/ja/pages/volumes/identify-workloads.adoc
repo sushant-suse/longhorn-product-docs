@@ -1,0 +1,48 @@
+= ボリュームを使用しているワークロードを特定する
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+現在、ユーザーは既存のLonghorn永続ボリューム（PV）に対する現在のワークロードやワークロードの履歴、ならびに永続ボリュームクレーム（PVC）へのバインド履歴を特定できるようになりました。
+
+Longhorn UIから、*ボリューム*タブに移動します。各Longhornボリュームはページにリストされています。*接続先*列には、そのボリュームを使用しているワークロードの名前が表示されます。ワークロード名をクリックすると、ワークロードの種類、ポッド名、ステータスなどの詳細を確認できます。
+
+ワークロード情報は、Longhornボリュームの詳細ページでも利用可能です。詳細を確認するには、ボリューム名をクリックしてください：
+
+----
+State: attached
+...
+Namespace:default
+PVC Name:longhorn-volv-pvc
+PV Name:pvc-0edf00f3-1d67-4783-bbce-27d4458f6db7
+PV Status:Bound
+Pod Name:teststatefulset-0
+Pod Status:Running
+Workload Name:teststatefulset
+Workload Type:StatefulSet
+----
+
+== 履歴
+
+ワークロードがLonghornボリュームを使用しなくなった後、ボリュームの詳細ページには、そのボリュームを使用していた最新のワークロードの履歴ステータスが表示されます：
+
+----
+Last time used by Pod: a few seconds ago
+...
+Last Pod Name: teststatefulset-0
+Last Workload Name: teststatefulset
+Last Workload Type: Statefulset
+----
+
+これらのフィールドが設定されている場合、現在このボリュームを使用しているワークロードはないことを示します。
+
+PVCがボリュームにバインドされなくなった場合、次のステータスが表示されます：
+
+----
+Last time bound with PVC:a few seconds ago
+Last time used by Pod:32 minutes ago
+Last Namespace:default
+Last Bounded PVC Name:longhorn-volv-pvc
+----
+
+`Last time bound with PVC`フィールドが設定されている場合、現在このボリュームにバインドされているPVCはないことを示します。関連するフィールドには、このボリュームを使用している最新のワークロードが表示されます。

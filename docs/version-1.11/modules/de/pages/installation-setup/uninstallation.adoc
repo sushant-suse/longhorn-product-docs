@@ -1,0 +1,78 @@
+= Deinstallation
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+
+== Voraussetzung
+
+Um zu verhindern, dass {longhorn-product-name} versehentlich deinstalliert wird (was zu Datenverlust führt), gibt es eine neue Einstellung, xref:longhorn-system/settings.adoc#_deleting_confirmation_flag[deleting-confirmation-flag]. Wenn dieses Flag `false` ist, schlägt der Deinstallationsvorgang fehl. Setzen Sie dieses Flag auf `true`, um die Deinstallation zu ermöglichen. Sie können dieses Flag über die Einstellungsseite in der {longhorn-product-name} Benutzeroberfläche oder `kubectl -n longhorn-system patch -p '{"value": "true"}' --type=merge lhs deleting-confirmation-flag` setzen.
+
+Um Schäden am Kubernetes-Cluster zu vermeiden, wird empfohlen, alle Kubernetes-Arbeitslasten, die {longhorn-product-name} Volumes (PersistentVolume, PersistentVolumeClaim, StorageClass, Deployment, StatefulSet, DaemonSet usw.) verwenden, zu löschen.
+
+== {longhorn-product-name} vollständig entfernen
+
+Um das {longhorn-product-name} Deployment vollständig aus Ihrem Kubernetes-Cluster zu entfernen, verwenden Sie den `helm uninstall` Befehl.
+
+[,shell]
+----
+helm uninstall longhorn --namespace longhorn-system
+----
+
+== Deinstallation von {longhorn-product-name} über die Rancher-Benutzeroberfläche
+
+Navigieren Sie in der Rancher-Benutzeroberfläche zum `Catalog Apps` Tab und löschen Sie die {longhorn-product-name} App.
+
+== Deinstallation von {longhorn-product-name} mit Helm
+
+Führen Sie das folgende Kommando aus:
+
+[,shell]
+----
+helm uninstall longhorn -n longhorn-system
+----
+
+== Deinstallation von {longhorn-product-name} mit Helm Controller
+
+Führen Sie das folgende Kommando aus:
+
+[,shell]
+----
+kubectl delete helmchart <HelmChart name> -n <HelmChart namespace>
+----
+
+== Deinstallation von {longhorn-product-name} mit Helm Controller
+
+Führen Sie das folgende Kommando aus:
+
+[,shell]
+----
+kubectl delete helmchart <HelmChart name> -n <HelmChart namespace>
+----
+
+== Deinstallation von {longhorn-product-name} mit Fleet
+
+Führen Sie das folgende Kommando aus:
+
+[,shell]
+----
+kubectl delete GitRepo longhorn -n fleet-local
+----
+
+Nachdem der `longhorn-uninstall` Job abgeschlossen ist, führen Sie den folgenden Befehl aus:
+
+[subs="+attributes",shell]
+----
+kubectl delete -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml
+----
+
+== Deinstallation von {longhorn-product-name} mit Flux
+
+Führen Sie das folgende Kommando aus:
+
+[,shell]
+----
+flux delete helmrelease longhorn-release -n longhorn-system
+----
+
+== Deinstallation von {longhorn-product-name} mit Argo CD
+
+Argo CD unterstützt derzeit nicht den PreDelete-Ressourcen-Hook. Anstatt `argocd app delete longhorn` direkt auszuführen, müssen Sie {longhorn-product-name} mit `kubectl` deinstallieren, um zu verhindern, dass verwaiste Ressourcen im `longhorn-system` Namespace verbleiben.

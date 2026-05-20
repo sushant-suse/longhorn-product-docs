@@ -1,0 +1,120 @@
+= Sélecteur de nœud
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+Si vous souhaitez restreindre les composants Longhorn à s'exécuter uniquement sur un ensemble particulier de nœuds, vous pouvez définir un sélecteur de nœud pour tous les composants Longhorn.
+Par exemple, vous souhaitez installer Longhorn dans un cluster qui a à la fois des nœuds Linux et des nœuds Windows, mais Longhorn ne peut pas s'exécuter sur des nœuds Windows.
+Dans ce cas, vous pouvez définir le sélecteur de nœud pour restreindre Longhorn à s'exécuter uniquement sur des nœuds Linux.
+
+Pour plus d'informations sur le fonctionnement du sélecteur de nœud, consultez la https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector[documentation officielle de Kubernetes.]
+
+== Configuration du sélecteur de nœud pour Longhorn
+
+Longhorn se compose de composants déployés par l'utilisateur (par exemple, Longhorn Manager, Longhorn Driver et Longhorn UI) et de composants gérés par le système (par exemple, Instance Manager, Backing Image Manager, Share Manager, CSI Driver et Engine Image).
+Vous devez définir un sélecteur de nœud pour les deux types de composants. Voir plus de détails ci-dessous.
+
+[discrete]
+=== Configuration du sélecteur de nœud lors de l'installation de Longhorn
+
+. Définissez le sélecteur de nœud pour les composants déployés par l'utilisateur (par exemple, Longhorn Manager, Longhorn Driver et Longhorn UI).
+ ** Si vous installez Longhorn via Rancher, vous devez copier et coller les paramètres suivants dans le YAML sur l'interface utilisateur de Rancher (cliquez sur *Modifier en tant que YAML* pendant l'installation) pour appliquer la valeur à tous les composants déployés par l'utilisateur.
++
+[subs="+attributes",yaml]
+----
+   global:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** Vous pouvez également spécifier le sélecteur de nœud pour chaque composant déployé par l'utilisateur et cela remplacera le paramètre global.
++
+[subs="+attributes",yaml]
+----
+   longhornManager:
+     nodeSelector:
+       label-key1: "label-value1"
+   longhornDriver:
+     nodeSelector:
+       label-key1: "label-value1"
+   longhornUI:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** Si vous installez Longhorn en utilisant `kubectl` pour appliquer https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml[le YAML de déploiement], vous devez modifier la section du sélecteur de nœud pour Longhorn Manager, Longhorn UI et Longhorn Driver Deployer.
+ Puis appliquez les fichiers YAML.
+ ** Si vous installez Longhorn en utilisant Helm, vous pouvez modifier les valeurs Helm pour `global.nodeSelector`, `longhornManager.nodeSelector`, `longhornUI.nodeSelector`, `longhornDriver.nodeSelector` dans le fichier `values.yaml` avant d'installer le chart.
+. Définissez le sélecteur de nœud pour les composants gérés par le système (par exemple, Instance Manager, Backing Image Manager, Share Manager, CSI Driver et Engine Image).
++
+Suivez le xref:longhorn-system/customize-default-settings.adoc[Personnaliser les paramètres par défaut] pour définir le sélecteur de nœud en modifiant la valeur pour le paramètre par défaut `system-managed-components-node-selector`
++
+[NOTE]
+====
+En raison de la limitation de Rancher 2.5.x, si vous utilisez l'interface utilisateur de Rancher pour installer Longhorn, vous devez cliquer sur `Edit As Yaml` et ajouter le paramètre `systemManagedComponentsNodeSelector` à `defaultSettings`.
+
+Par exemple :
+
+[subs="+attributes",yaml]
+----
+defaultSettings:
+  systemManagedComponentsNodeSelector: "label-key1:label-value1"
+----
+====
+
+[discrete]
+=== Configuration du sélecteur de nœud après l'installation de Longhorn
+
+____
+*Avertissement*{nbsp}:
+
+* Étant donné que tous les composants de Longhorn seront redémarrés, le système Longhorn est temporairement indisponible.
+* Lorsque tous les volumes Longhorn sont détachés, les paramètres personnalisés sont immédiatement appliqués aux composants gérés par le système (par exemple, Instance Manager, CSI Driver et Engine Image).
+* Lorsque un ou plusieurs volumes Longhorn sont encore attachés, le paramètre personnalisé est appliqué à Instance Manager uniquement lorsque aucun Engine et aucune instance de réplique ne sont en cours d'exécution. Vous devez reconfigurer le paramètre après avoir détaché les volumes restants. Alternativement, vous pouvez attendre la prochaine synchronisation des paramètres, qui aura lieu dans une heure.
+* N'opérez pas le système Longhorn pendant que les paramètres du sélecteur de nœud sont mis à jour et que les composants Longhorn sont en cours de redémarrage.
+____
+
+. Préparer
+ ** Pour vous assurer que vos paramètres préférés sont immédiatement appliqués, arrêtez toutes les charges de travail et détachez tous les volumes Longhorn avant de les appliquer.
+. Définissez le sélecteur de nœud pour les composants déployés par l'utilisateur (par exemple, Longhorn Manager, Longhorn Driver et Longhorn UI).
+ ** Si vous installez Longhorn via Rancher, vous devez copier et coller les paramètres suivants dans le YAML de l'interface utilisateur de Rancher (cliquez sur *Modifier en YAML* pendant la mise à niveau) pour appliquer la valeur à tous les composants déployés par l'utilisateur.
++
+[subs="+attributes",yaml]
+----
+   global:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** Vous pouvez également spécifier le sélecteur de nœud pour chaque composant déployé par l'utilisateur et cela remplacera le paramètre global.
++
+[subs="+attributes",yaml]
+----
+  longhornManager:
+    nodeSelector:
+      label-key1: "label-value1"
+  longhornDriver:
+    nodeSelector:
+      label-key1: "label-value1"
+  longhornUI:
+    nodeSelector:
+      label-key1: "label-value1"
+----
+
+ ** Si vous installez Longhorn en utilisant `kubectl` pour appliquer https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml[le YAML de déploiement], vous devez modifier la section du sélecteur de nœud pour Longhorn Manager, Longhorn UI et Longhorn Driver Deployer.
+Puis réappliquez les fichiers YAML.
+ ** Si vous installez Longhorn en utilisant Helm, vous pouvez modifier les valeurs Helm pour `global.nodeSelector`, `longhornManager.nodeSelector`, `longhornUI.nodeSelector`, `longhornDriverDeployer.nodeSelector` dans le fichier `values.yaml`, puis exécuter `helm upgrade` pour mettre à niveau vers la nouvelle version du chart.
+. Définissez le sélecteur de nœud pour les composants gérés par le système (par exemple, Instance Manager, Backing Image Manager, Share Manager, CSI Driver et Engine Image).
++
+Le paramètre du sélecteur de nœud se trouve dans l'interface utilisateur de Longhorn sous menu:Paramètres[Sélecteur de nœud des composants gérés par le système].
+
+. Nettoyer
++
+Si vous modifiez le sélecteur de nœud de manière à ce que Longhorn ne puisse pas fonctionner sur certains nœuds sur lesquels Longhorn fonctionne actuellement, ces nœuds passeront à l'état `down` après ce processus. Vérifiez qu'il n'y a pas de réplique restante sur ces nœuds.
+Désactivez la planification pour ces nœuds et supprimez-les dans l'interface utilisateur de Longhorn
+
+== History
+
+* https://github.com/longhorn/longhorn/issues/2199[Demande de fonctionnalité originale]

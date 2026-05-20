@@ -1,0 +1,21 @@
+= Récupération après un disque plein
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Si un disque utilisé par l'une des répliques Longhorn est plein, cette réplique passera en état d'erreur, et Longhorn reconstruira une autre réplique sur un autre nœud/disque.
+
+Pour récupérer après un disque plein,
+
+. Désactivez la planification pour le disque plein.
++
+Longhorn devrait déjà avoir marqué le disque comme `unschedulable`.
++
+Cette étape vise à s'assurer que le disque ne sera pas programmé par inadvertance après qu'un espace supplémentaire aura été libéré.
+
+. Identifiez les répliques en état d'erreur sur le disque en utilisant la page disque de l'interface utilisateur de Longhorn.
+. Supprimez les répliques en état d'erreur.
+
+== Recommandé après la récupération
+
+Nous recommandons d'ajouter plus de disques ou plus d'espace au nœud qui a rencontré cette situation.

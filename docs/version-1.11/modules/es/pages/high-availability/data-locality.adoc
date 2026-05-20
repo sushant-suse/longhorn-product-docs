@@ -1,0 +1,57 @@
+= Localidad de datos
+:revdate: 26/07/2025
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+La configuración de localidad de datos está destinada a habilitarse en situaciones donde al menos una réplica de un volumen de Longhorn debería programarse en el mismo nodo que el pod que utiliza el volumen, siempre que sea posible. Nos referimos a la propiedad de tener una réplica local como tener `data locality`.
+
+Por ejemplo, la localidad de datos puede ser útil cuando la red del clúster es mala, porque tener una réplica local aumenta la disponibilidad del volumen.
+
+La localidad de datos también puede ser útil para aplicaciones distribuidas (por ejemplo, bases de datos), en las que se logra alta disponibilidad a nivel de aplicación en lugar de a nivel de volumen. En ese caso, solo se necesita un volumen para cada pod, por lo que cada volumen debería programarse en el mismo nodo que el pod que lo utiliza.  Además, el comportamiento predeterminado de Longhorn para la programación de volúmenes podría causar un problema para aplicaciones distribuidas. El problema es que si hay dos réplicas de un pod, y cada réplica de pod tiene un volumen cada una, Longhorn no es consciente de que esos volúmenes tienen los mismos datos y no deberían programarse en el mismo nodo. Por lo tanto, Longhorn podría programar réplicas idénticas en el mismo nodo, impidiendo así que proporcionen alta disponibilidad para la carga de trabajo.
+
+Cuando la localidad de datos está deshabilitada, un volumen de Longhorn puede estar respaldado por réplicas en cualquier nodo del clúster y ser accedido por un pod que se ejecute en cualquier nodo del clúster.
+
+== Configuraciones de localidad de datos
+
+Longhorn actualmente soporta dos modos para las configuraciones de localidad de datos:
+
+* `disabled`: Ésta es la opción por defecto. Puede o no haber una réplica en el mismo nodo que el volumen adjunto (carga de trabajo).
+* `best-effort`: Esta opción instruye a Longhorn a intentar mantener una réplica en el mismo nodo que el volumen adjunto (carga de trabajo). Longhorn no detendrá el volumen, incluso si no puede mantener una réplica local al volumen adjunto (carga de trabajo) debido a una limitación del entorno, por ejemplo, falta de espacio en disco, etiquetas de disco incompatibles, etc.
+* `strict-local`: Esta opción obliga a Longhorn a mantener la *solo una réplica* en el mismo nodo que el volumen adjunto, y por lo tanto, ofrece un rendimiento de IOPS más alto y menor latencia. Esta opción es incompatible con xref:volumes/rwx-volumes.adoc[volúmenes ReadWriteMany (RWX)].
+
+== Cómo configurar la localidad de datos para volúmenes
+
+Hay tres formas de establecer la localidad de datos para los volúmenes de Longhorn:
+
+=== Cambia la configuración global predeterminada
+
+Puedes cambiar la configuración global predeterminada para la localidad de datos en la configuración de Longhorn UI.
+La configuración global solo funciona como un valor predeterminado, similar al recuento de réplicas.
+No cambia la configuración de ningún volumen existente.
+Cuando se crea un volumen sin especificar la localidad de datos, Longhorn utilizará la configuración global predeterminada para determinar la localidad de datos del volumen.
+
+=== Cambia la localidad de datos para un volumen individual utilizando la Longhorn UI
+
+Puedes usar la Longhorn UI para establecer la localidad de datos para el volumen al crearlo.
+También puedes cambiar la configuración de localidad de datos para el volumen después de la creación en la página de detalles del volumen.
+
+=== Establece la localidad de datos para volúmenes individuales utilizando un StorageClass.
+
+Longhorn también expone la configuración de localidad de datos como un parámetro en un StorageClass.
+Puedes crear un StorageClass con una configuración de localidad de datos especificada y luego crear PVCs utilizando el StorageClass.
+Por ejemplo, el siguiente archivo YAML define un StorageClass que indica al controlador CSI de Longhorn que establezca la localidad de datos en `best-effort`:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: hyper-converged
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "2"
+  dataLocality: "best-effort"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+----

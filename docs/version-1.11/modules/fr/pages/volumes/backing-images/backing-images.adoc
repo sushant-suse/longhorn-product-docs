@@ -1,0 +1,280 @@
+= Images de base
+:revdate: 2025-12-10
+:page-revdate: {revdate}
+:experimental:
+:current-version: {page-component-version}
+
+{longhorn-product-name} prend en charge nativement les images de base.
+
+Une image QCOW2 ou RAW peut être définie comme l'image de base d'un volume {longhorn-product-name}, ce qui permet à {longhorn-product-name} d'être intégré à une solution de virtualisation telle que https://www.suse.com/products/rancher/virtualization[{harvester-product-name}].
+
+[IMPORTANT]
+====
+La taille de l'image doit être *un multiple de 512 octets*. {longhorn-product-name} utilise l'E/S directe, ce qui nécessite un alignement des tailles de fichiers avec la taille de bloc de stockage sous-jacente.
+====
+
+== Créer une image de base du moteur de données V1
+
+=== Paramètres
+
+==== Source des données
+
+Vous pouvez préparer une image de base V1 en utilisant l'une des sources de données prises en charge.
+
+. Télécharger un fichier d'image de base (en utilisant une URL).
+. Télécharger un fichier depuis votre machine locale. Cette option est disponible pour les utilisateurs de l'interface {longhorn-product-name}.
+. Exporter un volume existant dans le cluster en tant qu'image de base.
+. Restaurer une image de base à partir du backupstore. Pour plus d'informations, voir xref:snapshots-backups/backing-image-backups.adoc[Sauvegarde d'image de base].
+. Cloner une image de base.
+
+==== Exportation de volume
+
+Une image de base sert d'instantané initial dans la chaîne d'instantanés d'un volume {longhorn-product-name}. Lorsque vous exportez un volume avec une image de base associée, {longhorn-product-name} fusionne cette image avec les modifications delta, ce qui donne une nouvelle image de base consolidée.
+
+==== Checksum
+
+* La somme de contrôle d'une image de base est *la somme de contrôle SHA512* de l'ensemble du fichier d'image de base *fichier* plutôt que celle du contenu réel.
+Quelle est la différence{nbsp}? Lorsque {longhorn-product-name} calcule la somme de contrôle d'un fichier qcow2, il lira le fichier comme un fichier brut au lieu d'utiliser la bibliothèque qcow pour lire le contenu correct. En d'autres termes, les utilisateurs obtiennent toujours la bonne somme de contrôle en exécutant `shasum -a 512 <the file path>` indépendamment du format de fichier.
+* Il est recommandé de fournir la somme de contrôle attendue lors de la création de l'image de base.
+Sinon, {longhorn-product-name} considérera la somme de contrôle du premier fichier comme étant la correcte. Une fois qu'il y a un problème avec la préparation du premier fichier, ce qui entraîne une somme de contrôle incorrecte par rapport à la valeur attendue, cette image de base est probablement indisponible.
+
+==== Planification
+
+* {longhorn-product-name} prépare d'abord et stocke le fichier d'image de base sur un nœud et un disque aléatoires, puis duplique le fichier sur les disques qui stockent les répliques.
+* Pour une meilleure efficacité de l'espace, vous pouvez ajouter `nodeSelector` et `diskSelector` pour forcer le stockage des fichiers d'image de base sur un ensemble spécifique de nœuds et de disques.
+* Les répliques ne peuvent pas être programmées sur des nœuds ou des disques où l'image de base ne peut pas être programmée.
+
+==== Nombre de copies
+
+* Vous pouvez ajouter `minNumberOfCopies` pour vous assurer que plusieurs fichiers d'image de base existent dans le cluster.
+* Vous pouvez ajuster le `minNumberOfCopies` dans les paramètres globaux pour appliquer la valeur par défaut à l'image de base.
+
+=== Méthodes de création d'une image de base
+
+==== Créer une image de base en utilisant l'interface utilisateur {longhorn-product-name}
+
+Sur la page menu:Avancé[Images de base], les utilisateurs peuvent créer des images de base avec n'importe quel type de source de données.
+
+==== Créer une image de base V1 en utilisant YAML
+
+Vous pouvez télécharger un fichier ou exporter un volume existant en tant qu'image de base via YAML.
+Il est préférable de ne pas "uploader" un fichier via YAML. Sinon, vous devez gérer manuellement l'upload des données via des requêtes HTTP.
+
+Voici quelques exemples :
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: bi-download
+  namespace: longhorn-system
+spec:
+  dataEngine: v1
+  minNumberOfCopies: 2
+  nodeSelector:
+    - "node1"
+  diskSelector:
+    - "disk1"
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: bi-export
+  namespace: longhorn-system
+spec:
+  dataEngine: v1
+  minNumberOfCopies: 2
+  nodeSelector:
+    - "node1"
+  diskSelector:
+    - "disk1"
+  sourceType: export-from-volume
+  sourceParameters:
+    volume-name: vol-export-src
+    export-type: qcow2
+----
+
+==== Créer une image de base en utilisant une StorageClass et un PVC
+
+. Dans une StorageClass Longhorn.
+. Définir le paramètre `backingImageName` signifie demander à {longhorn-product-name} d'utiliser cette image de base lors de la création du volume.
+. Si vous souhaitez créer l'image de base, tant qu'elle n'existe pas lors de la création du volume CSI, les paramètres `backingImageDataSourceType` et `backingImageDataSourceParameters` doivent être définis. De même que pour YAML, il est préférable de ne pas créer une image de base via "upload" dans StorageClass. Notez que si tous ces paramètres sont définis et que l'image de base existe déjà, {longhorn-product-name} validera si les paramètres correspondent à l'existant avant de l'utiliser.
+
+ ** Pour la `download` :
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-backing-image-example
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  backingImage: "bi-download"
+  backingImageDataSourceType: "download"
+  backingImageDataSourceParameters: '{"url": "https://backing-image-example.s3-region.amazonaws.com/test-backing-image"}'
+  backingImageChecksum: "SHA512 checksum of the backing image"
+  backingImageMinNumberOfCopies: "2"
+  backingImageNodeSelector: "node1"
+  backingImageDiskSelector: "disk1"
+  dataEngine: "v1"
+----
+
+ ** Pour la `export-from-volume` :
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-backing-image-example
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  backingImage: "bi-export-from-volume"
+  backingImageDataSourceType: "export-from-volume"
+  backingImageDataSourceParameters: '{"volume-name": "vol-export-src", "export-type": "qcow2"}'
+  backingImageMinNumberOfCopies: "2"
+  backingImageNodeSelector: "node1"
+  backingImageDiskSelector: "disk1"
+  dataEngine: "v1"
+----
+. Créez un PVC avec la StorageClass. Ensuite, l'image de base sera créée (avec le volume {longhorn-product-name}) si elle n'existe pas.
+. {longhorn-product-name} commence à préparer les images de base sur les disques pour les répliques lorsqu'un volume utilisant l'image de base est attaché à un nœud.
+
+[NOTE]
+====
+* Veuillez faire attention au caractère d'échappement `\` lorsque vous saisissez une URL de téléchargement dans une StorageClass.
+* Une image de base créée à l'aide d'une StorageClass a le même moteur de données que le volume.
+====
+
+== Utilisez une image de base dans un volume
+
+Les utilisateurs peuvent <<Create a Backing Image Using a StorageClass and PVC, créer directement puis immédiatement utiliser une image de base via StorageClass>> ou utiliser une image de base existante comme mentionné ci-dessous.
+
+[discrete]
+==== Utilisez une image de base existante
+
+[discrete]
+===== Utilisez une image de base existante lors de la création du volume
+
+. Cliquez sur menu:Avancé[Images de base] dans l'interface utilisateur {longhorn-product-name}.
+. Cliquez sur *Créer une image de base* pour créer une image de base avec un nom unique et une URL valide.
+. Sélectionnez une backing image dans la liste. Le volume et l'image de base doivent utiliser le même moteur de données.
+. {longhorn-product-name} commence à télécharger l'image de base sur les disques pour les répliques lorsqu'un volume utilisant l'image de base est attaché à un nœud.
+
+[discrete]
+===== Utilisez une image de base existante lors de la restauration du volume
+
+. Cliquez sur `Backup` et choisissez un volume de sauvegarde pour la restauration.
+. Tant que l'image de base est déjà définie pour le volume de sauvegarde, {longhorn-product-name} choisira automatiquement l'image de base lors de la restauration.
+. {longhorn-product-name} vous permet de redéfinir ou de remplacer l'image de base lors de la restauration.
+
+[discrete]
+==== Téléchargez un fichier d'image de base
+
+Depuis la version v1.3.0, les utilisateurs peuvent télécharger des fichiers d'image de base existants sur la machine locale via l'interface utilisateur.
+
+[NOTE]
+====
+* Les utilisateurs doivent s'assurer de l'existence de l'image de base lorsqu'ils utilisent l'interface utilisateur pour créer ou restaurer un volume avec une image de base spécifiée.
+* Avant de télécharger un fichier d'image de base existant sur le local, les utilisateurs doivent garantir qu'il y a un fichier prêt pour cela.
+* Le téléchargement des images de base du moteur de données V2 n'est actuellement pas pris en charge.
+====
+
+== Créer une image de base du moteur de données V2
+
+À partir de la version 1.8.0, vous pouvez créer une image de base qui est prise en charge par le moteur de données V2 en configurant `Data Engine` dans le YAML (via l'interface utilisateur ou un StorageClass).
+
+=== Paramètres
+
+Tous les paramètres sont les mêmes que ceux de l'image de base du moteur de données V1, sauf pour `Data Engine`.
+
+==== Sources de données
+
+Vous pouvez préparer une image de base du moteur de données V2 en utilisant l'une des sources de données prises en charge.
+
+* Télécharger un fichier d'image de base (en utilisant une URL).
+* Télécharger un fichier depuis votre machine locale. Cette option est disponible pour les utilisateurs de l'interface {longhorn-product-name}.
+* Exporter un volume V1 du moteur de données existant dans le cluster en tant qu'image de base.
+* Restaurer une image de base à partir du backupstore. Pour plus d'informations, voir xref:snapshots-backups/backing-image-backups.adoc[Sauvegarde d'image de base].
+* Cloner une image de base V1.
+
+[NOTE]
+====
+* Les opérations suivantes ne sont actuellement pas prises en charge{nbsp}:
+ ** Exporter à partir d'un volume du moteur de données V2
+ ** Cloner une image de base V2
+ ** Sauvegarder une image de base V2
+* Contrairement au moteur de données V1, qui est basé sur des fichiers, le moteur de données V2 nécessite {longhorn-product-name} pour stocker les données de l'image de base dans un volume logique SPDK. En conséquence, pour les images qcow2, {longhorn-product-name} doit d'abord convertir l'image qcow2 en un format brut avant de stocker les données dans l'image de base du moteur de données V2, lui permettant de lire les données correctes.
+====
+
+== Nettoyer les images de base
+
+[discrete]
+==== Nettoyer les images de base dans les disques
+
+* {longhorn-product-name} nettoie automatiquement les fichiers d'image de base inutilisés sur les disques en fonction de xref:longhorn-system/settings.adoc#_backing_image_cleanup_wait_interval[la configuration `Backing Image Cleanup Wait Interval`]. Mais {longhorn-product-name} conservera au moins un fichier sur un disque pour chaque image de base.
+* Vous pouvez supprimer manuellement les images de base des disques en utilisant l'interface {longhorn-product-name}. Allez à *Paramètres* > *Image de base*, puis cliquez sur le nom d'une image de base spécifique. Dans la fenêtre qui s'ouvre, sélectionnez un ou plusieurs disques, puis cliquez sur *Nettoyer*.
+* Une fois qu'il y a une réplique sur un disque utilisant une image de base, peu importe l'état actuel de la réplique, le fichier d'image de base dans ce disque ne peut pas être nettoyé.
+
+[discrete]
+==== Supprimer les images de base
+
+* L'image de base ne peut être supprimée que lorsqu'il n'y a pas de volume l'utilisant.
+
+== Récupération d'image de base
+
+* S'il reste un fichier d'image de base prêt sur un disque, {longhorn-product-name} nettoiera automatiquement les fichiers d'image de base échoués, puis relancera ces fichiers à partir du fichier prêt.
+* Si, d'une manière ou d'une autre, tous les fichiers d'une image de sauvegarde échouent, et que le premier fichier est{nbsp}:
+ ** téléchargé depuis une URL, {longhorn-product-name} redémarrera le téléchargement.
+ ** exporté depuis un volume existant, {longhorn-product-name} redémarrera l'exportation (en attachant le volume si nécessaire).
+ ** téléchargé depuis l'environnement local de l'utilisateur, il n'y a aucun moyen de la récupérer. Les utilisateurs doivent supprimer cette image de sauvegarde puis en recréer une nouvelle en téléchargeant à nouveau le fichier.
+* Lorsqu'un nœud est hors service ou que le pod du gestionnaire d'images de sauvegarde sur le nœud est indisponible, tous les fichiers d'images de sauvegarde sur le nœud deviendront `unknown`. Plus tard, si le nœud est de retour et que le pod fonctionne, {longhorn-product-name} le détectera et réutilisera automatiquement les fichiers existants.
+
+== Éviction d'Image de Sauvegarde
+
+* Vous pouvez supprimer manuellement tous les fichiers d'images de sauvegarde d'un nœud ou d'un disque en définissant `Scheduling` sur `Disabled` et `Eviction Requested` sur `True` dans l'interface {longhorn-product-name}.
+* S'il n'existe qu'un seul fichier d'image de sauvegarde dans le cluster, {longhorn-product-name} duplique d'abord le fichier sur un autre disque, puis supprime le fichier.
+* Si le fichier d'image de sauvegarde ne peut pas être dupliqué sur d'autres disques, {longhorn-product-name} ne supprime pas le fichier. Vous pouvez mettre à jour les paramètres pour résoudre le problème.
+
+== Flux d'image de sauvegarde
+
+. Pour gérer tous les fichiers d'image de sauvegarde sur un disque, {longhorn-product-name} crée un seul pod de gestionnaire d'image de sauvegarde pour chaque disque. Une fois que le disque n'a plus besoin de fichier d'image de sauvegarde, le gestionnaire d'image de sauvegarde est automatiquement supprimé.
+. Une fois qu'un fichier d'image de sauvegarde est préparé par le gestionnaire d'image de sauvegarde pour un disque, le fichier sera partagé entre toutes les répliques de volume de ce disque.
+. Lorsqu'une image de sauvegarde est créée, {longhorn-product-name} lance un pod de source de données d'image de sauvegarde pour préparer le fichier initial. Les données du fichier proviennent d'une source spécifiée par l'utilisateur, comme un téléchargement depuis un emplacement distant, un téléchargement depuis un fichier local ou une exportation depuis un volume existant. Une fois la préparation terminée, le pod de gestionnaire d'image de sauvegarde sur le même disque prend en charge le fichier, et {longhorn-product-name} interrompt le pod de source de données.
+. Une fois qu'une nouvelle image de sauvegarde est utilisée par un volume, les pods de gestionnaire d'image de sauvegarde dans les disques où résident les répliques de volume seront invités à synchroniser le fichier depuis les pods de gestionnaire d'image de sauvegarde qui contiennent déjà le fichier.
+. Comme mentionné dans la section <<_clean_up_backing_images_in_disks,#clean_up_backing_images_in_disks>>, le fichier sera nettoyé automatiquement si toutes les répliques d'un disque n'utilisent pas un fichier d'image de sauvegarde.
+
+== Limite concurrente de synchronisation d'image de sauvegarde
+
+* `Concurrent Backing Image Replenish Per Node Limit` dans les paramètres globaux contrôle combien de copies d'images de sauvegarde sur un nœud peuvent être reconstituées simultanément.
+* Lorsqu'il est réglé sur 0, {longhorn-product-name} ne reconstitue pas automatiquement la copie, même si elle est en dessous du minNumberOfCopies.
+
+== Avertissement
+
+* L'URL de téléchargement de l'image de sauvegarde doit être publique. Nous améliorerons cette partie à l'avenir.
+* S'il y a une forte utilisation de la mémoire d'un pod de gestionnaire d'image de sauvegarde après <<_download_a_backing_image_file,téléchargement de fichier>>, cela est causé par le cache/buffer du système. L'utilisation de la mémoire diminuera automatiquement, donc vous n'avez pas besoin de vous en inquiéter. Voir https://github.com/longhorn/longhorn/issues/4055[le ticket GitHub] pour plus de détails.
+
+== History
+
+* https://github.com/Longhorn/Longhorn/issues/2006[Activer la fonctionnalité d'image de sauvegarde dans {longhorn-product-name}]
+* Prise en charge de https://github.com/longhorn/longhorn/issues/2404[téléversement] et https://github.com/longhorn/longhorn/issues/2403[exportation de volume]
+* Prise en charge de https://github.com/longhorn/longhorn/issues/2404[le téléchargement local] et https://github.com/longhorn/longhorn/issues/3155[l'exportation de volume]

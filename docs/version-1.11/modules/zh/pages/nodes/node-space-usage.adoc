@@ -1,0 +1,61 @@
+= 节点空间使用情况
+:revdate: 2025-11-19
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 整个集群空间使用情况
+
+在 `Dashboard` 页面中，{longhorn-product-name} 向您展示集群空间使用信息：
+
+image::screenshots/volumes-and-nodes/space-usage-info-dashboard-page.png[图片]
+
+`Schedulable`：可用于 Longhorn 卷调度的实际空间。
+
+`Reserved`：为其他应用程序和系统保留的空间。
+
+`Used`：Longhorn 系统和其他应用程序已使用的实际空间。
+
+`Disabled`：不允许调度 Longhorn 卷的磁盘/节点的总空间。
+
+== 每个节点的空间使用情况
+
+在 `Nodes` 页面中，{longhorn-product-name} 显示每个节点的空间分配、调度和使用信息：
+
+image::screenshots/volumes-and-nodes/space-usage-info-node-page.png[图片]
+
+`Size` 列：可用于 Longhorn 卷的 *最大实际可用空间*。它等于节点的总磁盘空间减去保留空间。
+
+`Allocated` 列：左侧数字是已用于 *卷调度* 的大小，并不意味着该空间已用于 Longhorn 卷数据存储。右侧数字是卷调度的 *最大* 大小，即 `Size` 乘以 `Storage Over Provisioning Percentage` 的结果。（在上面的示例中，`Storage Over Provisioning Percentage` 为 500。）因此，这两个数字之间的差异（我们称之为可分配空间）决定了卷副本是否可以调度到此节点。
+
+`Used` 列：左侧部分表示此节点当前使用的空间。整个条形表示节点的总空间。
+
+请注意，当将 `Storage Over Provisioning Percentage` 设置为大于 100 的值时，可分配空间可能大于节点的实际可用空间。如果卷被频繁使用，并且大量历史数据将存储在卷快照中，请谨慎使用此设置的大值。有关该设置的更多信息，请参见xref:longhorn-system/settings.adoc#_storage_over_provisioning_percentage[这里]以获取详细信息。
+
+=== 磁盘调度状态和故障排除消息
+
+当磁盘变为*不可调度*时，{longhorn-product-name}会在用户界面中直接显示根本原因。
+在*节点*页面上，如果磁盘的内部`Schedulable`状态为`False`，用户界面将显示来自`node.diskStatus[x].conditions[Schedulable]`的确切消息。
+此信息对于诊断与空间限制或过度配置相关的问题至关重要。
+
+*示例故障排除消息*：
+
+[,bash]
+----
+Disk default-disk-1030100000000 (/var/lib/longhorn/) on the node ip-192-168-203-144.ap-southeast-1.compute.internal is not schedulable for more replica; Scheduling space condition failed: ScheduledTotal = 4294967296 (Size + StorageScheduled) is greater than ProvisionedLimit = -64504221696 (100% of StorageMax - StorageReserved).
+----
+
+*如何解读此消息*：
+
+* *`ScheduledTotal`*：当前为此磁盘的副本（包括现有和待处理的）*调度*的总空间。
++
+[NOTE]
+====
+这并不代表实际的磁盘使用情况。
+====
+
+* *`ProvisionedLimit`*：此磁盘的*最大允许调度容量*。它源自：
+** 磁盘的物理大小（`StorageMax`）
+** 其保留空间（`StorageReserved`）
+** 乘以集群的`Storage Over Provisioning Percentage`
+
+当`ScheduledTotal`超过`ProvisionedLimit`时，磁盘变为不可调度，并且在调整磁盘配置或集群设置之前将不接受新的副本。

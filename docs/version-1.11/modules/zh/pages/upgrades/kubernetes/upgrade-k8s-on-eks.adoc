@@ -1,0 +1,13 @@
+= 在亚马逊弹性Kubernetes服务（Amazon EKS）上升级Kubernetes
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+在{longhorn-product-name}中，将`replica-replenishment-wait-interval`设置为`0`。
+
+请参阅 https://docs.aws.amazon.com/eks/latest/userguide/update-cluster.html[更新集群]以获取说明。
+
+[NOTE]
+====
+如果您为Longhorn创建了xref:nodes/managed-kubernetes/eks-managed-node-pools.adoc#_create_additional_volume[附加磁盘]，则需要手动将已挂载磁盘的路径添加到升级节点的磁盘列表中。
+====

@@ -1,0 +1,176 @@
+= 用語集
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+
+== 接続/再接続
+
+ブロックデバイスを接続することは、それをLinuxノード上に表示させることです。例えば、`/dev/longhorn/testvol`
+
+ボリュームエンジンが予期せず停止した場合、{longhorn-product-name}がボリュームを再接続します。
+
+== バックアップ
+
+バックアップはバックアップストア内のオブジェクトです。バックアップストアにはボリュームバックアップとシステムバックアップが含まれる場合があります。
+
+== バックアップストア
+
+{longhorn-product-name}バックアップは、Kubernetesクラスターの外部にあるバックアップストアに保存されます。バックアップストアは、NFS共有またはS3互換サーバーのいずれかです。
+
+{longhorn-product-name}は、バックアップターゲットで設定されたエンドポイントでバックアップストアにアクセスします。
+
+== バックアップターゲット
+
+バックアップターゲットは、{longhorn-product-name}のバックアップストアにアクセスするために使用されるエンドポイントです。
+
+== バックアップボリューム
+
+バックアップボリュームは、1つの元のボリュームにマッピングされるバックアップであり、バックアップストアにあります。バックアップボリュームは、UIの*バックアップ*ページで表示できます。バックアップボリュームには、同じボリュームの複数のバックアップが含まれます。
+
+バックアップはスナップショットから作成できます。それらはスナップショットが作成された時点でのボリュームの状態を含みますが、スナップショットは含まれないため、ボリュームデータの変更履歴は含まれません。バックアップは2MBのファイルで構成されていますが、スナップショットはテラバイトになることがあります。
+
+バックアップはオブジェクトストア内の2MBのブロックで構成されています。
+
+スナップショットとバックアップの動作についての詳細な説明は、xref:introduction/concepts.adoc#_2_4_1_how_snapshots_work[概念的なドキュメント]を参照してください。
+
+== ブロックストレージ
+
+データが固定サイズのブロックに保存されるストレージのアプローチです。各ブロックはメモリアドレスに基づいて区別されます。
+
+== CRD
+
+Kubernetes https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/[カスタムリソース定義]。
+
+== CSIドライバー。
+
+Longhorn CSIドライバーは、Kubernetesで使用できる https://kubernetes-csi.github.io/docs/drivers.html[コンテナストレージインターフェース]です。{longhorn-product-name}ボリューム用のCSIドライバーは`driver.longhorn.io`と呼ばれています。
+
+== 災害復旧ボリューム（DRボリューム）。
+
+DRボリュームは、メインクラスター全体がダウンした場合に備えて、バックアップクラスターにデータを保存する特別なボリュームです。DRボリュームは{longhorn-product-name}ボリュームの耐障害性を高めるために使用されます。
+
+バックアップストア内の各バックアップボリュームは、Kubernetesクラスター内の1つの元のボリュームにマッピングされます。同様に、各DRボリュームはバックアップストア内のバックアップボリュームにマッピングされます。
+
+DRボリュームは{longhorn-product-name}ボリュームのバックアップを正確に反映するように作成できますが、アクティブ化されるまで通常の{longhorn-product-name}ボリュームとして使用することはできません。
+
+== ext4
+
+Linux用のファイルシステム。{longhorn-product-name}はストレージのためにext4をサポートしています。
+
+== フロントエンドの拡張
+
+ここでのフロントエンドは、{longhorn-product-name}ボリュームによって公開されるブロックデバイスを指しています。
+
+== インスタンスマネージャー
+
+コントローラー/レプリカインスタンスのライフサイクル管理のためのコンポーネントです。
+
+== {longhorn-product-name}ボリューム
+
+{longhorn-product-name}ボリュームは、Longhorn Managerによって複製および管理されるKubernetesボリュームです。各ボリュームについて、Longhorn Managerは次のものを作成します：
+
+* Longhorn Engineのインスタンス
+* ボリュームのレプリカ。各レプリカはボリュームのスナップショットの一連で構成されています。
+
+各レプリカは、ボリュームの履歴の変更を記録するスナップショットのチェーンを含んでいます。デフォルトでは3つのレプリカが作成され、通常は高可用性のために別々のノードに保存されます。
+
+== マウント
+
+ブロックデバイスをノードの特定のディレクトリにマウントするためのLinuxコマンド、例：`mount /dev/longhorn/testvol /mnt`
+
+== NFS
+
+コンピュータネットワークを介してファイルにアクセスできる https://en.wikipedia.org/wiki/Network_File_System[分散ファイルシステムプロトコル]。これは、ローカルストレージにアクセスする方法に似ています。{longhorn-product-name}は、セカンダリストレージのバックアップストアとしてNFSを使用することをサポートしています。
+
+== オブジェクトストレージ
+
+データをオブジェクトとして管理するデータストレージアーキテクチャ。各オブジェクトには通常、データ自体、可変量のメタデータ、およびグローバル固有識別子が含まれます。{longhorn-product-name}ボリュームはS3互換のオブジェクトストレージにバックアップできます。
+
+== オフライン拡張
+
+オフラインボリューム拡張では、ボリュームが切り離されます。
+
+== オーバープロビジョニング
+
+オーバープロビジョニングにより、サーバーは物理的に予約された以上のストレージ容量を表示できます。つまり、ルートファイルシステム用に50GiBを予約した200GiBのディスク上で、合計750GiBの{longhorn-product-name}ボリュームをスケジュールできます。*ストレージオーバープロビジョニング割合*はxref:longhorn-system/settings.adoc[設定で構成できます。]
+
+== PersistentVolume
+
+PersistentVolume (PV)は、管理者によってプロビジョニングされたか、ストレージクラスを使用して動的にプロビジョニングされたクラスタ内のストレージの一部を表すKubernetesリソースです。これはクラスタレベルのリソースであり、ポッドが個々のポッドのライフサイクルに依存しない永続ストレージを使用するために必要です。詳細については、公式の https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetesの永続ボリュームに関するドキュメントを参照してください。]
+
+== PersistentVolumeClaim
+
+PersistentVolumeClaim (PVC)は、ユーザーによるストレージのリクエストです。Podは、ストレージのためにPVCを使用して特定のリソース（CPUおよびメモリ）のレベルを要求できます。クレームは、特定のサイズとアクセスモード（例：一度読み書きとしてマウントされるか、何度も読み取り専用としてマウントされるか）を要求できます。
+
+詳細については、公式の https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetesのドキュメント]を参照してください。
+
+== プライマリバックアップ
+
+Kubernetesクラスター内の各{longhorn-product-name}ボリュームのレプリカは、プライマリバックアップと見なすことができます。
+
+== 再マウント
+
+再マウントでは、{longhorn-product-name}が再接続後にボリュームのファイルシステムを検出してマウントします。
+
+== レプリカ
+
+レプリカは、ボリューム内のデータの変更履歴を示すスナップショットのチェーンで構成されています。
+
+== S3
+
+https://aws.amazon.com/s3/[Amazon S3]はオブジェクトストレージサービスです。
+
+== ボリュームを回収する
+
+すべてのレプリカが故障した場合（例：ネットワーク接続の切断など）には、回収操作が必要です。
+
+ボリュームを回収する際、{longhorn-product-name}は使用可能なレプリカを特定し、それを使用してボリュームを復元しようとします。
+
+== セカンダリバックアップ
+
+Kubernetesクラスター外のバックアップ、S3またはNFS上。
+
+== Snapshot
+
+スナップショットは、スナップショットが作成された時点でのボリュームの状態をキャプチャします。各スナップショットは、以前のスナップショットからデータを上書きする変更のみをキャプチャするため、ボリュームの完全な状態を完全に表現するにはスナップショットのシーケンスが必要です。ボリュームはスナップショットから復元できます。スナップショットの詳細な説明については、xref:introduction/concepts.adoc[概念的なドキュメント]を参照してください。
+
+== 安定したアイデンティティ
+
+https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[StatefulSets]は安定したアイデンティティを持ち、KubernetesはユーザーのためにPodを強制的に削除しません。
+
+== StatefulSet
+
+状態を持つアプリケーションを管理するために使用される https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[Kubernetesリソース]。
+
+== StorageClass
+
+ポッドのためにPersistentVolumeを自動的にプロビジョニングするために使用できるKubernetesリソース。詳細については、 https://kubernetes.io/docs/concepts/storage/storage-classes/#the-storageclass-resource[Kubernetesのドキュメント]を参照してください。
+
+== システムバックアップ
+
+{longhorn-product-name}はシステムバックアップをバックアップストアにアップロードします。各システムバックアップには、{longhorn-product-name}システムのバックアップリソースバンドルが含まれています。
+
+詳細については、xref:snapshots-backups/system-backups/create-system-backup.adoc#_longhorn_system_backup_bundle[システムバックアップバンドル]を参照してください。
+
+== シンプロビジョニング
+
+{longhorn-product-name}はシンプロビジョニングされたストレージシステムです。つまり、{longhorn-product-name}ボリュームは必要な分だけのスペースを占有します。例えば、20GBのボリュームを割り当てたが、そのうち1GBしか使用していない場合、ディスク上の実際のデータサイズは1GBになります。
+
+== umount
+
+ファイル階層からファイルシステムを切り離す https://linux.die.net/man/8/umount[Linuxコマンド]。
+
+== ボリューム（Kubernetesの概念）
+
+Kubernetesのボリュームは、ポッドのライフタイム中にファイルを保存することを可能にします。
+
+これらのファイルはコンテナがクラッシュした後も利用可能ですが、ポッドのライフタイムを超えては利用できません。ポッドのライフタイムを超えても利用可能なストレージを得るには、Kubernetesの https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes[PersistentVolume (PV)]が必要です。
+
+詳細については、Kubernetesの https://kubernetes.io/docs/concepts/storage/volumes/[ボリュームに関するドキュメント]を参照してください。
+
+== XFS
+
+ほとんどのLinux配布パッケージでサポートされている https://en.wikipedia.org/wiki/XFS[ファイルシステム]。{longhorn-product-name}はストレージのためにXFSをサポートしています。
+
+== SMB/CIFS
+
+https://en.wikipedia.org/wiki/Network_File_System[ネットワークファイルシステムプロトコル]であり、コンピュータネットワークを介してファイルにアクセスすることを可能にします。ローカルストレージにアクセスする方法に似ています。{longhorn-product-name}は、SMB/CIFSをセカンダリストレージのバックアップストアとして使用することをサポートしています。

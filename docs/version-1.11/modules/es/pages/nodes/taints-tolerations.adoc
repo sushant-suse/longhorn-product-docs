@@ -1,0 +1,146 @@
+= Taints y Tolerations
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+Si los usuarios quieren crear nodos con grandes espacios de almacenamiento y/o recursos de CPU solo para Longhorn (para almacenar datos de réplicas) y rechazar otras cargas de trabajo generales, pueden aplicar taints a esos nodos y añadir tolerations para los componentes de Longhorn. Entonces, Longhorn se puede desplegar en esos nodos.
+
+Ten en cuenta que la configuración de taints y tolerations para una carga de trabajo no impedirá que se programe en los nodos que no contengan los taints correspondientes.
+
+Para más información sobre cómo funcionan los taints y tolerations, consulta la https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/[documentación oficial de Kubernetes.]
+
+= Configuración de Taints y Tolerations
+
+Longhorn consiste en componentes desplegados por el usuario (por ejemplo, Longhorn Manager, Longhorn Driver y Longhorn UI) y componentes gestionados por el sistema (por ejemplo, Instance Manager, Backing Image Manager, Share Manager, CSI Driver y Engine Image).
+Necesitas establecer tolerations para ambos tipos de componentes. Consulta más detalles a continuación.
+
+[discrete]
+=== Configurando Taints y Tolerations Durante la instalación de Longhorn
+
+. Establece los taints y tolerations para los componentes desplegados por el usuario.
+ ** Si instalas Longhorn a través de Rancher, debes copiar y pegar los siguientes parámetros en el YAML en la interfaz de usuario de Rancher (haz clic en *Editar como YAML* durante la instalación) para aplicar el valor a todos los componentes desplegados por el usuario.
++
+[subs="+attributes",yaml]
+----
+  global:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+----
+
+ ** También puedes especificar los tolerations para cada componente desplegado por el usuario y esto anulará la configuración global.
++
+[subs="+attributes",yaml]
+----
+  longhornManager:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+  longhornDriver:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+  longhornUI:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+----
+
+ ** Si instalas Longhorn utilizando `kubectl` para aplicar https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml[el YAML de deployment], necesitas modificar la sección de taints y tolerations para Longhorn Manager, Longhorn UI y Longhorn Driver Deployer.
+ Luego aplica los archivos YAML.
+ ** Si instalas Longhorn usando Helm, puedes cambiar los valores de Helm para `global.tolerations`, `longhornManager.tolerations`, `longhornUI.tolerations`, `longhornDriver.tolerations` en el archivo `values.yaml` antes de instalar el chart.
+. Establece los taints y tolerations para los componentes gestionados por el sistema (por ejemplo, Instance Manager, CSI Driver y Engine Image).
++
+Sigue el xref:longhorn-system/customize-default-settings.adoc[Personalizar configuraciones predeterminadas] para establecer los taints y tolerations cambiando el valor de la configuración predeterminada `taint-toleratio`.
++
+[NOTE]
+====
+Debido a la limitación de Rancher 2.5.x, si estás utilizando la interfaz de usuario de Rancher para instalar Longhorn, necesitas hacer clic en `Edit As Yaml` y añadir la configuración `taintToleration` a `defaultSettings`.
+
+Por ejemplo:
+
+[subs="+attributes",yaml]
+----
+defaultSettings:
+  taintToleration: "key=value:NoSchedule"
+----
+====
+
+[discrete]
+=== Configuración de Taints y Tolerations Después de que Longhorn ha sido instalado
+
+____
+*Advertencia*:
+
+Para asegurar que la configuración de tolerations preferida se aplique de inmediato, termina todas las cargas de trabajo y desconecta todos los volúmenes de Longhorn antes de configurar los ajustes.
+
+Dado que todos los componentes de Longhorn se reiniciarán, el sistema Longhorn no estará disponible temporalmente.
+
+Cuando todos los volúmenes de Longhorn estén desmontados, la configuración personalizada se aplicará de inmediato a los componentes gestionados por el sistema.
+Cuando uno o más volúmenes de Longhorn aún estén montados, la configuración personalizada se aplicará al Instance Manager solo cuando no se estén ejecutando motores e instancias de réplica. Se requiere que reconfigures la configuración después de desmontar los volúmenes restantes. Alternativamente, puedes esperar a la próxima sincronización de configuración, que ocurrirá en una hora.
+
+No operes el sistema Longhorn mientras se actualizan las configuraciones de tolerancia y se reinician los componentes de Longhorn.
+____
+
+. Preparación
++
+Para asegurar que tus configuraciones preferidas se apliquen de inmediato, termina todas las cargas de trabajo y desmonta todos los volúmenes de Longhorn antes de configurar los ajustes.
+
+. Establece los taints y tolerations para los componentes desplegados por el usuario.
+ ** Si instalas Longhorn a través de Rancher, debes copiar y pegar los siguientes parámetros en el YAML en la interfaz de usuario de Rancher (haz clic en *Editar como YAML* durante la actualización de versión) para aplicar el valor a todos los componentes desplegados por el usuario.
++
+[subs="+attributes",yaml]
+----
+  global:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+----
+
+ ** También puedes especificar los tolerations para cada componente desplegado por el usuario y esto anulará la configuración global.
++
+[subs="+attributes",yaml]
+----
+  longhornManager:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+  longhornDriver:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+  longhornUI:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+----
+
+ ** Si instalas Longhorn utilizando `kubectl` para aplicar https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml[el YAML de despliegue], necesitas modificar la sección de taints y tolerations para Longhorn Manager, Longhorn UI y Longhorn Driver Deployer.
+Luego reaplica los archivos YAML.
+ ** Si instalas Longhorn usando Helm, puedes cambiar los valores de Helm para `global.tolerations`, `longhornManager.tolerations`, `longhornUI.tolerations`, `longhornDriver.tolerations` en el archivo `values.yaml`, y luego ejecutar `helm upgrade` para actualizar la versión del chart.
+. Establece los taints y tolerations para los componentes gestionados por el sistema (por ejemplo, Instance Manager, Backing Image Manager, Share Manager, CSI Driver y Engine Image).
++
+La configuración de taints y tolerations se puede encontrar en Longhorn UI bajo menu:Ajustes[Kubernetes Taints y Tolerations].
+
+== Historial
+
+* https://github.com/longhorn/longhorn/issues/584[Solicitud de característica original]
+* https://github.com/longhorn/longhorn/issues/2120[Resolver el problema con GitOps]

@@ -1,0 +1,22 @@
+= Supprimer des volumes
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Une fois que vous avez terminé d'utiliser un volume Longhorn pour le stockage, il existe plusieurs façons de supprimer le volume, en fonction de la manière dont vous avez utilisé le volume.
+
+== Suppression des volumes via Kubernetes
+
+NOTE: Cette méthode ne fonctionne que si le volume a été provisionné par une StorageClass et que le PersistentVolume pour le volume Longhorn a sa stratégie de récupération définie sur Delete.
+
+Vous pouvez supprimer un volume via Kubernetes en supprimant le PersistentVolumeClaim qui utilise le volume Longhorn provisionné. Cela amènera Kubernetes à nettoyer le PersistentVolume puis à supprimer le volume dans Longhorn.
+
+== Suppression des volumes via Longhorn
+
+Tous les volumes Longhorn, peu importe comment ils ont été créés, peuvent être supprimés via l'interface utilisateur de Longhorn.
+
+Pour supprimer un seul volume, allez à la page Volumes dans l'interface utilisateur. Dans le menu déroulant Opération, sélectionnez Supprimer. Vous serez invité à confirmer avant de supprimer le volume.
+
+Pour supprimer plusieurs volumes en même temps, vous pouvez cocher plusieurs volumes sur la page Volumes et sélectionner Supprimer en haut.
+
+NOTE: Si Longhorn détecte qu'un volume est lié à un PersistentVolume ou à un PersistentVolumeClaim, ces ressources seront également supprimées une fois que vous aurez supprimé le volume. Vous serez averti dans l'interface utilisateur à ce sujet avant de procéder à la suppression. Longhorn vous avertira également lors de la suppression d'un volume attaché, car il peut être en cours d'utilisation.

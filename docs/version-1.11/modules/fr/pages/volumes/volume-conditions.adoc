@@ -1,0 +1,29 @@
+= Conditions de volume
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Conditions de volume
+
+Les conditions de volume décrivent l'état actuel d'un volume et les problèmes potentiels qui peuvent survenir.
+
+* `Scheduled` : Toutes les répliques ont été planifiées avec succès.
+  Si Longhorn n'a pas pu planifier l'une des répliques, la condition est définie sur `false` et des messages d'erreur sont affichés. La condition est définie sur `true` lorsque le paramètre xref:longhorn-system/settings.adoc#_allow_volume_creation_with_degraded_availability[Autoriser la création de volumes avec une disponibilité dégradée] est activé et qu'au moins une réplique est planifiée.
+* `TooManySnapshots` : Ce volume spécifique a plus de 100 instantanés.
+  Longhorn vous permet de créer un maximum de 250 instantanés pour chaque volume. Pour plus d'informations sur la configuration du nombre maximum d'instantanés, voir xref:snapshots-backups/volume-snapshots-backups/snapshot-space-management.adoc[Gestion de l'espace des instantanés].
+* `Restore` : Longhorn restaure le volume à partir d'une sauvegarde.
+* `WaitForBackingImage` : Les répliques n'ont pas démarré car les images de base doivent d'abord être synchronisées avec leurs disques.
+* `OfflineRebuildingInProgress` : Le volume est en cours de reconstruction à l'aide de la reconstruction hors ligne.
+
+== Conditions du moteur
+
+Les conditions du moteur décrivent l'état actuel d'un moteur et les problèmes potentiels qui peuvent survenir.
+`FilesystemReadOnly`: L'état du point de montage du volume actuel a changé en lecture seule.
+Ce changement peut empêcher les charges de travail d'écrire des données sur le volume. Pour plus d'informations sur le dépannage, voir xref:high-availability/volume-recovery.adoc[].
+
+== Conditions de réplique
+
+Les conditions de réplique décrivent l'état actuel d'une réplique et les problèmes potentiels qui peuvent survenir.
+
+* `RebuildFailed` : La réplique n'a pas pu être reconstruite.
+* `WaitForBackingImage` : Les répliques n'ont pas démarré car les images de base doivent d'abord être synchronisées avec leurs disques.

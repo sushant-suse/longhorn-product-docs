@@ -1,0 +1,94 @@
+= Créer une sauvegarde
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Sauvegarde incrémentielle
+
+Les sauvegardes dans Longhorn sont des objets dans un stockage de sauvegarde hors cluster. Une sauvegarde d'un instantané est copiée dans le stockage de sauvegarde, et le point de terminaison pour accéder au stockage de sauvegarde est la cible de sauvegarde. Pour plus d'informations, voir xref:introduction/concepts.adoc#_3_1_how_backups_work[cette section.]
+
+____
+*Condition préalable :* Une cible de sauvegarde doit être configurée. Pour plus d'informations, voir xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[Configurer la cible de sauvegarde]. Si la cible de sauvegarde n'a pas été définie, une erreur s'affichera.
+____
+
+=== Créer une sauvegarde incrémentielle à l'aide de l'interface utilisateur
+
+Pour créer une sauvegarde,
+
+. Accédez au menu *Volume*.
+. Sélectionnez le volume que vous souhaitez sauvegarder.
+. Cliquez sur *Créer une sauvegarde.*
+. Ajoutez les étiquettes appropriées et cliquez sur OK.
+
+*Résultat :* La sauvegarde est créée. Pour la voir, cliquez sur *Sauvegarde* dans la barre de navigation supérieure.
+
+Pour des informations sur la restauration d'un volume à partir d'un instantané, voir xref:snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[Restaurer à partir d'une sauvegarde].
+
+=== Créer une sauvegarde incrémentielle à l'aide du code YAML
+
+. Obtenez le nom de l'instantané que vous souhaitez sauvegarder (à partir de l'interface utilisateur Longhorn ou du CR).
+. Appliquez le YAML.
+
+Exemple :
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Backup
+metadata:
+  name: backup-example
+  namespace: longhorn-system
+spec:
+  backupMode: incremental
+  snapshotName: snapshot-name-example
+  labels:
+    app: test
+----
+
+== Sauvegarde complète
+
+Par défaut, Longhorn sauvegarde uniquement les données qui ont été modifiées depuis la dernière sauvegarde. Cette approche, connue sous le nom de _sauvegarde delta_, améliore l'efficacité temporelle et conserve le débit du réseau. Cependant, lorsqu'un bloc de données dans le stockage de sauvegarde devient corrompu, Longhorn ne remplace pas ce bloc de données par un bloc sain lors des opérations de sauvegarde suivantes.
+
+À partir de la version 1.7.0, Longhorn peut effectuer des sauvegardes complètes qui téléversent tous les blocs de données dans le volume et remplacent les blocs de données existants dans le stockage de sauvegarde.
+
+=== Créer une sauvegarde complète à l'aide de l'interface utilisateur Longhorn
+
+. Allez à l'écran *Volume*.
+. Sélectionnez le volume que vous souhaitez sauvegarder.
+. Cliquez sur *Créer une sauvegarde*.
+. Ajoutez des étiquettes appropriées.
+. Sélectionnez Sauvegarde complète.
+. Cliquez sur *OK*.
+
+=== Créer une sauvegarde complète à l'aide du code YAML
+
+. Obtenez le nom de l'instantané que vous souhaitez sauvegarder (à partir de l'interface utilisateur Longhorn ou du CR).
+. Appliquez le YAML.
+
+Exemple :
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Backup
+metadata:
+  name: backup-example
+  namespace: longhorn-system
+spec:
+  backupMode: full
+  snapshotName: snapshot-name-example
+  labels:
+    app: test
+----
+
+== Taille des données téléversées
+
+Pour faciliter la collecte d'informations sur le transfert de données pour chaque sauvegarde, Longhorn enregistre les informations à l'aide de deux métriques dans l'état CR.
+
+=== Taille des nouvelles données téléversées
+
+`status.newlyUploadDataSize` enregistre la taille des données qui ont été téléversées _pour la première fois_ dans le stockage de sauvegarde lors de la dernière sauvegarde. En d'autres termes, il suit la taille des blocs de données qui n'existaient pas auparavant dans le stockage de sauvegarde.
+
+=== Taille des données re-téléversées
+
+`status.reUploadDataSize` enregistre la taille des données qui ont été écrasées lors de la dernière sauvegarde complète. En d'autres termes, il suit la taille des blocs de données qui existaient auparavant dans le stockage de sauvegarde.

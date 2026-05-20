@@ -1,0 +1,69 @@
+= Reconstruction de la QoS de la réplique
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:aliases: ["/spdk/features/replica-rebuild-qos.md"]
+:current-version: {page-component-version}
+
+{longhorn-product-name} prend en charge le throttling de la bande passante de reconstruction (Qualité de Service, ou QoS) pour les volumes v2 basés sur SPDK. Cette fonctionnalité vous permet d'appliquer des limites de bande passante aux répliques pendant la reconstruction, ce qui aide à éviter de surcharger le débit de stockage des nœuds source et destination.
+
+== Paramètre global{nbsp}: `v2-data-engine-rebuilding-mbytes-per-second`
+
+* Ce paramètre à l'échelle du cluster définit la bande passante d'écriture maximale (en Mo/s) pour la reconstruction des répliques.
+* Une valeur de `0` indique qu'il n'y a pas de limite.
+* Vous pouvez configurer ce paramètre uniquement via `kubectl`:
+
+[,bash]
+----
+kubectl -n longhorn-system patch settings.longhorn.io v2-data-engine-rebuilding-mbytes-per-second \
+  --type=merge -p '{"value":"100"}'
+----
+
+== Surcharge de QoS par volume
+
+Vous pouvez remplacer la limite de bande passante de reconstruction globale pour un volume spécifique en définissant `spec.rebuildingMbytesPerSecond` dans la spécification du volume{nbsp}:
+
+[,yaml]
+----
+spec:
+  rebuildingMbytesPerSecond: 50
+----
+
+== Résolution de QoS effective
+
+La limite de bande passante de reconstruction effective est déterminée en évaluant à la fois les paramètres globaux et spécifiques au volume. Si la valeur spécifique au volume est supérieure à zéro, elle remplace le paramètre global.
+
+|===
+|Paramètre global | Surcharge de volume | QoS effective
+
+|0
+|0
+|Un nombre illimité
+
+|100
+|0
+|100 Mo/s
+
+|0
+|200
+|200 Mo/s
+
+|100
+|200
+|200 Mo/s
+|===
+
+La QoS appliquée est enregistrée dans le champ `status.rebuildStatus[*].appliedRebuildingMbps` au sein de l'état du moteur.
+
+Par exemple, la limite de bande passante appliquée apparaît dans l'état du moteur du volume comme indiqué ici:
+
+[,yaml]
+----
+  Rebuild Status:
+    tcp://172.24.1.95:20001:
+      Error:
+      From Replica Address:  tcp://172.24.8.133:20001
+      Is Rebuilding:         true
+      Progress:              97
+      State:                 in_progress
+      appliedRebuildingMbps: 50
+----

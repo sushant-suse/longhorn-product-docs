@@ -1,0 +1,120 @@
+= Volumes de Recuperação de Desastre
+:revdate: 2025-07-04
+:page-revdate: {revdate}
+:description: Ajuda e possíveis problemas associados a provedores de nuvem específicos.
+:current-version: {page-component-version}
+
+Garantir a resiliência dos dados é importante ao trabalhar com aplicativos conteinerizados. Um *volume de Recuperação de Desastre (DR) Longhorn* é um tipo especial de volume projetado para manter uma cópia de espera dos dados em um cluster Kubernetes secundário. Ele é criado a partir de backups de um volume primário e mantido em sincronia para permitir uma recuperação rápida caso o cluster primário fique indisponível.
+
+O volume DR armazena uma réplica dos dados geograficamente separada. A frequência de backup determina quão atual o volume DR está e, consequentemente, a quantidade potencial de perda de dados em caso de falha do site.
+
+== Como ela funciona
+
+A funcionalidade dos volumes DR depende da replicação assíncrona através de um armazenamento de backup compartilhado.
+
+*Destino de backup compartilhado*
+
+Seus clusters Kubernetes primário e secundário devem ser configurados para usar o mesmo destino de backup externo (por exemplo, um armazenamento de objetos compatível com S3 ou um compartilhamento NFS).
+
+*Backup e restauração incrementais*
+
+Um volume DR é criado a partir de um backup existente. Ele verifica continuamente o destino de backup em busca de backups mais recentes do volume de origem e os restaura de forma incremental. O campo *Último Backup* na interface mostra o backup mais recente que foi restaurado.
+
+Para manter o volume DR atualizado, configure trabalhos recorrentes no volume de origem para realizar backups incrementais regulares. Esses backups recorrentes fornecem ao volume DR novos backups para restaurar, ajudando a garantir a mínima perda de dados em caso de desastre.
+
+*Estado de espera*
+
+O volume DR permanece em um estado de espera passiva. Ele não está montado ou acessível por quaisquer cargas de trabalho, o que previne inconsistências de dados. A interface do usuário indica o status do volume com um ícone:
+
+* Ícone Cinza: O volume está ocupado restaurando dados e não pode ser ativado.
+* Ícone Azul: O volume está totalmente sincronizado e pronto para ativação.
+
+*Ativação*
+
+Em uma situação de desastre, você ativa manualmente o volume de DR. Esse processo o converte em um volume Longhorn padrão e gravável que você pode anexar aos seus aplicativos no cluster de recuperação.
+
+== Criando um Volume de DR
+
+Você pode criar um volume de DR usando a interface do usuário {longhorn-product-name} ou `kubectl`.
+
+[IMPORTANT]
+====
+Configure dois clusters Kubernetes, chamados de Cluster A e Cluster B. Instale {longhorn-product-name} em ambos os clusters e configure o mesmo destino de backup em ambos. Para assistência na configuração do destino de backup, consulte a página xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[configurar destino de backup].
+====
+
+=== Usando a interface do usuário {longhorn-product-name}
+
+. No seu cluster primário, certifique-se de que o volume de origem tenha pelo menos um backup.
+. Na interface do usuário {longhorn-product-name} do seu cluster secundário (de recuperação), navegue até a página *Backup*.
+. Selecione o backup desejado na lista e escolha *Criar Volume de Recuperação de Desastre*. Recomendamos usar o mesmo nome que o volume original.
+. {longhorn-product-name} criará o volume, que aparecerá na página *Volume* com um status de Standby.
+
+=== Usando o comando `kubectl`
+
+. **Obter a URL do Backup:** Primeiro, copie a URL completa do backup de origem da página *Backup* na interface do usuário {longhorn-product-name}. O formato desta URL depende do seu destino de backup configurado (por exemplo, S3 ou NFS).
+
+. **Crie um Manifesto YAML:** Crie um arquivo (por exemplo, `dr-volume.yaml`) com o seguinte conteúdo. Substitua a URL de exemplo e ajuste o nome, tamanho, `accessMode`, etc., para corresponder ao seu volume de origem. Neste arquivo, o campo `standby: true` define o volume como um volume de espera DR.
+
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  name: example-dr-volume
+  namespace: longhorn-system
+spec:
+  size: "2147483648"
+  accessMode: rwo
+  numberOfReplicas: 3
+  fromBackup: "nfs://longhorn-nfs-server.example.com:/opt/backupstore?backup=backup-b69a1249e97f4a27&volume=pvc-33509786-92d7-427c-9b5a-b6d61d56b063"
+  # This flag is essential to create a standby volume
+  Standby: true
+----
+
+. **Aplique o Manifesto:** Aplique o manifesto ao seu cluster secundário para criar o volume.
+
+== Ativando um Volume DR
+
+Quando um failover for necessário, ative o volume DR para torná-lo gravável.
+
+{longhorn-product-name} suporta ativação sob as seguintes condições:
+
+* O volume está saudável, indicando que todas as réplicas estão em um estado saudável.
+* O volume está degradado (algumas réplicas falharam), mas somente se a configuração global xref:longhorn-system/settings.adoc#_allow_volume_creation_with_degraded_availability[`Allow Volume Creation with Degraded Availability`] estiver habilitada.
+
+[IMPORTANT]
+====
+Quando a configuração `Allow Volume Creation with Degraded Availability` está desativada, tentar ativar um volume DR degradado faz com que o volume fique preso no estado `Attached`.
+
+Após habilitar a configuração, o volume DR será ativado e se converterá em um volume normal, permanecendo no estado `Detached`.
+====
+
+=== Usando a interface do usuário {longhorn-product-name}
+
+. Vá para a página *Volumes* na interface {longhorn-product-name} do seu cluster secundário.
+. Selecione o volume DR que você deseja ativar.
+. Clique no botão *Ativar Volume de Recuperação de Desastre* no menu suspenso *Operação*.
+. O volume transitará para o estado `Detached`, e você poderá anexá-lo às suas cargas de trabalho.
+
+=== Usando o comando `kubectl`
+
+. Execute o seguinte comando para ativar o volume DR e atualizar o frontend:
+
+[,bash]
+----
+kubectl patch volume example-dr-volume1 -n longhorn-system --type='json' -p='[
+  {"op": "replace", "path": "/spec/Standby", "value": false},
+  {"op": "replace", "path": "/spec/frontend", "value": "blockdev"}
+]'
+----
+
+. O volume transitará para o estado `Detached`, e você poderá anexá-lo às suas cargas de trabalho.
+
+== Limitações
+
+Como o principal objetivo de um volume DR é restaurar dados de backups, as seguintes ações não são suportadas até que o volume seja ativado:
+
+* Criando, excluindo ou revertendo instantâneos
+* Criando backups
+* Criando volumes persistentes (PVs)
+* Criando reivindicações de volume persistente (PVCs)

@@ -1,0 +1,137 @@
+= 使用 Helm 控制器安装 {longhorn-product-name}
+:revdate: 2026-02-02
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+您可以使用内置于 RKE2 和 K3s 的 Helm 控制器安装 {longhorn-product-name}。
+
+== 先决条件
+
+[NOTE]
+====
+{longhorn-product-name}安装 需要对 SUSE 应用程序集合的认证访问。有关更多详细信息，请查看 https://docs.apps.rancher.io/get-started/authentication[认证指南]。
+====
+
+* Kubernetes 集群：确保每个节点满足 xref:installation-setup/requirements.adoc[安装要求]。集群应运行 RKE2 或 K3s。
+
+____
+可以使用 xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn 命令行工具] 检查 {longhorn-product-name} 环境中的潜在问题。
+____
+
+== 安装
+
+[NOTE]
+====
+* 初始设置可以 xref:longhorn-system/customize-default-settings.adoc#_using_helm[通过 Helm 选项或编辑部署配置文件进行自定义]。
+* 对于 Kubernetes v1.25 或更早版本，如果您的集群仍启用 Pod 安全策略准入控制器，请将 helm 值 `enablePSP` 设置为 `true` 以安装 `longhorn-psp` PodSecurityPolicy 资源，允许特权 Longhorn Pod 启动。
+====
+
+. 创建一个类似于以下内容的 HelmChart YAML 文件：
++
+[subs="+attributes",yaml]
+----
+apiVersion: helm.cattle.io/v1
+  kind: HelmChart
+  metadata:
+    annotations:
+      helmcharts.cattle.io/managed-by: helm-controller
+    finalizers:
+    - wrangler.cattle.io/on-helm-chart-remove
+    generation: 1
+    name: longhorn-install
+    namespace: default
+  spec:
+    version: v{patch-version}
+    chart: longhorn
+    repo: https://charts.longhorn.io
+    failurePolicy: abort
+    targetNamespace: longhorn-system
+    createNamespace: true
+----
++
+[IMPORTANT]
+====
+* 确保 `spec.failurePolicy` 设置为 "abort"。 唯一的其他值是默认值："reinstall"，它会卸载 {longhorn-product-name}。 使用 "abort" 时，它会定期重试，给用户机会修复问题。
++
+* YAML 文件可以使用图表本身的镜像，而不是指定仓库、版本和图表名称：
++
+[,yaml]
+----
+spec:
+  chartContent:  <tarball of chart directory | base64 -w 0>
+----
++
+有关完整详细信息，请参见 HelmChart 控制器文档： https://documentation.suse.com/cloudnative/rke2/latest/en/add-ons/helm.html[{rke2-product-name} - Helm] 或 https://documentation.suse.com/cloudnative/k3s/latest/en/helm.html[{k3s-product-name} - Helm]。
+====
++
+. 应用 YAML 以创建 HelmChart CR 和安装作业。
++
+[,shell]
+----
+$ kubectl apply -f helmchart_repo_install.yaml
+helmchart.helm.cattle.io/longhorn-install created
+----
++
+[NOTE]
+====
+删除 HelmChart CR 会启动 {longhorn-product-name} 的卸载。
+====
+. 检查创建的资源。
++
+[subs="+attributes",shell]
+----
+$ kubectl get jobs
+NAME                            COMPLETIONS   DURATION   AGE
+helm-install-longhorn-install   0/1           8s         8s
+$ kubectl get pods
+NAME                                  READY   STATUS      RESTARTS   AGE
+helm-install-longhorn-install-lngm8   0/1     Completed   0          25s
+$ kubectl get helmcharts
+NAME               JOB                     CHART      TARGETNAMESPACE   VERSION   REPO                         HELMVERSION   BOOTSTRAP
+longhorn-install   helm-install-longhorn   longhorn   longhorn-system   v{patch-version}    https://charts.longhorn.io
+----
++
+. 验证部署是否成功。
++
+[,bash]
+----
+kubectl -n longhorn-system get pod
+----
++
+结果示例：
++
+[,bash]
+----
+NAME                                                READY   STATUS    RESTARTS      AGE
+csi-attacher-85c7684cfd-67kqc                       1/1     Running   0             29m
+csi-attacher-85c7684cfd-jbddj                       1/1     Running   0             29m
+csi-attacher-85c7684cfd-t85bw                       1/1     Running   0             29m
+csi-provisioner-68cdb8b96-46d9q                     1/1     Running   0             29m
+csi-provisioner-68cdb8b96-dgf5f                     1/1     Running   0             29m
+csi-provisioner-68cdb8b96-mh8q7                     1/1     Running   0             29m
+csi-resizer-86dd765b9-d27cs                         1/1     Running   0             29m
+csi-resizer-86dd765b9-scqxm                         1/1     Running   0             29m
+csi-resizer-86dd765b9-zpcv7                         1/1     Running   0             29m
+csi-snapshotter-65b46b8749-dtvh2                    1/1     Running   0             29m
+csi-snapshotter-65b46b8749-g67fn                    1/1     Running   0             29m
+csi-snapshotter-65b46b8749-nfgzm                    1/1     Running   0             29m
+engine-image-ei-221c9c21-gd5d6                      1/1     Running   0             29m
+engine-image-ei-221c9c21-v6clp                      1/1     Running   0             29m
+engine-image-ei-221c9c21-zzdrt                      1/1     Running   0             29m
+instance-manager-77d11dda6091967f9b30011c9876341b   1/1     Running   0             29m
+instance-manager-870c250b69a4fe01382ed46156d33f47   1/1     Running   0             29m
+instance-manager-a4099c5ce28b423c3cc2667906f4b0b4   1/1     Running   0             29m
+longhorn-csi-plugin-jfbh5                           3/3     Running   0             29m
+longhorn-csi-plugin-w768w                           3/3     Running   0             29m
+longhorn-csi-plugin-xcghm                           3/3     Running   0             29m
+longhorn-driver-deployer-586bc86bf9-bkwk6           1/1     Running   0             30m
+longhorn-manager-c4xtv                              1/1     Running   1 (30m ago)   30m
+longhorn-manager-kgqts                              1/1     Running   0             30m
+longhorn-manager-n8xdr                              1/1     Running   0             30m
+longhorn-ui-69667f9678-2lvxn                        1/1     Running   0             30m
+longhorn-ui-69667f9678-2xmc9                        1/1     Running   0             30m
+----
++
+. xref:longhorn-system/system-access/create-ingress.adoc[创建一个带基本身份验证的 NGINX Ingress 控制器]以访问 UI。默认情况下未启用 UI 的身份验证。
++
+. xref:longhorn-system/system-access/system-access.adoc[访问 UI]。

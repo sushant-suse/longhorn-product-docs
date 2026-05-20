@@ -1,0 +1,40 @@
+= Gestion de l'échec d'un nœud
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== À quoi s'attendre lors d'un échec de nœud Kubernetes
+
+Cette section vise à informer les utilisateurs de ce qui se passe lors d'un échec de nœud et de ce qui est attendu pendant la récupération.
+
+Après *une minute*, `kubectl get nodes` signalera `NotReady` pour le nœud en échec.
+
+Après environ *cinq minutes*, les états de tous les pods sur le nœud `NotReady` changeront soit en `Unknown` soit en `NodeLost`.
+
+Les StatefulSets ont une identité stable, donc Kubernetes ne supprimera pas de force le pod pour l'utilisateur. Voir la https://kubernetes.io/docs/tasks/run-application/force-delete-stateful-set-pod/[documentation officielle de Kubernetes concernant la suppression forcée d'un StatefulSet].
+
+Les déploiements n'ont pas d'identité stable, mais pour le type de stockage Read-Write-Once, puisqu'il ne peut pas être attaché à deux nœuds en même temps, le nouveau pod créé par Kubernetes ne pourra pas démarrer en raison du volume RWO toujours attaché à l'ancien pod, sur le nœud perdu.
+
+Dans les deux cas, Kubernetes évincera automatiquement le pod (définira un horodatage de suppression pour le pod) sur le nœud perdu, puis essaiera de *recréer un nouveau avec les anciens volumes*. Parce que le pod évincé reste bloqué dans l'état `Terminating` et que les volumes attachés ne peuvent pas être libérés/réutilisés, le nouveau pod restera bloqué dans l'état `ContainerCreating`, s'il n'y a pas d'intervention de l'administrateur ou du logiciel de stockage.
+
+== Politique de suppression de pod Longhorn lorsque le nœud est hors service
+
+Longhorn offre une option pour aider les utilisateurs à supprimer automatiquement de force les pods en cours de terminaison des StatefulSet/Déploiement sur le nœud qui est hors service. Après la suppression forcée, Kubernetes détachera le volume Longhorn et lancera des pods de remplacement sur un nouveau nœud.
+
+Vous pouvez trouver plus de détails sur les options de configuration dans le `Pod Deletion Policy When Node is Down` dans l'onglet *Paramètres* de l'interface Longhorn ou xref:longhorn-system/settings.adoc#_pod_deletion_policy_when_node_is_down[référence des paramètres]
+
+== À quoi s'attendre lors de la récupération d'un nœud Kubernetes en échec
+
+Si le nœud est de nouveau en ligne dans les 5 à 6 minutes suivant l'échec, Kubernetes redémarrera les pods, démontera et remontera les volumes sans réattachement de volume et nettoyage de VolumeAttachment.
+
+Parce que les moteurs de volume seraient hors service après que le nœud soit hors service, ce remontage direct ne fonctionnera pas puisque le périphérique n'existe plus sur le nœud.
+
+Dans ce cas, Longhorn détachera et réattachera les volumes pour récupérer les moteurs de volume, afin que les pods puissent remonter/réutiliser les volumes en toute sécurité.
+
+Si le nœud n'est pas de nouveau en ligne dans les 5 à 6 minutes suivant l'échec, Kubernetes essaiera de supprimer tous les pods inaccessibles en fonction du mécanisme d'éviction des pods et ces pods seront dans un état `Terminating`. Voir https://kubernetes.io/docs/concepts/architecture/nodes/#condition[délai d'éviction des pods] pour plus de détails.
+
+Ensuite, si le nœud défaillant est récupéré plus tard, Kubernetes redémarrera ces pods en cours de terminaison, détachera les volumes, attendra le nettoyage de l'ancienne attache de volume et réutilisera (réattacher et remonter) les volumes. En général, ces étapes peuvent prendre de 1 à 7 minutes.
+
+Dans ce cas, les opérations de détachement et de réattachement sont déjà incluses dans les procédures de récupération de Kubernetes. Par conséquent, aucune opération supplémentaire n'est nécessaire et les volumes Longhorn seront disponibles après les étapes ci-dessus.
+
+Pour tous les scénarios de récupération ci-dessus, Longhorn gérera ces étapes automatiquement en association avec Kubernetes.

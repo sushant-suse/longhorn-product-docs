@@ -1,0 +1,22 @@
+= ボリュームを削除する
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhornボリュームをストレージとして利用し終えたら、ボリュームの使用方法に応じて、ボリュームを削除する方法はいくつかあります。
+
+== Kubernetesを通じてボリュームを削除する
+
+NOTE: この方法は、ボリュームがStorageClassによってプロビジョニングされ、LonghornボリュームのPersistentVolumeのリクレイムポリシーが削除に設定されている場合にのみ機能します。
+
+プロビジョニングされたLonghornボリュームを使用しているPersistentVolumeClaimを削除することで、Kubernetesを通じてボリュームを削除できます。これにより、KubernetesはPersistentVolumeをクリーンアップし、その後Longhornのボリュームを削除します。
+
+== Longhornを通じてボリュームを削除する
+
+作成方法に関係なく、すべてのLonghornボリュームはLonghorn UIを通じて削除できます。
+
+単一のボリュームを削除するには、UIのボリュームページに移動します。操作のドロップダウンから、削除を選択します。ボリュームを削除する前に、確認のプロンプトが表示されます。
+
+複数のボリュームを同時に削除するには、ボリュームページで複数のボリュームにチェックを入れ、上部の削除を選択します。
+
+NOTE: LonghornがボリュームがPersistentVolumeまたはPersistentVolumeClaimに関連付けられていることを検出した場合、ボリュームを削除するとこれらのリソースも削除されます。削除を進める前に、UIで警告が表示されます。Longhornは、接続されたボリュームを削除する際にも警告を表示します。なぜなら、それが使用中である可能性があるからです。

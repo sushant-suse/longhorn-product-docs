@@ -1,0 +1,1262 @@
+= Paramètres
+:revdate: 2026-03-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Types de format de valeur par moteurs de données pris en charge
+
+Chaque paramètre ne prend en charge qu'un des formats suivants, en fonction de sa définition.
+Le format pris en charge détermine quels moteurs de données peuvent être configurés et si leurs valeurs peuvent différer.
+
+* *Valeur unique pour tous les moteurs de données pris en charge*
+** *Format :* Chaîne non-JSON (par exemple, `1024`)
+** La valeur s'applique à tous les moteurs de données pris en charge et doit être identique pour chacun d'eux.
+** Les valeurs spécifiques aux moteurs de données ne sont pas autorisées.
+
+* *Valeurs spécifiques aux moteurs de données pour les moteurs de données V1 et V2*
+** *Format :* Objet JSON (par exemple, `{"v1": "value1", "v2": "value2"}`)
+** Permet de spécifier des valeurs différentes pour les moteurs de données V1 et V2.
+
+* *Valeurs spécifiques aux moteurs de données pour le moteur de données V1 uniquement*
+** *Format :* Objet JSON avec uniquement la clé `v1` (par exemple, `{"v1": "value1"}`)
+** Seul le moteur de données V1 peut être configuré. Le moteur de données V2 n'est pas affecté.
+
+* *Valeurs spécifiques aux moteurs de données pour le moteur de données V2 uniquement*
+** *Format :* Objet JSON avec uniquement la clé `v2` (par exemple, `{"v2": "value1"}`)
+** Seul le moteur de données V2 peut être configuré. Le moteur de données V1 n'est pas affecté.
+
+== Personnalisation des paramètres par défaut
+
+Pour configurer {longhorn-product-name} avant de l'installer, voir xref:longhorn-system/customize-default-settings.adoc[cette section] pour plus de détails.
+
+== Infos système
+
+=== Image du moteur par défaut
+
+L'image du moteur par défaut est l'image utilisée par le gestionnaire et ne peut être changée que lorsque le gestionnaire démarre.
+
+Chaque version {longhorn-product-name} inclut une nouvelle image de moteur. Une flèche verte apparaît sur les volumes Longhorn ne utilisant pas le moteur par défaut, indiquant que le volume doit être mis à niveau.
+
+=== Image du gestionnaire d'instances par défaut
+
+L'image du gestionnaire d'instances par défaut est l'image utilisée par le gestionnaire et ne peut être changée que lorsque le gestionnaire démarre.
+
+=== Image du gestionnaire d'images de sauvegarde par défaut
+
+L'image du gestionnaire d'images de sauvegarde par défaut est l'image utilisée par le gestionnaire et ne peut être changée que lorsque le gestionnaire démarre.
+
+=== Image du gestionnaire de paquets de support
+
+{longhorn-product-name} utilise l'image du gestionnaire de paquets de support pour générer des paquets de support.
+
+Une image par défaut est fournie lors de l'installation et de la mise à niveau, et vous pouvez également la changer dans les paramètres.
+
+Un exemple de l'image du gestionnaire de paquets de support :
+
+*Valeur par défaut* : `longhornio/support-bundle-kit:v0.0.14`
+
+=== Version actuelle de {longhorn-product-name}
+
+La version actuelle de {longhorn-product-name}.
+
+=== Dernière version de {longhorn-product-name}
+
+La dernière version disponible de {longhorn-product-name}. Ceci est mis à jour automatiquement par le `Upgrade Checker`.
+
+[NOTE]
+====
+Ceci n'est disponible que si `Upgrade Checker` est activé.
+====
+
+=== Versions stables de {longhorn-product-name}
+
+La dernière version stable de chaque ligne de version mineure. Il est mis à jour par le `Upgrade Checker` automatiquement.
+
+== Général
+
+=== Politique de Drainage de Nœud
+
+*Valeur par défaut* : `block-if-contains-last-replica`
+
+Définissez la politique à utiliser lorsqu'un nœud avec la dernière réplique saine d'un volume est drainé. Options disponibles :
+
+* `block-if-contains-last-replica`{nbsp}: {longhorn-product-name} bloque la vidange lorsque le nœud contient la dernière réplique saine d'un volume.
+* `allow-if-replica-is-stopped`{nbsp}: {longhorn-product-name} permet la vidange lorsque le nœud contient la dernière réplique saine d'un volume mais que la réplique est arrêtée.
++
+[WARNING]
+====
+Perte de données possible si le nœud est retiré après la vidange.
+====
++
+* `always-allow`{nbsp}: {longhorn-product-name} permet automatiquement la vidange même si le nœud contient la dernière réplique saine d'un volume.
++
+[WARNING]
+====
+Perte de données possible si le nœud est retiré après la vidange. Corruption de données possible si la dernière réplique était en cours d'exécution pendant la vidange.
+====
++
+* `block-for-eviction`{nbsp}: {longhorn-product-name} expulse automatiquement toutes les répliques et bloque la vidange jusqu'à ce que l'expulsion soit terminée.
++
+[WARNING]
+====
+Cela peut entraîner des vidanges lentes et un mouvement de données supplémentaire associé à la reconstruction de répliques.
+====
++
+* `block-for-eviction-if-contains-last-replica`{nbsp}: {longhorn-product-name} expulse automatiquement toutes les répliques qui n'ont pas de contrepartie saine et bloque la vidange jusqu'à ce que l'expulsion soit terminée.
++
+[WARNING]
+====
+Cela peut entraîner des vidanges lentes et un mouvement de données supplémentaire associé à la reconstruction de répliques.
+====
+
+Chaque option a des avantages et des inconvénients. Voir xref:troubleshooting-maintenance/maintenance.adoc#_node_drain_policy_recommendations[Recommandations de stratégie de vidange de nœud] pour obtenir de l'aide pour décider laquelle est la plus appropriée dans votre environnement.
+
+=== Détacher les volumes manuellement attachés lorsqu'ils sont cordonnés.
+
+*Valeur par défaut*{nbsp}: `false`
+
+{longhorn-product-name} détache automatiquement les volumes qui sont manuellement attachés aux nœuds qui sont cordonnés.
+Cela empêche que le processus de vidange soit bloqué par le PDB de l'instance-manager qui a encore un moteur en cours d'exécution sur le nœud.
+
+=== Nettoyage Automatique des Instantanés Générés par le Système
+
+*Valeur par défaut*{nbsp}: `true`
+
+{longhorn-product-name} génère un instantané système pendant la reconstruction de répliques, et si un utilisateur ne configure pas un calendrier d'instantanés récurrents, tous les instantanés générés par le système resteraient dans la réplique, et l'utilisateur doit les supprimer manuellement, ce paramètre permet à {longhorn-product-name} de nettoyer automatiquement les instantanés générés par le système avant et après la reconstruction de répliques.
+
+=== Nettoyage Automatique des Instantanés Obsolètes des Tâches de Sauvegarde Récurrentes
+
+*Valeur par défaut*{nbsp}: `true`
+
+Si activé, lors de l'exécution d'une tâche de sauvegarde récurrente, {longhorn-product-name} prend un nouvel instantané avant de créer la sauvegarde. {longhorn-product-name} conserve uniquement l'instantané utilisé par la dernière tâche de sauvegarde même si la valeur du paramètre de conservation n'est pas 1.
+
+Si désactivé, ce paramètre garantit que les instantanés conservés correspondent directement aux sauvegardes sur la cible de sauvegarde distante.
+
+=== Supprimer automatiquement le pod de charge de travail lorsque le volume est détaché de manière inattendue.
+
+*Valeur par défaut*{nbsp}: `true`
+
+Si activé, {longhorn-product-name} supprime automatiquement le pod de charge de travail géré par un contrôleur (par exemple, déploiement, statefulset, daemonset, etc.) lorsque le volume Longhorn est détaché de manière inattendue (par exemple, lors de la mise à niveau de Kubernetes, du redémarrage de Docker ou de la déconnexion réseau).
+En supprimant le pod, son contrôleur redémarre le pod et Kubernetes gère le rattachement et le remontage du volume.
+
+Si désactivé, {longhorn-product-name} ne supprime pas le pod de charge de travail géré par un contrôleur. Vous devez redémarrer manuellement le pod pour rattacher et remonter le volume.
+
+[NOTE]
+====
+* Ce paramètre ne s'applique pas aux pods de charge de travail sans contrôleur. {longhorn-product-name} ne supprime jamais de tels pods.
+* Pods de charge de travail avec des volumes RWX *réseau de cluster*. Le paramètre ne s'applique pas à de tels pods car le Longhorn Share Manager, qui fournit le service NFS RWX, a son propre mécanisme de résilience. Ce mécanisme garantit la disponibilité jusqu'à ce que le volume soit rattaché sans s'appuyer sur le cycle de vie du pod pour déclencher le rattachement du volume. Cependant, le paramètre s'applique aux pods de charge de travail avec des volumes RWX *réseau de point de terminaison*. Pour plus d'informations, voir xref:volumes/rwx-volumes.adoc[Volume ReadWriteMany (RWX)] et xref:longhorn-system/networking/storage-network.adoc#limitation[Réseau de stockage].
+====
+
+=== Liste noire pour la suppression automatique des pods de charge de travail lors du détachement inattendu d'un volume.
+
+*Valeur par défaut* : `""`
+
+Liste noire des valeurs de contrôleur `api/kind` pour le paramètre <<_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly,Supprimer automatiquement le pod de charge de travail lorsque le volume est détaché de manière inattendue>>. Si un pod de charge de travail est géré par un contrôleur dont le `api/kind` est répertorié dans cette liste noire, {longhorn-product-name} ne supprimera pas automatiquement le pod lorsque son volume est détaché de manière inattendue. Plusieurs entrées de contrôleur `api/kind` peuvent être spécifiées, séparées par des points-virgules. Par exemple : `apps/v1/StatefulSet;apps/v1/DaemonSet`.
+
+[NOTE]
+====
+Le contrôleur `api/kind` est sensible à la casse et doit correspondre exactement au `api/kind` dans la référence du propriétaire du pod de charge de travail.
+====
+
+=== Récupération automatique.
+
+*Valeur par défaut* : `true`
+
+Si activé, les volumes sont automatiquement récupérés lorsque toutes les répliques deviennent défectueuses, par exemple, en raison d'une déconnexion réseau. {longhorn-product-name} essaie de déterminer quelles répliques sont utilisables, puis les utilise pour le volume.
+
+=== Limite concurrente de mise à niveau automatique des moteurs par nœud.
+
+*Valeur par défaut* : `0`
+
+Ce paramètre contrôle comment {longhorn-product-name} met automatiquement à niveau les moteurs des volumes vers la nouvelle image de moteur par défaut après la mise à niveau du gestionnaire Longhorn.
+
+La valeur de ce paramètre spécifie le nombre maximum de moteurs par nœud qui sont autorisés à se mettre à niveau vers l'image de moteur par défaut en même temps.
+
+Si la valeur est `0`, {longhorn-product-name} ne met pas automatiquement à niveau les moteurs des volumes vers la version par défaut.
+
+=== Limite concurrente de restauration de sauvegarde de volume par nœud.
+
+*Valeur par défaut* : `5`
+
+Ce paramètre contrôle combien de volumes sur un nœud peuvent restaurer la sauvegarde simultanément.
+
+{longhorn-product-name} bloque la restauration de la sauvegarde une fois que le nombre de volumes en cours de restauration dépasse la limite.
+
+Définissez la valeur à *0* pour désactiver la restauration de sauvegarde.
+
+=== Créer un disque par défaut sur les nœuds étiquetés
+
+*Valeur par défaut*{nbsp}: `false`
+
+S'il n'existe pas d'autres disques, {longhorn-product-name} crée automatiquement un disque par défaut, mais uniquement sur les nœuds avec l'étiquette Kubernetes `node.longhorn.io/create-default-disk=true`.
+
+Si ce paramètre est désactivé, le disque par défaut est créé sur tous les nouveaux nœuds lorsque le nœud est détecté pour la première fois.
+
+Utilisez cette option pour mettre à l'échelle le cluster sans utiliser de stockage sur de nouveaux nœuds, ou pour personnaliser les disques pour les nœuds Longhorn (xref:nodes/default-disk-and-node-config.adoc[voir la documentation]).
+
+=== Version de l'API des ressources personnalisées
+
+*Valeur par défaut*{nbsp}: `longhorn.io/v1beta2`
+
+La version de l'API de la ressource personnalisée actuelle, par exemple, `longhorn.io/v1beta2`. Défini automatiquement par le gestionnaire.
+
+=== Localité des données par défaut
+
+*Valeur par défaut*{nbsp}: `disabled`
+
+Un volume {longhorn-product-name} a une localité des données lorsque au moins une réplique réside sur le même nœud que le pod utilisant le volume.
+
+Ce paramètre définit la localité des données par défaut pour les volumes créés via l'interface utilisateur {longhorn-product-name}.
+Pour les déploiements Kubernetes, configurez `dataLocality` dans le StorageClass.
+
+Les modes disponibles sont{nbsp}:
+
+* `disabled` (par défaut){nbsp}: Une réplique peut ou non résider sur le même nœud que le volume ou la charge de travail attaché.
+* `best-effort`{nbsp}: {longhorn-product-name} tente de garder une réplique sur le même nœud que le volume ou la charge de travail attaché. Le volume continue de fonctionner même si des contraintes environnementales empêchent le placement local, comme un espace disque insuffisant ou des étiquettes de disque incompatibles.
+* `strict-local`{nbsp}: {longhorn-product-name} impose le placement d'une seule réplique sur le même nœud que le volume attaché. Ce mode offre un nombre d'IOPS plus élevé et une latence plus faible.
+
+=== Chemin de données par défaut
+
+*Valeur par défaut*{nbsp}: `/var/lib/longhorn/`
+
+Chemin par défaut à utiliser pour stocker des données sur un hôte.
+
+Peut être utilisé avec l'option `Create Default Disk on Labeled Nodes`, pour faire en sorte que {longhorn-product-name} n'utilise que les nœuds sur lesquels un stockage spécifique est monté, par exemple `/opt/longhorn`, lors de la mise à l'échelle du cluster.
+
+=== Nom de la classe de stockage statique {longhorn-product-name} par défaut
+
+*Valeur par défaut*{nbsp}: `longhorn-static`
+
+Le `storageClassName` est utilisé pour les volumes persistants (PVs) et les demandes de volumes persistants (PVCs) qui font référence à un volume {longhorn-product-name} existant. Vous n'avez pas besoin de créer un objet StorageClass correspondant à cette fin car il est utilisé uniquement pour la correspondance d'étiquettes lors de la liaison des PVC. La valeur doit correspondre à une StorageClass existante. Si la StorageClass `longhorn-static` n'existe pas déjà, {longhorn-product-name} la crée automatiquement. La valeur par défaut est `longhorn-static`.
+
+=== Nombre de répliques par défaut
+
+*Valeur par défaut*{nbsp}: `{"v1":"3","v2":"3"}`
+
+Le nombre par défaut de répliques lors de la création du volume à partir de l'interface utilisateur {longhorn-product-name}. Pour Kubernetes, mettez à jour le `numberOfReplicas` dans la StorageClass
+
+La manière recommandée de choisir le nombre de répliques par défaut est{nbsp}: si vous avez trois nœuds ou plus pour le stockage, utilisez 3{nbsp}; sinon, utilisez 2. Utiliser une seule réplique sur un cluster à un seul nœud est également acceptable, mais la fonctionnalité de haute disponibilité ne serait pas disponible. Vous pouvez toujours prendre des instantanés ou des sauvegardes du volume.
+
+=== Indicateur de confirmation de suppression
+
+*Valeur par défaut* : `false`
+
+Cet indicateur est conçu pour empêcher {longhorn-product-name} d'être désinstallé accidentellement, ce qui entraîne une perte de données.
+
+* Définissez cet indicateur sur *true* pour permettre la désinstallation de {longhorn-product-name}.
+* Si cet indicateur est *false*, la tâche de désinstallation de {longhorn-product-name} échoue.
+
+=== Désactiver le compteur de révisions
+
+*Valeur par défaut* : `{"v1":"true"}`
+
+Permet au contrôleur de moteur et à la réplique de moteur de désactiver la mise à jour du fichier de compteur de révisions pour chaque écriture de données. Cela améliore les performances du chemin de données. Voir xref:high-availability/revision_counter.adoc[Compteur de révisions] pour plus de détails.
+
+=== Activer le vérificateur de mise à niveau
+
+*Valeur par défaut* : `true`
+
+Le vérificateur de mise à niveau vérifie périodiquement une nouvelle version de {longhorn-product-name}. Lorsqu'une nouvelle version est disponible, elle notifie l'utilisateur dans l'interface utilisateur de {longhorn-product-name}.
+
+=== URL du répondeur de mise à niveau
+
+*Valeur par défaut* : `pass:[https://longhorn-upgrade-responder.rancher.io/v1/checkupgrade]`
+
+Le répondeur de mise à niveau envoie une notification chaque fois qu'une nouvelle version de {longhorn-product-name} à laquelle vous pouvez mettre à niveau est disponible.
+
+=== Autoriser la collecte des métriques d'utilisation de {longhorn-product-name}
+
+*Valeur par défaut*{nbsp}: `true`
+
+Lorsqu'il est activé, ce paramètre permet à {longhorn-product-name} d'envoyer des métriques d'utilisation anonymes à https://metrics.longhorn.io/..
+
+Ces métriques aident à fournir des informations sur la façon dont {longhorn-product-name} est utilisé et soutiennent les améliorations futures du produit.
+
+*Les informations sur les nœuds collectées à partir de tous les nœuds du cluster comprennent :*
+
+* Nombre de disques de chaque type de dispositif (HDD, SSD, NVMe, inconnu).
++
+Cette valeur peut ne pas être précise pour les machines virtuelles.
+
+* Nombre de disques pour chaque type de disque Longhorn (bloc, système de fichiers).
+* Architecture du système hôte.
+* Version du noyau Linux de l'hôte.
+* Distribution du système d'exploitation (OS) de l'hôte.
+* Fournisseur de nœuds Kubernetes.
+
+*Les informations sur le cluster collectées à partir de l'un des nœuds du cluster incluent :*
+
+* UID de l'espace de noms Longhorn.
+* Nombre de nœuds Longhorn.
+* Nombre de volumes de chaque mode d'accès (RWO, RWX, inconnu).
+* Nombre de volumes de chaque moteur de données (v1, v2).
+* Nombre de volumes de chaque type de localité de données (désactivé, meilleur effort, strict_local, inconnu).
+* Nombre de volumes qui sont chiffrés ou non chiffrés.
+* Nombre de volumes de chaque type de frontend (blockdev, iscsi).
+* Nombre de répliques.
+* Nombre d'instantanés.
+* Nombre d'images de sauvegarde.
+* Nombre d'orphelins.
+* Taille moyenne des volumes en octets.
+* Taille réelle moyenne des volumes en octets.
+* Nombre moyen d'instantanés par volume.
+* Nombre moyen de répliques par volume.
+* Utilisation moyenne {longhorn-product-name} de l'UC du composant (gestionnaire d'instance, gestionnaire) en millicores.
+* Utilisation moyenne {longhorn-product-name} de la mémoire du composant (gestionnaire d'instance, gestionnaire) en octets.
+* Paramètres de Longhorn{nbsp}:
+ ** Partiellement inclus{nbsp}:
+  *** Type ou protocole de cible de sauvegarde (azblob, cifs, nfs, s3, aucun, inconnu). Ceci provient du paramètre de cible de sauvegarde.
+ ** Inclus comme vrai ou faux pour indiquer si ce paramètre est configuré{nbsp}:
+  *** Classe de priorité
+  *** Secret de registre
+  *** CronJob d'intégrité des données de snapshot
+  *** Réseau de stockage
+  *** Réseau de point de terminaison pour volume RWX
+  *** Sélecteur de nœud de composants gérés par le système
+  *** Tolérance aux taints
+ ** Inclus tel quel{nbsp}:
+  *** Autoriser le travail récurrent pendant que le volume est détaché
+  *** Autoriser la création de volume avec disponibilité dégradée
+  *** Nettoyage Automatique des Instantanés Générés par le Système
+  *** Nettoyage Automatique des Instantanés Obsolètes des Tâches de Sauvegarde Récurrentes
+  *** Supprimer automatiquement le pod de charge de travail lorsque le volume est détaché de manière inattendue.
+  *** Récupération automatique.
+  *** Intervalle d'attente pour le nettoyage de l'image de sauvegarde
+  *** Intervalle d'attente pour la récupération de l'image de sauvegarde
+  *** Méthode de compression de sauvegarde
+  *** Intervalle de sondage de la sauvegarde
+  *** Limite de sauvegarde concurrente
+  *** Limite de mise à niveau automatique des moteurs par nœud concurrent
+  *** Limite de restauration de sauvegarde concurrente par nœud
+  *** Limite de reconstruction de réplique concurrente par nœud
+  *** Version de l'API CRD
+  *** Créer un disque par défaut sur les nœuds étiquetés.
+  *** Localité des données par défaut
+  *** Nombre de répliques par défaut
+  *** Désactiver le compteur de révisions
+  *** Désactiver la planification sur le nœud isolé
+  *** Délai d'attente de la réplique du moteur
+  *** TTL des sauvegardes échouées.
+  *** Reconstruction rapide de la réplique activée.
+  *** CPU du gestionnaire d'instances garanti
+  *** Autoscaler de cluster Kubernetes activé
+  *** Politique de suppression des pods en cas de nœud hors service
+  *** Politique de Drainage de Nœud
+  *** Suppression automatique des orphelins
+  *** Limite de l'historique des travaux échoués récurrents
+  *** Limite de l'historique des travaux réussis récurrents
+  *** Supprimer les instantanés lors de la réduction du système de fichiers
+  *** Équilibrage automatique des répliques
+  *** Délai d'attente du client HTTP de synchronisation de fichiers de réplique
+  *** Intervalle d'attente de réapprovisionnement de réplique
+  *** Réplica Soft Anti Affinité
+  *** Zone de Réplica Soft Anti Affinité
+  *** Disque de Réplica Soft Anti Affinité
+  *** Limite de Restauration Concurrente
+  *** Restauration des Tâches Récurrentes de Volume
+  *** Intégrité des données des instantanés.
+  *** Vérification immédiate de l'intégrité des données d'instantané après la création de l'instantané.
+  *** Pourcentage Minimal de Stockage Disponible
+  *** Réseau de Stockage pour Volume RWX Activé
+  *** Pourcentage de Surprovisionnement de Stockage
+  *** Pourcentage de Stockage Réservé pour le Disque par Défaut
+  *** Limite d'Historique des Échecs de Paquet de Support
+  *** Délai d'Collecte de Nœud de Paquet de Support
+  *** Stratégie de récupération d'image des pods gérés par le système
+
+Le `Upgrade Checker` doit être activé pour envoyer périodiquement les données collectées.
+
+=== Stratégie de suppression de pod lorsque le nœud est hors service
+
+*Valeur par défaut*{nbsp}: `do-nothing`
+
+Définit l'action {longhorn-product-name} lorsque un volume est bloqué par un pod appartenant à un StatefulSet ou à un déploiement sur un nœud hors service.
+
+* `do-nothing` est le comportement par défaut de Kubernetes de ne jamais forcer la suppression des pods de StatefulSet ou de déploiement en cours de terminaison. Puisque le pod sur le nœud qui est hors service n'est pas supprimé, les volumes Longhorn sont bloqués sur les nœuds qui sont hors service.
+* `delete-statefulset-pod` {longhorn-product-name} force la suppression des pods de StatefulSet en cours de terminaison sur les nœuds qui sont hors service pour libérer les volumes Longhorn afin que Kubernetes puisse créer des pods de remplacement.
+* `delete-deployment-pod` {longhorn-product-name} force la suppression des pods de déploiement en cours de terminaison sur les nœuds qui sont hors service pour libérer les volumes Longhorn afin que Kubernetes puisse démarrer des pods de remplacement.
+* `delete-both-statefulset-and-deployment-pod` {longhorn-product-name} force la suppression des pods de StatefulSet ou de déploiement en cours de terminaison sur les nœuds qui sont hors service pour libérer les volumes Longhorn afin que Kubernetes puisse démarrer des pods de remplacement.
+
+=== Secret de registre
+
+Le nom du Secret Kubernetes.
+
+=== Intervalle d'attente de réapprovisionnement de réplique
+
+*Valeur par défaut*{nbsp}: `600`
+
+Lorsqu’il y a au moins une réplique ayant échoué dans un volume dégradé, cet intervalle en secondes détermine combien de temps {longhorn-product-name} attendra au maximum afin de réutiliser les données existantes des répliques échouées plutôt que de créer directement une nouvelle réplique pour ce volume.
+
+WARNING: Cet intervalle d'attente ne fonctionne que lorsqu'il y a au moins une réplique échouée dans le volume. Et cette option peut bloquer la reconstruction pendant un certain temps.
+
+=== Stratégie de récupération d'image des pods gérés par le système
+
+*Valeur par défaut*{nbsp}: `if-not-present`
+
+Ce paramètre définit la stratégie de récupération d'image des pods gérés par le système Longhorn, par exemple, le gestionnaire d'instances, l'image du moteur, le pilote CSI, etc.
+
+Remarquez que la nouvelle stratégie de récupération d'image n'est appliquée qu'après le redémarrage des pods gérés par le système.
+
+Cette définition de paramètre est exactement la même que celle de Kubernetes. Voici les options disponibles{nbsp}:
+
+* `always`. Chaque fois que le `kubelet` lance un conteneur, le `kubelet` interroge le registre d'images de conteneurs pour résoudre le nom en un digest d'image. Si le `kubelet` a une image de conteneur avec ce digest exact mise en cache localement, le `kubelet` utilise son image mise en cache{nbsp}; sinon, le `kubelet` télécharge (récupère) l'image avec le digest résolu et utilise cette image pour lancer le conteneur.
+* `if-not-present`. L'image est récupérée uniquement si elle n'est pas déjà présente localement.
+* `never`. L'image est supposée exister localement. Aucune tentative n'est faite pour récupérer l'image.
+
+=== Intervalle d'attente pour le nettoyage de l'image de sauvegarde
+
+*Valeur par défaut*{nbsp}: `60`
+
+Cet intervalle, en minutes, définit combien de temps {longhorn-product-name} attend avant de nettoyer un fichier d'image de sauvegarde lorsque aucune réplique sur le disque ne l'utilise.
+
+=== Intervalle d'attente pour la récupération de l'image de sauvegarde
+
+*Valeur par défaut*{nbsp}: `300`
+
+Cet intervalle, en secondes, définit combien de temps {longhorn-product-name} attend avant de re-télécharger le fichier d'image de sauvegarde après que tous les fichiers de disque pour cette image entrent dans l'état `failed` ou `unknown`.
+
+[NOTE]
+====
+* Cette récupération ne fonctionne que pour l'image de sauvegarde dont le type de création est `download`.
+* L'état du fichier `unknown` signifie que les pods de gestion associés sur le pod ne fonctionnent pas ou que le nœud lui-même est hors service ou déconnecté.
+====
+
+=== Nombre minimum par défaut de copies d'image de sauvegarde
+
+*Valeur par défaut*{nbsp}: `1`
+
+Le nombre minimum par défaut de copies d'image de sauvegarde que {longhorn-product-name} maintient.
+
+=== Délai d'attente de la réplique du moteur
+
+*Valeur par défaut*{nbsp}: `{"v1":"8","v2":"8"}`
+
+Nombre de secondes qu'un moteur de données V1 attend pour qu'une réplique réponde avant de la marquer comme échouée. Des valeurs comprises entre 8 et 30 sont autorisées. Ce paramètre n'a d'effet que lorsqu'il y a des demandes d'entrée ou de sortie en attente.
+
+Ce paramètre ne s'applique qu'aux répliques supplémentaires. Un moteur V1 marque la dernière réplique active comme échouée uniquement après que le double du nombre de secondes configuré (valeur de délai x 2) soit écoulé. Ce comportement vise à équilibrer la réactivité du volume avec la disponibilité du volume.
+
+Le moteur peut rapidement (après le délai configuré) ignorer les répliques individuelles qui deviennent non réactives au profit d'autres disponibles. Cela garantit que les futures entrées ou sorties ne sont pas retardées.
+
+Le moteur attend la dernière réplique (jusqu'à deux fois le délai configuré) pour éviter de s'écraser inutilement en raison de l'absence de backends disponibles.
+
+=== Limite d'historique des échecs de bundle de support
+
+*Valeur par défaut*{nbsp}: `1`
+
+Ce paramètre spécifie combien de bundles de support échoués peuvent exister dans le cluster.
+
+Le bundle de support échoué conservé est destiné à des fins d'analyse et doit être nettoyé manuellement.
+
+{longhorn-product-name} bloque la création de bundles de support lorsqu'il atteint la limite supérieure de la limitation. Vous pouvez définir cette valeur à *0* pour que {longhorn-product-name} purge automatiquement tous les bundles de support échoués.
+
+=== Délai de collecte de nœud de bundle de support
+
+*Valeur par défaut*{nbsp}: `30`
+
+Nombre de minutes {longhorn-product-name} permet la collecte d'informations sur les nœuds et des journaux de nœuds pour le bundle de support.
+
+Si le processus de collecte n'est pas terminé dans le temps imparti, {longhorn-product-name} continue à générer le bundle de support sans les données de nœud non collectées.
+
+=== Activation de la reconstruction rapide de la réplique
+
+*Valeur par défaut*{nbsp}: `{"v1":"true","v2":"true"}`
+
+Le paramètre active la fonctionnalité de reconstruction rapide des répliques. Il repose sur les sommes de contrôle des fichiers de disque instantané, donc définir l'intégrité des données d'instantané sur *enable* ou *fast-check* est une condition préalable.
+
+=== Délai d'attente du client HTTP pour le serveur de synchronisation de fichiers de réplique.
+
+*Valeur par défaut*{nbsp}: `30`
+
+La valeur en secondes spécifie le délai d'attente du client HTTP vers le serveur de synchronisation de fichiers de répliques utilisé pour la reconstruction de répliques, le clonage de volumes, le clonage d'instantanés, etc.
+
+=== Reconstruction de répliques hors ligne
+
+*Valeur par défaut* : `false`
+
+Contrôle si {longhorn-product-name} reconstruit automatiquement les répliques dégradées pendant que le volume est détaché. Ce paramètre n'a d'effet que si le paramètre au niveau du volume est défini sur `ignored` ou `enabled`.
+
+Options disponibles :
+
+* `true` : Active la reconstruction de répliques hors ligne pour tous les volumes détachés (sauf si remplacé au niveau du volume).
+* `false` : Désactive la reconstruction de répliques hors ligne globalement (sauf si remplacé au niveau du volume).
+
+[NOTE]
+====
+La reconstruction hors ligne n'a lieu que lorsqu'un volume est détaché. Les volumes dans un état défectueux ne déclenchent pas la reconstruction hors ligne.
+====
+
+Ce paramètre permet à {longhorn-product-name} de reconstruire automatiquement les répliques pour les volumes détachés si nécessaire.
+
+=== Délai d'attente gRPC long
+
+*Valeur par défaut* : `86400`
+
+Nombre de secondes que {longhorn-product-name} autorise pour l'achèvement des opérations de reconstruction de répliques et de clonage d'instantanés.
+
+=== Basculement rapide de volume RWX (expérimental)
+
+*Valeur par défaut* : `false`
+
+Active une haute disponibilité améliorée pour les volumes ReadWriteMany en réduisant le temps nécessaire pour récupérer d'une défaillance de nœud.
+
+=== Niveau de consignation
+
+*Valeur par défaut*{nbsp}: `Log Level`
+
+Longhorn Manager utilise les niveaux de journalisation suivants{nbsp}: `Panic`, `Fatal`, `Error`, `Warn`, `Info`, `Debug` et `Trace`. Le niveau de journalisation par défaut est `Info`.
+
+=== Chemin du journal
+
+*Valeur par défaut*{nbsp}: `/var/lib/longhorn/logs/`
+
+Ce paramètre spécifie le répertoire sur l'hôte où {longhorn-product-name} stocke les fichiers journaux pour le pod du gestionnaire d'instances. Actuellement, cela n'est utilisé que pour les pods du gestionnaire d'instances dans le moteur de données v2.
+
+=== Niveau de journalisation du moteur de données
+
+*Valeur par défaut*{nbsp}: `{"v2":"Notice"}`
+
+S'applique uniquement au moteur de données V2. Spécifie le niveau de journalisation pour le démon cible du Storage Performance Development Kit (SPDK). Valeurs prises en charge{nbsp}: `Error`, `Warning`, `Notice`, `Info` et `Debug`.
+
+=== Drapeaux de journalisation du moteur de données
+
+*Valeur par défaut*{nbsp}: `{"v2":""}`
+
+S'applique uniquement au moteur de données V2. Spécifie les drapeaux de journalisation pour le démon cible du Storage Performance Development Kit (SPDK).
+
+=== Limite de bande passante de reconstruction de réplique
+
+*Valeur par défaut*{nbsp}: `{"v2":"0"}`
+
+S'applique uniquement au moteur de données V2. Spécifie la limite de bande passante d'écriture par défaut, en mégaoctets par seconde (Mo/s), pour la reconstruction de répliques de volume.
+
+=== URL du gestionnaire
+
+*Valeur par défaut*{nbsp}: `""`
+
+*Exemple*{nbsp}: `pass:[https://longhorn.example.com]` ou `pass:[https://longhorn.example.com:8443]`
+
+L'URL externe pour accéder à l'API du Longhorn Manager. Lorsqu'elle est configurée, cette URL est utilisée pour générer les champs `actions` et `links` dans les réponses API au lieu de les dériver des en-têtes de requête ou d'utiliser des adresses IP internes de pod.
+
+Ce paramètre est utile lors de l'accès à l'API Longhorn via Ingress ou la passerelle API HTTPRoute, où l'API peut renvoyer des adresses IP internes du cluster si le contrôleur Ingress ne définit pas correctement les en-têtes `X-Forwarded-*`.
+
+*Format*{nbsp}: `scheme://host[:port]` où{nbsp}:
+
+* `scheme` : Doit être `http` ou `https`
+* `host` : Nom d'hôte ou adresse IP externe
+* `port` : Numéro de port optionnel (par défaut 80 pour http, 443 pour https)
+
+*Conditions requises*{nbsp}:
+
+* Une URL ne doit pas contenir de chemin, de paramètres de requête ou de fragments
+* Les adresses IPv6 doivent être placées entre crochets (par exemple, `pass:[http://[2001:db8::1]:9500]`)
+
+*Quand utiliser*{nbsp}:
+
+* Accédez à l'interface utilisateur ou à l'API Longhorn via Ingress avec une URL externe
+* Utilisez l'API Gateway HTTPRoute pour un accès externe
+* Les clients API reçoivent des adresses IP internes dans les URL de réponse
+
+*Lorsque vide* (par défaut){nbsp}: Les URL sont construites à partir des en-têtes de requête HTTP (`X-Forwarded-*`) ou se rabattent sur l'hôte de la requête.
+
+Pour plus de détails, voir xref:important-notes.adoc#_manager_url_for_external_api_access[URL du gestionnaire pour l'accès API externe].
+
+=== Profondeur de file d'attente Ublk par défaut
+
+*Valeur par défaut*{nbsp}: `{"v2":"128"}`
+
+La profondeur par défaut de chaque file d'attente pour le front-end Ublk. Ce paramètre s'applique aux volumes utilisant le moteur de données V2 avec le front-end Ublk.
+
+=== Nombre de files d'attente Ublk par défaut
+
+*Valeur par défaut*{nbsp}: `{"v2":"1"}`
+
+Le nombre par défaut de files d'attente pour le front-end Ublk. Ce paramètre s'applique aux volumes utilisant le moteur de données V2 avec le front-end Ublk.
+
+=== Surveillance de la santé des disques de nœud
+
+*Valeur par défaut*{nbsp}: `true`
+
+Ce paramètre contrôle si {longhorn-product-name} surveille et enregistre les informations de santé pour les disques de nœud. Lorsque ce paramètre est désactivé, les vérifications de santé des disques et les mises à jour de statut sont ignorées.
+
+== Instantané
+
+=== Intégrité des données de l'instantané
+
+*Valeur par défaut*{nbsp}: `{"v1":"fast-check","v2":"fast-check"}`
+
+Ce paramètre permet aux utilisateurs d'activer ou de désactiver le hachage des instantanés et la vérification de l'intégrité des données. Les options disponibles sont{nbsp}:
+
+* *désactivé*{nbsp}: Désactive le hachage des fichiers de disque instantané et les vérifications de l'intégrité des données.
+* *activé*{nbsp}: Active le hachage périodique des fichiers de disque instantané et les vérifications complètes de l'intégrité des données. Le système {longhorn-product-name} hache périodiquement les fichiers de disque instantané pour détecter une corruption non détectée par le système de fichiers, telle que la dégradation des bits. Ces vérifications peuvent affecter les performances du système lors de chaque analyse.
+* *vérification-rapide*: Active le hachage des fichiers de disque instantané avec des vérifications d'intégrité des données rapides. Dans ce mode, le système hache les fichiers de disque instantané uniquement s'ils n'ont pas été hachés auparavant ou si leur date de modification a changé. La corruption non détectable par le système de fichiers ne peut pas être détectée dans ce mode, mais l'impact sur les performances est réduit.
+
+=== Vérification immédiate de l'intégrité des données après la création d'un instantané
+
+*Valeur par défaut*{nbsp}: `{"v1":"false","v2":"false"}`
+
+Le hachage des fichiers de disque instantané impacte les performances du système. Le hachage et la vérification immédiats des instantanés peuvent être désactivés pour minimiser l'impact après la création d'un instantané.
+
+=== Tâche Cron de vérification de l'intégrité des données des instantanés
+
+*Valeur par défaut*{nbsp}: `{"v1":"0 0 */7 * *","v2":"0 0 */7 * *"}`
+
+Format de chaîne Unix-cron. Le paramètre spécifie quand {longhorn-product-name} vérifie l'intégrité des données des fichiers de disque instantané.
+
+[WARNING]
+====
+Le hachage des fichiers de disque instantané impacte les performances du système. Il est recommandé d'effectuer des vérifications d'intégrité des données pendant les heures creuses et de réduire la fréquence des vérifications.
+====
+
+=== Nombre maximum d'instantanés
+
+*Valeur par défaut*{nbsp}: `250`
+
+Nombre maximum d'instantanés pour un volume. La valeur doit être comprise entre 2 et 250.
+
+=== Geler le système de fichiers pour l'instantané
+
+*Valeur par défaut*{nbsp}: `{"v1":"false"}`
+
+Ce paramètre s'applique uniquement aux volumes qui utilisent le mode de volume Kubernetes `Filesystem`.
+Lorsqu'il est activé, {longhorn-product-name} gèle le système de fichiers du volume immédiatement avant de créer un instantané initié par l'utilisateur.
+Lorsqu'il est désactivé, ou lorsque le mode de volume est `Block`, {longhorn-product-name} effectue une synchronisation du système avant de créer un instantané initié par l'utilisateur.
+
+Les instantanés créés avec le gel du système de fichiers activé sont plus susceptibles d'être cohérents car le système de fichiers est dans un état stable au moment de la création de l'instantané. Cependant, sous une forte charge d'entrée ou de sortie, le gel du système de fichiers peut prendre un temps considérable et peut brièvement interrompre l'activité de travail.
+
+Lorsque ce paramètre est désactivé, {longhorn-product-name} vide le disque avant de créer l'instantané, mais il ne peut pas complètement bloquer les écritures entre la synchronisation du système et la création de l'instantané.
+Les charges de travail ne remarquent généralement pas l'opération d'instantané car l'entrée et la sortie continuent pendant la synchronisation.
+
+La valeur par défaut est `false`. Les noyaux `v5.17` et antérieurs peuvent ne pas se rétablir correctement si un volume plante pendant un gel actif du système de fichiers. Dans cette situation, le noyau pourrait empêcher de démonter le système de fichiers ou d'interrompre les processus qui l'utilisent jusqu'à ce que vous redémarriez le nœud. Activez ce paramètre uniquement lorsque vous utilisez la version du noyau `5.17` ou ultérieure et des systèmes de fichiers ext4 ou XFS.
+
+Vous pouvez remplacer ce paramètre par volume en utilisant le champ `freezeFilesystemForSnapshot` dans l'interface utilisateur {longhorn-product-name}, une StorageClass, ou en modifiant un volume existant.
+`freezeFilesystemForSnapshot` accepte les valeurs suivantes{nbsp}:
+
+*Valeur par défaut*{nbsp}: `ignored`
+
+* `ignored` : Instruire {longhorn-product-name} d'utiliser le paramètre global. Il s'agit de l'option par défaut.
+* `enabled` : Active le gel avant les instantanés, indépendamment du paramètre global.
+* `disabled` : Désactive le gel avant les instantanés, indépendamment du paramètre global.
+
+== Orphelin
+
+=== Suppression automatique des ressources orphelines
+
+*Exemple*{nbsp}: `replica-data;instance`
+
+Ce paramètre permet à {longhorn-product-name} de supprimer automatiquement les ressources `orphan`, qui sont généralement des ressources personnalisées (CR) créées par {longhorn-product-name} pour représenter des entités orphelines détectées. La suppression d'un CR `orphan` déclenche ensuite le nettoyage des données orphelines réelles ou de l'instance d'exécution qu'il représente. Cependant, les ressources `orphan` associées à des nœuds qui sont dans un état `down` ou `unknown` ne seront pas automatiquement nettoyées par ce paramètre.
+
+Vous pouvez lister les types de ressources à supprimer automatiquement sous forme de chaîne séparée par des points-virgules. Les types disponibles incluent{nbsp}:
+
+* `replica-data` : Représente le magasin de données de réplique.
+* `instance` : Représente l'instance d'exécution du moteur et de la réplique.
+
+=== Période bonus pour la suppression automatique des ressources orphelines
+
+*Valeur par défaut*{nbsp}: `300` secondes
+
+Nombre de secondes {longhorn-product-name} attend avant de supprimer automatiquement une ressource personnalisée orpheline (CR) et les données orphelines ou l'instance d'exécution qu'elle représente.
+
+[NOTE]
+====
+La période bonus n'entre pas en vigueur lorsque vous supprimez manuellement un CR orphelin.
+====
+
+== Sauvegardes
+
+=== Autoriser le travail récurrent pendant que le volume est détaché
+
+*Valeur par défaut*{nbsp}: `false`
+
+Si ce paramètre est activé, {longhorn-product-name} attache automatiquement le volume et prend un instantané ou une sauvegarde lorsqu'il est temps de faire un instantané ou une sauvegarde récurrents.
+
+[NOTE]
+====
+Pendant le temps où le volume était attaché automatiquement, le volume n'est pas prêt pour la charge de travail. La charge de travail doit attendre que le travail récurrent se termine.
+====
+
+==== Délai d'exécution de la sauvegarde
+
+*Valeur par défaut*{nbsp}: `1`
+
+Nombre de minutes que {longhorn-product-name} autorise pour l'exécution de la sauvegarde.
+
+=== Durée de vie de la sauvegarde échouée
+
+*Valeur par défaut*{nbsp}: `1440`
+
+L'intervalle en minutes pour conserver la ressource de sauvegarde qui a échoué. Définir sur 0 pour désactiver la suppression automatique.
+
+Les sauvegardes échouées sont vérifiées et nettoyées lors du sondage du magasin de sauvegarde, qui est contrôlé par le paramètre *Intervalle de sondage du magasin de sauvegarde*. Ainsi, cette valeur détermine l'intervalle d'attente minimal du nettoyage. Et l'intervalle de nettoyage réel est un multiple de *Intervalle de sondage du magasin de sauvegarde*. Désactiver *Intervalle de sondage du magasin de sauvegarde* signifie également désactiver la suppression automatique des sauvegardes échouées.
+
+=== Limite de l'historique des travaux échoués du cronjob
+
+*Valeur par défaut*{nbsp}: `1`
+
+Ce paramètre spécifie combien d'historiques de travaux de sauvegarde ou d'instantanés échoués doivent être conservés.
+
+L'historique n'est pas conservé si la valeur est 0.
+
+=== Limite de l'historique des tâches réussies du cronjob
+
+*Valeur par défaut*{nbsp}: `1`
+
+Ce paramètre spécifie combien d'historiques de tâches réussies de sauvegarde ou d'instantané doivent être conservés.
+
+L'historique ne sera pas conservé si la valeur est 0.
+
+=== Restauration des tâches récurrentes du volume
+
+*Valeur par défaut*{nbsp}: `false`
+
+Ce paramètre permet de restaurer les tâches récurrentes d'un volume de sauvegarde à partir de la cible de sauvegarde lors de la restauration du volume, s'ils n'existent pas sur le cluster.
+C'est également un paramètre spécifique au volume avec les options ci-dessous. Les utilisateurs peuvent le personnaliser pour chaque volume afin de remplacer le paramètre global.
+
+*Valeur par défaut*{nbsp}: `ignored`
+
+* `ignored` : C'est l'option par défaut qui indique à {longhorn-product-name} d'hériter du paramètre global.
+* `enabled` : Cette option indique à {longhorn-product-name} de restaurer de manière forcée les travaux ou groupes récurrents de volume à partir de la cible de sauvegarde.
+* `disabled` : Cette option indique à {longhorn-product-name} qu'aucune restauration des travaux ou groupes récurrents de volume ne doit être effectuée.
+
+=== Méthode de compression de sauvegarde
+
+*Valeur par défaut*: `lz4`
+
+Ce paramètre permet aux utilisateurs de spécifier la méthode de compression de sauvegarde.
+
+* `none` : Désactiver la méthode de compression. Adapté aux données multimédias telles que les images et vidéos encodées.
+* `lz4` : Méthode de compression rapide. Adapté aux fichiers plats.
+* `gzip` : Un taux de compression légèrement supérieur, mais lent.
+
+=== Limite de sauvegarde concurrente par sauvegarde
+
+*Valeur par défaut*: `2`
+
+Ce paramètre contrôle combien de threads de travail par sauvegarde peuvent être exécutés simultanément.
+
+=== Limite de restauration concurrente par sauvegarde
+
+*Valeur par défaut*: `2`
+
+Ce paramètre contrôle combien de threads de travail par restauration peuvent être exécutés simultanément.
+
+=== Taille de bloc de sauvegarde par défaut
+
+*Valeur par défaut*: `2`
+
+Spécifie la taille de bloc de sauvegarde par défaut (en MiB), utilisée lors de la création d'un nouveau volume. Les valeurs prises en charge sont `2` ou `16`.
+
+== Planification
+
+=== Autoriser la création de volume avec disponibilité dégradée
+
+*Valeur par défaut*: `true`
+
+Ce paramètre permet à l'utilisateur de créer et d'attacher un volume qui n'a pas toutes les répliques programmées au moment de la création.
+
+NOTE: Il est recommandé de désactiver ce paramètre lors de l'utilisation de {longhorn-product-name} dans l'environnement de production. Voir xref:installation-setup/best-practices.adoc[Meilleures Pratiques] pour plus de détails.
+
+=== Désactiver la planification sur le nœud isolé
+
+*Valeur par défaut*: `true`
+
+Lorsque ce paramètre est coché, Longhorn Manager n'autorise pas la planification des répliques sur les nœuds isolés de Kubernetes.
+
+Lorsque ce paramètre n'est pas coché, Longhorn Manager autorise la planification des répliques sur les nœuds isolés de Kubernetes.
+
+=== Niveau d'anti-affinité douce des nœuds de réplique
+
+*Valeur par défaut*: `false`
+
+Lorsque ce paramètre est coché, Longhorn Manager autorise la planification sur des nœuds avec des répliques saines existantes du même volume.
+
+Lorsque ce paramètre n'est pas coché, Longhorn Manager empêche la planification sur des nœuds avec des répliques saines existantes du même volume.
+
+[NOTE]
+====
+* Ce paramètre est remplacé si les répliques sont interdites de partager une zone par le paramètre d'anti-affinité au niveau de la zone de réplique.
+====
+
+=== Niveau d'anti-affinité douce de la zone de réplique
+
+*Valeur par défaut*: `true`
+
+Lorsque ce paramètre est coché, Longhorn Manager autorise la planification de nouvelles répliques d'un volume sur les nœuds de la même zone que les répliques saines existantes.
+
+Lorsque ce paramètre n'est pas coché, Longhorn Manager empêche la planification de nouvelles répliques d'un volume sur les nœuds de la même zone que les répliques saines existantes.
+
+[NOTE]
+====
+* Les nœuds qui n'appartiennent à aucune zone sont traités comme s'ils appartenaient à la même zone.
+* {longhorn-product-name} s'appuie sur l'étiquette `topology.kubernetes.io/zone=<Zone name of the node>` dans l'objet nœud Kubernetes pour identifier la zone.
+====
+
+=== Niveau d'anti-affinité douce du disque de réplique
+
+*Valeur par défaut*{nbsp}: `true`
+
+Lorsque ce paramètre est coché, le Longhorn Manager autorise la planification de nouvelles répliques d'un volume sur les mêmes disques que les répliques saines existantes.
+
+Lorsque ce paramètre n'est pas coché, le Longhorn Manager empêche la planification de nouvelles répliques d'un volume sur les mêmes disques que les répliques saines existantes.
+
+[NOTE]
+====
+* Même lorsque le partage de disque est activé, {longhorn-product-name} préfère utiliser un disque différent lorsque cela est possible, y compris les disques sur le même nœud.
+* Ce paramètre est remplacé si les répliques sont interdites de partager une zone ou un nœud par l'un des autres paramètres d'anti-affinité douce.
+====
+
+=== Répartition automatique des répliques
+
+*Valeur par défaut*{nbsp}: `disabled`
+
+Activer ce paramètre rééquilibre automatiquement les répliques lorsqu'un nœud disponible est découvert.
+
+Les options globales disponibles sont{nbsp}:
+
+* `disabled`. Il s'agit de l'option par défaut. Aucun équilibrage automatique des répliques ne sera effectué.
+* `least-effort`. Cette option indique à {longhorn-product-name} d'équilibrer les répliques pour une redondance minimale.
+* `best-effort`. Cette option indique à {longhorn-product-name} d'essayer d'équilibrer les répliques pour une redondance uniforme. {longhorn-product-name} ne replanifie pas de force les répliques vers une zone ne disposant pas d'un nombre suffisant de nœuds pour assurer un équilibre uniforme. Au lieu de cela, {longhorn-product-name} replanifiera pour équilibrer au niveau du nœud.
+
+{longhorn-product-name} prend également en charge la personnalisation pour un volume individuel. Le paramètre peut être spécifié dans l'interface utilisateur ou avec le manifeste Kubernetes volume.spec.replicaAutoBalance, cela annule le paramètre global.
+Les options de spécification de volume disponibles sont{nbsp}:
+
+*Valeur par défaut*{nbsp}: `ignored`
+
+* `ignored`. C'est l'option par défaut qui indique à {longhorn-product-name} d'hériter du paramètre global.
+* `disabled`. Cette option indique à {longhorn-product-name} de ne pas effectuer d'équilibrage automatique des répliques.
+* `least-effort`. Cette option indique à {longhorn-product-name} d'équilibrer les répliques pour une redondance minimale.
+* `best-effort`. Cette option indique à {longhorn-product-name} d'essayer d'équilibrer les répliques pour une redondance uniforme. {longhorn-product-name} ne replanifie pas de force les répliques vers une zone ne disposant pas d'un nombre suffisant de nœuds pour assurer un équilibre uniforme. Au lieu de cela, {longhorn-product-name} replanifiera pour équilibrer au niveau du nœud.
+
+=== Seuil de pression disque pour l'équilibrage automatique des répliques (%)
+
+*Valeur par défaut*{nbsp}: `90`
+
+Pourcentage de stockage actuellement utilisé qui déclenche le rééquilibrage automatique des répliques.
+
+Lorsque le seuil est atteint, {longhorn-product-name} reconstruit automatiquement les répliques qui sont sous pression disque sur un autre disque au sein du même nœud.
+
+Pour désactiver ce paramètre, définissez la valeur sur *0*.
+
+Ce paramètre prend effet uniquement lorsque les conditions suivantes sont remplies{nbsp}:
+
+* <<_replica_auto_balance,Équilibrage automatique des répliques>> est défini sur *meilleur-effort*. Pour désactiver ce paramètre (seuil de pression disque) lorsque l'équilibrage automatique des répliques est défini sur meilleur-effort, définissez la valeur de ce paramètre sur *0*.
+* Au moins un autre disque sur le nœud dispose d'un espace disponible suffisant.
+
+Ce paramètre n'est pas affecté par <<_replica_node_level_soft_anti_affinity,Replica Node Level Soft Anti-Affinity>>, qui peut empêcher {longhorn-product-name} de reconstruire une réplique sur le même nœud. Indépendamment de la valeur de ce paramètre, ce paramètre permet toujours à {longhorn-product-name} d'essayer de reconstruire des répliques sur un disque différent sur le même nœud à des fins de migration.
+
+=== Pourcentage minimal d'espace de stockage disponible
+
+*Valeur par défaut*{nbsp}: `25`
+
+Ce paramètre contrôle l'espace libre minimum qui doit rester sur un disque, basé sur son *Stockage maximum*, avant que {longhorn-product-name} puisse planifier une nouvelle réplique.
+
+Par défaut, {longhorn-product-name} garantit qu'au moins *25%* de la capacité totale du disque reste libre. Si l'ajout d'une réplique réduit l'espace disponible en dessous de cette limite, {longhorn-product-name} marque temporairement le disque comme indisponible pour la planification jusqu'à ce qu'un espace suffisant soit libéré.
+
+Cette protection aide à protéger vos disques contre un remplissage excessif, ce qui peut entraîner des problèmes de performance ou des échecs de stockage. Maintenir un tampon d'espace libre aide à garder le système stable et garantit de la place pour des besoins de stockage imprévus.
+
+Voir xref:nodes/multiple-disks#_configuration[Support de plusieurs disques] pour plus de détails.
+
+=== Pourcentage de surprovisionnement de stockage
+
+*Valeur par défaut*{nbsp}: `100`
+
+Le pourcentage de surprovisionnement définit la quantité de stockage qui peut être allouée par rapport à la capacité du disque dur.
+
+Ajuster ce paramètre permet à Longhorn Manager de planifier de nouvelles répliques sur un disque tant que la taille combinée de toutes les répliques reste dans le pourcentage de surprovisionnement autorisé de l'espace disque utilisable. L'espace disque utilisable est calculé comme *Stockage maximum* moins *Stockage réservé*.
+
+[NOTE]
+====
+Les répliques peuvent consommer plus d'espace que la taille nominale d'un volume en raison des données d'instantané. Pour récupérer de l'espace disque, supprimez les instantanés qui ne sont plus nécessaires.
+====
+
+[Example]
+====
+Supposons qu'un disque ait un *Stockage maximum* de 100 GiB et un *Stockage réservé* de 10 GiB, ce qui donne une capacité utilisable de 90 GiB.
+
+Si le pourcentage de surprovisionnement de stockage est fixé à 200%, le maximum autorisé de stockage planifié est de 180 GiB (200% de 90 GiB).
+
+Cela signifie que Longhorn Manager peut continuer à planifier des répliques sur ce disque jusqu'à ce que la taille totale planifiée atteigne 180 GiB, même si l'espace utilisable réel n'est que de 90 GiB.
+====
+
+=== Pourcentage de stockage réservé pour le disque par défaut
+
+*Valeur par défaut*: `30`
+
+Le pourcentage réservé spécifie le pourcentage d'espace disque qui ne sera pas alloué au disque par défaut sur chaque nouveau nœud Longhorn.
+
+Ce paramètre n'affecte que le disque par défaut d'un nouveau nœud ou de nœuds ajoutés lors de l'installation de {longhorn-product-name}.
+
+=== Autoriser le volume de sélecteur de nœud vide
+
+*Valeur par défaut*: `true`
+
+Ce paramètre permet de planifier la réplique du volume sans sélecteur de nœud sur un nœud avec des étiquettes.
+
+=== Autoriser le volume de sélecteur de disque vide
+
+*Valeur par défaut*: `true`
+
+Ce paramètre permet de planifier la réplique du volume sans sélecteur de disque sur un disque avec des étiquettes.
+
+== Zone de danger
+
+À partir de {longhorn-product-name} v1.6.0, {longhorn-product-name} vous permet de modifier les paramètres de la zone de danger sans avoir à attendre que tous les volumes soient détachés. Vos paramètres préférés sont immédiatement appliqués dans les scénarios suivants{nbsp}:
+
+* Aucun volume attaché{nbsp}: Lorsque aucun volume n'est attaché avant que les paramètres ne soient configurés, les modifications de paramètres sont immédiatement appliquées.
+* Mise à niveau de l'image du moteur (mise à niveau en direct){nbsp}: Lors d'une mise à niveau en direct, qui implique la création d'un nouveau pod Instance Manager, les modifications de paramètres sont immédiatement appliquées au nouveau pod.
+
+Les paramètres sont synchronisés toutes les heures. Lorsque tous les volumes sont détachés, les paramètres dans le tableau suivant sont immédiatement appliqués et les composants gérés par le système (par exemple, Instance Manager, pilote CSI et images de moteur) sont redémarrés.
+
+Si vous ne détachez pas tous les volumes avant que les paramètres ne soient synchronisés, les paramètres ne sont pas appliqués et vous devez reconfigurer les mêmes paramètres après avoir détaché les volumes restants. Vous pouvez consulter la liste des paramètres non appliqués dans la section *Zone de danger* de l'interface utilisateur {longhorn-product-name}, ou exécuter la commande CLI suivante pour vérifier la valeur du champ `APPLIED`.
+
+[subs="+attributes",shell]
+----
+  ~# kubectl -n longhorn-system get setting priority-class
+  NAME             VALUE               APPLIED   AGE
+  priority-class   longhorn-critical   true      3h26m
+----
+
+|===
+| Paramètre | Informations complémentaires | Composants affectés
+
+| <<_kubernetes_taint_toleration,Tolérance aux Taints Kubernetes>>
+| xref:nodes/taints-tolerations.adoc[Taints et Tolérances]
+| Composants gérés par le système
+
+| <<_priority_class,Classe de priorité>>
+| xref:nodes/priority-class.adoc[Classe de priorité]
+| Composants gérés par le système
+
+| <<_system_managed_components_node_selector,Sélecteur de composants gérés par le système>>
+| xref:nodes/node-selector.adoc[Sélecteur de nœuds]
+| Composants gérés par le système
+
+| <<_storage_network,Réseau de stockage>>
+| xref:longhorn-system/networking/storage-network.adoc[Réseau de stockage]
+| Composants du gestionnaire d'instances et de l'image de sauvegarde
+
+| <<_v1_data_engine,Moteur de données V1>>
+|
+| Composant du gestionnaire d'instances
+
+| <<_v2_data_engine,Moteur de données V2>>
+| xref:longhorn-system/v2-data-engine/quick-start-guide.adoc[Moteur de données V2 (expérimental)]
+| Composant du gestionnaire d'instances
+
+| <<_guaranteed_instance_manager_cpu,Guaranteed Instance Manager UC>>
+|
+| Composant du gestionnaire d'instances
+|===
+
+Pour les paramètres du moteur de données V1 et V2, vous pouvez désactiver les moteurs de données uniquement lorsque tous les volumes associés sont détachés. Par exemple, vous pouvez désactiver le moteur de données V2 uniquement lorsque tous les volumes V2 sont détachés (même lorsque les volumes V1 sont encore attachés).
+
+=== Moteur de données V1
+
+*Valeur par défaut*{nbsp}: `true`
+
+Ce paramètre vous permet d'activer le moteur de données V1.
+
+=== Moteur de données V2
+
+*Valeur par défaut*{nbsp}: `false`
+
+Ce paramètre active le moteur de données V2, qui est une fonctionnalité expérimentale basée sur le kit de développement de performances de stockage (SPDK).  Le moteur de données V2 est une fonctionnalité en aperçu technique. Pour plus d'informations, voir [Moteur de données V2 (aperçu technique)] xref:longhorn-system/v2-data-engine/v2-data-engine.adoc[Moteur de données V2 (expérimental)].
+
+[WARNING]
+====
+* NE CHANGEZ PAS CE PARAMÈTRE AVEC DES VOLUMES ATTACHÉS. {longhorn-product-name} bloquera cette mise à jour de paramètre lorsqu'il y a des volumes attachés.
+* Lorsque le moteur de données V2 est activé, chaque pod Instance Manager utilise 1 cœur d’UC. Cette utilisation élevée de l’UC est attribuée au daemon cible du kit de développement de performances de stockage (SPDK) s’exécutant dans chaque pod Instance Manager. Le daemon cible SPDK gère les opérations d’entrée/sortie (IO) et nécessite un sondage intensif. En conséquence, il consomme 100 % d’un cœur d’UC dédié pour gérer et traiter efficacement les demandes IO, garantissant des performances optimales et une réactivité pour les opérations de stockage.
+====
+
+=== Limite de reconstruction de répliques concurrentes par nœud
+
+*Valeur par défaut*{nbsp}: `5`
+
+Ce paramètre contrôle combien de répliques sur un nœud peuvent être reconstruites simultanément.
+
+Typiquement, {longhorn-product-name} peut bloquer le démarrage de la réplique une fois que le nombre actuel de reconstructions sur un nœud dépasse la limite. Mais lorsque la valeur est 0, cela signifie désactiver la reconstruction de la réplique.
+
+[WARNING]
+====
+* L'ancien paramètre "Désactiver la reconstruction de réplique" est remplacé par ce paramètre.
+* Différent de la dépendance à un délai de démarrage de réplique pour limiter la reconstruction concurrente, si la reconstruction est désactivée, le réapprovisionnement de l’objet réplique sera directement omis.
+* Lorsque la valeur est 0, la fonctionnalité d'éviction et de localité des données ne fonctionnera pas. Mais cela ne devrait avoir aucun impact sur la reconstruction de répliques en cours et la restauration de sauvegarde.
+====
+
+=== Limite de synchronisation concurrente de reconstruction de répliques
+
+*Valeur par défaut*{nbsp}: `{"v1":"1"}`
+
+Ce paramètre définit le nombre maximum de répliques saines (de 1 à 5) qui peuvent synchroniser des instantanés à une réplique en reconstruction, permettant une reconstruction de répliques à l'échelle.
+
+Lorsqu'il est réglé sur `1` (par défaut), une seule réplique source synchronise à la réplique en reconstruction à la fois, ce qui est le comportement traditionnel de reconstruction à source unique. Lorsqu'il est réglé sur une valeur plus élevée (par exemple, de `2` à `5`), plusieurs répliques saines peuvent synchroniser différents instantanés à la réplique en reconstruction simultanément, réduisant potentiellement le temps de reconstruction.
+
+*Remplacement par volume*{nbsp}: Ce paramètre peut être remplacé pour des volumes individuels via l'interface utilisateur Longhorn ou en modifiant le champ `spec.rebuildConcurrentSyncLimit` dans la ressource personnalisée Volume.
+
+Pour plus de détails, voir xref:high-availability/scale-replica-rebuilding.adoc[Échelle de reconstruction de répliques].
+
+=== Limite de réapprovisionnement d'image de fond concurrente par nœud
+
+*Valeur par défaut*{nbsp}: `5`
+
+Ce paramètre contrôle combien de copies d'image de fond sur un nœud peuvent être réapprovisionnées simultanément.
+
+Typiquement, {longhorn-product-name} peut bloquer le démarrage de la copie d'image de fond une fois que le nombre actuel de réapprovisionnements sur un nœud dépasse la limite. Mais lorsque la valeur est 0, cela signifie désactiver le réapprovisionnement de l'image de fond.
+
+=== Tolérance aux taints Kubernetes
+
+*Exemple*{nbsp}: `nodetype=storage:NoSchedule`
+
+Si vous souhaitez dédier des nœuds uniquement pour stocker {longhorn-product-name} répliques et rejeter d'autres charges de travail générales, vous pouvez définir des tolérances pour *tous* {longhorn-product-name} composants et ajouter des taints aux nœuds dédiés au stockage.
+
+Le système Longhorn contient des composants déployés par l’utilisateur (par exemple, Longhorn Manager, Longhorn driver, Longhorn UI) et des composants gérés par le système (par exemple, Instance Manager, l’image du moteur, le pilote CSI, etc.)
+Ce paramètre définit uniquement les tolérances de taint pour les composants gérés par le système.
+Selon la manière dont vous avez déployé Longhorn, vous devez définir des tolérances de taint pour les composants déployés par l'utilisateur dans le chart Helm ou le fichier YAML de déploiement.
+
+Pour appliquer immédiatement le paramètre de tolérance modifié, assurez-vous que tous les volumes Longhorn sont détachés. Lorsque les volumes sont en cours d’utilisation, les composants {longhorn-product-name} ne sont pas redémarrés, et vous devez reconfigurer les paramètres après avoir détaché les volumes restants. Sinon, vous pouvez attendre qu'un changement de paramètre soit réconcilié dans une heure.
+Nous recommandons de définir des tolérances lors du déploiement de {longhorn-product-name} car le système Longhorn ne peut pas être utilisé pendant la mise à jour.
+
+Plusieurs tolérances peuvent être définies ici, et ces tolérances sont séparées par un point-virgule. Par exemple :
+
+* `key1=value1:NoSchedule; key2:NoExecute`
+* `:` cette tolérance tolère tout car une clé vide avec l'opérateur `Exists` correspond à toutes les clés, valeurs et effets
+* `key1=value1:` cette tolérance a un effet vide. Elle correspond à tous les effets avec la clé `key1`
+Voir xref:nodes/taints-tolerations.adoc[Taint Toleration] pour plus de détails.
+
+=== Classe de priorité
+
+*Valeur par défaut*{nbsp}: `longhorn-critical`
+
+Par défaut, les charges de travail {longhorn-product-name} s’exécutent avec la même priorité que les autres pods dans le cluster.
+Lorsqu’un nœud est sous pression, par exemple en cas de manque de mémoire, les charges de travail {longhorn-product-name} sont traitées de la même manière que les autres pods pour l’éviction.
+
+Le paramètre de classe de priorité attribue une PriorityClass aux charges de travail système {longhorn-product-name}.
+Vous pouvez utiliser ce paramètre pour donner à ces charges de travail une priorité plus élevée afin qu'elles soient moins susceptibles d'être évincées lorsqu'un nœud subit une pression sur les ressources.
+
+Le système {longhorn-product-name} comprend des composants déployés par l'utilisateur (tels que Longhorn Manager, le pilote Longhorn et Longhorn UI) et des composants gérés par le système (tels que le gestionnaire d'instances, l'image du moteur et le pilote CSI).
+
+Ce paramètre s'applique uniquement aux composants gérés par le système. Selon la manière dont vous avez déployé {longhorn-product-name}, vous devez définir la PriorityClass pour les composants déployés par l'utilisateur dans le graphique Helm ou dans votre YAML de déploiement.
+
+[WARNING]
+====
+Modifiez ce paramètre uniquement après avoir détaché tous les volumes Longhorn.
+L'application de la nouvelle PriorityClass redémarre les composants du système Longhorn.
+Pendant la mise à jour, le système est indisponible et aucune opération Longhorn ne peut être exécutée.
+Pour éviter toute interruption, configurez la PriorityClass lors du déploiement initial de {longhorn-product-name}.
+====
+
+Voir xref:nodes/priority-class.adoc[Priority Class] pour plus de détails.
+
+=== Sélecteur de nœuds des composants gérés par le système
+
+*Exemple* : `label-key1:label-value1;label-key2:label-value2`
+
+Pour restreindre les composants {longhorn-product-name} à s'exécuter uniquement sur un ensemble particulier de nœuds, vous pouvez définir un sélecteur de nœuds pour tous les composants {longhorn-product-name}.
+
+Le système Longhorn contient des composants déployés par l'utilisateur (par exemple, Longhorn Manager, le pilote Longhorn, Longhorn UI) et des composants gérés par le système (par exemple, le gestionnaire d'instances, l'image du moteur, le pilote CSI, etc.)
+Vous devez définir un sélecteur de nœuds pour les deux. Ce paramètre ne définit que le sélecteur de nœuds pour les composants gérés par le système. Suivez l'instruction à xref:nodes/node-selector.adoc[Node Selector] pour modifier le sélecteur de nœuds.
+
+[WARNING]
+====
+Puisque tous les composants {longhorn-product-name} seraient redémarrés, le système Longhorn est temporairement indisponible.
+====
+
+Pour appliquer un paramètre immédiatement, assurez-vous que tous les volumes Longhorn sont détachés. Lorsque les volumes sont en cours d'utilisation, les composants {longhorn-product-name} ne sont pas redémarrés, et vous devez reconfigurer les paramètres après avoir détaché les volumes restants. Sinon, vous pouvez attendre qu'un changement de paramètre soit réconcilié dans une heure.
+N'opérez pas le système Longhorn pendant que les paramètres du sélecteur de nœuds sont mis à jour et que les composants {longhorn-product-name} sont en cours de redémarrage.
+
+=== Kubernetes Cluster Autoscaler Activé (Expérimental)
+
+*Valeur par défaut* : `false`
+
+Définir Kubernetes Cluster Autoscaler Activé à `true` permet à {longhorn-product-name} de débloquer le redimensionnement du Kubernetes Cluster Autoscaler.
+
+Voir xref:high-availability/kubernetes-cluster-autoscaler.adoc[Kubernetes Cluster Autoscaler Support] pour plus de détails.
+
+WARNING: La reconstruction des répliques pourrait être coûteuse car les nœuds avec des répliques réutilisables pourraient être supprimés par le Kubernetes Cluster Autoscaler.
+
+=== Réseau de stockage
+
+*Exemple* : `kube-system/demo-192-168-0-0`
+
+Le réseau de stockage utilise Multus NetworkAttachmentDefinition pour séparer le trafic de données intra-cluster du réseau par défaut du cluster Kubernetes.
+
+Par défaut, ce paramètre s'applique uniquement au chemin du trafic du plan de données de Longhorn. Pour le trafic des points de terminaison des volumes RWX (Read-Write-Many), voir <<_endpoint_network_for_rwx_volume,Réseau de point de terminaison pour le volume RWX>>.
+
+WARNING: Ce paramètre devrait changer après que tous les volumes Longhorn soient détachés, car certains pods exécutant des composants système Longhorn sont recréés pour appliquer le paramètre. Lorsque tous les volumes sont détachés, {longhorn-product-name} tente de redémarrer immédiatement tous les pods Instance Manager et Backing Image Manager. Lorsque les volumes sont en cours d'utilisation, les composants {longhorn-product-name} ne sont pas redémarrés, et vous devez reconfigurer les paramètres après avoir détaché les volumes restants{nbsp}; sinon, vous pouvez attendre qu'un changement de paramètre soit réconcilié dans une heure.
+
+Voir xref:longhorn-system/networking/storage-network.adoc[Réseau de stockage] pour plus de détails.
+
+=== Réseau de point de terminaison pour le volume RWX
+
+*Valeur par défaut*{nbsp}: `kube-system/demo-172-16-0-0`
+
+Spécifiez un Multus NetworkAttachmentDefinition pour fournir un réseau dédié pour le montage des volumes RWX (ReadWriteMany).
+
+Laissez ce champ vide pour utiliser le réseau par défaut du cluster Kubernetes.
+
+[WARNING]
+====
+Ce paramètre devrait changer après que tous les volumes {longhorn-product-name} RWX soient détachés, car certains pods exécutant des composants {longhorn-product-name} sont recréés pour appliquer le paramètre. Lorsque tous les volumes RWX sont détachés, {longhorn-product-name} tente de redémarrer immédiatement tous les pods plug-in CSI. Lorsque les volumes sont en cours d'utilisation, les pods exécutant des composants {longhorn-product-name} ne sont pas redémarrés, donc les paramètres doivent être reconfigurés après que les volumes restants soient détachés. Si vous ne pouvez pas reconfigurer manuellement les paramètres, vous pouvez choisir d'attendre car les paramètres sont synchronisés toutes les heures.
+
+Les volumes RWX sont montés avec le réseau de point de terminaison dans l'espace de noms du réseau de conteneur du pod plug-in CSI. En conséquence, le redémarrage du pod du plug-in CSI peut entraîner des montages de volumes RWX non réactifs. Lorsque cela se produit, vous devez redémarrer le pod de charge de travail pour rétablir la connexion de montage. Alternativement, vous pouvez activer le paramètre <<_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly,Supprimer automatiquement le pod de charge de travail lorsque le volume est détaché de manière inattendue>>.
+====
+
+Pour plus d'informations, voir xref:longhorn-system/networking/storage-network.adoc[Réseau de stockage].
+
+=== Supprimer les instantanés lors de la réduction du système de fichiers
+
+*Exemple*{nbsp}: `false`
+
+Ce paramètre permet à la fonctionnalité de réduction du système de fichiers Longhorn de marquer automatiquement le dernier instantané et ses ancêtres comme supprimés et s'arrête à l'instantané contenant plusieurs enfants.
+
+Étant donné que la fonctionnalité de réduction du système de fichiers Longhorn ne peut être appliquée qu'à la tête du volume ainsi qu'aux instantanés continus supprimés ou aux instantanés système uniquement.
+
+Notez que tenter de réduire des fichiers supprimés à partir d'un instantané valide ne fera rien, mais le système de fichiers rejettera ce type d'informations de fichiers trimmables en mémoire. Plus tard, si vous marquez l'instantané comme supprimé et souhaitez réessayer le trim, vous devrez peut-être démonter et remonter le système de fichiers afin que celui-ci puisse à nouveau collecter les informations sur les fichiers pouvant être traités par trim.
+
+Voir xref:volumes/trim-filesystem.adoc[Trim du système de fichiers] pour plus de détails.
+
+=== UC garanties pour le gestionnaire d'instances
+
+*Valeur par défaut*{nbsp}: `{"v1":"12","v2":"12"}`
+
+Pourcentage des ressources UC allouables totales sur chaque nœud à réserver pour chaque pod de gestionnaire d'instances. Par exemple, une valeur de `10` signifie que 10 % de l'UC totale sur un nœud sera allouée à chaque pod de gestionnaire d'instances sur ce nœud. Cela aide à maintenir la stabilité du moteur et des répliques pendant les périodes de forte charge de travail sur le nœud.
+
+Afin de prévenir les pannes inattendues d'instances de volume (moteur/réplique) ainsi que de garantir une performance IO relativement acceptable, vous pouvez utiliser la formule suivante pour calculer une valeur pour ce paramètre{nbsp}:
+
+ Guaranteed Instance Manager CPU = The estimated max Longhorn volume engine and replica count on a node * 0.1 / The total allocatable CPUs on the node * 100.
+
+Le résultat du calcul ci-dessus ne signifie pas que ce sont les ressources UC maximales requises par les charges de travail {longhorn-product-name}. Pour exploiter pleinement la performance d'entrée ou de sortie du volume Longhorn, vous pouvez allouer ou garantir plus de ressources UC via ce paramètre.
+
+S'il est difficile d'estimer l'utilisation maintenant, vous pouvez le laisser avec la valeur par défaut, qui est de 12 %. Ensuite, vous pouvez l'ajuster lorsqu'il n'y a pas de charge de travail en cours utilisant des volumes Longhorn.
+
+[WARNING]
+====
+* La valeur 0 signifie désactiver les demandes d'UC pour les pods de gestionnaire d'instances.
+* En tenant compte des nouveaux pods de gestionnaire d'instances possibles lors de la mise à niveau du système, cette valeur flottante varie de 0 à 40.
+* Un ensemble supplémentaire de pods de gestionnaire d'instances peut devoir être déployé lorsque le système Longhorn est mis à niveau. Si les UC disponibles actuelles des nœuds ne suffisent pas pour les nouveaux pods de gestionnaire d'instances, vous devez détacher les volumes utilisant les pods de gestionnaire d'instances les plus anciens afin que {longhorn-product-name} puisse nettoyer automatiquement les anciens pods et libérer les ressources UC. Et les nouveaux pods avec la dernière image de gestionnaire d'instances seront alors lancés.
+* Ce paramètre global sera ignoré pour un nœud si le champ "InstanceManagerCPURequest" sur le nœud est défini.
+* Pour le moteur de données v2, le démon cible du kit de développement de performance de stockage (SPDK) à l'intérieur de chaque pod de gestionnaire d'instances utilise un ou plusieurs cœurs d'UC dédiés. Définir une utilisation minimale de l'UC est essentiel pour maintenir la stabilité pendant les périodes de forte charge sur le nœud.
+====
+
+=== Désactiver la purge des instantanés
+
+*Valeur par défaut*{nbsp}: `false`
+
+Lorsqu'il est activé, empêche temporairement toutes les tentatives de purge des instantanés de volume.
+
+Lorsqu'il est utilisé, {longhorn-product-name} effectue généralement la purge des instantanés lors de la reconstruction des répliques et de la suppression d'instantanés initiée par l'utilisateur. Lors de la purge, {longhorn-product-name} regroupe les instantanés inutiles avec leurs homologues plus récents, libérant ainsi de l'espace consommé par des données historiques.
+
+Permettre la purge des instantanés pendant les opérations normales est idéal, mais ce processus consomme temporairement un espace disque supplémentaire. Si un espace disque insuffisant empêche le processus de continuer, envisagez de désactiver temporairement la purge pendant que les données sont déplacées vers d'autres disques.
+
+=== Nettoyage automatique des instantanés lors de la suppression de la sauvegarde
+
+*Valeur par défaut*{nbsp}: `false`
+
+Lorsqu'il est activé, l'instantané utilisé par la sauvegarde sera automatiquement nettoyé lorsque la sauvegarde est supprimée.
+
+=== Délai d'expiration de la sonde de vivacité du pod du gestionnaire d'instances
+
+*Valeur par défaut*{nbsp}: `10` (en secondes)
+
+Le paramètre spécifie le délai d’expiration de la sonde de vivacité du pod du gestionnaire d'instances. La valeur par défaut est de 10 secondes.
+
+[WARNING]
+====
+Lors de l'application du paramètre, {longhorn-product-name} essaiera de redémarrer tous les pods de gestionnaire d'instances si tous les volumes sont détachés et redémarrera finalement le pod de gestionnaire d'instances sans instances en cours d'exécution sur le gestionnaire d'instances.
+====
+
+=== Masque UC du moteur de données
+
+*Valeur par défaut*{nbsp}: `{"v2":"true"}`
+
+Ce paramètre s'applique uniquement au moteur de données V2. Il active les hugepages pour le daemon cible du kit de développement de performance de stockage (SPDK). Si ce paramètre est désactivé, la mémoire héritée est utilisée. La taille d'allocation pour cette mémoire est définie par le paramètre Taille de mémoire du moteur de données.
+
+=== Moteur de données Hugepage activé
+
+*Valeur par défaut*{nbsp}: `{"v2":"2048"}` 
+
+Ce paramètre s'applique uniquement au moteur de données V2 et spécifie la taille de mémoire, en MiB, allouée au daemon cible du kit de développement de performance de stockage (SPDK).
+
+* Lorsque Hugepage est activé, cette valeur définit la taille de Hugepage.
+* Lorsque Hugepage est désactivé, la mémoire héritée est utilisée.
+
+=== Mode d'interruption du moteur de données activé
+
+*Valeur par défaut*{nbsp}: `{"v2":"false"}`
+
+Il s'applique uniquement au *moteur de données V2*. Il contrôle si le daemon cible du kit de développement de performance de stockage (SPDK) fonctionne en *mode d'interruption* ou en *mode de sondage* par défaut.
+
+* `true` : Il active le mode d'interruption, réduisant l'utilisation de l'UC en gérant les E/S par le biais d'interruptions.
+* `false` : Il maintient le mode de sondage activé pour des performances maximales et une latence minimale.
+
+[WARNING]
+====
+NE CHANGEZ PAS CE PARAMÈTRE AVEC DES VOLUMES ATTACHÉS. {longhorn-product-name} bloquera cette mise à jour de paramètre lorsqu'il y a des volumes v2 attachés.
+====
+
+=== Chemin du journal
+
+*Valeur par défaut*{nbsp}: `/var/lib/longhorn/logs/`
+
+Spécifie le répertoire sur l'hôte où {longhorn-product-name} stocke les fichiers journaux pour le pod du gestionnaire d'instances. Actuellement, il n'est utilisé que pour les pods de gestionnaire d'instances dans le moteur de données v2.
+
+=== Limite de tâches lourdes d'instantané concurrentes
+
+*Valeur par défaut*{nbsp}: `5`
+
+* `< 1`: tâches lourdes d'instantané concurrentes illimitées.
+
+Ce paramètre contrôle combien de tâches lourdes d'instantané, telles que les opérations de purge et de clonage, peuvent s'exécuter simultanément sur chaque nœud. C'est un mécanisme à meilleur effort. Parce que le système est distribué, une sursouscription temporaire peut se produire. Le limiteur réduit la surcharge dans le pire des cas mais ne garantit pas une application parfaite.
+
+=== Limites de ressources des composants CSI gérés par le système
+
+*Valeur par défaut*{nbsp}: `""`
+
+Ce paramètre configure les demandes et limites d'UC et de mémoire pour les composants CSI gérés par le système.
+Les composants pris en charge incluent{nbsp}: `csi-attacher`, `csi-provisioner`, `csi-resizer`, `csi-snapshotter`, `longhorn-csi-plugin`, `node-driver-registrar` et `longhorn-liveness-probe`.
+
+La valeur doit être un objet JSON avec les noms des composants comme clés et Kubernetes `ResourceRequirements` (`requests` et `limits`) comme valeurs. Seuls les composants définis dans l'objet JSON ont leurs exigences en matière de ressources remplacées. Tous les autres composants continuent d'utiliser les valeurs par défaut de {longhorn-product-name}.
+
+[NOTE]
+====
+La mise à jour des limites de ressources redémarre les composants CSI concernés. Pendant le redémarrage, le provisionnement de volumes, l'expansion, les instantanés et les opérations d'attachement ou de détachement peuvent être retardés. Les volumes montés existants restent disponibles.
+====
+
+*Par exemple :*
+[source,json]
+----
+{
+  "csi-attacher": {
+    "requests": {"cpu": "100m", "memory": "128Mi"},
+    "limits": {"cpu": "200m", "memory": "256Mi"}
+  },
+  "csi-provisioner": {
+    "requests": {"cpu": "100m", "memory": "128Mi"},
+    "limits": {"cpu": "200m", "memory": "256Mi"}
+  },
+  "longhorn-csi-plugin": {
+    "requests": {"cpu": "100m", "memory": "128Mi"},
+    "limits": {"cpu": "200m", "memory": "256Mi"}
+  },
+  "node-driver-registrar": {
+    "requests": {"cpu": "50m", "memory": "64Mi"},
+    "limits": {"cpu": "100m", "memory": "128Mi"}
+  }
+}
+----
+
+=== Clés de topologie autorisées pour le CSI
+
+*Valeur par défaut*{nbsp}: `""`
+
+*Exemple*{nbsp}: `topology.kubernetes.io/zone`
+
+Une liste de clés de topologie séparées par des virgules que le pilote CSI Longhorn doit signaler dans `NodeGetInfo` et utiliser lors de la création de PV `nodeAffinity`. Lorsque c'est vide (la valeur par défaut), aucune information de topologie n'est transmise et les PV sont créés sans `nodeAffinity`.
+
+Définissez ceci sur une ou plusieurs https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone[étiquettes de topologie Kubernetes bien connues] (par exemple, `topology.kubernetes.io/zone`) afin que la StorageClass `allowedTopologies` et le paramètre `strictTopology` puissent prendre effet.
+
+[NOTE]
+====
+Modifier ce paramètre redémarre les composants CSI. Pendant le redémarrage, le nouveau provisionnement de volumes, l'expansion, les instantanés ou les opérations d'attachement/détachement peuvent être temporairement retardés. Les volumes montés existants restent utilisables.
+
+Plus de détails dans xref:nodes/topology-aware-provisioning.adoc[Provisionnement conscient de la topologie].
+====

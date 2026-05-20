@@ -1,0 +1,102 @@
+= Mises à niveau
+:revdate: 2026-03-06
+:page-revdate: {revdate}
+:doctype: book
+:current-version: {page-component-version}
+
+== Cessation de la prise en charge et incompatibilité
+
+Aucun changement déprécié ou incompatible n'a été introduit dans la version v{patch-version}.
+
+== Application du chemin de mise à niveau et prévention de la rétrogradation
+
+À partir de la version {longhorn-product-name} v1.5.0, les mises à niveau ne sont prises en charge que de la version mineure actuelle à la suivante. Par exemple, vous pouvez mettre à niveau de 1.5.x à 1.6.x, mais il n'est pas pris en charge de sauter des versions (comme de 1.4.x à 1.6.x). Si vous tentez une mise à niveau à partir d'une version non prise en charge ou si vous sautez une version mineure, l'opération échoue automatiquement. Cependant, vous pouvez revenir à la version précédemment installée sans interruption de service ni temps d'arrêt.
+
+De plus, {longhorn-product-name} ne prend pas en charge les rétrogradations. Cette restriction aide à prévenir un comportement système inattendu et des problèmes associés à l'incompatibilité des fonctions, à la cessation de la prise en charge ou à la suppression.
+
+[CAUTION]
+====
+* Une fois que vous avez réussi à mettre à niveau vers v{patch-version}, vous ne serez pas autorisé à revenir à la version précédemment installée.
+* La rétrogradation n'est pas prise en charge et n'est donc pas recommandée.
+====
+
+Le tableau suivant décrit les chemins de mise à niveau pris en charge.
+
+[cols="^,^,^,^"]
+|===
+| Version actuelle | Version cible | Pris en charge | Par exemple :
+
+| x.y.*
+| x.(y+1).*
+| ✓
+| v1.4.2 à v1.5.1
+
+| x.y.*
+| x.y.(*+n)
+| ✓
+| v1.5.0 à v1.5.1
+
+| x.y[^lastMinorVersion].*
+| (x+1).y.*
+| ✓
+| v1.30.0 à v2.0.0
+
+| x.(y-1).*
+| x.(y+1).*
+| X
+| v1.3.3 à v1.5.1
+
+| x.(y-2).*
+| x.(y+1).*
+| X
+| v1.2.6 à v1.5.1
+|===
+
+== Vérifications manuelles avant les mises à niveau
+
+Des vérifications automatisées ne sont effectuées que sur certains chemins de mise à niveau, et le vérificateur avant mise à niveau peut ne pas couvrir certains scénarios. Des vérifications manuelles, effectuées à l'aide de kubectl ou de l'interface utilisateur, sont recommandées pour ces scénarios. Vous pouvez prendre des mesures d'atténuation ou différer la mise à niveau jusqu'à ce que les problèmes soient résolus.
+
+* Assurez-vous que tous les volumes du moteur de données V2 sont détachés et que les répliques sont arrêtées. Le moteur de données V2 ne prend actuellement pas en charge les mises à niveau en direct.
+* Évitez de mettre à niveau lorsque les volumes sont dans l'état "Défaillant". Si toutes les répliques sont jugées inutilisables, elles peuvent être supprimées et les données peuvent être perdues de façon permanente (s'il n'existe pas de sauvegardes utilisables).
+* Évitez de mettre à niveau si une BackingImage échouée existe. Pour plus d'informations, voir xref:volumes/backing-images/backing-images.adoc[Backing Image].
+* Créez une sauvegarde système Longhorn avant d'effectuer la mise à niveau. Référez-vous à xref:snapshots-backups/system-backups/create-system-backup.adoc[Sauvegarde système Longhorn] pour les instructions. Une sauvegarde système garantit que toutes les ressources critiques, telles que les volumes et les images de fond, sont sauvegardées et peuvent être restaurées en cas de problème.
+
+== Mise à niveau {longhorn-product-name}
+
+Il y a normalement deux étapes dans le processus de mise à niveau{nbsp}: d'abord mettre à niveau le Longhorn Manager vers la dernière version, puis mettre à niveau manuellement le Longhorn Engine vers la dernière version en utilisant le dernier Longhorn Manager.
+
+=== 1. Mettre à niveau Longhorn Manager
+
+* Pour mettre à niveau depuis v{current-version}.x, xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Mettre à niveau Longhorn Manager].
+
+=== 2. Mettre à niveau manuellement Longhorn Engine
+
+Après la mise à niveau de Longhorn Manager, Longhorn Engine doit également être mis à niveau xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[en utilisant l'interface utilisateur {longhorn-product-name}].
+
+=== 3. Mettre à niveau automatiquement Longhorn Engine
+
+Depuis {longhorn-product-name} v1.1.1, nous proposons une option pour vous aider à xref:upgrades/longhorn-components/auto-upgrade-engine.adoc[mettre à niveau automatiquement Longhorn Engine].
+
+=== 4. Migrer automatiquement les tâches récurrentes
+
+Avec l'introduction de la nouvelle fonctionnalité `Recurring Job` basée sur des étiquettes, {longhorn-product-name} a supprimé le champ `RecurringJobs` dans la spécification de volume et prévoit de cesser la prise en charge de `RecurringJobs` dans la classe de stockage.
+
+Pendant la mise à niveau, {longhorn-product-name} automatiquement{nbsp}:
+
+* Crée de nouveaux CRs de tâches récurrentes à partir du champ `recurringJobs` dans la spécification de volume et les convertit en étiquettes de volume.
+* Crée de nouveaux CRs de tâches récurrentes à partir de `recurringJobs` dans la classe de stockage et les convertit en un nouveau paramètre `recurringJobSelector`.
+
+Visitez xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[Instantanés et sauvegardes récurrents] pour plus d'informations sur la nouvelle fonctionnalité `Recurring Job`.
+
+== Lecture complémentaire
+
+Visitez https://longhorn.io/kb/troubleshooting-some-old-instance-manager-pods-are-still-running-after-upgrade[Certains anciens pods de gestionnaire d'instances fonctionnent encore après la mise à niveau] pour plus d'informations sur la stratégie de nettoyage des pods de gestionnaire d'instances pendant la mise à niveau.
+
+== Besoin d'aide ?
+
+Si vous rencontrez des problèmes, veuillez les signaler https://github.com/longhorn/longhorn/issues[ici] et inclure vos fichiers yaml de sauvegarde ainsi que les journaux du gestionnaire.
+
+[IMPORTANT]
+====
+{longhorn-product-name} n'autorise que les mises à niveau à partir des versions de correctifs de la dernière version mineure avant la nouvelle version majeure. Par exemple, si v1.8.0 est la dernière version mineure avant v2.0, vous pouvez mettre à niveau à partir de n'importe quelle version de correctif de v1.8.0 vers n'importe quelle version de correctif de v2.0.
+====

@@ -1,0 +1,321 @@
+= Métricas do SUSE® Storage para Monitoramento
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Volume
+
+|===
+| Nome | Descrição | Exemplo
+
+| longhorn_volume_actual_size_bytes
+| Espaço real utilizado por cada réplica do volume no nó correspondente
+| longhorn_volume_actual_size_bytes{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 1.1917312e+08
+
+| longhorn_volume_capacity_bytes
+| Tamanho configurado em bytes para este volume
+| longhorn_volume_capacity_bytes{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 6.442450944e+09
+
+| longhorn_volume_state
+| Estado do volume. Esta métrica usa o rótulo `state` para indicar o estado atual do volume. O valor é 1 para o estado atual e 0 para os outros. Estados: criando, anexado, desanexado, anexando, desanexando, deletando 
+| longhorn_volume_state{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol",state="attached"} 1
+
+| longhorn_volume_robustness
+| Robustez do volume. Esta métrica usa o rótulo `state` para indicar a robustez atual. O valor é 1 para o estado atual e 0 para os outros. Estados: desconhecido, saudável, degradado, com falha
+| longhorn_volume_robustness{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol",state="healthy"} 1
+
+| longhorn_volume_read_throughput
+| Taxa de leitura deste volume (Bytes/s)
+| longhorn_volume_read_throughput{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 5120000
+
+| longhorn_volume_write_throughput
+| Taxa de escrita deste volume (Bytes/s)
+| longhorn_volume_write_throughput{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 512000
+
+| longhorn_volume_read_iops
+| IOPS de leitura deste volume
+| longhorn_volume_read_iops{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 100
+
+| longhorn_volume_write_iops
+| IOPS de escrita deste volume
+| longhorn_volume_write_iops{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 100
+
+| longhorn_volume_read_latency
+| Latência de leitura deste volume (ns)
+| longhorn_volume_read_latency{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 100000
+
+| longhorn_volume_write_latency
+| Latência de escrita deste volume (ns)
+| longhorn_volume_write_latency{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 100000
+
+| longhorn_volume_file_system_read_only
+| Esta métrica indica que o volume agora está em modo somente leitura. A métrica é 1 ou nenhum registro para cada volume
+| longhorn_volume_file_system_read_only{node="worker-2",pvc="testvol",pvc_namespace="default",volume="testvol"} 1
+
+| longhorn_volume_last_backup_at 
+| Timestamp Unix do último backup bem-sucedido deste volume, ou 0 se nenhum backup deste tipo existir 
+| longhorn_volume_last_backup_at{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 1.766365578e+09
+|===
+
+== Nó
+
+|===
+| Nome | Descrição | Exemplo
+
+| longhorn_node_status
+| Status deste nó: 1=verdadeiro, 0=falso
+| longhorn_node_status{condition="ready",condition_reason="",node="worker-2"} 1
+
+| longhorn_node_count_total
+| Número total de nós no sistema Longhorn
+| longhorn_node_count_total 4
+
+| longhorn_node_cpu_capacity_millicpu
+| A CPU máxima alocável neste nó
+| longhorn_node_cpu_capacity_millicpu{node="worker-2"} 2000
+
+| longhorn_node_cpu_usage_millicpu
+| O uso de CPU neste nó
+| longhorn_node_cpu_usage_millicpu{node="pworker-2"} 186
+
+| longhorn_node_memory_capacity_bytes
+| A memória máxima alocável neste nó
+| longhorn_node_memory_capacity_bytes{node="worker-2"} 4.031229952e+09
+
+| longhorn_node_memory_usage_bytes
+| O uso de memória neste nó
+| longhorn_node_memory_usage_bytes{node="worker-2"} 1.833582592e+09
+
+| longhorn_node_storage_capacity_bytes
+| A capacidade de armazenamento deste nó
+| longhorn_node_storage_capacity_bytes{node="worker-3"} 8.3987283968e+10
+
+| longhorn_node_storage_usage_bytes
+| O armazenamento utilizado neste nó
+| longhorn_node_storage_usage_bytes{node="worker-3"} 9.060941824e+09
+
+| longhorn_node_storage_reservation_bytes
+| O armazenamento reservado para outros aplicativos e o sistema neste nó
+| longhorn_node_storage_reservation_bytes{node="worker-3"} 2.519618519e+10
+|===
+
+== Réplica
+|===
+| Nome | Descrição | Exemplo
+| longhorn_replica_info 
+| Metadados estáticos para cada Replica CR 
+| longhorn_replica_info{replica="testvol-r-abc", volume="testvol", node="node-1", disk_path="/dev/xda", data_engine="v2"} 1 
+
+| longhorn_replica_state 
+| Estado atual de execução da réplica: em execução, parada, erro, iniciando, parando, desconhecido 
+| longhorn_replica_state{replica="testvol-r-abc", volume="testvol", node="node-1", state="running"} 1
+|===
+
+== Mecanismo
+
+|===
+| Nome | Descrição | Exemplo
+
+| longhorn_engine_info 
+| Metadados estáticos para cada Engine CR 
+| longhorn_engine_info{engine="testvol-e-0", volume="testvol", node="node-1", data_engine="v2", frontend="blockdev", image="longhorn-instance-manager:latest"} 1 
+
+| longhorn_engine_state 
+| Estado de execução de um motor: em execução, parado, erro, iniciando, parando, desconhecido 
+| longhorn_engine_state{engine="testvol-e-0", volume="testvol", node="node-1", state="running"} 1 
+
+| longhorn_engine_replica_mode 
+| O modo relatado para cada réplica pelo motor: RW, WO, ERR 
+| longhorn_engine_replica_mode{volume="testvol", engine="testvol-e-0", replica="testvol-r-abc", mode="RW"} 1 
+
+| longhorn_engine_rebuild_progress
+| Progresso da reconstrução do motor, variando de 0 a 100 por cento. Esta métrica é visível apenas quando uma réplica está sendo reconstruída.
+| longhorn_engine_rebuild_progress{pvc_namespace="default",pvc="testvol",engine="testvol-e-0",rebuild_src="10.42.1.215:20036",rebuild_dst="10.42.0.131:20922"} 42
+|===
+
+== Disco
+
+|===
+| Nome | Descrição | Exemplo
+
+| longhorn_disk_capacity_bytes
+| A capacidade de armazenamento deste disco
+| longhorn_disk_capacity_bytes{disk="default-disk-8b28ee3134628183",node="worker-3"} 8.3987283968e+10
+
+| longhorn_disk_usage_bytes
+| O armazenamento utilizado deste disco
+| longhorn_disk_usage_bytes{disk="default-disk-8b28ee3134628183",node="worker-3"} 9.060941824e+09
+
+| longhorn_disk_reservation_bytes
+| O armazenamento reservado para outros aplicativos e o sistema neste disco
+| longhorn_disk_reservation_bytes{disk="default-disk-8b28ee3134628183",node="worker-3"} 2.519618519e+10
+
+| longhorn_disk_status
+| O status deste disco
+| longhorn_disk_status{condition="ready",condition_reason="",disk="default-disk-ca0300000000",node="worker-3"}
+
+| longhorn_disk_read_throughput
+| Taxa de leitura deste disco (Bytes/s)
+| longhorn_disk_read_throughput{disk="default-disk-8b28ee3134628183",node="worker-3",disk_path="/dev/sda"} 10485760
+
+| longhorn_disk_write_throughput
+| Taxa de escrita deste disco (Bytes/s)
+| longhorn_disk_write_throughput{disk="default-disk-8b28ee3134628183",node="worker-3",disk_path="/dev/sda"} 2097152
+
+| longhorn_disk_read_iops
+| IOPS de leitura deste disco
+| longhorn_disk_read_iops{disk="default-disk-8b28ee3134628183",node="worker-3",disk_path="/dev/sda"} 200
+
+| longhorn_disk_write_iops
+| IOPS de escrita deste disco
+| longhorn_disk_write_iops{disk="default-disk-8b28ee3134628183",node="worker-3",disk_path="/dev/sda"} 150
+
+| longhorn_disk_read_latency
+| Latência de leitura deste disco (nanosegundos)
+| longhorn_disk_read_latency{disk="default-disk-8b28ee3134628183",node="worker-3",disk_path="/dev/sda"} 85000
+
+| longhorn_disk_write_latency
+| Latência de escrita deste disco (nanosegundos)
+| longhorn_disk_write_latency{disk="default-disk-8b28ee3134628183",node="worker-3",disk_path="/dev/sda"} 95000
+
+| longhorn_disk_health
+| Status de saúde do disco (1 = saudável, 0 = não saudável). Veja [Monitoramento de Saúde do Disco](../disk-heath) para detalhes
+| longhorn_disk_health{disk="default-disk-8b28ee3134628183",node="worker-3"} 1 
+
+| longhorn_disk_health_attribute_raw
+| Valor do atributo de saúde SMART bruto para o disco. Disponível apenas quando os dados SMART são suportados. Veja xref:observability/disk-health.adoc[Monitoramento de Saúde do Disco] para detalhes
+| longhorn_disk_health_attribute_raw{attribute="Temperature Celsius",attribute_id="",disk="default-disk-db0dcb3d43bdcd05",node="longhorn-worker"} 37
+|===
+
+== Gerenciador de Instâncias
+
+|===
+| Nome | Descrição | Exemplo
+
+| longhorn_instance_manager_cpu_usage_millicpu
+| O uso de CPU deste gerenciador de instâncias Longhorn
+| longhorn_instance_manager_cpu_usage_millicpu{instance_manager="instance-manager-e-2189ed13",instance_manager_type="engine",node="worker-2"} 80
+
+| longhorn_instance_manager_cpu_requests_millicpu
+| Recursos de CPU solicitados no Kubernetes deste gerenciador de instâncias Longhorn
+| longhorn_instance_manager_cpu_requests_millicpu{instance_manager="instance-manager-e-2189ed13",instance_manager_type="engine",node="worker-2"} 250
+
+| longhorn_instance_manager_memory_usage_bytes
+| O uso de memória deste Gerenciador de Instâncias Longhorn
+| longhorn_instance_manager_memory_usage_bytes{instance_manager="instance-manager-e-2189ed13",instance_manager_type="engine",node="worker-2"} 2.4072192e+07
+
+| longhorn_instance_manager_memory_requests_bytes
+| Memória solicitada no Kubernetes deste Gerenciador de Instâncias Longhorn
+| longhorn_instance_manager_memory_requests_bytes{instance_manager="instance-manager-e-2189ed13",instance_manager_type="engine",node="worker-2"} 0
+
+| longhorn_instance_manager_proxy_grpc_connection
+| O número de conexões proxy gRPC deste Gerenciador de Instâncias Longhorn
+| longhorn_instance_manager_proxy_grpc_connection{instance_manager="instance-manager-e-814dfd05", instance_manager_type="engine", node="worker-2"} 0
+|===
+
+== Gerente
+
+|===
+| Nome | Descrição | Exemplo
+
+| longhorn_manager_cpu_usage_millicpu
+| O uso de CPU deste Gerenciador Longhorn
+| longhorn_manager_cpu_usage_millicpu{manager="longhorn-manager-5rx2n",node="worker-2"} 27
+
+| longhorn_manager_memory_usage_bytes
+| O uso de memória deste Gerenciador Longhorn
+| longhorn_manager_memory_usage_bytes{manager="longhorn-manager-5rx2n",node="worker-2"} 2.6144768e+07
+|===
+
+== Backup
+
+|===
+| Nome | Descrição | Exemplo
+
+| longhorn_backup_actual_size_bytes
+| Tamanho real deste backup
+| longhorn_backup_actual_size_bytes{backup="backup-4ab66eca0d60473e",volume="testvol", recurring_job="backup"} 6.291456e+07
+
+| longhorn_backup_state
+| Estado deste backup: 0=Novo, 1=Pendente, 2=Em Progresso, 3=Concluído, 4=Erro, 5=Desconhecido
+| longhorn_backup_state{backup="backup-4ab66eca0d60473e",volume="testvol", recurring_job=""} 3
+|===
+
+== Instantâneo
+
+|===
+| Nome | Descrição | Exemplo
+
+| longhorn_snapshot_actual_size_bytes
+| Tamanho real deste instantâneo
+| longhorn_snapshot_actual_size_bytes{snapshot="f4468111-2efa-45f5-aef6-63109e30d92c",user_created="false",volume="testvol"} 1.048576e+07
+|===
+
+== Imagem de Apoio
+
+|===
+| Nome | Descrição | Exemplo
+
+| longhorn_backing_image_actual_size_bytes
+| Tamanho real desta imagem de apoio
+| longhorn_backing_image_actual_size_bytes{backing_image="parrot",disk="ca203ce8-2cad-4cd1-92a7-542851f50518",node="kworker1"} 3.3554432e+07
+
+| longhorn_backing_image_state
+| Estado desta imagem de apoio: 0=Pendente, 1=Iniciando, 2=Em Progresso, 3=ProntoParaTransferir, 4=Pronto, 5=Falhou, 6=FalhouECleanUp, 7=Desconhecido
+| longhorn_backing_image_state{backing_image="parrot",disk="ca203ce8-2cad-4cd1-92a7-542851f50518",node="kworker1"} 4
+|===
+
+== BackupBackingImage
+
+|===
+| Nome | Descrição | Exemplo
+
+| longhorn_backup_backing_image_actual_size_bytes
+| Tamanho real desta imagem de apoio de backup
+| longhorn_backup_backing_image_actual_size_bytes{backup_backing_image="parrot"} 3.3554432e+07
+
+| longhorn_backup_backing_image_state
+| Estado desta imagem de apoio de backup: 0=Novo, 1=Pendente, 2=Em Progresso, 3=Concluído, 4=Erro, 5=Desconhecido
+| longhorn_backup_backing_image_state{backup_backing_image="parrot"} 3
+|===
+
+## CSI
+
+O componente sidecar CSI possui métricas incorporadas para que os usuários obtenham insights sobre as operações do CSI. As métricas das operações do CSI cobrem contagem total, contagem de erros e latência de chamadas. O Longhorn habilita as métricas adicionando a flag `--http-endpoint` para cada componente sidecar do CSI. Você pode usar https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#podmonitor[PodMonitor do Prometheus] para coletar essas métricas. 
+
+|===
+| Nome | Portar
+
+| longhorn-csi-attacher
+| 8000
+
+| longhorn-csi-provisioner
+| 8000
+
+| longhorn-csi-resizer
+| 8000
+
+| longhorn-csi-snapshotter
+| 8000
+|===
+
+As métricas fornecidas pelo componente sidecar do CSI são apresentadas em um formato de histograma. Por exemplo, é possível obter métricas observando o tempo que leva para criar um Volume Longhorn para o PVC.
+
+----
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="0.1"} 0
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="0.25"} 0
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="0.5"} 0
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="1"} 0
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="2.5"} 3
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="5"} 3
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="10"} 3
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="15"} 9
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="25"} 9
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="50"} 9
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="120"} 9
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="300"} 9
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="600"} 9
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="+Inf"} 9
+csi_sidecar_operations_seconds_sum{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume"} 66.816478825
+csi_sidecar_operations_seconds_count{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume"} 9
+----

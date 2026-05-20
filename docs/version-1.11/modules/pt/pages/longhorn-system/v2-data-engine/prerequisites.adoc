@@ -1,0 +1,56 @@
+= Pré-requisitos
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/prerequisites.md"]
+:current-version: {page-component-version}
+
+== Pré-requisitos
+
+Os nós Longhorn devem atender aos seguintes requisitos:
+
+* CPU AMD64 ou ARM64
++
+____
+*NOTICE*
+
+CPUs AMD64 requerem suporte a instruções SSE4.2.
+____
+
+* do SUSE Enterprise
++
+5.19 ou posterior é necessário para suporte a NVMe sobre TCP
++
+____
+*NOTICE*
+
+Máquinas host com o kernel Linux 5.15 podem reiniciar inesperadamente quando ocorrem erros de entrada/saída relacionados a volumes. Atualize o kernel Linux nos nós Longhorn para a versão 5.19 ou posterior para evitar tais problemas.
+____
++
+v6.7 ou posterior é recomendado para melhorar a estabilidade do sistema
++
+____
+*NOTICE*
+
+Corrupção de memória pode ocorrer em hosts que utilizam versões do kernel Linux anteriores a 6.7, conforme destacado por este problema upstream do SPDK: https://github.com/spdk/spdk/issues/3116#issuecomment-1890984674. Em ambientes Longhorn, o pânico do kernel pode ser causado por timeouts de entrada/saída prevalentes nas comunicações entre o driver `nvme-tcp` e o SPDK. Atualize o kernel Linux nos nós Longhorn para a versão 6.7 ou posterior para evitar que o problema ocorra.
+____
+
+* Módulos do kernel Linux
+ ** `vfio_pci`
+ ** `uio_pci_generic`
+ ** `nvme-tcp`
+* Suporte a páginas grandes
+ ** 2 GiB de páginas de 2 MiB
+
+== Aviso
+
+=== CPU
+
+Quando o V2 Data Engine está habilitado, cada pod de gerenciador de instância utiliza *1 núcleo de CPU*. Esse alto uso de CPU é atribuído ao processo `spdk_tgt` que está em execução dentro de cada pod de gerenciador de instância. O processo spdk_tgt é responsável por gerenciar operações de entrada/saída e requer polling intensivo. Como resultado, ele consome 100% de um núcleo de CPU dedicado para gerenciar e processar eficientemente as solicitações de entrada/saída, garantindo desempenho e capacidade de resposta ideais para operações de armazenamento.
+
+=== Memória
+
+O SPDK utiliza páginas grandes para melhorar o desempenho e minimizar a sobrecarga de memória. Você deve configurar páginas grandes de 2 MiB em cada nó Longhorn para habilitar o uso de páginas grandes. Especificamente, 1024 páginas (equivalente a um total de 2 GiB) devem estar disponíveis em cada nó Longhorn.
+
+=== Disco
+
+O SPDK utiliza drivers do kernel para suportar todo tipo de disco que o Linux suporta. No entanto, o SPDK está equipado com um driver NVMe no espaço do usuário que fornece acesso direto, altamente paralelo e sem cópia a um SSD a partir de um aplicativo no espaço do usuário. Por causa disso, o uso de *discos NVMe locais* é altamente recomendado para permitir que volumes V2 alcancem um desempenho de armazenamento ideal.

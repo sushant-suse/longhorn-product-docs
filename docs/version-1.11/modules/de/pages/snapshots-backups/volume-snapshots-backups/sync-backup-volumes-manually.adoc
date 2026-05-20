@@ -1,0 +1,20 @@
+= Manuelle Synchronisierung von Sicherungsvolumen
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Nach der Erstellung einer Sicherung erstellt Longhorn ein Sicherungsvolume, das dem ursprünglichen Volume entspricht (auf dem die Sicherung basiert). Ein Sicherungsvolume ist ein Objekt im Sicherungsspeicher, das mehrere Sicherungen desselben Volumens enthält.
+
+Frühere Longhorn-Versionen fragen alle Sicherungsvolumen in einem festen Intervall ab und aktualisieren sie. Longhorn bietet Ihnen die Möglichkeit, Sicherungsvolumen manuell mit dem Sicherungsziel zu synchronisieren.
+
+IMPORTANT: Sie müssen ein xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[Sicherungsziel] einrichten und überprüfen, ob ein Sicherungsvolume erstellt wurde, bevor Sie versuchen zu synchronisieren. Longhorn gibt einen Fehler zurück, wenn weder ein Sicherungsziel noch ein Sicherungsvolume vorhanden ist.
+
+* Alle Sicherungsvolumen synchronisieren:
+ .. Gehen Sie in der Longhorn-Benutzeroberfläche zu *Backup*.
+ .. Klicken Sie auf *Alle Sicherungsvolumen synchronisieren*.
+* Ein einzelnes Sicherungsvolume synchronisieren:
+ .. Gehen Sie in der Longhorn-Benutzeroberfläche zu *Backup*.
+ .. Wählen Sie ein Sicherungsvolume aus.
+ .. Klicken Sie auf *Sicherungsvolume synchronisieren*.
+
+Um zu überprüfen, ob die Synchronisierung erfolgreich war, klicken Sie auf den Namen des Sicherungsvolumens auf dem *Backup*-Bildschirm.

@@ -1,0 +1,168 @@
+= Guía de Mantenimiento de Nodos y Actualización de Kubernetes
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Sigue las instrucciones para manejar el mantenimiento planificado de nodos y actualizar la versión de Kubernetes para el clúster.
+
+== Actualizando el sistema operativo del nodo o el entorno de ejecución de contenedor
+
+. Marca el nodo como no disponible. Longhorn deshabilitará automáticamente la programación del nodo cuando un nodo de Kubernetes esté marcado como no disponible.
+. Drena el nodo para mover la carga de trabajo a otro lugar.
++
+Es necesario usar `--ignore-daemonsets` para drenar el nodo. El `--ignore-daemonsets` es necesario porque Longhorn desplegó algunos daemonsets como `Longhorn manager`, `Longhorn CSI plugin`, `engine image`.
++
+Mientras se procede al drenaje, los procesos del motor en el nodo serán migrados junto con los pods de carga de trabajo a otros nodos.
++
+NOTE: Los volúmenes que no están adjuntos a través del flujo CSI en el nodo (por ejemplo, adjuntos manualmente usando la UI) no serán adjuntados automáticamente a nuevos nodos por Kubernetes durante el drenaje. Por lo tanto, Longhorn evitará que el nodo complete la operación de drenaje. El usuario necesitará desconectar estos volúmenes manualmente para desbloquear el drenaje.
++
+Mientras se procede al drenaje, los procesos de réplica en el nodo continuarán ejecutándose o eventualmente serán expulsados y detenidos según la <<_node_drain_policy_recommendations,Directiva de Drenaje de Nodos>>.
++
+NOTE: Por defecto, si hay una última réplica saludable para un volumen en el nodo, Longhorn evitará que el nodo complete la operación de drenaje, para proteger la última réplica y prevenir la interrupción de la carga de trabajo. Puedes controlar este comportamiento con la configuración xref:longhorn-system/settings.adoc#_node_drain_policy[Directiva de Drenaje de Nodos], o xref:nodes/disks-or-nodes-eviction.adoc[expulsar la réplica a otros nodos antes de drenar]. Consulta <<_node_drain_policy_recommendations,Recomendaciones de Directiva de Drenaje de Nodos>> para consideraciones al seleccionar una directiva.
++
+Después de que se complete el drenaje, no debería haber procesos de motor o de réplica ejecutándose en el nodo, ya que el pod del administrador de instancias que los estaba ejecutando será detenido. Dependiendo de la <<_node_drain_policy_recommendations,Política de Drenaje de Nodos>>, las réplicas programadas para el nodo aparecerán como `Failed` o serán eliminadas en favor de reemplazos. Las cargas de trabajo que utilizan volúmenes de Longhorn funcionarán como se espera y suficientes réplicas estarán ejecutándose en otros lugares para cumplir con los requisitos de la política.
++
+NOTE: Normalmente no es necesario desalojar las réplicas antes de la operación de drenaje, siempre que tengas réplicas saludables en otros nodos. Las réplicas pueden reutilizarse más tarde, una vez que el nodo esté de nuevo en línea y desbloqueado. Consulta <<_node_drain_policy_recommendations,Política de Drenaje de Nodos>> para más orientación.
+
+. Realiza el mantenimiento necesario, incluyendo apagar o reiniciar el nodo.
+. Desbloquea el nodo. Longhorn volverá a habilitar automáticamente la programación del nodo. Si hay réplicas existentes en el nodo, Longhorn podría utilizar esas réplicas para acelerar el proceso de reconstrucción. Puedes establecer la configuración xref:longhorn-system/settings.adoc#_replica_replenishment_wait_interval[Intervalo de Espera para Reabastecimiento de Réplicas] para personalizar cuánto tiempo debe esperar Longhorn para que una réplica potencialmente reutilizable esté disponible.
+
+== Eliminación de un Disco
+
+Para eliminar un disco:
+
+. Desactiva la programación del disco.
+. Desaloja todas las réplicas en el disco.
+. Elimina el disco.
+
+=== Reutilizando el Nombre del Nodo
+
+Estos pasos también se aplican si has reemplazado un nodo utilizando el mismo nombre de nodo. Longhorn reconocerá que los discos son diferentes una vez que el nuevo nodo esté activo. Necesitarás eliminar primero los discos originales y volver a agregarlos para el nuevo nodo si utiliza el mismo nombre que el nodo anterior.
+
+== Eliminación de un Nodo
+
+Para eliminar un nodo:
+
+. Desactiva la programación del disco.
+. Desaloja todas las réplicas en el nodo.
+. Desconecta todos los volúmenes en el nodo.
++
+Si el nodo ha sido drenado, todas las cargas de trabajo ya deberían haber sido migradas a otro nodo.
++
+Si hay otros volúmenes aún conectados, desconéctalos antes de continuar.
+
+. Elimina el nodo de Longhorn utilizando el `Delete` en la pestaña `Node`.
++
+O, elimina el nodo de Kubernetes, utilizando:
++
+kubectl delete node +++<node-name>++++++</node-name>+++
+
+. Longhorn eliminará automáticamente el nodo del clúster.
+
+== Actualizando Kubernetes
+
+=== Actualización in-situ
+
+La actualización in situ es un método de actualización en el que los nodos se actualizan sin ser eliminados del clúster. Algunas soluciones de ejemplo que utilizan este método de actualización son https://documentation.suse.com/cloudnative/k3s/latest/en/upgrades/automated.html[{k3s-product-name} actualizaciones automatizadas], https://documentation.suse.com/cloudnative/rancher-manager/latest/en/cluster-admin/backups-and-restore/backups-and-restore.html[{rancher-product-name}guía de actualización de Kubernetes de ], https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/[Kubeadm upgrade], etc....
+
+Con la suposición de que el nodo y los discos no están siendo eliminados, la guía de actualización recomendada es:
+
+. Cordon y drena un nodo antes de actualizar los componentes de Kubernetes. Las instrucciones de drenaje son similares a las que se encuentran en <<_updating_the_node_os_or_container_runtime,Actualizando el sistema operativo del nodo o el tiempo de ejecución del contenedor>>.
+. El drenaje `--timeout` debería ser lo suficientemente grande para que las reconstrucciones de réplicas en nodos sanos puedan finalizar entre las actualizaciones de nodos. Cuantas más réplicas de Longhorn tengas en el nodo que se está drenando, más tiempo tardará en reconstruirse las réplicas de Longhorn en otros nodos sanos. Te recomendamos que pruebes y selecciones un valor lo suficientemente grande o lo establezcas en 0 (es decir, nunca expirar).
+. El número de nodos que se actualizan a la vez debería ser menor que el número de réplicas de Longhorn para cada volumen.
+Esto es para que un volumen de Longhorn en ejecución tenga al menos una réplica sana en funcionamiento a la vez.
+. Considera establecer la configuración xref:longhorn-system/settings.adoc#_node_drain_policy[Directiva de Drenaje de Nodos] en `allow-if-replica-is-stopped` para que el drenaje no esté bloqueado por la última réplica sana de un volumen desconectado. Consulta <<_node_drain_policy_recommendations,Recomendaciones de Directiva de Drenaje de Nodos>> para consideraciones al seleccionar una directiva.
+
+=== Kubernetes gestionado
+
+Consulte los siguientes temas:
+* xref:/upgrades/kubernetes/upgrade-k8s-on-aks.adoc[]
+* xref:/upgrades/kubernetes/upgrade-k8s-on-eks.adoc[]
+* xref:/upgrades/kubernetes/upgrade-k8s-on-gke.adoc[]
+
+== Recomendaciones de Directiva de Drenaje de Nodos
+
+Actualmente hay cinco directivas de drenaje de nodos disponibles para selección. Cada una tiene sus propios beneficios e inconvenientes. Esta sección proporciona orientación general sobre cada una y sugiere situaciones en las que cada una podría ser utilizada.
+
+=== Notas importantes
+
+La directiva de drenaje de nodos está destinada a gobernar el comportamiento de Longhorn cuando un nodo está siendo drenado activamente. Sin embargo, no hay forma de que Longhorn determine la diferencia entre el aislamiento y el drenaje de un nodo, por lo que, dependiendo de la directiva, Longhorn puede tomar medidas en cualquier momento que un nodo esté aislado, incluso si no está siendo drenado.
+
+La directiva de drenaje de nodos trabaja para prevenir el desalojo de un pod de administrador de instancias durante un drenaje hasta que se cumplan ciertas condiciones. Si el pod de administrador de instancias no puede ser desalojado, el drenaje no puede completarse. Esto impide que un usuario (o proceso automatizado) continúe apagando o reiniciando un nodo si no es seguro hacerlo. Puede ser tentador ignorar el fallo de drenaje y proceder con las operaciones de mantenimiento si parece tardar demasiado, pero esto limita la capacidad de Longhorn para proteger los datos. Siempre consulte los eventos y/o registros para intentar determinar POR QUÉ el drenaje no está progresando y tome medidas para solucionar el problema subyacente.
+
+=== Bloquear si contiene la última réplica
+
+Esta es la directiva por defecto. Está destinada a proporcionar un buen equilibrio entre conveniencia y protección de datos. Mientras esté en efecto, Longhorn evitará el desalojo de un pod de administrador de instancias (y la finalización de un drenaje) en un nodo marcado como no disponible que contenga la última réplica saludable de un volumen.
+
+Beneficios:
+
+* Protege los datos al evitar que la operación de drenaje se complete hasta que haya una réplica saludable disponible para cada volumen en otro nodo.
+
+Inconvenientes:
+
+* Si solo hay una réplica para el volumen, o si sus otras réplicas están en mal estado, el usuario puede necesitar solicitar manualmente (a través de la interfaz de usuario) el desalojo de réplicas del disco o nodo.
+* Los volúmenes pueden estar degradados después de que se complete el drenaje. Si el nodo se reinicia, la redundancia se reduce hasta que vuelva a estar en funcionamiento. Si se elimina el nodo, la redundancia se reduce hasta que otra réplica se reconstruya.
+
+=== Permitir si la última réplica está detenida
+
+Esta directiva es similar a `Block If Contains Last Replica`. Es inherentemente menos seguro, pero puede permitir que los drenajes se completen más rápidamente. Solo impide la expulsión de un pod de administrador de instancias (y la finalización de un drenaje) en un nodo que contiene la última réplica saludable en ejecución.
+
+Beneficios:
+
+* Permite que la operación de drenaje continúe en situaciones donde se espera que el nodo drenado vuelva a estar en línea (no se perderán datos) y las réplicas almacenadas en los discos del nodo no están siendo utilizadas activamente.
+
+Inconvenientes:
+
+* Desventajas similares a `Block If Contains Last Replica`.
+* Si, por alguna razón, el nodo nunca vuelve, se pierden datos.
+
+=== Permitir siempre
+
+Esta directiva no protege los datos de ninguna manera, pero permite que los drenajes se completen de inmediato. Nunca impide la expulsión de un pod de gestor de instancias (y la finalización de un drenaje). No lo utilices en un entorno de producción.
+
+Beneficios:
+
+* La operación de drenaje se completa rápidamente sin que Longhorn se interponga.
+
+Inconvenientes:
+
+* No hay oportunidad para que Longhorn proteja los datos.
+
+=== Bloquear para expulsión
+
+Esta directiva proporciona la máxima cantidad de protección de datos, pero puede llevar a tiempos de drenaje largos y movimiento innecesario de datos. Previene la expulsión de un pod de gestor de instancias (y la finalización de un drenaje) siempre que queden réplicas en un nodo. Además, toma medidas para expulsar automáticamente las réplicas del nodo.
+
+No se recomienda dejar esta directiva habilitada en uso normal, ya que desencadenará la expulsión de réplicas cada vez que un nodo sea cordonado. Solo habilítala durante el mantenimiento planificado.
+
+Un caso de uso principal para esta directiva es cuando se actualizan automáticamente clústeres en los que los volúmenes no tienen redundancia (`numberOfReplicas == 1`). Otras directivas evitarán el drenaje hasta que tales réplicas sean desalojadas manualmente, lo cual es inconveniente para la automatización.
+
+Beneficios:
+
+* Protege los datos al impedir que la operación de drenaje se complete hasta que todas las réplicas hayan sido reubicadas.
+* Desaloja automáticamente las réplicas, por lo que el usuario no necesita hacerlo manualmente (a través de la interfaz de usuario).
+* Mantiene la redundancia de las réplicas en todo momento.
+
+Inconvenientes:
+
+* La operación de drenaje es significativamente más lenta que para otros comportamientos. Cada réplica debe ser reconstruida en otro nodo antes de que se pueda completar. El tiempo de espera para el drenaje debe ajustarse según sea apropiado para la cantidad de datos que se moverán durante la reconstrucción.
+* La operación de drenaje es intensiva en datos, especialmente cuando se habilita el Balanceo Automático de Réplicas, ya que las réplicas desalojadas pueden ser trasladadas de nuevo al nodo drenado cuando/si vuelve a estar en línea.
+* Como todas estas directivas, se activa en el cordonado, no en el drenaje. Si un usuario cordona nodos regularmente sin drenarlos, las réplicas se reconstruirán sin sentido.
+
+=== Bloquear para expulsión si contiene la última réplica.
+
+Esta directiva proporciona la protección de datos de la `Block If Contains Last Replica` por defecto con la comodidad añadida de la expulsión automática. Mientras esté en efecto, Longhorn evitará la expulsión de un pod de gestor de instancias (y la finalización de un drenaje) en un nodo cordonado que contenga la última réplica saludable de un volumen. Además, las réplicas que cumplan esta condición son expulsadas automáticamente del nodo.
+
+No se recomienda dejar esta directiva habilitada en uso normal, ya que puede desencadenar la expulsión de réplicas en cualquier momento que un nodo sea cordonado. Solo habilítala durante el mantenimiento planificado.
+
+Un caso de uso principal para esta directiva es cuando se actualizan automáticamente clústeres en los que los volúmenes no tienen redundancia (`numberOfReplicas == 1`). Otras directivas evitarán el drenaje hasta que tales réplicas sean expulsadas manualmente, lo cual es inconveniente para la automatización.
+
+Beneficios:
+
+* Protege los datos al evitar que la operación de drenaje se complete hasta que haya una réplica saludable disponible para cada volumen en otro nodo.
+* Expulsa automáticamente las réplicas, por lo que el usuario no necesita hacerlo manualmente (a través de la interfaz de usuario).
+* La operación de drenaje es solo tan lenta e intensiva en datos como sea necesario para proteger los datos.
+
+Inconvenientes:
+
+* Los volúmenes pueden estar degradados después de que se complete el drenaje. Si el nodo se reinicia, la redundancia se reduce hasta que vuelva a estar en funcionamiento. Si se elimina el nodo, la redundancia se reduce hasta que otra réplica se reconstruya.
+* Como todas estas directivas, se activa en el cordonado, no en el drenaje. Si un usuario cordona nodos regularmente sin drenarlos, las réplicas se reconstruirán sin sentido.

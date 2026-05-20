@@ -1,0 +1,66 @@
+= Compteur de révisions
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+Le compteur de révisions est un mécanisme que {longhorn-product-name} utilise pour suivre les mises à jour de chaque réplique.
+
+Lors de la création de la réplique, {longhorn-product-name} créera un fichier `revision.counter` avec son compteur de révisions initial réglé à 0. Et pour chaque écriture sur la réplique, le compteur de révisions dans le fichier `revision.counter` sera augmenté de 1.
+
+Le moteur {longhorn-product-name} utilise ces compteurs de révisions comme une heuristique pour atteindre une cohérence de meilleur effort entre les répliques lors du démarrage. Notez qu'en raison des E/S d'écriture dans {longhorn-product-name} qui sont parallèles, l'activation du compteur de révisions ne garantit pas la cohérence des données. {longhorn-product-name} utilise également ces compteurs lors de la sauvegarde automatique pour identifier la réplique avec la dernière mise à jour.
+
+Désactiver le compteur de révisions est une option dans laquelle chaque écriture sur les répliques n'est pas suivie. Lorsque ce paramètre est utilisé, les performances sont améliorées. Cette option peut être utile si vous préférez de meilleures performances et disposez d'une infrastructure réseau stable (par exemple, un réseau interne) avec suffisamment de ressources UC. Lorsque le compteur de révisions est désactivé, le Longhorn Engine saute la vérification du compteur de révisions pour toutes les répliques au démarrage. Cependant, la sauvegarde automatique fonctionne toujours car {longhorn-product-name} peut utiliser l'état du fichier head de la réplique pour identifier la réplique à utiliser pour la récupération. Pour plus d'informations sur le fonctionnement de la sauvegarde automatique sans le compteur de révisions, voir <<_auto_salvage_support_with_revision_counter_disabled,Support de sauvegarde automatique avec compteur de révisions désactivé>>.
+
+Par défaut, le compteur de révisions est désactivé.
+
+[NOTE]
+====
+Le processus de salvage consiste à ce que {longhorn-product-name} tente de récupérer un volume dans un état défaillant. Un volume est dans un état défaillant lorsque le Longhorn Engine perd la connexion à toutes les répliques, et que toutes les répliques sont marquées comme étant dans un état d'erreur.
+====
+
+= Désactiver le compteur de révisions
+
+== Utiliser l'interface utilisateur {longhorn-product-name}
+
+Pour désactiver ou activer le compteur de révisions depuis l'interface utilisateur {longhorn-product-name}, cliquez sur menu:Paramètres[Désactiver le compteur de révisions].
+
+Pour créer des volumes individuels avec des paramètres personnalisés par rapport aux paramètres généraux, allez à la page *Volumes* et cliquez sur *Créer un volume*.
+
+== Utilisation d'un fichier manifeste
+
+Un `StorageClass` peut être personnalisé pour ajouter un paramètre `disableRevisionCounter`.
+
+Par défaut, le `disableRevisionCounter` est faux, donc le compteur de révisions est activé.
+
+Définissez `disableRevisionCounter` sur vrai pour désactiver le compteur de révisions{nbsp}:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: best-effort-longhorn
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "1"
+  disableRevisionCounter: "true"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+----
+
+== Support de sauvegarde automatique avec compteur de révisions désactivé
+
+La logique de sauvegarde automatique est différente lorsque le compteur de révisions est désactivé.
+
+Lorsque le compteur de révisions est activé et que toutes les répliques dans le volume sont dans l'état 'ERR', le contrôleur de moteur sera dans un état défaillant, et pour que le moteur récupère le volume, il prendra la réplique avec le plus grand compteur de révisions comme 'Source de vérité' pour reconstruire les autres répliques.
+
+Lorsque le compteur de révisions est désactivé dans ce cas, le contrôleur de moteur obtiendra la date de dernière modification `volume-head-xxx.img` et la taille du fichier head de toutes les répliques. Il effectuera également les étapes suivantes{nbsp}:
+
+. Identifier la réplique avec l'horodatage de dernière modification le plus récent, basé sur le moment où `volume-head-xxx.img` a été modifié pour la dernière fois
+. Sélectionner toutes les répliques avec un horodatage de dernière modification dans les 5 secondes suivant l’horodatage de dernière modification de la réplique ci-dessus
+. À partir des candidats répliques de l'étape ci-dessus, comparer la taille du fichier head des candidats et choisir ceux ayant la taille de fichier la plus grande
+. À partir des candidats répliques de l'étape ci-dessus, choisir la meilleure réplique avec l’horodatage de modification le plus récent
+. Changer la meilleure réplique en mode 'RW', et les autres répliques sont marquées en mode 'ERR'. Les répliques en erreur sont reconstruites sur la base de la meilleure réplique.

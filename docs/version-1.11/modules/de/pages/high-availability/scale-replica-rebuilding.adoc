@@ -1,0 +1,71 @@
+= Skalierte Replikat-Wiederherstellung
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Ab Version v1.11.0 unterstützt {longhorn-product-name} *skalierte Replikat-Wiederherstellung*, wodurch ein wiederherstellendes Replikat Snapshot-Daten von mehreren gesunden Replikaten gleichzeitig abrufen kann, um die Wiederherstellungsleistung zu verbessern.
+
+== Einführung
+
+Traditionell stellt {longhorn-product-name} ein fehlgeschlagenes Replikat wieder her, indem es alle Snapshot-Daten von einem einzigen gesunden Replikat abruft. Mit der skalierten Replikat-Wiederherstellung kann das wiederherstellende Replikat Snapshot-Daten von mehreren Quell-Replikaten gleichzeitig abrufen, was die Wiederherstellungszeit potenziell verkürzt.
+
+Dieses Feature ist besonders vorteilhaft, wenn Volumes verstreute kleine Datenstücke und Lücken in ihren Snapshots enthalten, da es eine bessere Nutzung der verfügbaren Netzwerkbandbreite und parallele Verarbeitung ermöglicht.
+
+== So funktioniert's
+
+Wenn die skalierte Replikat-Wiederherstellung aktiviert ist:
+
+. Mehrere gesunde Replikate starten Synchronisierungsserver als Snapshot-Datenquellen.
+. Das wiederherstellende Replikat ruft Snapshot-Daten aus verschiedenen Snapshots über verschiedene Quell-Replikate gleichzeitig ab.
+. Die Anzahl der gleichzeitigen Quell-Replikate wird durch die `replica-rebuild-concurrent-sync-limit` Einstellung gesteuert.
+
+== Einstellungen
+
+=== Globale Einstellung: `replica-rebuild-concurrent-sync-limit`
+
+Diese Einstellung steuert die maximale Anzahl gesunder Replikate, die gleichzeitig Snapshot-Daten an ein einzelnes wiederherstellendes Replikat synchronisieren können.
+
+* *Standard*: `1` (skalierte Replikat-Wiederherstellung deaktiviert)
+* *Bereich*: `1` bis `5`
+
+Wenn auf `1` gesetzt, synchronisiert nur ein Quell-Replikat gleichzeitig mit dem wiederherstellenden Replikat (traditionelles Verhalten). Werte größer als `1` aktivieren die skalierte Replikat-Wiederherstellung, wodurch mehrere Quell-Replikate (bis zur konfigurierten Grenze) gleichzeitig Snapshot-Daten an das wiederherstellende Replikat synchronisieren können.
+
+Für weitere Informationen siehe xref:longhorn-system/settings.adoc#_replica_rebuild_concurrent_sync_limit[Einstellungsreferenz].
+
+=== Pro-Volume-Überschreibung
+
+Sie können die globale `replica-rebuild-concurrent-sync-limit` Einstellung für einzelne Volumes überschreiben:
+
+* *Verwendung der {longhorn-product-name} Benutzeroberfläche*: Bearbeiten Sie das Volume und ändern Sie das Feld `Rebuild Concurrent Sync Limit`.
+* *Verwendung von kubectl*: Führen Sie `kubectl -n longhorn-system edit volume [volume-name]` aus und ändern Sie das `spec.rebuildConcurrentSyncLimit`-Feld.
+
+Wenn die pro-Volume-Einstellung auf `0` gesetzt ist, verwendet das Volume die globale Einstellung. Andernfalls hat die pro-Volume-Einstellung Vorrang.
+
+== Systemleistung
+
+=== Wenn die skalierte Replikat-Wiederherstellung hilft
+
+Die skalierte Replikat-Wiederherstellung bietet in den folgenden Szenarien erhebliche Leistungsverbesserungen:
+
+* *Volumes mit verstreuten kleinen Datenstücken*: Wenn Snapshots aus intermittierenden kleinen Datenstücken bestehen (zum Beispiel 4K-Blöcke) mit Lücken, kann die skalierte Replikat-Wiederherstellung die Wiederherstellungszeit erheblich reduzieren, indem mehrere Quell-Replikate genutzt werden.
+* *Verfügbarkeit der Netzwerkbandbreite*: Wenn die Netzwerkbandbreite während der traditionellen Wiederherstellung nicht vollständig genutzt wird, kann das Hinzufügen weiterer Quell-Replikate die verfügbare Bandbreite besser nutzen.
+
+== Best Practices
+
+. *Starten Sie mit dem Standard*: Der Standardwert von `1` (skalierte Replikat-Wiederherstellung deaktiviert) ist konservativ und für die meisten Umgebungen geeignet.
+. *Testen Sie, bevor Sie erhöhen*: Testen Sie in einer Nicht-Produktionsumgebung, bevor Sie das Limit erhöhen, um die Auswirkungen auf die Ressourcen Ihrer spezifischen Arbeitslast zu verstehen.
+. *Berücksichtigen Sie Ihre Arbeitslast*:
+* Für Volumes mit verstreuten kleinen Datenstücken: Erwägen Sie, die skalierte Replikat-Wiederherstellung zu aktivieren (auf `2` oder höher setzen).
+* Für Volumes mit kontinuierlichen großen Datenstücken: Der Leistungsgewinn kann minimal sein.
+. *Überwachen Sie die Ressourcennutzung*: Wenn die skalierte Replikat-Wiederherstellung aktiviert ist, überwachen Sie die CPU-Auslastung auf Knoten, die Quell- und Ziel-Replikate hosten, um sicherzustellen, dass ausreichende Ressourcen verfügbar sind.
+. *Leistung und Ressourcen ausbalancieren*: Höhere gleichzeitige Synchronisationsgrenzen können die Wiederaufbaugeschwindigkeit verbessern, verbrauchen jedoch mehr CPU-Ressourcen. Berücksichtigen Sie den Kompromiss basierend auf der Verfügbarkeit von Ressourcen in Ihrem Cluster und der Dringlichkeit des Wiederaufbaus.
+
+== Nutzungsbeschränkungen
+
+* Die maximale Anzahl gleichzeitiger Quell-Replikate ist auf `5` begrenzt.
+* Die skalierte Replikat-Wiederherstellung ist standardmäßig deaktiviert, um unerwarteten hohen Ressourcenverbrauch zu vermeiden.
+* Tatsächliche Leistungsverbesserungen hängen von Faktoren wie der Festplatten-E/A-Leistung, der Netzwerkbandbreite, den Schemata der Datenverteilung und den verfügbaren CPU-Ressourcen ab.
+
+== Hinweise
+
+Für weitere Informationen zu verwandten Wiederaufbaueigenschaften siehe https://github.com/longhorn/longhorn/issues/11331[Longhorn #11331].

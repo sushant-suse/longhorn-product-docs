@@ -1,0 +1,181 @@
+= Limpieza de datos huérfanos
+:revdate: 2025-07-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} admite la limpieza de datos huérfanos. Actualmente, {longhorn-product-name} puede identificar y limpiar los directorios de réplicas huérfanas en los discos.
+
+== Directorios de réplicas huérfanas
+
+Cuando un usuario introduce un disco en un nodo de {longhorn-product-name}, puede contener directorios de réplicas que no son rastreados por {longhorn-product-name} el sistema. Los directorios de réplicas no rastreados pueden pertenecer a otros clústeres de {longhorn-product-name}. O, los CR de réplica asociados a los directorios de réplica se eliminan una vez que el nodo o el disco han dejado de funcionar. Cuando el nodo o el disco vuelve, los directorios de datos de réplica correspondientes ya no son rastreados por {longhorn-product-name} el sistema. Estos directorios de datos de réplica se llaman huérfanos.
+
+{longhorn-product-name} admite la detección y limpieza de directorios de réplicas huérfanas. Identifica los directorios y proporciona una lista de recursos de `orphan` que describen esos directorios. Por defecto, {longhorn-product-name} no elimina automáticamente los recursos de `orphan` y sus directorios. Los usuarios pueden activar la eliminación de directorios de réplicas huérfanas manualmente o hacer que se realice automáticamente.
+
+Cuando la eliminación automática de huérfanos está habilitada, {longhorn-product-name} elimina automáticamente los Recursos Personalizados (CRs) huérfanos y sus directorios asociados después del retraso definido por la configuración de `orphan-resource-auto-deletion-grace-period`. Si un usuario elimina manualmente un CR huérfano, la eliminación ocurre inmediatamente y no respeta este período de gracia.
+
+=== Ejemplo
+
+El siguiente ejemplo demuestra cómo gestionar los directorios de réplicas huérfanas identificados por {longhorn-product-name} a través de la interfaz de usuario de `kubectl` y {longhorn-product-name}.
+
+==== Gestionar directorios de réplicas huérfanas a través de kubectl
+
+. Introducir discos que contienen directorios de réplicas huérfanas.
+ ** Directorios de réplicas huérfanas en los discos del Nodo `worker1`
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+ pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
+----
+
+ ** Directorios de réplicas huérfanas en los discos del Nodo `worker2`
++
+[,console]
+----
+# ls /var/lib/longhorn/replicas/
+ pvc-28255b31-161f-5621-eea3-a1cbafb4a12a-866aa0a5
+
+# ls /mnt/disk/replicas/
+ pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-a86771c0
+----
+
+. {longhorn-product-name} detecta los directorios de réplicas huérfanas y crea un recurso de `orphan` que describe los directorios.
++
+[,console]
+----
+ # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
+ NAME                                                                      TYPE      NODE
+ orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272   replica   rancher60-worker1
+ orphan-637f6c01660277b5333f9f942e4b10071d89379dbe7b4164d071f4e1861a1247   replica   rancher60-worker2
+ orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
+----
+
+. Recupera una lista de recursos huérfanos creados por {longhorn-product-name} utilizando el comando `kubectl -n longhorn-system get orphan`.
++
+[,console]
+----
+ kubectl -n longhorn-system get orphan
+----
+
+. Obtén la información detallada de uno de los directorios de réplicas huérfanas en `spec.parameters` mediante `kubectl -n longhorn-system get orphan <name>`.
++
+[,yaml]
+----
+ # kubectl -n longhorn-system get orphans orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272 -o yaml
+ apiVersion: longhorn.io/v1beta2
+ kind: Orphan
+ metadata:
+ creationTimestamp: "2022-04-29T10:17:40Z"
+ finalizers:
+ ** longhorn.io
+ generation: 1
+ labels:
+  longhorn.io/component: orphan
+  longhorn.io/managed-by: longhorn-manager
+  longhorn.io/orphan-type: replica
+  longhornnode: rancher60-worker1
+
+......
+
+spec:
+ nodeID: rancher60-worker1
+ orphanType: replica
+ parameters:
+     DataName: pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
+     DiskName: disk-1
+     DiskPath: /mnt/disk/
+     DiskUUID: 90f00e61-d54e-44b9-a095-35c2b56a0462
+ status:
+ conditions:
+ ** lastProbeTime: ""
+  lastTransitionTime: "2022-04-29T10:17:40Z"
+  message: ""
+  reason: ""
+  status: "True"
+  type: DataCleanable
+ ** lastProbeTime: ""
+  lastTransitionTime: "2022-04-29T10:17:40Z"
+  message: ""
+  reason: ""
+  status: "False"
+  type: Error
+ ownerID: rancher60-worker1
+----
+
+. Se puede eliminar `orphan` el recurso mediante `kubectl -n longhorn-system delete orphan <name>` y luego se eliminará el directorio de réplica huérfano correspondiente.
++
+[,console]
+----
+ # kubectl -n longhorn-system delete orphan orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272
+
+ # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
+ NAME                                                                      TYPE      NODE
+ orphan-637f6c01660277b5333f9f942e4b10071d89379dbe7b4164d071f4e1861a1247   replica   rancher60-worker2
+ orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
+----
++
+El directorio de réplica huérfano se elimina.
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+----
+
+. Por defecto, {longhorn-product-name} no eliminará automáticamente el directorio de réplica huérfano. Puedes habilitar la eliminación automática configurando `orphan-resource-auto-deletion` la opción.
++
+[,console]
+----
+ # kubectl -n longhorn-system edit settings.longhorn.io orphan-resource-auto-deletion
+----
++
+Luego, añade `replica-data` a la lista incluyéndolo como uno de los elementos separados por punto y coma.
++
+[,console]
+----
+ # kubectl -n longhorn-system get settings.longhorn.io orphan-resource-auto-deletion
+ NAME                           VALUE          APPLIED     AGE
+ orphan-resource-auto-deletion  replica-data   true        26m
+----
+
+. Después de habilitar la eliminación automática y esperar un tiempo, los recursos y directorios de `orphan` se eliminan automáticamente.
++
+[,console]
+----
+ # kubectl -n longhorn-system get orphans.longhorn.io -l "longhorn.io/orphan-type=replica"
+ No resources found in longhorn-system namespace.
+----
++
+Los directorios de réplicas huérfanas se eliminan.
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+
+ # ls /var/lib/longhorn/replicas/
+----
++
+Además, se pueden eliminar todos los directorios de réplicas huérfanas en el nodo especificado mediante
++
+[,console]
+----
+ # kubectl -n longhorn-system delete orphan -l "longhorn.io/orphan-type=replica-instance,longhornnode=<node name>”
+----
+
+==== Gestionar directorios de réplicas huérfanas a través de la interfaz de usuario de {longhorn-product-name}.
+
+. En la barra de navegación superior, selecciona *Configuración > Datos Huérfanos > Datos de Réplica*.
+. Revisa la lista mostrada de directorios huérfanos de réplicas. Estos están agrupados por nodo y disco.
+. Para el directorio que deseas eliminar, selecciona *Operación > Eliminar*.
+
+Por defecto, {longhorn-product-name} no elimina automáticamente los directorios de réplicas huérfanas. Para habilitar la eliminación automática, navega a *Configuración > Huérfano* y configura la opción relevante para la eliminación automática.
+
+=== Excepción
+
+{longhorn-product-name} no creará un `orphan` recurso para un directorio huérfano cuando
+
+* El directorio huérfano no es un *directorio de réplica huérfano*.
+ ** El nombre del directorio no sigue la convención de nomenclatura del directorio de réplicas.
+ ** El archivo volume.meta falta.
+* El directorio de réplica huérfana está en un nodo desalojado.
+* El directorio de réplica huérfana está en un disco desalojado.
+* El mecanismo de limpieza de datos huérfanos no limpia una réplica obsoleta, también conocida como réplica de error. En su lugar, la réplica obsoleta se limpia de acuerdo con la configuración de xref:volumes/create-volumes.adoc#_creating_longhorn_volumes_with_kubectl[staleReplicaTimeout].

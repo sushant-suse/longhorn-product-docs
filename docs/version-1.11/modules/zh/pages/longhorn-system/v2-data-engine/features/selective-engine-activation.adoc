@@ -1,0 +1,26 @@
+= 选择性 V2 数据引擎激活
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/features/selective-v2-data-engine-activation.md"]
+:current-version: {page-component-version}
+
+Longhorn 允许您在特定集群节点上启用或禁用 V2 数据引擎。您可以选择仅在电源状态各异的集群中那些性能更高的节点上启用 V2 数据引擎。在 v1.5.0 中这是不可能的，因为它在所有节点上启用 V2 数据引擎。
+
+== 在特定节点上禁用 V2 数据引擎
+
+. 识别不应运行 V2 数据引擎的节点。
+. 将标签 `node.longhorn.io/disable-v2-data-engine: "true"` 添加到选定的节点。
+. 启用全局设置 `v2-data-engine`。
+
+因此，以下操作仅在 _没有标签的节点_ 上发生：
+
+* V2 数据引擎的实例管理器 pod 被创建。
+* V2 数据引擎功能仍然可用。
+
+== 通告
+
+仅在启用 V2 数据引擎的节点上可以创建 V2 卷。您必须在这些节点上调度使用 V2 卷的工作负载。
+
+== 参考手册
+
+有关更多信息，请参见 https://github.com/longhorn/longhorn/issues/7015[[FEATURE\] 选择性 V2 数据引擎激活]。

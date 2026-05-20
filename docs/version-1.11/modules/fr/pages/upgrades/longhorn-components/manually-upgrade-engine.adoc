@@ -1,0 +1,42 @@
+= Mettre à niveau manuellement le Longhorn Engine
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Vous pouvez mettre à niveau manuellement le Longhorn Engine en utilisant l'interface Longhorn.
+
+== Conditions préalables
+
+Faites toujours des sauvegardes avant de mettre à niveau les images du Longhorn Engine.
+
+Mettez à niveau le Longhorn Manager avant de mettre à niveau le Longhorn Engine.
+
+== Mise à niveau hors ligne
+
+Suivez ces étapes si la mise à niveau en direct n'est pas disponible, ou si le volume est bloqué dans un état dégradé{nbsp}:
+
+. Suivez xref:data-integrity-recovery/disaster-recovery-volumes.adoc[la procédure de détachement pour les charges de travail concernées].
+. Sélectionnez tous les volumes en utilisant la sélection par lot. Cliquez sur le bouton d'opération par lot *Upgrade Engine*, et choisissez l'image du Longhorn Engine disponible dans la liste. C'est le moteur par défaut fourni avec le Longhorn Manager pour cette version.
+. Reprenez toutes les charges de travail. Tout volume ne faisant pas partie d'une charge de travail Kubernetes doit être attaché depuis l'interface Longhorn.
+
+== Mise à niveau en direct
+
+{longhorn-product-name} v1.8.x à v{current-version} prend en charge les mises à niveau en direct du moteur.
+
+Le `iSCSI` frontend ne prend pas en charge les mises à niveau en direct.
+
+La mise à niveau en direct ne doit être effectuée qu'avec des volumes sains.
+
+. Sélectionnez le volume que vous souhaitez mettre à niveau.
+. Cliquez sur `Upgrade Engine` dans le menu déroulant.
+. Sélectionnez l'image du moteur vers laquelle vous souhaitez mettre à niveau.
+ .. Normalement, c'est la seule image du moteur dans la liste, car l'interface Longhorn exclut l'image actuelle de la liste.
+. Cliquez sur OK.
+
+Lors de la mise à niveau en direct, l'utilisateur verra temporairement le double du nombre de répliques. Après la mise à niveau terminée, l'utilisateur devrait voir le même nombre de répliques qu'auparavant, et le champ `Engine Image` du volume devrait être mis à jour.
+
+Notez qu'après la mise à niveau en direct, Rancher ou Kubernetes affichera toujours l'ancienne version de l'image pour le moteur, et la nouvelle version pour les répliques. C'est attendu. La mise à niveau est réussie si vous voyez la nouvelle version de l'image répertoriée comme l'image du volume dans la page Détails du volume.
+
+== Nettoyez l'ancienne image.
+
+Après avoir effectué la mise à niveau pour toutes les images, sélectionnez `Settings/Engine Image` dans l'interface Longhorn. Vous devriez maintenant pouvoir supprimer l'image non par défaut.

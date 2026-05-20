@@ -1,0 +1,55 @@
+= 在亚马逊弹性 Kubernetes 服务（Amazon EKS）上托管节点池
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+EKS支持配置相同的启动模板。在更新启动模板版本时，节点组中的节点将被具有新配置的新节点替换。
+
+有关更多信息，请参见 https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html[启动模板支持]。
+
+以下是用新存储大小替换集群节点的示例。
+
+== 存储扩展
+
+. 在Longhorn中，将`replica-replenishment-wait-interval`设置为`0`。
+. 转到EKS集群节点组的启动模板。您可以在EKS集群选项卡中找到`Configuration/Compute/<node-group-name>`并单击启动模板。
+. 在`Actions`下拉菜单中单击`Modify template (Create new version)`。
+. 在`Launch template name and version description`中选择`Source template version`。
+. 按照步骤<<_expand_volume,扩展卷>>或<<_create_additional_volume,创建附加卷>>。
++
+NOTE: 如果您选择通过<<_create_additional_volume,创建附加卷>>进行扩展，则在EKS集群升级后，需要手动将磁盘添加到节点的磁盘列表中。
+
+=== 扩展卷
+
+. 在`Configure storage`中更新卷大小。
+. 单击`Create template version`以保存更改。
+. 转到EKS集群节点组并在`Node Group configuration`中更改`Launch template version`。在`Update history`选项卡中跟踪状态。
+
+=== 创建附加卷
+
+. 在`Configure storage`中单击`Advanced`然后`Add new volume`并填写字段。
+. 调整自动挂载脚本，并将其添加到`Advanced details`中的`User data`。确保`DEV_PATH`与附加卷的`Device name`匹配。
++
+----
+ MIME-Version: 1.0
+ Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
+
+ --==MYBOUNDARY==
+ Content-Type: text/x-shellscript; charset="us-ascii"
+
+ #!/bin/bash
+
+ # https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html#launch-template-user-data
+ echo "Running custom user data script"
+
+ DEV_PATH="/dev/sdb"
+ mkfs -t ext4 ${DEV_PATH}
+
+ MOUNT_PATH="/mnt/longhorn"
+ mkdir ${MOUNT_PATH}
+ mount ${DEV_PATH} ${MOUNT_PATH}
+----
+
+. 单击`Create template version`以保存更改。
+. 转到EKS集群节点组并在`Node Group configuration`中更改`Launch template version`。在`Update history`选项卡中跟踪状态。
+. 在Longhorn中，将挂载磁盘的路径添加到节点的磁盘列表中。

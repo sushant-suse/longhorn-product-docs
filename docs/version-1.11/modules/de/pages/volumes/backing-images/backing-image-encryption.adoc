@@ -1,0 +1,280 @@
+= Verschlüsselung des Backing-Images
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn ermöglicht es Ihnen, ein Backing-Image durch Klonen zu verschlüsseln und zu entschlüsseln. Der Verschlüsselungsmechanismus für das Backing-Image nutzt das Linux-Kernel-Modul `dm_crypt` und das Befehlszeilentool `cryptsetup`.
+
+== Ein Backing-Image klonen
+
+Sie können ein Backing-Image mit YAML-Code klonen. Beachten Sie, dass dadurch ein völlig neues Backing-Image mit dem gleichen Inhalt wie das Original erstellt wird. Das Backing-Image verbraucht ebenfalls Speicherplatz.
+
+Beispiel eines heruntergeladenen Backing-Images:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+Beispiel für YAML-Code, der verwendet wird, um das Beispiel-Backing-Image zu klonen:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: ignore
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`: Geben Sie den Namen des zu klonenden Backing-Images an.
+* `encryption`: Setzen Sie den Wert auf `ignore`, um das Backing-Image direkt zu klonen. Wenn der Wert nicht angegeben ist, verwendet Longhorn `ignore` als Standardwert.
+====
+
+Sie können ein Backing-Image auch über die Longhorn-Benutzeroberfläche klonen.
+
+. Gehen Sie zu *Einstellungen* > *Backing-Image*.
+. Klicken Sie auf *Backing-Image erstellen*.
+. Konfigurieren Sie die folgenden Einstellungen:
+ ** *Erstellt von*: Wählen Sie *Von bestehendem Backing-Image klonen*.
+ ** *Verschlüsselung*: Wählen Sie *Ignorieren*.
+. Klicken Sie auf *OK*.
+
+image::screenshots/backing-image/clone.png[Bild]
+
+== Verschlüsseln Sie ein Backing-Image
+
+Sie können die Verschlüsselung während des Klonens eines Backing-Images aktivieren, damit das Backing-Image mit einem verschlüsselten Volume verwendet werden kann.
+
+Beispiel eines heruntergeladenen Backing-Images:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+Beispiel für YAML-Code, der verwendet wird, um das Beispiel-Backing-Image zu klonen und zu verschlüsseln:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-encrypted
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: encrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+Beispiel für YAML-Code, der verwendet wird, um das Backing-Image zu verschlüsseln:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`: Geben Sie den Namen des zu klonenden Backing-Images an.
+* `encryption`: Setzen Sie den Wert auf `encrypt`, um das Backing-Image während des Klonens zu verschlüsseln.
+* `secret`: Geben Sie das Geheimnis an, das zur Verschlüsselung des Backing-Images verwendet wird.
+* `secret-namespace`: Geben Sie den Namespace des Geheimnisses an, das zur Verschlüsselung des Backing-Images verwendet wird.
+====
+
+Sie können auch eine verschlüsselte Kopie eines Backing-Images über die Longhorn-Benutzeroberfläche erstellen.
+
+. Gehen Sie zu *Einstellungen* > *Backing-Image*.
+. Klicken Sie auf *Backing-Image erstellen*.
+. Konfigurieren Sie die folgenden Einstellungen:
+ ** *Erstellt von*: Wählen Sie *Von bestehendem Backing-Image klonen*.
+ ** *Verschlüsselung*: Wählen Sie *Verschlüsseln*.
+. Geben Sie das Geheimnis und den Namespace des Geheimnisses an, die für die Verschlüsselung des Backing-Images verwendet werden sollen.
+. Klicken Sie auf *OK*.
+
+image::screenshots/backing-image/encrypt.png[Bild]
+
+== Entschlüsseln Sie ein Backing-Image
+
+Sie können ein verschlüsseltes Backing-Image durch Klonen entschlüsseln.
+
+Beispiel eines verschlüsselten Backing-Images:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-encrypted
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: encrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+Beispiel für YAML-Code, der verwendet wird, um das Backing-Image zu verschlüsseln und zu entschlüsseln:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+Beispiel für YAML-Code, der verwendet wird, um das Backing-Image zu entschlüsseln:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-decrypt
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot-cloned-encrypted
+    encryption: decrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`: Geben Sie den Namen des zu klonenden Backing-Images an.
+* `encryption`: Setzen Sie den Wert auf `decrypt`, um das Backing-Image während des Klonens zu entschlüsseln.
+* `secret`: Geben Sie das Geheimnis an, das zur Entschlüsselung des Backing-Images verwendet wird.
+* `secret-namespace`: Geben Sie den Namespace des Geheimnisses an, das zur Entschlüsselung des Backing-Images verwendet wird.
+====
+
+Sie können auch ein Backing-Image (durch Klonen) über die Longhorn-Benutzeroberfläche entschlüsseln.
+
+. Gehen Sie zu *Einstellungen* > *Backing-Image*.
+. Klicken Sie auf *Backing-Image erstellen*.
+. Konfigurieren Sie die folgenden Einstellungen:
+ ** *Erstellt von*: Wählen Sie *Von bestehendem Backing-Image klonen*.
+ ** *Verschlüsselung*: Wählen Sie *Entschlüsseln*.
+. Geben Sie das Geheimnis und den Namespace des Geheimnisses an, die für die Entschlüsselung verwendet werden sollen.
+. Klicken Sie auf *OK*.
+
+image::screenshots/backing-image/decrypt.png[Bild]
+
+== Verwenden Sie ein verschlüsseltes Backing-Image mit einem verschlüsselten Volume.
+
+Das Geheimnis, das zum Verschlüsseln des Backing-Images und des Volumes verwendet wird, muss identisch sein. Sobald das verschlüsselte Backing-Image bereit ist, können Sie die StorageClass mit dem entsprechenden Backing-Image und dem Geheimnis erstellen, um das Volume für die Arbeitslast zu erstellen.
+
+Beispiel für YAML-Code für das Verschlüsselungsgeheimnis:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+Beispiel für YAML-Code für die StorageClass:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-crypto-global
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  encrypted: "true"
+  backingImage: "parrot-cloned-encrypted"
+  backingImageDataSourceType: "clone"
+  # global secret that contains the encryption key that will be used for all volumes
+  csi.storage.k8s.io/provisioner-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/provisioner-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-publish-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-publish-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-stage-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-stage-secret-namespace: "longhorn-system"
+----
+
+Für weitere Informationen siehe xref:volumes/volume-encryption.adoc[Volume-Verschlüsselung].
+
+== Nutzungsbeschränkungen
+
+* Longhorn kann keine bereits verschlüsselten Backing-Images verschlüsseln und keine unverschlüsselten Backing-Images entschlüsseln.
+* Longhorn erlaubt es Ihnen nicht, den Verschlüsselungsschlüssel eines verschlüsselten Backing-Images zu ändern.
+* Beim Verschlüsseln eines qcow2-Images erstellt Longhorn zunächst ein Roh-Image aus dem qcow2-Image und verschlüsselt es dann. Das resultierende verschlüsselte Roh-Image verbraucht während des Klonens vorübergehend zusätzlichen Speicherplatz. Beispiel:
+ .. Wenn wir ein 10MiB qcow2-Image mit einer virtuellen Größe von 200MiB verschlüsseln, erstellen wir zunächst das Roh-Image aus dem qcow2, das 200MiB Speicherplatz verbrauchen wird.
+ .. Longhorn erstellt dann das verschlüsselte Backing-Image aus diesem 200MiB Roh-Image, was weitere 200MiB Speicherplatz beansprucht.
+ .. Nachdem das verschlüsselte Backing-Image erstellt wurde, wird das temporäre Roh-Image bereinigt und gibt die 200MiB Speicherplatz frei.
+* Wenn das Quell-Backing-Image eine spärliche Datei ist, verliert die Datei nach der Verschlüsselung ihre Spärlichkeit.
+* Um die Speicherung der LUKS-Metadaten während der Verschlüsselung zu ermöglichen, wird die Bildgröße um 16 MB erhöht. Für weitere Informationen siehe die https://gitlab.com/cryptsetup/cryptsetup/-/blob/master/docs/v2.1.0-ReleaseNotes#L27[cryptsetup Versionshinweise].

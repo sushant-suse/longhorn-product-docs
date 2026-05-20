@@ -1,0 +1,60 @@
+= Activez la création d'instantanés CSI sur un cluster
+:revdate: 2026-03-16
+:page-revdate: {revdate}
+:description: Activez la prise en charge des instantanés CSI pour la création programmatique d'instantanés/sauvegardes SUSE® Storage
+:current-version: {page-component-version}
+
+== Conditions préalables
+
+Il incombe à la distribution Kubernetes de déployer le contrôleur d'instantanés ainsi que les définitions de ressources personnalisées associées.
+
+Pour plus d'informations, consultez https://kubernetes.io/docs/concepts/storage/volume-snapshots/[Instantanés de volumes CSI].
+
+== Si votre distribution Kubernetes ne regroupe pas le contrôleur d'instantanés
+
+Vous pouvez installer manuellement ces composants.
+
+=== Conditions préalables
+
+Veuillez installer la même release des CRD d'instantané et du contrôleur d'instantanés afin de garantir que la version des CRD est compatible avec le contrôleur d'instantanés.
+
+Pour un usage général, mettez à jour les fichiers YAML du contrôleur d'instantanés avec un *espace de noms* approprié avant l'installation.
+
+Par exemple, sur un cluster Kubernetes standard, mettez à jour l'espace de noms de `default` à `kube-system` avant d'exécuter la commande `kubectl create`.
+
+=== Installez les CRD d'instantané
+
+. Téléchargez les fichiers depuis https://github.com/kubernetes-csi/external-snapshotter/tree/v8.5.0/client/config/crd car {longhorn-product-name} v{patch-version} utilise https://kubernetes-csi.github.io/docs/external-snapshotter.html[CSI external-snapshotter] v8.5.0
+. Exécutez `kubectl create -k client/config/crd`.
+. Faites cela une fois par cluster.
+
+=== Installez le contrôleur d'instantanés commun
+
+. Téléchargez les fichiers depuis https://github.com/kubernetes-csi/external-snapshotter/tree/v8.5.0/deploy/kubernetes/snapshot-controller (vous pouvez remplacer v{patch-version} par la version {longhorn-product-name} souhaitée) car {longhorn-product-name} v{patch-version} utilise https://kubernetes-csi.github.io/docs/external-snapshotter.html[CSI external-snapshotter] v8.5.0
+. Mettez à jour l'espace de noms avec une valeur appropriée pour votre environnement (par exemple, `kube-system`)
+. Exécutez `kubectl create -k deploy/kubernetes/snapshot-controller`.
+. Faites cela une fois par cluster.
++
+[NOTE]
+====
+Auparavant, les fichiers YAML du contrôleur d'instantanés étaient déployés par défaut dans l'espace de noms `default`.
+Les fichiers YAML mis à jour sont déployés par défaut dans l'espace de noms `kube-system`.
+Par conséquent, nous suggérons de supprimer le contrôleur d'instantanés précédent dans l'espace de noms `default` pour éviter d'avoir plusieurs contrôleurs d'instantanés.
+====
+
+Consultez la section https://github.com/kubernetes-csi/external-snapshotter#usage[Utilisation] du dépôt git kubernetes external-snapshotter pour des informations supplémentaires.
+
+== Ajoutez un par défaut `VolumeSnapshotClass`
+
+Assurez-vous de la disponibilité des CRD d'instantané. Ensuite, créez un par défaut `VolumeSnapshotClass`.
+
+[subs="+attributes",yaml]
+----
+# Use v1 as an example
+kind: VolumeSnapshotClass
+apiVersion: snapshot.storage.k8s.io/v1
+metadata:
+  name: longhorn
+driver: driver.longhorn.io
+deletionPolicy: Delete
+----

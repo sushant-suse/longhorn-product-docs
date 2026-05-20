@@ -1,0 +1,21 @@
+= Restaurer un volume depuis une sauvegarde
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn peut facilement restaurer des sauvegardes sur un volume.
+
+Pour plus d'informations sur le fonctionnement des sauvegardes, reportez-vous à la section xref:introduction/concepts.adoc#_3_backups_and_secondary_storage[concepts].
+
+Lorsque vous restaurez une sauvegarde, cela crée par défaut un volume du même nom. Si un volume portant le même nom que la sauvegarde existe déjà, la sauvegarde ne sera pas restaurée.
+
+Pour restaurer une sauvegarde,
+
+. Accédez au menu *sauvegarde.*
+. Sélectionnez la ou les sauvegardes que vous souhaitez restaurer et cliquez sur *Restaurer la dernière sauvegarde.*
+. Dans le champ *Nom*, sélectionnez le volume que vous souhaitez restaurer.
+. Cliquez sur *OK.*
+
+Vous pouvez ensuite créer le PV/PVC à partir du volume après avoir restauré un volume à partir d'une sauvegarde. Ici, vous pouvez spécifier le `storageClassName` ou le laisser vide pour utiliser le `storageClassName` hérité du PVC du volume de sauvegarde. Le `StorageClass` doit déjà être dans le cluster pour éviter tout problème supplémentaire.
+
+*Résultat :* Le volume restauré est disponible sur la page *Volume*.

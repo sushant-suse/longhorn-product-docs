@@ -1,0 +1,119 @@
+= Standardknoten- und Festplatteneinstellungen konfigurieren
+:revdate: 2025-07-11
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Diese Funktion ermöglicht es dem Benutzer, die Standardfestplatten und Knotenkonfigurationen in {longhorn-product-name} für neu hinzugefügte Knoten mithilfe von Kubernetes-Labels und -Annotationen anstelle der {longhorn-product-name} UI oder API anzupassen.
+
+Die Anpassung der Standardkonfigurationen für Festplatten und Knoten ist nützlich für die Skalierung des Clusters, da sie die Notwendigkeit beseitigt, {longhorn-product-name} manuell für jeden neuen Knoten zu konfigurieren, wenn der Knoten mehr als eine Festplatte enthält oder wenn die Festplattenkonfiguration für neue Knoten unterschiedlich ist.
+
+{longhorn-product-name} wird die Knotenlabels oder -annotationen nicht mit den aktuellen Longhorn-Knotenfestplatten oder -Tags synchronisieren. Auch wird {longhorn-product-name} die Knotenfestplatten oder -Tags nicht mit den Knoten, Knotenlabels oder Knotenannotationen synchronisieren, nachdem die Standardfestplatten oder -Tags erstellt wurden.
+
+== Knotentags zu neuen Knoten hinzufügen
+
+Wenn ein Knoten kein Tag hat, können Sie eine Knotenannotation verwenden, um die Knotentags festzulegen, als Alternative zur Verwendung der {longhorn-product-name} UI oder API.
+
+. Skalieren Sie den Kubernetes-Cluster hoch. Die neu hinzugefügten Knoten enthalten keine Knotentags.
+. Fügen Sie den neuen Kubernetes-Knoten Annotationen hinzu, in denen festgelegt wird, welche Standardknotentags verwendet werden sollen. Das Format der Annotation ist:
++
+[,yaml]
+----
+node.longhorn.io/default-node-tags: <node tag list with JSON string format>
+----
++
+Beispiel:
++
+[,yaml]
+----
+node.longhorn.io/default-node-tags: '["fast","storage"]'
+----
+
+. Warten Sie, bis {longhorn-product-name} das Knotentag automatisch synchronisiert. Wenn die Liste der Knotentags ursprünglich leer war, aktualisiert {longhorn-product-name} den Knoten mit der Knotentagliste, und Sie werden sehen, dass die Knotentagliste entsprechend der Annotation aktualisiert wird. Wenn der Knoten bereits Knotentags hatte, werden Sie keine Änderung an der Knotentagliste feststellen.
+
+== Standardfestplatten für neue Knoten anpassen
+
+{longhorn-product-name} verwendet die *Create Default Disk on Labeled Nodes* Einstellung, um die Anpassung der Standardfestplatten zu aktivieren.
+
+Wenn die Einstellung deaktiviert ist, wird {longhorn-product-name} eine Standardfestplatte mit `setting.default-data-path` auf allen neuen Knoten erstellen.
+
+Wenn die Einstellung aktiviert ist, entscheidet {longhorn-product-name}, ob die Standardfestplatten erstellt werden oder nicht, abhängig vom Labelwert `node.longhorn.io/create-default-disk` des Knotens.
+
+* Wenn der Labelwert des Knotens `true` ist, wird {longhorn-product-name} die Standardfestplatte mit `settings.default-data-path` auf dem Knoten erstellen. Wenn der Knoten bereits vorhandene Festplatten hat, wird {longhorn-product-name} nichts ändern.
+* Wenn der Labelwert des Knotens `config` ist, wird {longhorn-product-name} die `node.longhorn.io/default-disks-config` Annotation überprüfen und Standardfestplatten entsprechend erstellen. Wenn es keine Annotation gibt, oder wenn die Annotation ungültig ist, oder der Labelwert ungültig ist, wird {longhorn-product-name} nichts ändern.
+
+Der Labelwert ist nur wirksam, wenn die Einstellung aktiviert ist.
+
+Wenn das `create-default-disk` Label nicht gesetzt ist, wird die Standardfestplatte nicht automatisch auf den neuen Knoten erstellt, wenn die Einstellung aktiviert ist.
+
+Die in der Annotation beschriebene Konfiguration tritt nur in Kraft, wenn es keine vorhandenen Festplatten oder Knotentags auf dem Knoten gibt.
+
+Wenn das Label oder die Annotation die Validierung nicht besteht, wird die gesamte Annotation ignoriert.
+
+=== Voraussetzung
+
+Die {longhorn-product-name} Einstellung *Create Default Disk on Labeled Nodes* muss aktiviert sein.
+
+. Fügen Sie neue Knoten zum Kubernetes-Cluster hinzu.
+. Fügen Sie das Label dem Knoten hinzu. {longhorn-product-name} verlässt sich auf das Label, um zu entscheiden, wie die Standardfestplatten angepasst werden sollen:
++
+[,yaml]
+----
+node.longhorn.io/create-default-disk: 'config'
+----
+
+. Fügen Sie dann eine Annotation zum Knoten hinzu. Die Annotation wird verwendet, um die Konfiguration der Standardfestplatten anzugeben. Das Format lautet:
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config: <disks configuration with JSON string format>
+----
++
+Zum Beispiel kann die folgende Festplattenkonfiguration in der Annotation angegeben werden:
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config:
+'[
+    {
+        "path":"/mnt/disk1",
+        "allowScheduling":true
+    },
+    {
+        "name":"fast-ssd-disk",
+        "path":"/mnt/disk2",
+        "allowScheduling":false,
+        "storageReserved":10485760,
+        "tags":[
+            "ssd",
+            "fast"
+        ]
+    }
+]'
+----
++
+[NOTE]
+====
+Wenn derselbe Name für verschiedene Festplatten angegeben wird, wird die Konfiguration als ungültig betrachtet.
+====
+
+. Warten Sie, bis {longhorn-product-name} die angepassten Standardfestplatten automatisch gemäß der Annotation erstellt.
+
+== Starten Sie {longhorn-product-name} mit mehreren Festplatten.
+
+. Fügen Sie das Label allen Knoten hinzu, bevor Sie {longhorn-product-name} starten.
++
+[,yaml]
+----
+node.longhorn.io/create-default-disk: 'config'
+----
+
+. Fügen Sie dann die Festplattenkonfigurationsannotation zu allen Knoten hinzu:
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config: '[ { "path":"/var/lib/longhorn", "allowScheduling":true
+  }, { "name":"fast-ssd-disk", "path":"/mnt/extra", "allowScheduling":false, "storageReserved":10485760,
+  "tags":[ "ssd", "fast" ] }]'
+----
+
+. Stellen Sie {longhorn-product-name} mit `create-default-disk-labeled-nodes: true` bereit, überprüfen Sie xref:longhorn-system//customize-default-settings.adoc[hier] für die Anpassung der Standardeinstellungen von {longhorn-product-name}.

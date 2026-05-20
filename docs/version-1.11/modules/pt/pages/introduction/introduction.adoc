@@ -1,0 +1,44 @@
+= Introdução
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+
+{longhorn-product-name-tm} é um sistema de armazenamento em blocos distribuído, leve, confiável e fácil de usar para o Kubernetes.
+
+Com {longhorn-product-name}, você pode:
+
+* Usar os volumes {longhorn-product-name} como armazenamento persistente para aplicativos stateful distribuídos no seu cluster Kubernetes
+* Particione o armazenamento em blocos em volumes {longhorn-product-name} para que você possa usar volumes do Kubernetes com ou sem um provedor de nuvem
+* Replicar o armazenamento em blocos entre múltiplos nós e data centers para aumentar a disponibilidade
+* Armazenar dados de backup em armazenamento externo, como NFS ou AWS S3
+* Criar volumes de recuperação de desastres entre clusters para que os dados de um cluster Kubernetes primário possam ser rapidamente recuperados de um backup em um segundo cluster Kubernetes
+* Agendar instantâneos recorrentes de um volume e agendar backups recorrentes para armazenamento secundário compatível com NFS ou S3
+* Restaurar volumes a partir de backup
+* Fazer upgrade do {longhorn-product-name} sem interromper volumes persistentes
+
+{longhorn-product-name} vem com uma interface de usuário independente e pode ser instalado usando Helm, kubectl ou o catálogo de aplicativos Rancher.
+
+== Simplificando o Armazenamento em Blocos Distribuídos com Microserviços
+
+Porque ambientes de nuvem modernos requerem dezenas de milhares a milhões de volumes de armazenamento em blocos distribuídos, alguns controladores de armazenamento se tornaram sistemas distribuídos altamente complexos. Em contraste, {longhorn-product-name} pode simplificar o sistema de armazenamento ao particionar um grande controlador de armazenamento em blocos em vários controladores de armazenamento menores, desde que esses volumes ainda possam ser construídos a partir de um pool comum de discos. Ao usar um controlador de armazenamento por volume, {longhorn-product-name} transforma cada volume em um microserviço. O controlador é chamado de Longhorn Engine.
+
+O componente Longhorn Manager orquestra os Longhorn Engines, para que eles trabalhem juntos de forma coerente.
+
+== Use Armazenamento Persistente no Kubernetes sem depender de um Provedor de Nuvem
+
+Os Pods podem referenciar o armazenamento diretamente, mas isso não é recomendado porque não permite que o Pod ou o contêiner sejam portáteis. Em vez disso, os requisitos de armazenamento das cargas de trabalho devem ser definidos em Volumes Persistentes (PVs) e Reivindicações de Volume Persistente (PVCs) do Kubernetes. Com {longhorn-product-name}, você pode especificar o tamanho do volume, o número de réplicas síncronas e outras configurações específicas do volume que deseja entre os hosts que fornecem o recurso de armazenamento para o volume. Então, seus recursos do Kubernetes podem usar o PVC e o PV correspondente para cada volume {longhorn-product-name}, ou usar uma classe de armazenamento {longhorn-product-name} para criar automaticamente um PV para uma carga de trabalho.
+
+As réplicas são provisionadas de forma fina nos discos subjacentes ou no armazenamento em rede.
+
+== Agende Múltiplas Réplicas em Múltiplos Hosts de Computação ou Armazenamento
+
+Para aumentar a disponibilidade, {longhorn-product-name} cria réplicas de cada volume. As réplicas contêm uma cadeia de instantâneos do volume, com cada instantâneo armazenando a alteração em relação a um instantâneo anterior. Cada réplica de um volume também é executada em um contêiner, portanto, um volume com três réplicas resulta em quatro contêineres.
+
+O número de réplicas para cada volume é configurável em {longhorn-product-name}, assim como os nós onde as réplicas serão agendadas. {longhorn-product-name} monitora a saúde de cada réplica e realiza reparos, reconstruindo a réplica quando necessário.
+
+== Atribua múltiplos front ends para cada volume
+
+Front ends comuns incluem um dispositivo do kernel Linux (mapeado em /dev/longhorn) e um alvo iSCSI.
+
+== Especifique agendas para operações de instantâneos e backup recorrentes
+
+Especifique a frequência dessas operações (horária, diária, semanal, mensal e anual), o horário exato em que essas operações são realizadas (por exemplo, 3:00 da manhã todos os domingos) e quantos instantâneos recorrentes e conjuntos de backup são mantidos.

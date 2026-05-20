@@ -1,0 +1,125 @@
+= Cifrado de volúmenes
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:doctype: book
+:current-version: {page-component-version}
+
+Longhorn admite el cifrado de volúmenes en los modos `Filesystem` y `Block`, proporcionando protección contra el acceso no autorizado, violaciones de datos y violaciones de cumplimiento. Las copias de seguridad creadas a partir de volúmenes cifrados también están cifradas.
+
+El cifrado de volúmenes es posible gracias al módulo del kernel `dm_crypt`, la utilidad de línea de comandos `cryptsetup` y los Secretos de Kubernetes. `dm_crypt` y `cryptsetup` manejan la creación y gestión de dispositivos cifrados, mientras que los Secretos (y los permisos relacionados) facilitan el almacenamiento seguro de las claves de cifrado.
+
+== Requisitos
+
+Para utilizar volúmenes cifrados, asegúrate de que el módulo del kernel `dm_crypt` esté cargado y que `cryptsetup` esté instalado en tus nodos de trabajo.
+
+== Configuración de Secretos de Kubernetes y StorageClasses
+
+Longhorn utiliza Secretos de Kubernetes para el almacenamiento seguro de las claves de cifrado. Kubernetes permite el uso de parámetros de plantilla que se resuelven durante la creación del volumen. Para utilizar un Secreto con un volumen cifrado, debes configurar el Secreto como un parámetro de StorageClass.
+
+Los parámetros de plantilla te permiten usar Secretos con volúmenes individuales o con una colección de volúmenes. Para más información sobre los parámetros de plantilla, consulta https://kubernetes-csi.github.io/docs/secrets-and-credentials-storage-class.html[Secretos de StorageClass] en la Documentación para Desarrolladores de Kubernetes CSI.
+
+En el siguiente ejemplo, la clave de cifrado se especifica como datos de cadena en el parámetro `CRYPTO_KEY_VALUE` del Secreto. Usar datos de cadena elimina la necesidad de codificación en Base64 antes de que el Secreto sea enviado a través de kubectl create.
+
+Además de `CRYPTO_KEY_VALUE`, los parámetros `CRYPTO_KEY_CIPHER`, `CRYPTO_KEY_HASH`, `CRYPTO_KEY_SIZE` y `CRYPTO_PBKDF` proporcionan la personalización para el cifrado de volúmenes.
+
+* `CRYPTO_KEY_CIPHER`: Establece la cadena del algoritmo de especificación del cifrado. El valor por defecto es `aes-xts-plain64` para LUKS.
+* `CRYPTO_KEY_HASH`: Especifica el hash de la frase de paso para `open`. El valor por defecto es `sha256`.
+* `CRYPTO_KEY_SIZE`: Establece el tamaño de la clave en bits y debe ser un múltiplo de 8. El valor por defecto es `256`.
+* `CRYPTO_PBKDF`: Establece el algoritmo de Función de Derivación de Clave Basada en Contraseña (PBKDF) para el slot de clave LUKS. El valor por defecto es `argon2i`.
+
+Para más información, consulta https://man7.org/linux/man-pages/man8/cryptsetup.8.html[cryptsetup(8)] en las páginas del manual de Linux.
+
+* Ejemplo de un Secreto:
++
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+* Ejemplo de un StorageClass con un Secreto global:
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-crypto-global
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  encrypted: "true"
+  # global secret that contains the encryption key that will be used for all volumes
+  csi.storage.k8s.io/provisioner-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/provisioner-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-publish-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-publish-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-stage-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-stage-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-expand-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-expand-secret-namespace: "longhorn-system"
+----
+
+* Ejemplo de un StorageClass con un Secreto específico de volumen:
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-crypto-per-volume
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  encrypted: "true"
+  # per volume secret which utilizes the `pvc.name` and `pvc.namespace` template parameters
+  csi.storage.k8s.io/provisioner-secret-name: ${pvc.name}
+  csi.storage.k8s.io/provisioner-secret-namespace: ${pvc.namespace}
+  csi.storage.k8s.io/node-publish-secret-name: ${pvc.name}
+  csi.storage.k8s.io/node-publish-secret-namespace: ${pvc.namespace}
+  csi.storage.k8s.io/node-stage-secret-name: ${pvc.name}
+  csi.storage.k8s.io/node-stage-secret-namespace: ${pvc.namespace}
+  csi.storage.k8s.io/node-expand-secret-name: ${pvc.name}
+  csi.storage.k8s.io/node-expand-secret-namespace: ${pvc.namespace}
+----
+
+== Uso de un Volumen Cifrado
+
+Para crear un volumen cifrado, debes crear un PVC utilizando un StorageClass que ha sido configurado para el cifrado. Los ejemplos de StorageClass anteriores pueden ser utilizados como punto de partida.
+
+Después de la creación del PVC, permanecerá en estado `Pending` hasta que el Secreto asociado haya sido creado y pueda ser recuperado. Un PVC recién creado permanece en el estado `Pending` hasta que el Secreto asociado sea creado y pueda ser recuperado por el sidecar csi `external-provisioner`. Después, el proceso regular de creación de volúmenes continúa, aplicándose el cifrado.
+
+== Expansión del Sistema de Archivos
+
+Longhorn soporta xref:volumes/volume-expansion.adoc#_encrypted_volume[tanto la expansión en línea como sin conexión] para volúmenes cifrados.
+
+Los siguientes parámetros de StorageClass son necesarios para habilitar la expansión en línea:
+
+* `csi.storage.k8s.io/node-expand-secret-name`
+* `csi.storage.k8s.io/node-expand-secret-namespace`
+
+[NOTE]
+----
+Longhorn v1.8.0 no admite la expansión de volúmenes V2.
+----
+
+== Historial
+
+* Cifrado de volúmenes en modo `Filesystem`: (https://github.com/longhorn/longhorn/issues/1859[#1859])
+* Cifrado de volúmenes en modo `Block`: (https://github.com/longhorn/longhorn/issues/4883[#4883])

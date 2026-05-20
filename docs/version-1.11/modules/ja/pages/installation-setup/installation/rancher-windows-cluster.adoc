@@ -1,0 +1,53 @@
+= Rancher Windows クラスター
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Rancher は、Linux ワーカー ノードと Windows ワーカー ノードの組み合わせで Windows クラスターをプロビジョニングできます。
+Rancher Windows クラスターの詳細については、公式の https://documentation.suse.com/cloudnative/rancher-manager/latest/en/cluster-deployment/custom-clusters/windows/use-windows-clusters.html[Rancher ドキュメント] を参照してください。
+
+Rancher Windows クラスターでは、すべての Linux ワーカー ノードは次のようになります。
+
+* `cattle.io/os=linux:NoSchedule` に taint が付与されています
+* ラベル付けされている `kubernetes.io/os:linux`
+
+[NOTE]
+====
+{longhorn-product-name} がデプロイされると、Linux ノード上でのみ {longhorn-product-name} ボリュームを使用するワークロードを起動できます。
+====
+
+== サポートされている Helm チャートで {longhorn-product-name} をデプロイする
+
+Rancher Windows クラスターで {longhorn-product-name} のインストールを許可するために、Helm 値 `global.cattle.windowsCluster.enabled` を更新できます。
+
+この値が `true` に設定されている場合、{longhorn-product-name} は Rancher Windows クラスターを認識し、すべての {longhorn-product-name} ワークロードが Linux ノード上でのみ起動できるように、正しいノード セレクターとトレランスを持つ {longhorn-product-name} コンポーネントをデプロイします。
+
+Rancher マーケットプレイスでは、インストール前に `customize Helm options` で設定をカスタマイズできます。 +
+`Edit Options` > `Other Settings` > `Rancher Windows Cluster`
+
+他にも: +
+`Edit YAML`
+
+----
+global:
+  cattle:
+    systemDefaultRegistry: ""
+    windowsCluster:
+      # Enable this to allow Longhorn to run on the Rancher deployed Windows cluster
+      enabled: true
+----
+
+== 既存の {longhorn-product-name} デプロイメントのために {longhorn-product-name} コンポーネントをセットアップする
+
+サポートされている Helm チャートでデプロイされていない場合、既存の {longhorn-product-name} をセットアップできます。
+
+* {longhorn-product-name} コンポーネントは Linux ノードでのみ実行できるため、Linux ノードを選択するために `kubernetes.io/os:linux` のノード セレクター {longhorn-product-name} を設定する必要があります。詳細については、xref:nodes/node-selector.adoc[ノード セレクター] を参照してください。
++
+* Rancher Windows クラスター内のすべての Linux ワーカー ノードには `cattle.io/os=linux:NoSchedule` の汚染があるため、これらのノードで `cattle.io/os=linux:NoSchedule` を実行できるようにトレランス {longhorn-product-name} を設定する必要があります。詳細については、xref:nodes/taints-tolerations.adoc[汚染トレランス] を参照してください。
+
+
+
+[NOTE]
+====
+{longhorn-product-name} は、Windows ノードと Linux ノードの両方で構成されるクラスターに効果的にデプロイでき、多様なインフラのニーズに対応する柔軟なソリューションを提供します。Rancher からのインストールを容易にするために、ユーザーは最初に AppCo OCI レジストリを Rancher アプリ リポジトリとして追加する必要があります。このプロセスに関する詳細な指示は、 https://docs.apps.rancher.io/howto-guides/integrate-with-rancher-manager/[Rancher Documentation: Rancher Managerとの統合]で見つけることができます。
+====

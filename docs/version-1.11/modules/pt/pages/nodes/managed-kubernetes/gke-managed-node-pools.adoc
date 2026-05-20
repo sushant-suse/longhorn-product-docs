@@ -1,0 +1,56 @@
+= Pools de Nós Gerenciados no Google Kubernetes Engine (GKE)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Veja https://cloud.google.com/kubernetes-engine/docs/tutorials/migrating-node-pool[Migrando cargas de trabalho para diferentes tipos de máquinas] para mais informações.
+
+O seguinte é um exemplo para substituir os nós do cluster por um novo tamanho de armazenamento.
+
+== Expansão de Armazenamento
+
+O GKE suporta a adição de disco adicional com `local-ssd-count`. No entanto, cada SSD local tem tamanho fixo de 375 GB. Sugerimos expandir o tamanho do nó por meio da substituição do pool de nós.
+
+. No Longhorn, defina `replica-replenishment-wait-interval` para `0`.
+. Adicione um novo pool de nós. Mais tarde, os componentes do Longhorn serão implantados automaticamente nos nós deste pool.
++
+----
+ GKE_NODEPOOL_NAME_NEW=<new-nodepool-name>
+ GKE_REGION=<gke-region>
+ GKE_CLUSTER_NAME=<gke-cluster-name>
+ GKE_IMAGE_TYPE=Ubuntu
+ GKE_MACHINE_TYPE=<gcp-machine-type>
+ GKE_DISK_SIZE_NEW=<new-disk-size-in-gb>
+ GKE_NODE_NUM=<number-of-nodes>
+
+ gcloud container node-pools create ${GKE_NODEPOOL_NAME_NEW} \
+   --region ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME} \
+   --image-type ${GKE_IMAGE_TYPE} \
+   --machine-type ${GKE_MACHINE_TYPE} \
+   --disk-size ${GKE_DISK_SIZE_NEW} \
+   --num-nodes ${GKE_NODE_NUM}
+
+ gcloud container node-pools list \
+   --zone ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME}
+----
+
+. Usando a interface do Longhorn para desativar o agendamento de disco e solicitar a evacuação dos nós no pool de nós antigo.
+. Cordon e drene os nós do Kubernetes no pool de nós antigo.
++
+----
+ GKE_NODEPOOL_NAME_OLD=<old-nodepool-name>
+ for n in `kubectl get nodes | grep ${GKE_CLUSTER_NAME}-${GKE_NODEPOOL_NAME_OLD}- | awk '{print $1}'`; do
+   kubectl cordon $n && \
+   kubectl drain $n --ignore-daemonsets --delete-emptydir-data
+ done
+----
+
+. Exclua o pool de nós antigo.
++
+----
+ gcloud container node-pools delete ${GKE_NODEPOOL_NAME_OLD}\
+   --zone ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME}
+----

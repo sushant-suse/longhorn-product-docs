@@ -1,0 +1,26 @@
+= Selektive Aktivierung der V2-Daten-Engine
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/features/selective-v2-data-engine-activation.md"]
+:current-version: {page-component-version}
+
+Longhorn ermöglicht es Ihnen, die V2-Daten-Engine auf bestimmten Cluster-Knoten zu aktivieren oder zu deaktivieren. Sie können wählen, die V2-Daten-Engine nur auf leistungsstarken Knoten in einem Cluster mit unterschiedlichen Leistungszuständen zu aktivieren. Dies ist in v1.5.0 nicht möglich, da die V2-Daten-Engine auf allen Knoten aktiviert wird.
+
+== Deaktivierung der V2-Daten-Engine auf bestimmten Knoten
+
+. Identifizieren Sie die Knoten, die die V2-Daten-Engine nicht ausführen sollen.
+. Fügen Sie das Label `node.longhorn.io/disable-v2-data-engine: "true"` zu den ausgewählten Knoten hinzu.
+. Aktivieren Sie die globale Einstellung `v2-data-engine`.
+
+Infolgedessen treten die folgenden Ereignisse nur auf _Knoten ohne das Label_ auf:
+
+* Instanz-Manager-Pods für die V2-Daten-Engine werden erstellt.
+* Die Funktionalität der V2-Daten-Engine bleibt verfügbar.
+
+== Hinweis
+
+Die Erstellung von V2-Volumes ist nur auf Knoten möglich, auf denen die V2-Daten-Engine aktiviert ist. Sie müssen Arbeitslasten, die V2-Volumes verwenden, auf solchen Knoten planen.
+
+== Kurz nachgeschlagen
+
+Für weitere Informationen siehe https://github.com/longhorn/longhorn/issues/7015[[FEATURE\] Selektive Aktivierung der V2-Daten-Engine].

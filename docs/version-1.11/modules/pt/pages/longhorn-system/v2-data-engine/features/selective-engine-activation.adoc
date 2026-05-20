@@ -1,0 +1,26 @@
+= Ativação seletiva do Motor de Dados V2
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/features/selective-v2-data-engine-activation.md"]
+:current-version: {page-component-version}
+
+O Longhorn permite que você ative ou desative o Motor de Dados V2 em nós específicos do cluster. Você pode optar por ativar o Motor de Dados V2 apenas em nós poderosos em um cluster com estados de potência variados. Isso não é possível na versão 1.5.0, que ativa o Motor de Dados V2 em todos os nós.
+
+== Desativando o Motor de Dados V2 em nós específicos
+
+. Identifique os nós que não devem executar o Motor de Dados V2.
+. Adicione o rótulo `node.longhorn.io/disable-v2-data-engine: "true"` aos nós selecionados.
+. Ative a configuração global `v2-data-engine`.
+
+Como resultado, o seguinte ocorre apenas em _nós sem o rótulo_:
+
+* Os pods do Gerenciador de Instâncias para o Motor de Dados V2 são gerados.
+* A funcionalidade do Motor de Dados V2 permanece disponível.
+
+== Aviso
+
+A criação de volumes V2 é possível apenas em nós onde o Motor de Dados V2 está ativado. Você deve agendar cargas de trabalho que utilizam volumes V2 nesses nós.
+
+== Referência
+
+Para mais informações, veja https://github.com/longhorn/longhorn/issues/7015[[FEATURE\] Ativação Seletiva do Motor de Dados V2].

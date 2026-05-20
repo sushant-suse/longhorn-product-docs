@@ -1,0 +1,280 @@
+= バックイメージの暗号化
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhornでは、バックイメージをクローンすることで暗号化および復号化できます。バックイメージの暗号化メカニズムは、Linuxカーネルモジュール`dm_crypt`とコマンドラインユーティリティ`cryptsetup`を利用します。
+
+== バックイメージをクローンする
+
+YAMLコードを使用してバックイメージをクローンできます。これにより、元のものと同じ内容のまったく新しいバックイメージが作成されることに注意してください。バックイメージはディスクスペースも消費します。
+
+ダウンロードされたバックイメージの例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+サンプルバックイメージをクローンするために使用されるYAMLコードの例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: ignore
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`:クローンするバックイメージの名前を指定してください。
+* `encryption`:バックイメージを直接クローンするには、値を`ignore`に設定してください。値が指定されていない場合、Longhornはデフォルト値として`ignore`を使用します。
+====
+
+Longhorn UIを使用してバックイメージをクローンすることもできます。
+
+. *設定* > *バックイメージ*に移動します。
+. *バックイメージの作成*をクリックします。
+. 次の設定を行います。
+ ** *作成元*：*既存のバックイメージからクローン*を選択します。
+ ** *暗号化*：*無視*を選択します。
+. [OK] をクリックします。
+
+image::screenshots/backing-image/clone.png[イメージ]
+
+== バックイメージを暗号化する
+
+バックイメージのクローン作成中に暗号化を有効にすることで、そのイメージを暗号化されたボリュームで使用できるようになります。
+
+ダウンロードされたバックイメージの例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+サンプルバックイメージをクローンして暗号化するために使用されるYAMLコードの例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-encrypted
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: encrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+バックイメージを暗号化するために使用されるYAMLコードの例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`:クローンするバックイメージの名前を指定してください。
+* `encryption`:バックイメージをクローン作成中に暗号化するために、値を`encrypt`に設定します。
+* `secret`:バックイメージを暗号化するために使用されるシークレットを指定します。
+* `secret-namespace`:バックイメージを暗号化するために使用されるシークレットのネームスペースを指定します。
+====
+
+Longhorn UIを使用してバックイメージの暗号化されたコピーを作成することもできます。
+
+. *設定* > *バックイメージ*に移動します。
+. *バックイメージの作成*をクリックします。
+. 次の設定を行います。
+ ** *作成元*：*既存のバックイメージからクローン*を選択します。
+ ** *暗号化*：*暗号化する*を選択します。
+. 暗号化に使用するシークレットとシークレットのネームスペースを指定します。
+. [OK] をクリックします。
+
+image::screenshots/backing-image/encrypt.png[イメージ]
+
+== バックイメージを復号化する
+
+暗号化されたバックイメージは、クローン作成を通じて復号化できます。
+
+暗号化されたバックイメージの例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-encrypted
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: encrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+バックイメージを暗号化および復号化するために使用されるYAMLコードの例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+バックイメージを復号化するために使用されるYAMLコードの例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-decrypt
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot-cloned-encrypted
+    encryption: decrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`:クローンするバックイメージの名前を指定してください。
+* `encryption`:バックイメージをクローン作成中に復号化するために、値を`decrypt`に設定します。
+* `secret`:バックイメージを復号化するために使用されるシークレットを指定します。
+* `secret-namespace`:バックイメージを復号化するために使用されるシークレットのネームスペースを指定します。
+====
+
+Longhorn UIを使用してバックイメージを復号化することもできます（クローン作成を通じて）。
+
+. *設定* > *バックイメージ*に移動します。
+. *バックイメージの作成*をクリックします。
+. 次の設定を行います。
+ ** *作成元*：*既存のバックイメージからクローン*を選択します。
+ ** *暗号化*：*復号化する*を選択します。
+. 復号化に使用するシークレットとシークレットのネームスペースを指定します。
+. [OK] をクリックします。
+
+image::screenshots/backing-image/decrypt.png[イメージ]
+
+== 暗号化されたボリュームとともに暗号化されたバックイメージを使用する
+
+バックイメージとボリュームを暗号化するために使用されるシークレットは同一でなければなりません。暗号化されたバックイメージが準備できたら、対応するバックイメージとシークレットを使用して、ワークロード用のボリュームを作成するためのStorageClassを作成できます。
+
+暗号化シークレットのYAMLコードの例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+StorageClassのYAMLコードの例：
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-crypto-global
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  encrypted: "true"
+  backingImage: "parrot-cloned-encrypted"
+  backingImageDataSourceType: "clone"
+  # global secret that contains the encryption key that will be used for all volumes
+  csi.storage.k8s.io/provisioner-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/provisioner-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-publish-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-publish-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-stage-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-stage-secret-namespace: "longhorn-system"
+----
+
+詳細については、xref:volumes/volume-encryption.adoc[ボリューム暗号化]をご覧ください。
+
+== 制限
+
+* Longhornは、すでに暗号化されたバックイメージを暗号化することや、暗号化されていないバックイメージを復号化することはできません。
+* Longhornは、暗号化されたバックイメージの暗号化キーを変更することを許可しません。
+* qcow2イメージを暗号化する際、Longhornはまずqcow2イメージから生のイメージを作成し、その後それを暗号化します。結果として得られる暗号化された生のイメージは、クローン作成中に一時的に追加のスペースを消費します。などです。別の例をあげれば、
+ .. 10MiBのqcow2イメージを200MiBの仮想サイズで暗号化する場合、まずqcow2から生のイメージを作成し、200MiBのスペースを消費します。
+ .. その後、Longhornはその200MiBの生のイメージから暗号化されたバックイメージを作成し、さらに200MiBのスペースを消費します。
+ .. 暗号化されたバックイメージが作成された後、一時的な生のイメージはクリーンアップされ、200MiBのスペースが解放されます。
+* ソースバックイメージがスパースファイルである場合、暗号化後にファイルはそのスパース性を失います。
+* 暗号化中にLUKSメタデータを保存できるようにするため、イメージサイズは16 MB増加します。詳細については、 https://gitlab.com/cryptsetup/cryptsetup/-/blob/master/docs/v2.1.0-ReleaseNotes#L27[cryptsetupリリースノート]をご覧ください。

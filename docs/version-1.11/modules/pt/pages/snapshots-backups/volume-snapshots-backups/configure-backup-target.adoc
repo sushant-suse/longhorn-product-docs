@@ -1,0 +1,542 @@
+= Configure um Destino de Backup
+:revdate: 2025-07-14
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Um destino de backup é um ponto de acesso usado para acessar um backupstore. Os destinos de backup podem ser configurados na interface {longhorn-product-name} (*Configurações > Destino de Backup*). Um backupstore é um servidor que armazena os backups dos volumes do Longhorn. Você pode usar NFS, SMB/CIFS, Azure Blob Storage e servidores compatíveis com S3.
+
+[NOTE]
+====
+A partir da versão v1.8.0, {longhorn-product-name} suporta o uso de múltiplos backupstores. É recomendável definir o destino de backup padrão antes de criar um novo.
+====
+
+Salvar em um armazenamento de objetos como S3 é preferível, pois geralmente oferece melhor confiabilidade.  Outra vantagem é que você não precisa montar e desmontar o destino, o que pode complicar o failover e os upgrades.
+
+Para mais informações sobre como o backupstore funciona no {longhorn-product-name}, veja xref:introduction/concepts.adoc#_3_backups_and_secondary_storage[Conceitos].
+
+Se você não tem acesso ao AWS S3 ou deseja experimentar o backupstore primeiro, também fornecemos uma maneira de <<_set_up_a_local_testing_backupstore,configurar um backupstore local de teste S3>> usando https://minio.io/[MinIO].
+
+{longhorn-product-name} também suporta a configuração de trabalhos de snapshot/backup recorrentes para volumes, via interface {longhorn-product-name} ou Classe de Armazenamento do Kubernetes. Veja xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[aqui] para detalhes.
+
+[NOTE]
+====
+* O ciclo de vida dos backups do Longhorn dentro do backupstore é gerenciado inteiramente pelo {longhorn-product-name}. *A aplicação de políticas de retenção diretamente no backupstore é estritamente proibida*.
+
+* {longhorn-product-name} tenta limpar recursos personalizados relacionados a backups nas seguintes situações:
+
+* O servidor NFS se torna indisponível e envia uma resposta vazia.
+* Uma condição de corrida ocorre entre controladores de backup do Longhorn relacionados.
+
+As informações de backup são ressincronizadas durante o próximo intervalo de polling. Para mais informações, veja https://github.com/longhorn/longhorn/issues/9530[Problema #9530].
+====
+
+== Destino de Backup Padrão
+
+O destino de backup padrão (`default`) é criado automaticamente durante uma instalação nova. Você pode definir o destino de backup padrão durante ou após a instalação usando Helm ou um https://raw.githubusercontent.com/longhorn/longhorn/v1.8.0/deploy/longhorn.yaml[arquivo YAML de manifesto] (`longhorn.yaml`).
+
+=== Defina o Destino de Backup Padrão Usando Helm
+
+No arquivo `values.yaml`, você pode definir três parâmetros para gerenciar o destino de backup padrão.
+
+* `defaultBackupStore.backupTarget`: Endpoint usado para acessar o backupstore padrão.
+* `defaultBackupStore.backupTargetCredentialSecret`: Nome do segredo do Kubernetes associado ao destino de backup padrão.
+* `defaultBackupStore.pollInterval`: Número de segundos que {longhorn-product-name} aguarda antes de verificar o backupstore padrão em busca de novos backups.
+
+[,yaml]
+----
+# -- Setting that allows you to update the default backupstore.
+defaultBackupStore:
+  # -- Endpoint used to access the default backupstore.
+  backupTarget: ~
+  # -- Name of the Kubernetes secret associated with the default backup target.
+  backupTargetCredentialSecret: ~
+  # -- Number of seconds that {longhorn-product-name} waits before checking the default backupstore for new backups.
+  pollInterval: ~
+----
+
+=== Defina o Destino de Backup Padrão Usando um Arquivo YAML de Manifesto
+
+A partir da versão v1.8.0, você pode usar um novo recurso `ConfigMap` chamado `longhorn-default-resource` para gerenciar as configurações de recursos, incluindo o recurso de destino de backup padrão.
+
+* `backup-target`: Endpoint usado para acessar o backupstore padrão.
+* `backup-target-credential-secret`: Nome do segredo do Kubernetes associado ao destino de backup padrão.
+* `backupstore-poll-interval`: Número de segundos que o Longhorn aguarda antes de verificar o backupstore padrão em busca de novos backups.
+
+[,yaml]
+----
+# Example
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: longhorn-default-resource
+  namespace: longhorn-system
+data:
+  default-resource.yaml: |
+    "backup-target": "s3://example@us-west-1/"
+    "backup-target-credential-secret": "example-secret"
+    "backupstore-poll-interval": "180"
+----
+
+== Configure o AWS S3 Backupstore
+
+. Crie um novo bucket em https://aws.amazon.com/s3/[AWS S3.]
+. Defina permissões para {longhorn-product-name}. Existem duas opções para configurar as credenciais. A primeira é que você pode configurar um segredo do Kubernetes com as credenciais de um usuário IAM da AWS. A segunda é que você pode usar um aplicativo de terceiros para gerenciar permissões temporárias do IAM da AWS para um Pod via anotações, em vez de operar com credenciais da AWS.
+ ** Opção 1: Crie um segredo do Kubernetes com credenciais de usuário IAM
+
+ .. Siga o https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html#id_users_create_console[guia] para criar um novo usuário IAM da AWS, com as seguintes permissões definidas. Edite a seção `Resource` para usar o nome do seu bucket S3:
++
+[subs="+attributes",json]
+----
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "GrantLonghornBackupstoreAccess0",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:ListBucket",
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::<your-bucket-name>",
+        "arn:aws:s3:::<your-bucket-name>/*"
+      ]
+    }
+  ]
+}
+----
+
+ .. Crie um segredo do Kubernetes com um nome como `aws-secret` no namespace onde {longhorn-product-name} está localizado (`longhorn-system` por padrão). O segredo deve ser criado no namespace `longhorn-system` para que {longhorn-product-name} possa acessá-lo:
++
+[subs="+attributes",shell]
+----
+kubectl create secret generic <aws-secret> \
+    --from-literal=AWS_ACCESS_KEY_ID=<your-aws-access-key-id> \
+    --from-literal=AWS_SECRET_ACCESS_KEY=<your-aws-secret-access-key> \
+    -n longhorn-system
+----
+
+* Opção 2: Defina permissões com credenciais temporárias do IAM usando AWS STS AssumeRole (kube2iam ou kiam)
++
+https://github.com/jtblin/kube2iam[kube2iam] ou https://github.com/uswitch/kiam[kiam] é um aplicativo Kubernetes que permite gerenciar permissões do AWS IAM para Pods via anotações, em vez de operar com credenciais da AWS. Siga as instruções no repositório do GitHub para kube2iam ou kiam para instalá-lo no cluster Kubernetes.
+
+ .. Siga o https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-service.html#roles-creatingrole-service-console[guia] para criar um novo papel do AWS IAM para o serviço AWS S3, com as seguintes permissões definidas:
++
+[subs="+attributes",json]
+----
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "GrantLonghornBackupstoreAccess0",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:ListBucket",
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::<your-bucket-name>",
+        "arn:aws:s3:::<your-bucket-name>/*"
+      ]
+    }
+  ]
+}
+----
+
+ .. Edite o papel do AWS IAM com a seguinte relação de confiança:
++
+[subs="+attributes",json]
+----
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+          "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    },
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/<AWS_EC2_NODE_INSTANCE_ROLE>"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+----
+
+ .. Crie um segredo do Kubernetes com um nome como `aws-secret` no namespace onde Longhorn está localizado (`longhorn-system` por padrão). O segredo deve ser criado no namespace `longhorn-system` para que {longhorn-product-name} possa acessá-lo:
++
+[subs="+attributes",shell]
+----
+kubectl create secret generic <aws-secret> \
+    --from-literal=AWS_IAM_ROLE_ARN=<your-aws-iam-role-arn> \
+    -n longhorn-system
+----
+
+. Na interface do {longhorn-product-name}, vá para *Backup e Restauração > Destinos de Backup*, e então crie ou edite um destino de backup.
++
+Defina *URL* para:
++
+[subs="+attributes",text]
+----
+ s3://<your-bucket-name>@<your-aws-region>/
+----
++
+Certifique-se de que você tenha `/` no final, caso contrário, você receberá um erro. Um subdiretório (prefixo) pode ser usado:
++
+[subs="+attributes",text]
+----
+ s3://<your-bucket-name>@<your-aws-region>/mypath/
+----
++
+Também certifique-se de que você definiu *`<your-aws-region>` na URL*.
++
+Por exemplo, para AWS, você pode encontrar os códigos de região https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html[aqui.]
++
+Para o Google Cloud Storage, você pode encontrar os códigos de região https://cloud.google.com/storage/docs/locations[aqui.]
++
+Defina *Segredo de Credencial* para:
++
+----
+aws-secret
+----
++
+Este é o nome do segredo com credenciais da AWS ou papel do AWS IAM.
+
+*Resultado:* {longhorn-product-name} pode armazenar backups no S3. Para criar um backup, veja xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[esta seção].
+
+NOTE: Se você operar {longhorn-product-name} atrás de um proxy e quiser usar o AWS S3 como o backupstore, deve fornecer {longhorn-product-name} informações sobre seu proxy no `aws-secret` conforme abaixo:
+
+[subs="+attributes",shell]
+----
+kubectl create secret generic <aws-secret> \
+    --from-literal=AWS_ACCESS_KEY_ID=<your-aws-access-key-id> \
+    --from-literal=AWS_SECRET_ACCESS_KEY=<your-aws-secret-access-key> \
+    --from-literal=HTTP_PROXY=<your-proxy-ip-and-port> \
+    --from-literal=HTTPS_PROXY=<your-proxy-ip-and-port> \
+    --from-literal=NO_PROXY=<excluded-ip-list> \
+    -n longhorn-system
+----
+
+Certifique-se de que `NO_PROXY` contenha os endereços de rede, intervalos de endereços de rede e domínios que devem ser excluídos do uso do proxy. Para que {longhorn-product-name} funcione, os valores mínimos exigidos para `NO_PROXY` são:
+
+* localhost
+* 127.0.0.1
+* 0.0.0.0
+* 10.0.0.0/8 (IPs dos componentes K8s)
+* 192.168.0.0/16 (IPs internos no cluster)
+
+== Configurar o backupstore de armazenamento em nuvem do GCP
+
+. Crie um novo bucket em https://console.cloud.google.com/storage/browser?referrer=search&project=elite-protocol-319303[Google Cloud Storage]
+. Crie uma conta de serviço do GCP em https://console.cloud.google.com/iam-admin[IAM & Admin]
+. Dê à conta de serviço do GCP permissões para ler, escrever e excluir objetos no bucket.
++
+A conta de serviço precisará do papel `roles/storage.objectAdmin` para ler, escrever e excluir objetos no bucket.
++
+Aqui está uma referência aos papéis do GCP IAM que você tem disponíveis para conceder acesso a uma conta de serviço https://cloud.google.com/storage/docs/access-control/iam-roles.
+
+[NOTE]
+==== 
+Considere criar uma condição IAM para reduzir quantos buckets essa conta de serviço tem acesso administrativo a objetos. No console do Google Cloud, vá para *Cloud Storage > Buckets* e selecione o bucket de destino. Na tela *Detalhes do bucket*, vá para a aba *Permissões*, clique em *Conceder Acesso* e conceda à sua conta de serviço permissões de Administrador de Objetos de Armazenamento para o bucket de destino.
+====
+
+. Navegue até seus https://console.cloud.google.com/storage/browser[buckets no armazenamento em nuvem] e selecione o bucket recém-criado.
+. Vá para o menu de configurações do armazenamento em nuvem e navegue até a https://console.cloud.google.com/storage/settings;tab=interoperability[aba de interoperabilidade]
+. Role para baixo até _HMAC da conta de serviço_ e pressione `+ CREATE A KEY FOR A SERVICE ACCOUNT`
+. Selecione a conta de serviço do GCP que você criou anteriormente e pressione `CREATE KEY`
+. Salve a _Chave de Acesso_ e a _Segredo_.
++
+Anote também o _URI de Armazenamento_ configurado sob o _Ponto de Extremidade da Solicitação_ enquanto você estiver no menu de interoperabilidade.
+
+* A Chave de Acesso será mapeada para o campo `AWS_ACCESS_KEY_ID` no segredo do Kubernetes que criaremos mais tarde.
+* O Segredo será mapeado para o campo `AWS_SECRET_ACCESS_KEY` no segredo do Kubernetes que criaremos mais tarde.
+* O URI de Armazenamento será mapeado para o campo `AWS_ENDPOINTS` no segredo do Kubernetes que criaremos mais tarde.
+
+. Vá para a interface do usuário {longhorn-product-name}. Na barra de navegação superior, clique em *Backup e Restauração/Destinos de Backup* e crie ou edite um destino de backup.
++
+Defina *URL* para:
++
+----
+s3://${BUCKET_NAME}@us/
+----
++
+Defina *Segredo de Credencial* para:
++
+----
+longhorn-gcp-backups
+----
+
+. Crie um segredo do Kubernetes chamado `longhorn-gcp-backups` no namespace `longhorn-system` com o seguinte conteúdo:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-gcp-backups
+  namespace: longhorn-system
+type: Opaque
+stringData:
+  AWS_ACCESS_KEY_ID: GOOG1EBYHGDE4WIGH2RDYNZWWWDZ5GMQDRMNSAOTVHRAILWAMIZ2O4URPGOOQ
+  AWS_ENDPOINTS: https://storage.googleapis.com
+  AWS_SECRET_ACCESS_KEY: BKoKpIW021s7vPtraGxDOmsJbkV/0xOVBG73m+8f
+----
+
+NOTE: O segredo pode ser nomeado como você quiser, desde que corresponda ao que está nas configurações de {longhorn-product-name}.
+
+Uma vez que o segredo é criado e as configurações de {longhorn-product-name} estão salvas, navegue até a aba de backup em {longhorn-product-name}. Se houver algum problema, ele deve aparecer como uma notificação de toast.
+
+Se você não receber mensagens de erro, tente criar um backup e confirme se o conteúdo foi enviado para o seu novo bucket.
+
+A tela de *Alvo de Backup* na interface do usuário {longhorn-product-name} exibe o status de cada alvo de backup. Se o status for *Erro* e nenhum outro detalhe for fornecido, você pode usar o recurso *Inspecionar* do seu navegador para visualizar os dados de resposta para `/v1/backuptargets`. Erros do GCP são rotulados como "Erro AWS" (por exemplo, `AWS Error: AccessDenied`). Para obter mais informações, consulte https://github.com/longhorn/longhorn/issues/10428[Problema #10428].
+
+== Configure um Backupstore de Teste Local
+
+{longhorn-product-name} fornece configurações de servidor do Backupstore de exemplo para fins de teste.  Você pode encontrar amostras para AWS S3 (MinIO), Azure, CIFS e NFS na pasta `longhorn/deploy/backupstores`.
+
+. Configure um servidor MinIO S3 para o armazenamento de backup no namespace `longhorn-system`.
++
+[subs="+attributes", console]
+----
+ kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/backupstores/minio-backupstore.yaml
+----
+
+. Vá para a interface do usuário {longhorn-product-name}. Clique em *Backup e Restauração/Destinos de Backup* e crie ou edite um destino de backup.
++
+Defina *URL* para:
++
+----
+ s3://backupbucket@us-east-1/
+----
++
+Defina *Segredo de Credencial* para:
++
+----
+ minio-secret
+----
++
+O yaml `minio-secret` se parece com isto:
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: Secret
+ metadata:
+   name: minio-secret
+   namespace: longhorn-system
+ type: Opaque
+ data:
+   AWS_ACCESS_KEY_ID: bG9uZ2hvcm4tdGVzdC1hY2Nlc3Mta2V5 # longhorn-test-access-key
+   AWS_SECRET_ACCESS_KEY: bG9uZ2hvcm4tdGVzdC1zZWNyZXQta2V5 # longhorn-test-secret-key
+   AWS_ENDPOINTS: aHR0cHM6Ly9taW5pby1zZXJ2aWNlLmRlZmF1bHQ6OTAwMA== # https://minio-service.default:9000
+   AWS_CERT: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURMRENDQWhTZ0F3SUJBZ0lSQU1kbzQycGhUZXlrMTcvYkxyWjVZRHN3RFFZSktvWklodmNOQVFFTEJRQXcKR2pFWU1CWUdBMVVFQ2hNUFRHOXVaMmh2Y200Z0xTQlVaWE4wTUNBWERUSXdNRFF5TnpJek1EQXhNVm9ZRHpJeApNakF3TkRBek1qTXdNREV4V2pBYU1SZ3dGZ1lEVlFRS0V3OU1iMjVuYUc5eWJpQXRJRlJsYzNRd2dnRWlNQTBHCkNTcUdTSWIzRFFFQkFRVUFBNElCRHdBd2dnRUtBb0lCQVFEWHpVdXJnUFpEZ3pUM0RZdWFlYmdld3Fvd2RlQUQKODRWWWF6ZlN1USs3K21Oa2lpUVBvelVVMmZvUWFGL1BxekJiUW1lZ29hT3l5NVhqM1VFeG1GcmV0eDBaRjVOVgpKTi85ZWFJNWRXRk9teHhpMElPUGI2T0RpbE1qcXVEbUVPSXljdjRTaCsvSWo5Zk1nS0tXUDdJZGxDNUJPeThkCncwOVdkckxxaE9WY3BKamNxYjN6K3hISHd5Q05YeGhoRm9tb2xQVnpJbnlUUEJTZkRuSDBuS0lHUXl2bGhCMGsKVHBHSzYxc2prZnFTK3hpNTlJeHVrbHZIRXNQcjFXblRzYU9oaVh6N3lQSlorcTNBMWZoVzBVa1JaRFlnWnNFbQovZ05KM3JwOFhZdURna2kzZ0UrOElXQWRBWHExeWhqRDdSSkI4VFNJYTV0SGpKUUtqZ0NlSG5HekFnTUJBQUdqCmF6QnBNQTRHQTFVZER3RUIvd1FFQXdJQ3BEQVRCZ05WSFNVRUREQUtCZ2dyQmdFRkJRY0RBVEFQQmdOVkhSTUIKQWY4RUJUQURBUUgvTURFR0ExVWRFUVFxTUNpQ0NXeHZZMkZzYUc5emRJSVZiV2x1YVc4dGMyVnlkbWxqWlM1awpaV1poZFd4MGh3Ui9BQUFCTUEwR0NTcUdTSWIzRFFFQkN3VUFBNElCQVFDbUZMMzlNSHVZMzFhMTFEajRwMjVjCnFQRUM0RHZJUWozTk9kU0dWMmQrZjZzZ3pGejFXTDhWcnF2QjFCMVM2cjRKYjJQRXVJQkQ4NFlwVXJIT1JNU2MKd3ViTEppSEtEa0Jmb2U5QWI1cC9VakpyS0tuajM0RGx2c1cvR3AwWTZYc1BWaVdpVWorb1JLbUdWSTI0Q0JIdgpnK0JtVzNDeU5RR1RLajk0eE02czNBV2xHRW95YXFXUGU1eHllVWUzZjFBWkY5N3RDaklKUmVWbENtaENGK0JtCmFUY1RSUWN3cVdvQ3AwYmJZcHlERFlwUmxxOEdQbElFOW8yWjZBc05mTHJVcGFtZ3FYMmtYa2gxa3lzSlEralAKelFadHJSMG1tdHVyM0RuRW0yYmk0TktIQVFIcFc5TXUxNkdRakUxTmJYcVF0VEI4OGpLNzZjdEg5MzRDYWw2VgotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t
+----
++
+Para mais informações sobre como criar um segredo, consulte https://kubernetes.io/docs/concepts/configuration/secret/#creating-a-secret-manually[a documentação do Kubernetes.] O segredo deve ser criado no namespace `longhorn-system` para que {longhorn-product-name} possa acessá-lo.
++
+NOTE: Certifique-se de usar `echo -n` ao gerar a codificação base64, caso contrário, uma nova linha será adicionada ao final da string e isso causará erro ao acessar o S3.
+
+. Clique na aba *Backup* na interface do usuário. Deve relatar uma lista vazia sem erros.
+
+*Resultado:* {longhorn-product-name} pode armazenar backups no S3. Para criar um backup, consulte xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[esta seção.]
+
+== Usando um certificado SSL autoassinado para comunicação S3
+
+Se você quiser usar um certificado SSL autoassinado, pode especificar AWS_CERT no segredo do Kubernetes que você forneceu para {longhorn-product-name}. Veja o exemplo em <<_set_up_a_local_testing_backupstore,Configuração de um armazenamento de backup de teste local>>.
+É importante notar que o certificado precisa estar no formato PEM e deve ser sua própria CA. Ou deve-se incluir uma cadeia de certificados que contenha o certificado CA.
+Para incluir múltiplos certificados, pode-se apenas concatenar os diferentes certificados (arquivos PEM).
+
+== Habilite o acesso no estilo de host virtual para Backupstore compatível com S3
+
+*Você pode precisar habilitar essa nova abordagem de endereçamento para seu Backupstore compatível com S3 quando*
+
+. você quiser mudar para esse novo estilo de acesso agora para que não precise se preocupar com https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/[o Plano de Descontinuação do Caminho do Amazon S3];
+. o Backupstore que você está usando suporta apenas acesso no estilo de host virtual, por exemplo, Alibaba Cloud (Aliyun) OSS;
+. você configurou a variável de ambiente `MINIO_DOMAIN` para https://min.io/docs/minio/linux/administration/object-management.html#path-vs-virtual-host-bucket-access[habilitar solicitações no estilo de host virtual para o servidor MinIO];
+. o erro `...... error: AWS Error: SecondLevelDomainForbidden Please use virtual hosted style to access. .....` é acionado.
+
+*A maneira de habilitar o acesso no estilo de host virtual*
+
+. Adicione um novo campo `VIRTUAL_HOSTED_STYLE` com o valor `true` ao seu Segredo de Destino de Backup. Por exemplo:
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: Secret
+ metadata:
+   name: s3-compatible-backup-target-secret
+   namespace: longhorn-system
+ type: Opaque
+ data:
+   AWS_ACCESS_KEY_ID: bG9uZ2hvcm4tdGVzdC1hY2Nlc3Mta2V5
+   AWS_SECRET_ACCESS_KEY: bG9uZ2hvcm4tdGVzdC1zZWNyZXQta2V5
+   AWS_ENDPOINTS: aHR0cHM6Ly9taW5pby1zZXJ2aWNlLmRlZmF1bHQ6OTAwMA==
+   VIRTUAL_HOSTED_STYLE: dHJ1ZQ== # true
+----
+
+. Implante ou atualize o segredo.
+. Crie o correspondente destino de backup em *Backup e Restauração > Destinos de Backup* fornecendo os seguintes detalhes:
+.. *Nome*: Digite o nome desejado para o seu destino de backup.
+.. *URL*: Especifique a URL S3 usando o formato `s3://<bucket-name>@<region>/`.
+.. *Segredo de Credencial*: Selecione o segredo de credencial. Para este exemplo, é `s3-compatible-backup-target-secret`.
+
+== Configure o Backupstore NFS
+
+Certifique-se de que o servidor NFS suporte NFSv4 e que a URL de destino aponte para o serviço.
+
+Exemplo:
+
+----
+nfs://longhorn-test-nfs-svc.default:/opt/backupstore
+----
+
+As opções de montagem padrão são `actimeo=1,soft,timeo=300,retry=2`.  Para usar outras opções, anexe a palavra-chave "nfsOptions" e a string de opções à URL de destino.
+
+Exemplo:
+
+----
+nfs://longhorn-test-nfs-svc.default:/opt/backupstore?nfsOptions=soft,timeo=330,retrans=3
+----
+
+Quaisquer opções de montagem que você especificar substituirão, e não adicionarão, às opções padrão.
+
+Você pode encontrar um exemplo de Backupstore NFS para fins de teste https://github.com/longhorn/longhorn/blob/v{patch-version}/deploy/backupstores/nfs-backupstore.yaml[aqui].
+
+*Resultado:* {longhorn-product-name} pode armazenar backups em NFS. Para criar um backup, consulte xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[esta seção.]
+
+== Configure o Backupstore SMB/CIFS
+
+Antes de configurar um backupstore SMB/CIFS, um segredo de credencial para o backupstore pode ser criado e implantado por
+
+[,shell]
+----
+  #!/bin/bash
+
+  USERNAME=${Username of SMB/CIFS Server}
+  PASSWORD=${Password of SMB/CIFS Server}
+
+  CIFS_USERNAME=`echo -n ${USERNAME} | base64`
+  CIFS_PASSWORD=`echo -n ${PASSWORD} | base64`
+
+  cat <<EOF >>cifs_secret.yml
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    name: cifs-secret
+    namespace: longhorn-system
+  type: Opaque
+  data:
+    CIFS_USERNAME: ${CIFS_USERNAME}
+    CIFS_PASSWORD: ${CIFS_PASSWORD}
+  EOF
+
+  kubectl apply -f cifs_secret.yml
+----
+
+Na interface do usuário {longhorn-product-name}, vá para *Backup e Restauração > Destinos de Backup*.
+
+. Crie ou edite um destino de backup.
++
+Defina *URL* para:
++
+----
+ cifs://longhorn-test-cifs-svc.default/backupstore
+----
++
+A opção de montagem CIFS padrão é "soft".  Para usar outras opções, acrescente a palavra-chave "cifsOptions" e a string de opções à URL de destino.
++
+Exemplo:
++
+----
+ cifs://longhorn-test-cifs-svc.default/backupstore?cifsOptions=rsize=65536,wsize=65536,soft
+----
++
+Quaisquer opções de montagem que você especificar substituirão, e não adicionarão, às opções padrão.
+
+. Defina *Segredo de Credencial de Backup*.
++
+Defina *Segredo de Credencial* para:
++
+----
+ cifs-secret
+----
++
+Este é o nome do segredo com credenciais CIFS.
+
+Você pode encontrar um exemplo de Backupstore CIFS para fins de teste https://github.com/longhorn/longhorn/blob/v{patch-version}/deploy/backupstores/cifs-backupstore.yaml[aqui].
+
+*Resultado:* {longhorn-product-name} pode armazenar backups em CIFS. Para criar um backup, consulte xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[esta seção.]
+
+== Configure o Backupstore do Azure Blob Storage
+
+. Verifique se um contêiner para o backupstore existe em https://portal.azure.com/[Azure Blob Storage].
+. Conceda ao serviço de conta do Azure permissões de leitura/gravação e exclusão de objetos no contêiner.
++
+Para mais informações, veja https://learn.microsoft.com/en-us/azure/storage/blobs/blob-containers-portal[Gerenciar contêineres de blob usando o portal do Azure] na documentação da Microsoft.
+. Vá para *Início -> `serviceaccount` -> Segurança + rede -> Chaves de acesso*.
+. Salve as seguintes informações:
++
+* `Storage account name`: Mapeia para o campo `AZBLOB_ACCOUNT_NAME` no segredo do Kubernetes que você criará.
+* `Key`: Mapeia para o campo `AZBLOB_ACCOUNT_KEY` no segredo do Kubernetes que você criará.
++
+. Vá para a interface do usuário {longhorn-product-name}. Na barra de navegação superior, clique em *Backup e Restauração/Destinos de Backup* e crie ou edite um destino de backup.
++
+Defina *URL*. A URL de destino deve ser parecida com isto:
++
+[,txt]
+----
+azblob://[your-container-name]@core.windows.net/
+----
++
+Certifique-se de que você tenha `/` no final, caso contrário, você receberá um erro. Um subdiretório (prefixo) pode ser usado:
++
+[,txt]
+----
+azblob://[your-container-name]@core.windows.net/my-path/
+----
++
+Defina *Segredo de Credencial*.
++
+[,txt]
+----
+longhorn-azblob-secret
+----
+
+. Crie um segredo do Kubernetes chamado `longhorn-azblob-secret`.
++
+Este segredo é usado para acessar o backupstore no namespace {longhorn-product-name} (padrão: `longhorn-system`) com o seguinte conteúdo:
++
+[,shell]
+----
+#!/bin/bash
+cat <<EOF >>longhorn-azblob-secret.yml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-azblob-secret
+  namespace: longhorn-system
+type: Opaque
+stringData:
+  AZBLOB_ACCOUNT_NAME: "<Storage account name>"
+  AZBLOB_ACCOUNT_KEY:  "<Key>"
+  ...
+  # Parameters below are used for the compatible azure server for instance `Azurite` or 
+  # you have a proxy to redirect the requests.
+  #AZBLOB_ENDPOINT: ""
+  #AZBLOB_CERT: ""
+  #HTTP_PROXY: ""
+  #HTTPS_PROXY: ""
+EOF
+kubectl apply -f longhorn-azblob-secret.yml
+----
+
+Após configurar as configurações acima, você pode gerenciar backups no armazenamento do Azure Blob. Veja xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[como criar backup] para mais detalhes.

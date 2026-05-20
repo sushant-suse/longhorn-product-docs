@@ -1,0 +1,66 @@
+= ストレージネットワーク
+:revdate: 2025-11-19
+:page-revdate: {revdate}
+:doctype: book
+:current-version: {page-component-version}
+
+デフォルトでは、{longhorn-product-name} はクラスター全体の他のワークロードと共有される、単一インターフェースに制限されたデフォルトの Kubernetes クラスター CNI ネットワークを使用します。ネットワークの分離が必要な場合、{longhorn-product-name} はストレージネットワーク設定を使って{longhorn-product-name}クラスター内のデータトラフィックを隔離することができます。
+
+ストレージネットワーク設定は、`<NAMESPACE>/<NAME>`形式のMultus NetworkAttachmentDefinitionを使用します。
+
+Multus NetworkAttachmentDefinition をインストールおよび設定する方法については、 https://github.com/k8snetworkplumbingwg/multus-cni#comprehensive-documentation[包括的なドキュメント]を参照してください。
+
+設定を適用すると、`k8s.v1.cni.cncf.io/networks` アノテーションが追加され、すべての既存のインスタンスマネージャーおよびバックイメージマネージャーポッドが再作成されます。{longhorn-product-name} は、新しいインスタンスマネージャー、バックイメージマネージャー、およびバックイメージデータソースポッドにも同じアノテーションを適用します。
+
+[IMPORTANT]
+====
+希望する設定がすぐに適用されるよう、設定を行う前にすべてのワークロードを停止し、すべての Longhorn ボリュームを切り離してください。
+
+すべてのボリュームが切り離されると、{longhorn-product-name} は設定を適用するためにすべてのインスタンスマネージャーおよびバックイメージマネージャーポッドを再起動しようとします。
+1つ以上の Longhorn ボリュームがまだアタッチされている場合、カスタマイズされた設定は、エンジンやレプリカインスタンスが稼働していないときにのみインスタンスマネージャーに適用されます。残りのボリュームを切り離した後、設定を再構成する必要があります。あるいは、次の設定同期（1時間後）を待つこともできます。
+====
+
+== ストレージネットワークの設定
+
+=== 前提条件
+
+ストレージネットワーク設定のための Multus NetworkAttachmentDefinition ネットワークは、異なるクラスター ノード間のポッドで到達可能である必要があります。
+
+シンプルな DaemonSet を作成し、ポッド間で ping を試すことで確認できます。
+
+=== {longhorn-product-name} インストール中のストレージネットワークの設定
+
+xref:longhorn-system/customize-default-settings.adoc[デフォルト設定のカスタマイズ]に従って、`storage-network` デフォルト設定の値を変更してストレージネットワークを設定します。
+
+[WARNING]
+====
+ストレージネットワーク設定が無効な場合、Longhornインスタンスマネージャーは起動しません。
+
+インスタンスマネージャーポッドのイベントを確認して、`kubectl -n longhorn-system describe pods -l longhorn.io/component=instance-manager` に関連する無効なNetworkAttachmentDefinitionがあるかどうかを確認できます。
+
+この場合、有効な`NetworkAttachmentDefinition`を提供し、{longhorn-product-name}のインストールを再実行してください。
+====
+
+=== {longhorn-product-name} インストール後のストレージネットワークの設定
+
+xref:longhorn-system/settings.adoc#_storage_network[ストレージネットワーク] の設定を行います。
+
+[WARNING]
+====
+設定に適用した後は、NetworkAttachmentDefinitionカスタムリソースを変更しないでください。
+
+{longhorn-product-name} は更新を認識しません。したがって、これにより故障やエラーが発生します。その代わりに、新しいNetworkAttachmentDefinitionカスタムリソースを作成し、それを設定に更新することができます。
+====
+
+=== RWXボリュームのためのエンドポイントネットワークの設定
+
+xref:longhorn-system/settings.adoc#_network_for_rwx_volume[Endpoint Network For RWX Volume]の設定を行います。
+
+== 制限
+
+RWXボリュームがエンドポイントネットワークに接続されている場合、CSIプラグインポッドが再起動すると、NFSマウントポイントの接続を再確立する必要があります。{longhorn-product-name} は、CSIプラグインポッド再起動時にRWXボリュームのワークロードポッドを自動で削除するための、xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[Automatically Delete Workload Pod when The Volume Is Detached Unexpectedly]設定を提供します。ただし、設定が無効になっているか、ポッドがコントローラーによって管理されていない場合、ワークロードポッドのNFSマウントポイントが応答しなくなる可能性があります。そのような場合は、CSIプラグインポッドを手動で再起動する必要があります。
+
+== 履歴
+
+* https://github.com/longhorn/longhorn/issues/2285[元の機能リクエスト（v1.3.0以降）]
+* https://github.com/longhorn/longhorn/issues/8184[[FEATURE\] RWXボリュームのためのストレージネットワークをサポート（v1.7.0以降）]

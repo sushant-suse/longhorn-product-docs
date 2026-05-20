@@ -1,0 +1,33 @@
+= ノード条件
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+ノード条件は、すべてのワーカーノードの状態を説明し、ワーカーノードの環境設定を確認して、システムに影響を与える前に潜在的な問題を特定するために使用されます。
+
+ノード条件：
+
+* `Ready`:このノードで `longhorn-manager` ポッドが実行されており、Kubernetes ノードが準備完了であり、物理リソースの圧力がないことを含め、ノードが Longhorn 操作の準備ができていることを示します。
++
+* `Schedulable`:このノードが cordoned 状態になっておらず、ワークロードをこのノードにスケジュールできることを示します。
++
+* `MountPropagation`:このノードがマウント伝播をサポートしていることを示します。これは、同じ Longhorn ポッド内のコンテナによってマウントされたボリュームを他のコンテナと共有するため、または同じノード上の他の Longhorn ポッドに共有するために必要です。
++ 
+* `Multipathd`:ノード上で `multipathd` サービスが実行されていないかどうかを確認し、ボリュームの起動に影響を与える可能性があります。link:https://longhorn.io/kb/troubleshooting-volume-with-multipath/[トラブルシューティング: `MountVolume.SetUp failed for volume` ノード上の multipathd による]を参照してください。
+* `RequiredPackages`:Longhorn に必要なすべてのパッケージ (xref:installation-setup/requirements.adoc#_installing_nfsv4_client[NFS クライアント], xref:installation-setup/requirements.adoc#_installing_open-_scsi[iSCSI ツール], xref:installation-setup/requirements.adoc#_installing_cryptsetup_and_luks[cryptsetup], xref:installation-setup/requirements.adoc#_installing_device_mapper_userspace_tool[dmsetup]) が存在するかどうかを確認します。
++
+* `NFSClientInstalled`:次の NFS クライアントがサポートされているかどうかを確認します: `v4.2`, `v4.1`, または `v4.0`。RWX ボリュームとバックアップには NFS クライアントが必要です。
++
+* `KernelModulesLoaded`:次のカーネルモジュールがロードされているかどうかを確認します：
++
+** `dm_crypt`:ボリュームとバックイメージの暗号化に必要です。
+** `vfio_pci`:SPDK および PCI デバイス管理 (V2 データエンジン) に必要です。
+** `uio_pci_generic`:SPDK UIO サポート (V2 データエンジン) に必要です。
+** `nvme_tcp`:NVMe-over-TCP デバイスの使用 (V2 データエンジン) に必要です。
++
+* `HugePagesAvailable`:ノードが Longhorn V2 データエンジンによって要求される HugePages (2Mi) で適切に構成されているかどうかを示します。これには、次の内容の確認が含まれます：
++
+** HugePages (2Mi) が Kubernetes リソース (`hugepages-2Mi`) として登録されています。
+** 設定されたHugePagesの容量は、`v2-data-engine-hugepage-limit`設定で定義された値を満たすか、それを超えています。
+
+ノードの状態は Longhorn デプロイメントを妨げることはありませんが、Longhorn の `Node` リソースに警告が表示されます。詳細については、xref:installation-setup/requirements.adoc#_requirements[Longhorn インストール要件]をご覧ください。

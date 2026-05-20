@@ -1,0 +1,181 @@
+= 孤立したデータのクリーンアップ
+:revdate: 2025-07-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name}は孤立したデータのクリーンアップをサポートしています。現在、{longhorn-product-name}はディスク上の孤立したレプリカディレクトリを特定し、クリーンアップできます。
+
+== 孤立したレプリカディレクトリ
+
+ユーザーが{longhorn-product-name}ノードにディスクを導入すると、そのディスクには{longhorn-product-name}システムによって追跡されていないレプリカディレクトリが含まれている可能性があります。追跡されていないレプリカディレクトリは、他の{longhorn-product-name}クラスターに属している可能性があります。また、レプリカディレクトリに関連するレプリカCRがノードまたはディスクがダウンした後に削除されることがあります。ノードまたはディスクが復帰すると、対応するレプリカデータディレクトリはもはや{longhorn-product-name}システムによって追跡されません。これらのレプリカデータディレクトリは孤立したものと呼ばれます。
+
+{longhorn-product-name}は孤立したレプリカディレクトリの検出とクリーンアップをサポートしています。それはディレクトリを特定し、それらのディレクトリを説明する`orphan`リソースのリストを提供します。デフォルトでは、{longhorn-product-name}は`orphan`リソースとそのディレクトリを自動的に削除しません。ユーザーは孤立したレプリカディレクトリの削除を手動でトリガーすることも、自動的に行わせることもできます。
+
+自動孤立削除が有効になっている場合、{longhorn-product-name}は`orphan-resource-auto-deletion-grace-period`設定で定義された遅延の後に孤立したカスタムリソース（CR）とその関連ディレクトリを自動的に削除します。ユーザーが孤立したCRを手動で削除した場合、その削除は即座に行われ、この猶予期間は適用されません。
+
+=== 例
+
+以下の例は、{longhorn-product-name}によって特定された孤立したレプリカディレクトリを`kubectl`および{longhorn-product-name} UIを介して管理する方法を示しています。
+
+==== kubectlを介して孤立したレプリカディレクトリを管理する
+
+. 孤立したレプリカディレクトリを含むディスクを導入する。
+ ** ノード`worker1`のディスク上の孤立したレプリカディレクトリ
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+ pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
+----
+
+ ** ノード`worker2`のディスク上の孤立したレプリカディレクトリ
++
+[,console]
+----
+# ls /var/lib/longhorn/replicas/
+ pvc-28255b31-161f-5621-eea3-a1cbafb4a12a-866aa0a5
+
+# ls /mnt/disk/replicas/
+ pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-a86771c0
+----
+
+. {longhorn-product-name}は孤立したレプリカディレクトリを検出し、ディレクトリを説明する`orphan`リソースを作成します。
++
+[,console]
+----
+ # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
+ NAME                                                                      TYPE      NODE
+ orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272   replica   rancher60-worker1
+ orphan-637f6c01660277b5333f9f942e4b10071d89379dbe7b4164d071f4e1861a1247   replica   rancher60-worker2
+ orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
+----
+
+. {longhorn-product-name}によって作成された孤立したリソースのリストを`kubectl -n longhorn-system get orphan`コマンドを使用して取得します。
++
+[,console]
+----
+ kubectl -n longhorn-system get orphan
+----
+
+. `spec.parameters`内の孤立したレプリカディレクトリの詳細情報を`kubectl -n longhorn-system get orphan <name>`によって取得します。
++
+[,yaml]
+----
+ # kubectl -n longhorn-system get orphans orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272 -o yaml
+ apiVersion: longhorn.io/v1beta2
+ kind: Orphan
+ metadata:
+ creationTimestamp: "2022-04-29T10:17:40Z"
+ finalizers:
+ ** longhorn.io
+ generation: 1
+ labels:
+  longhorn.io/component: orphan
+  longhorn.io/managed-by: longhorn-manager
+  longhorn.io/orphan-type: replica
+  longhornnode: rancher60-worker1
+
+......
+
+spec:
+ nodeID: rancher60-worker1
+ orphanType: replica
+ parameters:
+     DataName: pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
+     DiskName: disk-1
+     DiskPath: /mnt/disk/
+     DiskUUID: 90f00e61-d54e-44b9-a095-35c2b56a0462
+ status:
+ conditions:
+ ** lastProbeTime: ""
+  lastTransitionTime: "2022-04-29T10:17:40Z"
+  message: ""
+  reason: ""
+  status: "True"
+  type: DataCleanable
+ ** lastProbeTime: ""
+  lastTransitionTime: "2022-04-29T10:17:40Z"
+  message: ""
+  reason: ""
+  status: "False"
+  type: Error
+ ownerID: rancher60-worker1
+----
+
+. `orphan`リソースを`kubectl -n longhorn-system delete orphan <name>`で削除することができ、その後、対応する孤立したレプリカディレクトリが削除されます。
++
+[,console]
+----
+ # kubectl -n longhorn-system delete orphan orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272
+
+ # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
+ NAME                                                                      TYPE      NODE
+ orphan-637f6c01660277b5333f9f942e4b10071d89379dbe7b4164d071f4e1861a1247   replica   rancher60-worker2
+ orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
+----
++
+孤立したレプリカディレクトリは削除されます。
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+----
+
+. デフォルトでは、{longhorn-product-name}は孤立したレプリカディレクトリを自動的に削除しません。`orphan-resource-auto-deletion`の設定を有効にすることで、自動削除を実行できます。
++
+[,console]
+----
+ # kubectl -n longhorn-system edit settings.longhorn.io orphan-resource-auto-deletion
+----
++
+次に、セミコロンで区切られた項目の1つとして`replica-data`をリストに追加します。
++
+[,console]
+----
+ # kubectl -n longhorn-system get settings.longhorn.io orphan-resource-auto-deletion
+ NAME                           VALUE          APPLIED     AGE
+ orphan-resource-auto-deletion  replica-data   true        26m
+----
+
+. 自動削除を有効にした後、しばらく待つと、`orphan`リソースとディレクトリが自動的に削除されます。
++
+[,console]
+----
+ # kubectl -n longhorn-system get orphans.longhorn.io -l "longhorn.io/orphan-type=replica"
+ No resources found in longhorn-system namespace.
+----
++
+孤立したレプリカディレクトリは削除されます。
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+
+ # ls /var/lib/longhorn/replicas/
+----
++
+さらに、指定されたノード上のすべての孤立したレプリカディレクトリを削除することができます。
++
+[,console]
+----
+ # kubectl -n longhorn-system delete orphan -l "longhorn.io/orphan-type=replica-instance,longhornnode=<node name>”
+----
+
+==== {longhorn-product-name} UIを介して孤立したレプリカディレクトリを管理します。
+
+. 上部のナビゲーションバーで、*設定 > 孤立データ > レプリカデータ*を選択します。
+. 表示された孤立したレプリカディレクトリのリストを確認します。これらはノードとディスクごとにグループ化されています。
+. 削除したいディレクトリについては、*操作 > 削除*を選択します。
+
+デフォルトでは、{longhorn-product-name}は孤立したレプリカディレクトリを自動的に削除しません。自動削除を有効にするには、*設定 > 孤立*に移動し、自動削除の関連オプションを設定します。
+
+=== [例外
+
+{longhorn-product-name}は、孤立したディレクトリに対して`orphan`リソースを作成しません。
+
+* 孤立したディレクトリは*孤立したレプリカディレクトリ*ではありません。
+ ** ディレクトリ名はレプリカディレクトリの命名規則に従っていません。
+ ** volume.metaファイルが見つかりません。
+* 孤立したレプリカディレクトリは、追放されたノードにあります。
+* 孤立したレプリカディレクトリは、追放されたディスクにあります。
+* 孤立したデータクリーンアップメカニズムは、古いレプリカ、別名エラーレプリカをクリーンアップしません。代わりに、古いレプリカはxref:volumes/create-volumes.adoc#_creating_longhorn_volumes_with_kubectl[staleReplicaTimeout]設定に従ってクリーンアップされます。

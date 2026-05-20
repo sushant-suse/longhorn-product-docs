@@ -1,0 +1,18 @@
+include::partial$longhorn-globals.adoc[]
+= {longhorn-product-name-tm} 概要
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:description: Kubernetes向けのクラウドネイティブな分散ブロックストレージ
+
+*{longhorn-product-name}* は、Kubernetes向けの軽量で信頼性が高く、強力な分散 https://cloudacademy.com/blog/object-storage-block-storage/[ブロックストレージ]システムです。これは、オープンソースプロジェクト https://www.cncf.io/projects/longhorn/[Longhorn]に由来しています。
+
+{longhorn-product-name} は、コンテナとマイクロサービスを使用して分散ブロックストレージを実装しています。ブロックデバイスボリュームごとに専用のストレージコントローラを作成し、複数のノードに保存されている複数のレプリカ間でボリュームを同期レプリケートします。ストレージコントローラとレプリカ自体はKubernetesを使用してオーケストレーションされます。
+
+== 機能
+
+* 単一障害点のないエンタープライズグレードの分散ブロックストレージ
+* ブロックストレージの増分スナップショット
+* 効率的な変更ブロック検出に基づいて、二次ストレージ（ https://www.extrahop.com/resources/protocols/nfs/[NFS] または https://aws.amazon.com/s3/[S3]互換のオブジェクトストレージ）へのバックアップ
+* 定期的なスナップショットとバックアップ
+* 自動化された、サービスを中断しないアップグレード。実行中のストレージボリュームを中断することなく、全体の{longhorn-product-name}ソフトウェアスタックをアップグレードできます。
+* 直感的なGUIダッシュボード

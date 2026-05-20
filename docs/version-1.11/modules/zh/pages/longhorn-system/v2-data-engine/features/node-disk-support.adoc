@@ -1,0 +1,178 @@
+= 节点磁盘支持
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/features/node-disk-support.md"]
+:current-version: {page-component-version}
+
+Longhorn 现在支持在节点上添加和管理各种磁盘类型（AIO、NVMe 和 VirtIO），增强文件系统操作、存储性能和兼容性。
+
+* 增强存储性能
++
+利用 NVMe 和 VirtIO 磁盘可以实现更快的磁盘操作，显著提高整体性能。
+
+* 文件系统兼容性
++
+使用 NVMe 或 VirtIO 驱动程序管理的磁盘提供更好的文件系统支持，包括修剪等高级操作。
+
+* 灵活性
++
+用户可以选择最适合其环境的磁盘类型：传统设置使用 AIO，高性能需求使用 NVMe，虚拟化环境使用 VirtIO。
+
+* 管理便利性
++
+自动检测磁盘驱动程序简化了磁盘的添加和管理，减少了管理开销。
+
+== 在 Longhorn 节点上配置磁盘
+
+如果 `node.spec.disks[i].diskDriver` 设置为 `auto`，Longhorn 会自动检测磁盘类型，从而优化存储性能。检测和管理如下：
+
+* NVMe 磁盘：由 spdk_tgt 使用 nvme bdev 驱动程序管理，并且 `node.status.diskStatus[i].diskDriver` 设置为 `nvme`。
+* VirtIO 磁盘：由 spdk_tgt 使用 virtio bdev 驱动程序管理，并且 `node.status.diskStatus[i].diskDriver` 设置为 `virtio-blk`。
+* 其他磁盘：由 spdk_tgt 使用 aio bdev 驱动程序管理，并且 `node.status.diskStatus[i].diskDriver` 设置为 `aio`。
+
+或者，用户可以手动将 `node.spec.disks[i].diskDriver` 设置为 `aio`，以强制使用 aio bdev 驱动程序。
+
+要支持 NVMe 和 VirtIO 磁盘，您需要找到磁盘的 BDF（总线、设备、功能），作为要添加到 Longhorn 节点的磁盘路径。以下示例介绍了配置 NVMe 磁盘、VirtIO 磁盘和其他磁盘。
+
+____
+*脚注*
+
+一旦这些磁盘由 NVMe bdev 驱动程序或 VirtIO bdev 驱动程序管理，而不是 Linux 内核驱动程序，它们将不会列在 /dev/nvmeXnY 或 /dev/vdbX 下。
+____
+
+=== 使用 NVMe 磁盘
+
+. 列出磁盘
++
+首先，通过运行以下命令识别系统上可用的 NVMe 磁盘：
++
+----
+# ls -al /sys/block/
+----
++
+示例输出：
++
+----
+lrwxrwxrwx  1 root root 0  Jul  30 12:20 loop0 -> ../devices/virtual/block/loop0
+lrwxrwxrwx  1 root root 0  Jul  30 12:20 nvme0n1 -> ../devices/pci0000:00/0000:00:01.2/0000:02:00.0/nvme/nvme0/nvme0n1
+lrwxrwxrwx  1 root root 0  Jul  30 12:20 nvme0n1 -> ../devices/pci0000:00/0000:00:01.2/0000:05:00.0/nvme/nvme1/nvme1n1
+----
+
+. 获取 NVMe 磁盘的 BDF
++
+识别 NVMe 磁盘 `/dev/nvme1n1` 的 BDF。从上面的示例中，BDF 是 `0000:05:00.0`。
+
+. 将 NVMe 磁盘添加到 `spec.disks` 的 `node.longhorn.io`
++
+----
+nvme-disk:
+  allowScheduling: true
+  diskType: block
+  diskDriver: auto
+  evictionRequested: false
+  path: 0000:05:00.0
+  storageReserved: 0
+  tags: []
+----
+
+. 检查 `status.diskStatus`。磁盘应无错误地被检测到，diskDriver 应设置为 `nvme`。
+
+____
+*注意：替代磁盘配置*
+
+如果您使用不同的路径添加磁盘，例如：
+
+----
+ nvme-disk:
+   allowScheduling: true
+   diskType: block
+   diskDriver: auto
+   evictionRequested: false
+   path: /dev/nvme1n1
+   storageReserved: 0
+   tags: []
+----
+
+在这种情况下，磁盘将由 aio bdev 驱动程序管理，`node.status.diskStatus[i].diskDriver` 设置为 `aio`。
+____
+
+=== 使用 VirtIO 磁盘
+
+步骤与 NVMe 磁盘类似。
+
+. 列出磁盘
++
+首先，通过运行以下命令识别系统上可用的 VirtIO 磁盘：
++
+----
+# ls -al /sys/block/
+----
++
+示例输出：
++
+----
+lrwxrwxrwx  1 root root 0  Jul  30 12:20 loop0 -> ../devices/virtual/block/loop0
+lrwxrwxrwx  1 root root 0 Feb 22 14:04 vda -> ../devices/pci0000:00/0000:00:02.3/0000:04:00.0/virtio2/block/vda
+lrwxrwxrwx  1 root root 0 Feb 22 14:24 vdb -> ../devices/pci0000:00/0000:00:02.6/0000:07:00.0/virtio5/block/vdb
+----
+
+. 获取 VirtIO 磁盘的 BDF
++
+识别 VirtIO 磁盘 `/dev/vdb` 的 BDF。从上面的示例中，BDF 是 `0000:07:00.0`。
+
+. 将 NVMe 磁盘添加到 `spec.disks` 的 `node.longhorn.io`
++
+----
+nvme-disk:
+  allowScheduling: true
+  diskType: block
+  diskDriver: auto
+  evictionRequested: false
+  path: 0000:07:00.0
+  storageReserved: 0
+  tags: []
+----
+
+. 检查 `status.diskStatus`。磁盘应无错误地被检测到，`diskDriver` 应设置为 `virtio-blk`。
+
+____
+*注意：替代磁盘配置*
+
+如果您使用不同的路径添加磁盘，例如：
+
+----
+ nvme-disk:
+   allowScheduling: true
+   diskType: block
+   diskDriver: auto
+   evictionRequested: false
+   path: /dev/vdb
+   storageReserved: 0
+   tags: []
+----
+
+在这种情况下，磁盘将由 aio bdev 驱动程序管理，`node.status.diskStatus[i].diskDriver` 设置为 `aio`。
+____
+
+=== 使用 AIO 磁盘
+
+当 NVMe 和 VirtIO 驱动程序都无法管理磁盘时，Longhorn 将默认使用 aio bdev 驱动程序。用户也可以手动配置此项。
+
+. 将磁盘添加到 `spec.disks` 的 `node.longhorn.io` 中。
++
+----
+ default-disk-loop:
+   allowScheduling: true
+   diskDriver: aio
+   diskType: block
+   evictionRequested: false
+   path: /dev/loop12
+   storageReserved: 0
+   tags: []
+----
+
+. 检查 node.status.diskStatus。磁盘应无错误地被检测到，并且 `node.status.diskStatus[i].diskDriver` 已设置为 `aio`。
+
+== 历史记录
+
+https://github.com/longhorn/longhorn/issues/7672[原始功能请求]

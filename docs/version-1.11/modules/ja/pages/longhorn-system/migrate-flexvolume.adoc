@@ -1,0 +1,18 @@
+= FlexvolumeドライバーからCSIに移行する
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Flexvolumeドライバーはサポートされなくなりました。FlexvolumeドライバーからCSIに移行できます。CSIは最新のアウトオブツリーKubernetesストレージインターフェースです。
+
+____
+一方のドライバーを使用して作成および使用されたボリュームは、他方のドライバーを使用するKubernetesでは認識されないことに注意してください。したがって、古いドライバーを使用して作成された既存のボリュームがある場合は、ドライバーを切り替えないでください（例：アップグレード中）。
+____
+
+Longhornアプリが最新であることを確認してください。進む前に関連するアップグレード手順に従ってください。
+
+ドライバー間の移行パスは、各ボリュームをバックアップおよび復元する必要があり、APIおよびワークロードのダウンタイムが発生します。これは面倒な処理になる可能性があります。労力を減らすために、古いドライバーを使用している重要でないワークロードを削除することを検討してください。
+
+. xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[既存のボリュームをバックアップする]。
+. Rancher UIで、`Catalog Apps`画面に移動し、`Longhorn`アプリを見つけて`Up to date`ボタンをクリックします。`Kubernetes Driver`の下で、`flexvolume`を選択します。`Flexvolume Path`は空のままにすることをお勧めします。`Upgrade`をクリックします。
+. 各ボリュームを復元します。このxref:snapshots-backups/volume-snapshots-backups/restore-volume-statefulset.adoc[手順]はStatefulSetワークロードに合わせて調整されていますが、処理はすべてのワークロードでほぼ同じです。

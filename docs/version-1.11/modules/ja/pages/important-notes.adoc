@@ -1,0 +1,172 @@
+= 重要注意事項
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+このページでは、{longhorn-product-name} v{patch-version}の重要なノートをまとめています。完全なリリースノートについては、 https://github.com/longhorn/longhorn/releases/tag/v{patch-version}[こちら]をご覧ください。
+
+== 廃止
+
+V2バックイメージは廃止されており、将来のリリースで削除される予定です。ユーザーは、コンテナ化データインポーター（CDI）を使用して、Longhornに画像をインポートすることができます。詳細については、xref:volumes/containerized-data-importer.adoc[{longhorn-product-name} CDIインポートに関する情報]をご覧ください。
+
+== 動作の変更
+
+=== 効率的なクローン作成後のボリュームの健康状態
+
+効率的なクローンが有効になっている場合、新しくクローンされた分離されたボリュームは劣化しており、レプリカは1つだけで、クローンの状態は`copy-completed-awaiting-healthy`に設定されています。ボリュームを健康な状態に戻すには、クローンの状態を`completed`に移行し、オフラインレプリカの再構築を有効にするか、ボリュームを接続してレプリカの再構築をトリガーします。 https://github.com/longhorn/longhorn/issues/12341[問題 #12341]および https://github.com/longhorn/longhorn/issues/12328[問題 #12328]を参照してください。
+
+== 重要な修正
+
+このリリースには、重大な安定性修正が含まれています。
+
+=== {longhorn-product-name} ワークロードポッドのメモリリーク
+
+プロキシ接続のリークがlonghorn-instance-managerポッドで高いメモリ消費を引き起こすという重大な回帰を修正しました。
+
+詳細については、 https://github.com/longhorn/longhorn/issues/12575[#12575]をご覧ください。
+
+=== PVノードアフィニティの回帰
+
+v1.11.0以降、CSIサーバーで`AccessibleTopology`を導入し、Longhorn StorageClassesで`allowedTopologies`を導入した後、PVノードアフィニティが過剰に設定されるという回帰を修正しました。
+
+詳細については、 https://github.com/longhorn/longhorn/issues/12689[#12689]および https://github.com/longhorn/longhorn/issues/12656[#12656]をご覧ください。
+
+== 全般
+
+=== Kubernetesのバージョン要件
+
+CSI外部スナップショッターのアップグレードがv8.2.0に伴い、{longhorn-product-name} v1.8.0またはそれ以降のバージョンにアップグレードするにはKubernetes v1.25以上を実行している必要があります。
+
+=== アップグレードチェックイベント
+
+HelmまたはRancherアプリマーケットプレイスを使用してアップグレードする際、{longhorn-product-name}はアップグレード前のチェックを実行します。チェックが失敗した場合、アップグレードは停止し、失敗の理由がイベントに記録されます。
+
+詳細については、xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Longhorn Managerのアップグレード]を参照してください。
+
+=== アップグレード前の手動チェック
+
+自動アップグレード前チェックはすべてのシナリオをカバーしていません。`kubectl`または{longhorn-product-name} UIを使用して手動チェックを行うことをお勧めします。
+
+* すべてのV2データエンジンボリュームが切り離され、レプリカが停止していることを確認してください。V2エンジンはライブアップグレードをサポートしていません。
+* ボリュームが故障している場合はアップグレードを避けてください。使用できないレプリカは削除される可能性があり、バックアップが存在しない場合は永続的なデータ損失を引き起こす可能性があります。
+* 失敗した`BackingImage`が存在する場合はアップグレードを避けてください。詳細については、xref:volumes/backing-images/backing-images.adoc[バッキングイメージ]を参照してください。
+* 回復可能性を確保するために、xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhornシステムバックアップ]を作成することをお勧めします。
+
+=== 外部APIアクセスのためのマネージャーURL
+
+{longhorn-product-name} v{patch-version}は、Longhorn Manager APIにアクセスするための外部URLの明示的な設定を可能にする`manager-url`設定を導入します。
+
+*背景*:Longhorn ManagerがIngressまたはGateway API HTTPRouteを通じてアクセスされると、APIレスポンスには`actions`および`links`フィールドに内部クラスターIP（例：`10.42.x.x:9500`）が含まれる場合があります。これは、ingressコントローラーが`X-Forwarded-*`ヘッダーを適切に設定しない場合に発生し、APIが内部ポッドIPにフォールバックする原因となります。
+
+*解決策*:`manager-url`の設定を外部URL（例：`pass:[https://longhorn.example.com]`）で構成します。マネージャーは、APIレスポンスに正しい外部URLが含まれるように、適切な転送ヘッダーを挿入します。
+
+*設定*:
+
+* *Helm経由*: `--set defaultSettings.managerUrl="https://longhorn.example.com"`
+* *kubectl経由*: `kubectl -n longhorn-system patch settings.longhorn.io manager-url --type='merge' -p '{"value":"https://longhorn.example.com"}'`
+* *UI経由*:設定 > 一般 > マネージャーURL
+
+詳細については、xref:longhorn-system/settings.adoc#_manager_url[マネージャーURL]を参照してください。
+
+=== Gateway API HTTPRouteサポート
+
+{longhorn-product-name} v{patch-version}は、 https://gateway-api.sigs.k8s.io/api-types/httproute[Gateway API HTTPRoute]のビルトインサポートを導入し、{longhorn-product-name} UIを公開するためのIngressの現代的な代替手段となります。
+
+詳細なセットアップ手順、前提条件、および高度な設定については、xref:longhorn-system/system-access/longhorn-httproute.adoc[Gateway APIでHTTPRouteを作成する]を参照してください。
+
+=== スナップショット操作の同時ジョブ制限
+
+{longhorn-product-name} v{patch-version}は、ディスクの枯渇とリソースの競合を防ぐために、*スナップショット重タスク同時制限*を導入します。この設定は、スナップショットのパージやクローンなどの同時重操作を、進行中のタスクが完了するまで追加のタスクをキューに入れることによって、ノードごとに制限します。これらのプロセスを制御することにより、システムはスナップショットのマージによって通常引き起こされるストレージの急増のリスクを低減します。
+
+さらなる詳細については、xref:longhorn-system/settings.adoc#_snapshot_heavy_task_concurrent_limit[スナップショット重タスク同時制限]および https://github.com/longhorn/longhorn/issues/11635[問題 #11635]を参照してください。
+
+== スケジューリング
+
+=== バランスアルゴリズムによるレプリカスケジューリング
+
+データの分配とリソースの利用を改善するために、{longhorn-product-name}は、計算されたバランススコアに基づいてノードとディスクにレプリカを均等にスケジュールする*バランスアルゴリズム*を導入します。
+
+詳細については、xref:nodes/scheduling.adoc[スケジューリング]を参照してください。
+
+=== トポロジーを意識したPVノードアフィニティ制御をサポート
+
+Longhorn CSIは、ストレージクラスパラメータ`allowedTopologies`と設定`csi-allowed-topology-keys`を適用し、構成可能なキーでトポロジーを正しく認識し、PV`nodeAffinity`を正確に設定します。
+
+詳細については、 https://github.com/longhorn/longhorn/issues/12261[問題 #12261]、 https://github.com/longhorn/longhorn/issues/12689[問題 #12689]、xref:nodes/topology-aware-provisioning.adoc[トポロジーを意識したプロビジョニング]、およびxref:volumes/storageclass-parameters.adoc[ストレージクラスパラメータ]を参照してください。
+
+== 監視
+
+=== ディスクヘルスモニタリング
+
+{longhorn-product-name} v1.11.0から、ディスクヘルスモニタリングはV1およびV2データエンジンの両方で利用可能です。{longhorn-product-name}はディスクヘルスデータを収集し、Prometheusメトリクスおよび`Node`カスタムリソースを通じて公開します。
+
+. *主な機能*:
+
+* 10分ごとの自動ヘルスデータ収集。
+* ディスクヘルスステータスと詳細属性がPrometheusメトリクスとして公開されます。
+* ヘルスデータは`nodes.longhorn.io`カスタムリソースで利用可能です。
+
+[NOTE]
+====
+* SMARTデータは、仮想化またはクラウド環境（例：AWS EBS）では完全に利用できない場合があります。これにより、一部の属性の値がゼロになる可能性があります。
+* 利用可能なヘルス属性は、ディスクの種類やハードウェアによって異なります。
+====
+
+詳細については、xref:observability/disk-health.adoc[ディスクヘルスモニタリング]を参照してください。
+
+== アクセスモードの安定性
+
+=== ReadWriteOncePodアクセスモード
+
+{longhorn-product-name} v{patch-version}は、状態を持つワークロードにおける厳格な単一ポッドボリュームアクセス保証の必要性に対応するために、*ReadWriteOncePod (RWOP)*アクセスモードのサポートを導入します。ReadWriteOnce (RWO)とは異なり、同じノード上の複数のポッドがボリュームをマウントすることを許可するRWOPは、クラスター全体で同時にボリュームにアクセスできるのは1つのポッドのみであることを保証します。この機能は、データベースや同時アクセスがデータの破損や整合性の問題を引き起こす可能性のある他のワークロードなど、排他的な書き込みアクセスを必要とするステートフルなアプリケーションにとって特に価値があります。
+
+詳細については、xref:volumes/create-volumes.adoc#_access_modes[アクセスモード]および https://github.com/longhorn/longhorn/issues/9727[問題 #9727]を参照してください。
+
+== 再構築
+
+=== スケールレプリカ再構築
+
+{longhorn-product-name} v1.11.0から、新しい*スケールレプリカ再構築*機能により、再構築レプリカが複数の正常なレプリカからスナップショットデータを同時に取得できるようになり、再構築パフォーマンスが向上する可能性があります。
+
+詳細については、xref:high-availability/scale-replica-rebuilding.adoc[スケールレプリカ再構築]を参照してください。
+
+=== オフラインレプリカ再構築
+
+{longhorn-product-name} v1.11.0から、*オフラインレプリカ再構築*設定はデータエンジン固有の設定からグローバル設定に更新されます。以前は、ユーザーはv1およびv2データエンジンのためにオフラインレプリカ再構築を別々に構成できました。v1.11.0へのアップグレード中に、{longhorn-product-name}は既存の構成を自動的にチェックします。v1またはv2データエンジンのいずれかに対してオフラインレプリカ再構築が有効になっている場合、新しいグローバル設定のデフォルトは`true`になります。そうでない場合は、無効のまま（`false`）です。
+
+詳細については、xref:longhorn-system/settings.adoc#offline_replica_rebuilding[オフラインレプリカ再構築設定]を参照してください。
+
+== コマンドラインツール
+
+=== サポートされていないディストリビューションのためのパッケージマネージャ検出
+
+{longhorn-product-name} v{patch-version}はLonghorn CLIのプレフライトインストールおよびチェック動作を強化します。`/etc/os-release`が既知のディストリビューションと一致しない場合、CLIはサポートされているパッケージマネージャを検出しようとし、互換モードで続行します。
+
+詳細については、 https://github.com/longhorn/longhorn/issues/12153[問題 #12153]を参照してください。
+
+== V2データエンジン
+
+=== {longhorn-product-name}システムアップグレード
+
+V2ボリュームのライブアップグレードはサポートされていません。アップグレードする前に、すべてのV2ボリュームが切り離されていることを確認してください。
+
+=== テクニカルプレビュー版
+
+V2データエンジンは*テクニカルプレビュー*機能であり、{longhorn-product-name} v1.11.0に含まれています。
+
+ほぼ完成しており、重要な機能の変更は期待されておらず、制御された環境で検証されています。ユーザーは、本番環境で有効にする前に、機能を十分に評価する必要があります。
+
+=== SPDK UBLK パフォーマンスパラメータ
+
+{longhorn-product-name} v1.11.0 から、SPDK UBLK フロントエンドは、グローバルまたはボリュームごとに構成できるパフォーマンス調整パラメータを公開します：
+
+* *キューの深さ* (`ublkQueueDepth`)：これは、UBLK フロントエンドの各 I/O キューの深さです。デフォルト値は、`128`です。
+* *キューの数* (`ublkNumberOfQueue`)：これは、UBLK フロントエンドの I/O キューの数です。デフォルト値は、`1`です。
+
+これらのパラメータは設定できます：
+
+* *グローバル*：`Default Ublk Queue Depth` および `Default Ublk Number Of Queue` 設定を介して（xref:longhorn-system/settings.adoc#_default_ublk_queue_depth[設定]を参照）。
+* *ボリュームごと*：`ublkQueueDepth` および `ublkNumberOfQueue` ボリュームパラメータを介して。
+* *ストレージクラス*：ストレージクラス定義内の `ublkQueueDepth` および `ublkNumberOfQueue` パラメータを介して。
+
+詳細については、 https://github.com/longhorn/longhorn/issues/11039[問題 #11039]を参照してください。

@@ -1,0 +1,52 @@
+= Clase de Prioridad
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+La configuración de la Clase de Prioridad se puede utilizar para establecer una mayor prioridad en las cargas de trabajo de {longhorn-product-name} en el clúster, impidiendo que sean los primeros en ser desalojados durante situaciones de presión en los nodos.
+
+Para más información sobre cómo funciona la prioridad de los pods, consulta la https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/[documentación oficial de Kubernetes].
+
+== Configurando la Clase de Prioridad
+
+{longhorn-product-name} consiste en componentes desplegados por el usuario (por ejemplo, Longhorn Manager, Longhorn Driver y {longhorn-product-name} UI) y componentes gestionados por el sistema (por ejemplo, Instance Manager, CSI Driver e imágenes de Engine).
+Debes establecer la Clase de Prioridad para ambos tipos de componentes. Consulta más detalles a continuación.
+
+[discrete]
+=== Configurando la Clase de Prioridad durante la instalación de {longhorn-product-name}
+
+{longhorn-product-name} crea una Clase de Prioridad `longhorn-critical` y la establece como predeterminada para sus componentes desplegados por el usuario o gestionados por el sistema si no se realizan las siguientes acciones.
+
+. Establece la Clase de Prioridad de taint para componentes gestionados por el sistema: sigue xref:longhorn-system/customize-default-settings.adoc[Personalizar configuración predeterminada] para establecer la Clase de Prioridad cambiando el valor de la configuración predeterminada `priority-class`.
+. Establecer la Clase de Prioridad de taint para componentes desplegados por el usuario: modifica el gráfico de Helm o el archivo YAML de despliegue dependiendo de cómo despliegues {longhorn-product-name}.
+
+WARNING: {longhorn-product-name} no se iniciará si la configuración de la Clase de Prioridad es inválida (como si la Clase de Prioridad no existe).
+Puedes ver si este es el caso comprobando el estado del DaemonSet de Longhorn Manager con `kubectl -n longhorn-system describe daemonset.apps/longhorn-manager`.
+Necesitarás desinstalar {longhorn-product-name} y reiniciar la instalación si este es el caso.
+
+[discrete]
+=== Configurando la Clase de Prioridad después de la instalación de {longhorn-product-name}
+
+. Establecer la Clase de Prioridad de taint para componentes gestionados por el sistema: La configuración de la Clase de Prioridad se puede encontrar en la {longhorn-product-name} UI haciendo clic en menu:Ajustes[Clase de Prioridad].
+. Establecer la Clase de Prioridad de taint para componentes desplegados por el usuario: modifica el gráfico de Helm o el archivo YAML de despliegue dependiendo de cómo despliegues {longhorn-product-name}.
+
+Los usuarios pueden actualizar o eliminar la Clase de Prioridad aquí, pero ten en cuenta que esto resultará en la recreación de todos los {longhorn-product-name} componentes del sistema.
+La configuración de la Clase de Prioridad rechazará valores que parezcan ser Clases de Prioridad inválidas.
+
+== Uso
+
+Para asegurar que la configuración de la Clase de Prioridad preferida se aplique de inmediato, detén todas las cargas de trabajo y desacopla todos los volúmenes de Longhorn antes de configurar los ajustes.
+
+{longhorn-product-name} se vuelve temporalmente no disponible cuando se reinician todos los componentes.
+No operes el sistema Longhorn después de modificar la configuración de la Clase de Prioridad, ya que los componentes de Longhorn estarán reiniciándose.
+
+Cuando todos los volúmenes de Longhorn estén desacoplados, la configuración personalizada se aplicará de inmediato a los componentes gestionados por el sistema.
+Cuando uno o más volúmenes de Longhorn estén aún acoplados, la configuración personalizada se aplicará al Gestor de Instancias solo cuando no haya motores ni instancias de réplica en funcionamiento. Debes reconfigurar los ajustes después de desacoplar los volúmenes restantes. Alternativamente, puedes esperar a la próxima sincronización de configuración, que ocurrirá en una hora.
+
+No elimines la Clase de Prioridad en uso por {longhorn-product-name}, ya que esto puede causar que nuevas cargas de trabajo {longhorn-product-name} no se inicien correctamente.
+
+== Historial
+
+https://github.com/longhorn/longhorn/issues/1487[Solicitud de Función Original]

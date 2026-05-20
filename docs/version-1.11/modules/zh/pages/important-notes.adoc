@@ -1,0 +1,172 @@
+= 重要注意事项
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+本页面总结了 {longhorn-product-name} v{patch-version} 的关键说明。请参见 https://github.com/longhorn/longhorn/releases/tag/v{patch-version}[此处] 以获取完整的发布说明。
+
+== 弃用
+
+V2 后备镜像已弃用，并将在未来的版本中移除。用户可以使用容器化数据导入器 (CDI) 将镜像导入 Longhorn 作为替代方案。有关更多信息，请参见 xref:volumes/containerized-data-importer.adoc[{longhorn-product-name} 使用 CDI 导入]。
+
+== 行为变化
+
+=== 高效克隆后的克隆卷健康状态
+
+启用高效克隆后，新克隆并分离的卷处于降级状态，只有一个副本，其克隆状态设置为 `copy-completed-awaiting-healthy`。要将卷恢复到健康状态，请将克隆状态转换为 `completed`，并通过启用离线副本重建或将卷附加以触发副本重建来重建剩余副本。请参见 https://github.com/longhorn/longhorn/issues/12341[问题 #12341] 和 https://github.com/longhorn/longhorn/issues/12328[问题 #12328]。
+
+== 重要修复
+
+此版本包括关键的稳定性修复。
+
+=== {longhorn-product-name} 工作负载 Pod 内存泄漏
+
+修复了一个关键回归问题，即 longhorn-instance-manager Pod 中的代理连接泄漏导致高内存消耗。
+
+有关更多细节，请参见 https://github.com/longhorn/longhorn/issues/12575[#12575]。
+
+=== PV nodeAffinity 回归
+
+修复了一个回归问题，即在 v1.11.0 中引入 `AccessibleTopology` 到 CSI 服务器和 `allowedTopologies` 到 Longhorn 存储类后，PV nodeAffinity 配置过度。
+
+有关更多细节，请参见 https://github.com/longhorn/longhorn/issues/12689[#12689] 和 https://github.com/longhorn/longhorn/issues/12656[#12656]。
+
+== 通用
+
+=== Kubernetes 版本要求
+
+由于CSI外部快照程序升级到v8.2.0，您必须运行Kubernetes v1.25或更高版本才能升级到{longhorn-product-name} v1.8.0或更新版本。
+
+=== 升级检查事件
+
+当您使用Helm或Rancher应用市场进行升级时，{longhorn-product-name}会执行升级前检查。如果检查失败，升级将停止，失败原因将记录在事件中。
+
+有关更多详细信息，请参见xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[升级Longhorn管理器]。
+
+=== 升级前的手动检查
+
+自动化的升级前检查并不涵盖所有场景。建议使用`kubectl`或{longhorn-product-name} UI进行手动检查。
+
+* 确保所有V2数据引擎卷已分离且副本已停止。V2引擎不支持在线升级。
+* 避免在卷出现故障时进行升级。不可用的副本可能会被删除，如果没有备份，将导致永久数据丢失。
+* 如果存在失败的`BackingImage`，请避免升级。有关更多信息，请参见xref:volumes/backing-images/backing-images.adoc[后备镜像]以获取详细信息。
+* 建议在升级前创建xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn 系统备份]，以确保可恢复性。
+
+=== 外部API访问的Longhorn Manager URL
+
+{longhorn-product-name} v{patch-version}引入了`manager-url`设置，允许显式配置访问Longhorn Manager API的外部URL。
+
+*背景*:当通过Ingress或网关 API HTTPRoute访问Longhorn Manager时，API响应可能在`actions`和`links`字段中包含内部集群IP（例如，`10.42.x.x:9500`）。当Ingress控制器未正确设置`X-Forwarded-*`头时，会发生这种情况，导致API回退到内部pod IP。
+
+*解决方案*：使用您的外部 URL（例如，`pass:[https://longhorn.example.com]`）配置 `manager-url` 设置。管理器注入适当的转发头，以确保 API 响应包含正确的外部 URL。
+
+*配置*：
+
+* *通过 Helm*：`--set defaultSettings.managerUrl="https://longhorn.example.com"`
+* *通过 kubectl*：`kubectl -n longhorn-system patch settings.longhorn.io manager-url --type='merge' -p '{"value":"https://longhorn.example.com"}'`
+* *通过 UI*：设置 > 常规 > Longhorn Manager URL
+
+有关更多详细信息，请参见 xref:longhorn-system/settings.adoc#_manager_url[Longhorn Manager URL]。
+
+=== 网关 API HTTPRoute 支持
+
+{longhorn-product-name} v{patch-version} 引入了对 https://gateway-api.sigs.k8s.io/api-types/httproute[网关 API HTTPRoute] 的内置支持，作为暴露 {longhorn-product-name} UI 的现代替代方案。
+
+有关详细的设置说明、先决条件和高级配置，请参见 xref:longhorn-system/system-access/longhorn-httproute.adoc[使用网关 API 创建 HTTPRoute]。
+
+=== 快照操作的并发作业限制
+
+{longhorn-product-name} v{patch-version} 引入了 *快照重任务并发限制*，以防止磁盘耗尽和资源争用。此设置限制每个节点的并发重操作——例如快照清除和克隆——通过排队额外任务，直到正在进行的任务完成。通过控制这些过程，系统降低了通常由快照合并引发的存储峰值风险。
+
+有关更多详细信息，请参见 xref:longhorn-system/settings.adoc#_snapshot_heavy_task_concurrent_limit[快照重任务并发限制] 和 https://github.com/longhorn/longhorn/issues/11635[问题 #11635]。
+
+== 安排日程
+
+=== 使用平衡算法进行副本调度
+
+为了改善数据分布和资源利用率，{longhorn-product-name} 引入了一种 *平衡算法*，根据计算的平衡分数在节点和磁盘之间均匀调度副本。
+
+有关更多信息，请参见 xref:nodes/scheduling.adoc[调度]。
+
+=== 支持拓扑感知的PV节点亲和性控制
+
+Longhorn CSI现在应用StorageClass参数`allowedTopologies`和设置`csi-allowed-topology-keys`，能够正确感知拓扑并通过可配置的键精确设置PV `nodeAffinity`。
+
+有关更多信息，请参见 https://github.com/longhorn/longhorn/issues/12261[问题 #12261]， https://github.com/longhorn/longhorn/issues/12689[问题 #12689]，xref:nodes/topology-aware-provisioning.adoc[拓扑感知的供应]和xref:volumes/storageclass-parameters.adoc[存储类参数]。
+
+== 监控
+
+=== 磁盘健康监控
+
+从{longhorn-product-name} v1.11.0开始，磁盘健康监控可用于V1和V2数据引擎。{longhorn-product-name}收集磁盘健康数据，并通过Prometheus指标和`Node`自定义资源进行暴露。
+
+. *主要功能*：
+
+* 每10分钟自动收集健康数据。
+* 磁盘健康状态和详细属性以Prometheus指标的形式暴露。
+* 健康数据可在`nodes.longhorn.io`自定义资源中获得。
+
+[NOTE]
+====
+* 在虚拟化或云环境中（例如，AWS EBS），SMART数据可能无法完全获取。这可能导致某些属性的值为零。
+* 可用的健康属性因磁盘类型和硬件而异。
+====
+
+有关更多信息，请参见xref:observability/disk-health.adoc[磁盘健康监控]。
+
+== 访问模式稳定性
+
+=== ReadWriteOncePod访问模式
+
+{longhorn-product-name} v{patch-version}引入了对*ReadWriteOncePod (RWOP)*访问模式的支持，满足了在有状态工作负载中对更严格的单Pod卷访问保证的需求。与允许同一节点上的多个Pod挂载卷的ReadWriteOnce (RWO)不同，RWOP确保在任何给定时间，整个集群中只有一个Pod可以访问该卷。此功能对于需要独占写访问的有状态应用程序特别有价值，例如数据库或其他工作负载，其中并发访问可能导致数据损坏或一致性问题。
+
+有关更多信息，请参见xref:volumes/create-volumes.adoc#_access_modes[访问模式]和 https://github.com/longhorn/longhorn/issues/9727[问题 #9727]。
+
+== 重建
+
+=== 缩放副本重建
+
+从 {longhorn-product-name} v1.11.0 开始，新的 *缩放副本重建* 功能允许重建副本同时从多个健康副本获取快照数据，从而可能提高重建性能。
+
+有关更多信息，请参见 xref:high-availability/scale-replica-rebuilding.adoc[缩放副本重建]。
+
+=== 离线副本重建
+
+从 {longhorn-product-name} v1.11.0 开始，*离线副本重建* 设置从特定于数据引擎的设置更新为全局设置。之前，用户可以为 v1 和 v2 数据引擎单独配置离线副本重建。在升级到 v1.11.0 期间，{longhorn-product-name} 会自动检查现有配置。如果 v1 或 v2 数据引擎启用了离线副本重建，则新的全局设置默认为 `true`。否则，它将保持禁用状态 (`false`)。
+
+有关更多信息，请参见 xref:longhorn-system/settings.adoc#offline_replica_rebuilding[离线副本重建设置]。
+
+== 命令行工具
+
+=== 不支持的发行版的包管理器检测
+
+{longhorn-product-name} v{patch-version} 增强了 Longhorn CLI 的预检安装和检查行为。当 `/etc/os-release` 与已知发行版不匹配时，CLI 会尝试检测受支持的包管理器，并以兼容模式继续。
+
+有关更多信息，请参见 https://github.com/longhorn/longhorn/issues/12153[问题 #12153]。
+
+== V2 数据引擎
+
+=== {longhorn-product-name} 系统升级
+
+不支持 V2 卷的实时升级。在升级之前，请确保所有 V2 卷已分离。
+
+=== 技术预览
+
+V2 数据引擎是 *技术预览* 功能，在 {longhorn-product-name} v1.11.0 中。
+
+它几乎已完成，预计不会有重大功能变化，并已在受控环境中验证。用户在生产环境中启用此功能之前，应彻底评估该功能。
+
+=== SPDK UBLK 性能参数
+
+从 {longhorn-product-name} v1.11.0 开始，SPDK UBLK 前端公开了可以全局或按卷配置的性能调优参数：
+
+* *队列深度* (`ublkQueueDepth`)：这是 UBLK 前端每个 I/O 队列的深度。默认值为 `128`。
+* *队列数量* (`ublkNumberOfQueue`)：这是 UBLK 前端的 I/O 队列数量。默认值为 `1`。
+
+这些参数可以配置：
+
+* *全局*：通过 `Default Ublk Queue Depth` 和 `Default Ublk Number Of Queue` 设置（请参见 xref:longhorn-system/settings.adoc#_default_ublk_queue_depth[设置]）。
+* *按卷*：通过 `ublkQueueDepth` 和 `ublkNumberOfQueue` 卷参数。
+* *存储类*：通过存储类定义中的 `ublkQueueDepth` 和 `ublkNumberOfQueue` 参数。
+
+有关更多信息，请参见 https://github.com/longhorn/longhorn/issues/11039[问题 #11039]。

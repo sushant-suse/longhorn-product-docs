@@ -1,0 +1,22 @@
+= Excluir Volumes
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Uma vez que você tenha terminado de utilizar um volume Longhorn para armazenamento, existem várias maneiras de excluir o volume, dependendo de como você usou o volume.
+
+== Excluindo Volumes Através do Kubernetes
+
+NOTE: Este método só funciona se o volume foi provisionado por uma StorageClass e o PersistentVolume para o volume Longhorn tem sua Política de Reivindicação definida como Excluir.
+
+Você pode excluir um volume através do Kubernetes excluindo o PersistentVolumeClaim que utiliza o volume Longhorn provisionado. Isso fará com que o Kubernetes limpe o PersistentVolume e, em seguida, exclua o volume no Longhorn.
+
+== Excluindo Volumes Através do Longhorn
+
+Todos os volumes Longhorn, independentemente de como foram criados, podem ser excluídos através da interface do Longhorn.
+
+Para excluir um único volume, vá para a página de Volumes na interface. No menu suspenso Operação, selecione Excluir. Você será solicitado a confirmar antes de excluir o volume.
+
+Para excluir vários volumes ao mesmo tempo, você pode marcar vários volumes na página de Volumes e selecionar Excluir no topo.
+
+NOTE: Se o Longhorn detectar que um volume está vinculado a um PersistentVolume ou PersistentVolumeClaim, esses recursos também serão excluídos assim que você excluir o volume. Você será avisado na interface sobre isso antes de prosseguir com a exclusão. O Longhorn também irá avisá-lo ao excluir um volume anexado, pois ele pode estar em uso.

@@ -1,0 +1,78 @@
+= アンインストール
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+
+== 前提条件
+
+{longhorn-product-name}が誤ってアンインストールされるのを防ぐために（データが失われることにつながります）、新しい設定xref:longhorn-system/settings.adoc#_deleting_confirmation_flag[deleting-confirmation-flag]があります。このフラグが`false`の場合、アンインストール作業は失敗します。このフラグを`true`に設定して、アンインストールを許可してください。このフラグは、{longhorn-product-name}のUIまたは`kubectl -n longhorn-system patch -p '{"value": "true"}' --type=merge lhs deleting-confirmation-flag`の設定ページを使用して設定できます。
+
+Kubernetesクラスターへの損害を防ぐために、{longhorn-product-name}ボリューム（PersistentVolume、PersistentVolumeClaim、StorageClass、デプロイメント、StatefulSet、DaemonSetなど）を使用しているすべてのKubernetesワークロードを削除することをお勧めします。
+
+== {longhorn-product-name}を完全に削除する
+
+Kubernetesクラスターから{longhorn-product-name}のデプロイメントを完全に削除するには、`helm uninstall`コマンドを使用してください。
+
+[,shell]
+----
+helm uninstall longhorn --namespace longhorn-system
+----
+
+== Rancher UIから{longhorn-product-name}をアンインストールする
+
+Rancher UIから、`Catalog Apps`タブに移動し、{longhorn-product-name}アプリを削除します。
+
+== Helmを使用して{longhorn-product-name}をアンインストールする
+
+次のコマンドを実行します。
+
+[,shell]
+----
+helm uninstall longhorn -n longhorn-system
+----
+
+== Helmコントローラーを使用して{longhorn-product-name}をアンインストールする
+
+次のコマンドを実行します。
+
+[,shell]
+----
+kubectl delete helmchart <HelmChart name> -n <HelmChart namespace>
+----
+
+== Helmコントローラーを使用して{longhorn-product-name}をアンインストールする
+
+次のコマンドを実行します。
+
+[,shell]
+----
+kubectl delete helmchart <HelmChart name> -n <HelmChart namespace>
+----
+
+== Fleetを使用して{longhorn-product-name}をアンインストールする
+
+次のコマンドを実行します。
+
+[,shell]
+----
+kubectl delete GitRepo longhorn -n fleet-local
+----
+
+`longhorn-uninstall`のジョブが完了したら、次のコマンドを実行してください：
+
+[subs="+attributes",shell]
+----
+kubectl delete -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml
+----
+
+== Fluxを使用して{longhorn-product-name}をアンインストールする
+
+次のコマンドを実行します。
+
+[,shell]
+----
+flux delete helmrelease longhorn-release -n longhorn-system
+----
+
+== Argo CDを使用して{longhorn-product-name}をアンインストールする
+
+Argo CDは現在、PreDeleteリソースフックをサポートしていません。`argocd app delete longhorn`を直接実行するのではなく、{longhorn-product-name}を`kubectl`を使用してアンインストールして、`longhorn-system`ネームスペースに残るダングリングリソースを防ぐ必要があります。

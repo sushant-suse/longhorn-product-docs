@@ -1,0 +1,12 @@
+= 系统访问
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 访问和身份验证的先决条件
+
+这些说明假设已安装{longhorn-product-name}。
+
+如果您安装了{longhorn-product-name} YAML清单，则需要设置Ingress控制器以允许外部流量进入集群，并且默认情况下不会启用身份验证。这适用于Helm和kubectl安装。有关使用基本身份验证创建NGINX Ingress控制器的信息，请参阅xref:longhorn-system/system-access/create-ingress.adoc[本节]。或者，您可以使用xref:longhorn-system/system-access/longhorn-httproute.adoc[Gateway API HTTPRoute]作为一种现代方法来暴露{longhorn-product-name} UI。
+
+如果您以Rancher目录APP形式安装了{longhorn-product-name}，Rancher会自动为您创建一个带有访问控制的Ingress控制器（rancher-代理）。

@@ -1,0 +1,67 @@
+= Restaura el SUSE® Storage System en un nuevo clúster utilizando Velero
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Puedes restaurar cargas de trabajo con el sistema Longhorn a un nuevo clúster a través de Velero.
+
+[NOTE]
+====
+Necesitas usar https://github.com/vmware-tanzu/velero-plugin-for-csi[el plugin CSI de Velero] ≥ 0.4 para asegurar la restauración exitosa de PersistentVolumeClaim. Visita https://longhorn.io/kb/troubleshooting-restore-pvc-stuck-using-velero-csi-plugin-version-lower-than-0.4/[Solución de problemas: Velero restaura PVC de Longhorn atascado en estado Pendiente al usar la versión del plugin CSI de Velero anterior a v0.4.0] para obtener más información.
+====
+
+== Premisas:
+
+* Un nuevo clúster significa que no hay *datos de volumen Longhorn* en él.
+* Hay un destino de copia de seguridad remoto que contiene todos los datos de volumen Longhorn.
+* Hay un servidor de copia de seguridad remoto que puede almacenar las copias de seguridad del clúster creadas por Velero.
+
+== Expectativa:
+
+* Se restaurarán todas las configuraciones. Pero las configuraciones de nodo y disco no se aplicarán.
+* Todas las cargas de trabajo que utilizan volúmenes Longhorn se iniciarán después de que los volúmenes sean restaurados desde el destino de copia de seguridad remoto.
+
+== Flujo de trabajo
+
+=== Crea una copia de seguridad para el clúster antiguo
+
+. Instala Velero en un clúster utilizando Longhorn.
+. Crea copias de seguridad para todos los volúmenes Longhorn.
+. Usa Velero para crear una copia de seguridad del clúster. Aquí, algunos recursos de Longhorn deben ser excluidos de la copia de seguridad del clúster:
++
+[subs="+attributes",bash]
+----
+ velero backup create lh-cluster --exclude-resources persistentvolumes,persistentvolumeclaims,backuptargets.longhorn.io,backupvolumes.longhorn.io,backups.longhorn.io,nodes.longhorn.io,volumes.longhorn.io,engines.longhorn.io,replicas.longhorn.io,backingimagedatasources.longhorn.io,backingimagemanagers.longhorn.io,backingimages.longhorn.io,sharemanagers.longhorn.io,instancemanagers.longhorn.io,engineimages.longhorn.io
+----
++
+=== Restaura Longhorn y las cargas de trabajo a un nuevo clúster
+
+. Instala Velero con el mismo servidor de copia de seguridad remoto para el nuevo clúster.
+. Restaura la copia de seguridad del clúster. p. ej.
++
+[subs="+attributes",bash]
+----
+ velero restore create --from-backup lh-cluster
+----
+
+. Eliminando todos los pods antiguos del gestor de instancias y los pods del gestor de imágenes de respaldo del espacio de nombres `longhorn-system`. Estos pods antiguos deberían ser creados por Longhorn en lugar de Velero y debería haber CRs correspondientes para ellos. Los pods son inofensivos, pero provocarían que se imprimieran registros interminables en los pods de Longhorn Manager. Por ejemplo:
++
+[subs="+attributes",log]
+----
+ [longhorn-manager-q6n7x] time="2021-12-20T10:42:49Z" level=warning msg="Can't find instance manager for pod instance-manager-r-1f19ecb0, may be deleted"
+ [longhorn-manager-q6n7x] time="2021-12-20T10:42:49Z" level=warning msg="Can't find instance manager for pod instance-manager-e-6c3be222, may be deleted"
+ [longhorn-manager-ldlvw] time="2021-12-20T10:42:55Z" level=warning msg="Can't find instance manager for pod instance-manager-e-bbf80f76, may be deleted"
+ [longhorn-manager-ldlvw] time="2021-12-20T10:42:55Z" level=warning msg="Can't find instance manager for pod instance-manager-r-3818fdca, may be deleted"
+----
+
+. Reconfigurar nodos y discos para el sistema de Longhorn restaurado si es necesario.
+. Recrear imágenes de respaldo si es necesario.
+. Restaurar todos los volúmenes de Longhorn desde el destino de copia de seguridad remoto.
+. Si hay volúmenes de respaldo RWX, los usuarios necesitan actualizar manualmente el modo de acceso a `ReadWriteMany` ya que todos los volúmenes restaurados son del modo `ReadWriteOnce` por defecto.
+. Crear PVCs y PVs con los nombres anteriores para los volúmenes restaurados.
+
+NOTE: Mejoraremos el sistema de Longhorn para que los usuarios no necesiten aplicar el paso 3 y el paso 8 en el futuro.
+
+== Referencias
+
+* El problema relacionado en GitHub es https://github.com/longhorn/longhorn/issues/3367

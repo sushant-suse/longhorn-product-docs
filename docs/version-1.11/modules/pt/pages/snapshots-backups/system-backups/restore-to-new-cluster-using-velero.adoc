@@ -1,0 +1,67 @@
+= Restaure o sistema SUSE® Storage em um novo cluster usando Velero.
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Você pode restaurar cargas de trabalho com o sistema Longhorn para um novo cluster via Velero.
+
+[NOTE]
+====
+É necessário usar https://github.com/vmware-tanzu/velero-plugin-for-csi[o plugin Velero CSI] ≥ 0.4 para garantir a restauração bem-sucedida do PersistentVolumeClaim. Visite https://longhorn.io/kb/troubleshooting-restore-pvc-stuck-using-velero-csi-plugin-version-lower-than-0.4/[Solução de Problemas: Velero restaura PVC do Longhorn preso no estado Pendente ao usar a versão do plugin Velero CSI anterior à v0.4.0] para obter mais informações.
+====
+
+== Suposições:
+
+* Um novo cluster significa que não há *dados de volume Longhorn* nele.
+* Há um destino de backup remoto que armazena todos os dados de volume Longhorn.
+* Há um servidor de backup remoto que pode armazenar os backups do cluster criados pelo Velero.
+
+== Expectativa:
+
+* Todas as configurações serão restauradas. Mas as configurações de nó e disco não serão aplicadas.
+* Todas as cargas de trabalho que usam volumes Longhorn serão iniciadas após os volumes serem restaurados do destino de backup remoto.
+
+== Fluxo de trabalho
+
+=== Crie um backup para o cluster antigo
+
+. Instale o Velero em um cluster usando Longhorn.
+. Crie backups para todos os volumes Longhorn.
+. Use o Velero para criar um backup do cluster. Aqui, alguns recursos do Longhorn devem ser excluídos do backup do cluster:
++
+[subs="+attributes",bash]
+----
+ velero backup create lh-cluster --exclude-resources persistentvolumes,persistentvolumeclaims,backuptargets.longhorn.io,backupvolumes.longhorn.io,backups.longhorn.io,nodes.longhorn.io,volumes.longhorn.io,engines.longhorn.io,replicas.longhorn.io,backingimagedatasources.longhorn.io,backingimagemanagers.longhorn.io,backingimages.longhorn.io,sharemanagers.longhorn.io,instancemanagers.longhorn.io,engineimages.longhorn.io
+----
++
+=== Restaure Longhorn e cargas de trabalho para um novo cluster
+
+. Instale o Velero com o mesmo servidor de backup remoto para o novo cluster.
+. Restaure o backup do cluster, por exemplo:
++
+[subs="+attributes",bash]
+----
+ velero restore create --from-backup lh-cluster
+----
+
+. Removendo todos os pods antigos do gerenciador de instâncias e os pods do gerenciador de imagens de backing do namespace `longhorn-system`. Esses pods antigos devem ser criados pelo Longhorn em vez do Velero e deve haver CRs correspondentes para eles. Os pods são inofensivos, mas levariam a logs intermináveis impressos nos pods longhorn-manager. Por exemplo:
++
+[subs="+attributes",log]
+----
+ [longhorn-manager-q6n7x] time="2021-12-20T10:42:49Z" level=warning msg="Can't find instance manager for pod instance-manager-r-1f19ecb0, may be deleted"
+ [longhorn-manager-q6n7x] time="2021-12-20T10:42:49Z" level=warning msg="Can't find instance manager for pod instance-manager-e-6c3be222, may be deleted"
+ [longhorn-manager-ldlvw] time="2021-12-20T10:42:55Z" level=warning msg="Can't find instance manager for pod instance-manager-e-bbf80f76, may be deleted"
+ [longhorn-manager-ldlvw] time="2021-12-20T10:42:55Z" level=warning msg="Can't find instance manager for pod instance-manager-r-3818fdca, may be deleted"
+----
+
+. Reconfigure os nós e discos para o sistema Longhorn restaurado, se necessário.
+. Recrie as imagens de backing, se necessário.
+. Restaure todos os volumes Longhorn a partir do destino de backup remoto.
+. Se houver volumes de backup RWX, os usuários precisam atualizar manualmente o modo de acesso para `ReadWriteMany`, uma vez que todos os volumes restaurados são do modo `ReadWriteOnce` por padrão.
+. Crie PVCs e PVs com os nomes anteriores para os volumes restaurados.
+
+NOTE: Vamos aprimorar o sistema Longhorn para que os usuários não precisem aplicar o passo 3 e o passo 8 no futuro.
+
+== Referências
+
+* A questão relacionada no GitHub é https://github.com/longhorn/longhorn/issues/3367

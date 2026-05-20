@@ -1,0 +1,16 @@
+= Google Kubernetes Engine (GKE)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Google Kubernetes Engineでプロビジョニングされたクラスターで{longhorn-product-name}を操作するには、追加の設定が必要です。
+
+. GKEクラスターは、`Ubuntu`の`Container-Optimized`依存関係を満たすために、{longhorn-product-name} OSの代わりに`open-iscsi` OSを使用する必要があります。
+. GKEでは、ユーザーが手動で自分をクラスター管理者として主張し、ロールベースのアクセス制御を有効にする必要があります。{longhorn-product-name}をインストールする前に、次のコマンドを実行してください。
++
+[subs="+attributes",shell]
+----
+ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=<name@example.com>
+----
++
+ここで、`name@example.com`はGCEにおけるユーザーのアカウント名です。 大文字と小文字が区別されています。詳細については、 https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control[この文書]を参照してください。

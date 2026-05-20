@@ -1,0 +1,61 @@
+= Actualiza la versión de Kubernetes en Azure Kubernetes Service (AKS)
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+AKS proporciona `az aks upgrade` para la actualización in situ de los nodos mediante la reimagen de los mismos, pero esto provocará que falten los discos originales {longhorn-product-name}, por lo que ya no habrá discos que permitan la reconstrucción de las réplicas en los nodos actualizados.
+
+Sugerimos utilizar el reemplazo del grupo de nodos para actualizar la versión de los nodos de agente, pero utilizar `az aks upgrade` para los nodos del plano de control para garantizar la seguridad de los datos.
+
+. En {longhorn-product-name}, establece `replica-replenishment-wait-interval` en `0`.
+. Actualiza la versión del plano de control de AKS.
++
+----
+ AKS_RESOURCE_GROUP=<aks-resource-group>
+ AKS_CLUSTER_NAME=<aks-cluster-name>
+ AKS_K8S_VERSION_UPGRADE=<aks-k8s-version>
+
+ az aks upgrade \
+     --resource-group ${AKS_RESOURCE_GROUP} \
+     --name ${AKS_CLUSTER_NAME} \
+     --kubernetes-version ${AKS_K8S_VERSION_UPGRADE} \
+     --control-plane-only
+----
+
+. Añade un nuevo grupo de nodos.
++
+----
+ AKS_NODEPOOL_NAME_NEW=<new-nodepool-name>
+ AKS_DISK_SIZE=<disk-size-in-gb>
+ AKS_NODE_NUM=<number-of-nodes>
+
+ az aks nodepool add \
+   --resource-group ${AKS_RESOURCE_GROUP} \
+   --cluster-name ${AKS_CLUSTER_NAME} \
+   --name ${AKS_NODEPOOL_NAME_NEW} \
+   --node-count ${AKS_NODE_NUM} \
+   --node-osdisk-size ${AKS_DISK_SIZE} \
+   --kubernetes-version ${AKS_K8S_VERSION_UPGRADE} \
+   --mode System
+----
+
+. Usando la interfaz de usuario de {longhorn-product-name} para desactivar la planificación de discos y solicitar la evacuación de los nodos en el antiguo grupo de nodos.
+. Cordon y drena los nodos de Kubernetes en el antiguo grupo de nodos.
++
+----
+ AKS_NODEPOOL_NAME_OLD=<old-nodepool-name>
+
+ for n in `kubectl get nodes | grep ${AKS_NODEPOOL_NAME_OLD}- | awk '{print $1}'`; do
+   kubectl cordon $n && \
+   kubectl drain $n --ignore-daemonsets --delete-emptydir-data
+ done
+----
+
+. Elimina el antiguo grupo de nodos.
++
+----
+ az aks nodepool delete \
+   --cluster-name ${AKS_CLUSTER_NAME} \
+   --name ${AKS_NODEPOOL_NAME_OLD} \
+   --resource-group ${AKS_RESOURCE_GROUP}
+----

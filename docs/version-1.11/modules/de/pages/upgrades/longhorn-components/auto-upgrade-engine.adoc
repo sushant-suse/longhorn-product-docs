@@ -1,0 +1,43 @@
+= Automatisches Upgrade des Longhorn Engine
+:revdate: 2026-01-08
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} ermöglicht es Ihnen, Longhorn-Volumes nach dem Upgrade des Longhorn Managers automatisch auf die neue Standard-Engine-Version zu upgraden. Diese Funktion reduziert den manuellen Aufwand, den Sie beim Upgrade von {longhorn-product-name} haben. Es gibt einige Konzepte, die mit dieser Funktion verbunden sind, wie unten aufgeführt:
+
+== 1. Einstellung des Limits für gleichzeitige automatische Engine-Upgrades pro Knoten
+
+Dies ist eine Einstellung, die steuert, wie {longhorn-product-name} die Engines der Volumes nach dem Upgrade des Longhorn Managers automatisch auf das neue Standard-Engine-Image upgraden. Der Wert dieser Einstellung gibt die maximale Anzahl von Engines pro Knoten an, die gleichzeitig auf das Standard-Engine-Image upgraden dürfen.
+
+Wenn der Wert 0 ist, wird {longhorn-product-name} die Engines der Volumes nicht automatisch auf die Standardversion upgraden. Je größer dieser Wert ist, desto schneller wird der Engine-Upgrade-Prozess abgeschlossen.
+
+Ein größerer Wert für diese Einstellung verbraucht jedoch mehr CPU und Speicher des Knotens während des Engine-Upgrade-Prozesses. Wir empfehlen, den Wert auf 3 zu setzen, um etwas Spielraum für Fehler zu lassen, aber das System nicht mit zu vielen fehlgeschlagenen Upgrades zu überlasten.
+
+== 2. Das Verhalten von {longhorn-product-name} bei unterschiedlichen Volumenbedingungen.
+
+In den folgenden Fällen gehen wir davon aus, dass die `concurrent automatic engine upgrade per node limit`-Einstellung größer als 0 ist.
+
+. Angefügte Volumes
++
+Wenn das Volume im angefügten Zustand und gesund ist, wird {longhorn-product-name} automatisch ein Live-Upgrade für die Engine des Volumes auf das neue Standard-Engine-Image upgraden.
+
+. Getrennte Volumes
++
+{longhorn-product-name} führt automatisch ein Offline-Upgrade für das getrennte Volume durch.
+
+. Disaster Recovery-Volumes
++
+{longhorn-product-name} upgradet xref:data-integrity-recovery/disaster-recovery-volumes.adoc[Disaster Recovery-Volumes] nicht automatisch auf das neue Standard-Engine-Image, da dies eine vollständige Wiederherstellung der Disaster Recovery-Volumes auslösen würde. Die vollständige Wiederherstellung könnte die Leistung anderer laufender Longhorn-Volumes im System beeinträchtigen. So überlässt es Ihnen, zu entscheiden, wann der richtige Zeitpunkt ist, um die Engine für die Disaster Recovery-Volumes manuell zu upgraden (zum Beispiel, wenn das System inaktiv ist oder während der Wartungszeit).
++
+Wenn Sie jedoch das Disaster Recovery-Volume aktivieren, wird es aktiviert und dann getrennt.
+Zu diesem Zeitpunkt wird {longhorn-product-name} automatisch ein Offline-Upgrade für das Volume durchführen, ähnlich wie im Fall des getrennten Volumes.
+
+== 3. Was passiert, wenn das Upgrade fehlschlägt?
+
+Wenn ein Volume nicht in der Lage ist, seine Engine zu upgraden, bleibt das Engine-Image in der Spezifikation des Volumes anders als das Engine-Image im Status des Volumes. {longhorn-product-name} wird kontinuierlich versuchen, das Upgrade durchzuführen, bis es erfolgreich ist.
+
+Wenn es zu viele Volumes gibt, die pro Knoten nicht upgraden können (d.h. mehr als die `concurrent automatic engine upgrade per node limit` Einstellung), wird {longhorn-product-name} das Upgrade des Volumes auf diesem Knoten beenden.
+
+== 4. Liveness und Bereinigung alter Instanzmanager-Pods während des automatischen Upgrades
+
+Für die Liveness und Bereinigung alter Instanzmanager-Pods während des Live-Upgrades verweisen Sie auf die xref:upgrades/longhorn-components/instance-manager-pods-during-upgrade.adoc[Dokumentation zu Instanzmanager-Pods während des Upgrades].

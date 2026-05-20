@@ -1,0 +1,13 @@
+= Mettre à niveau Kubernetes sur Amazon Elastic Kubernetes Service (Amazon EKS)
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Dans {longhorn-product-name}, définissez `replica-replenishment-wait-interval` sur `0`.
+
+Voir https://docs.aws.amazon.com/eks/latest/userguide/update-cluster.html[Mettre à jour un cluster] pour les instructions.
+
+[NOTE]
+====
+Si vous avez créé xref:nodes/managed-kubernetes/eks-managed-node-pools.adoc#_create_additional_volume[disques supplémentaires] pour Longhorn, vous devrez ajouter manuellement le chemin du disque monté dans la liste des disques des nœuds mis à niveau.
+====

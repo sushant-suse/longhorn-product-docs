@@ -1,0 +1,213 @@
+= 网络
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 概述
+
+您可以使用以下信息编写 Kubernetes NetworkPolicy，以控制 Longhorn 组件之间的入站/出站流量。这有助于减少恶意 Pod 侵入集群网络时造成的损害。
+
+当 https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[networkPolicies.enabled 值] 设置为 `true` 时，helm chart 将安装 NetworkPolicy 对象。
+这些对象的清单可以在 https://github.com/longhorn/longhorn/tree/v{patch-version}/chart/templates/network-policies[git 储存库] 中查看。
+请注意，根据部署的 https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/[CNI]，并非所有 Kubernetes 集群都支持 NetworkPolicy。
+有关详细信息，请参见 https://kubernetes.io/docs/concepts/services-networking/network-policies/[Kubernetes 文档]。
+
+NOTE: 如果您正在编写网络策略，请在升级 Longhorn 之前重新访问此页面，以对您的网络策略进行必要的调整。
+注意：根据您集群网络的 CNI，Kubernetes 应用网络策略到 Pod 时可能会有一些延迟。由于在开始时无法访问 longhorn-manager，这种延迟可能会导致 Longhorn 定期作业失败，无法进行快照或备份卷。这是在 K3s 和 Traefik 中发现的已知问题，超出了 Longhorn 的控制范围。
+
+== Longhorn Manager
+
+=== 入口：
+
+从 | 端口 | 协议
+-- | -- | --
+`Other Longhorn Manager` | 9500 | TCP
+`UI` | 9500 | TCP
+`Longhorn CSI plugin` | 9500 | TCP
+`Backup/Snapshot Recurring Job Pod` | 9500 | TCP
+`Longhorn Driver Deployer` | 9500 | TCP
+`Conversion Webhook Server` | 9501 | TCP
+`Admission Webhook Server` | 9502 | TCP
+`Recovery Backend Server` | 9503 | TCP
+
+=== 出口：
+
+到 | 端口 | 协议
+-- | -- | --
+`Other Longhorn Manager` | 9500 | TCP
+`Instance Manager` | 8500（进程管理服务）；8501（代理服务）；8502（磁盘服务）；8503（实例服务）；8504（spdk 服务） | TCP
+`Backing Image Manager` | 8000 | TCP
+`Backing Image Data Source` | 8000 | TCP
+`External Backupstore` | 用户定义 | TCP
+`Kubernetes API server` | `Kubernetes API server port` | TCP
+
+== UI
+
+=== 入口：
+
+用户定义
+
+=== 出口：
+
+到 | 端口 | 协议
+-- | -- | --
+`Longhorn Manager` | 9500 | TCP
+
+== 实例管理器
+
+=== 入口
+
+来自 | 端口 | 协议
+-- | -- | --
+`Longhorn Manager` | 8500 (进程管理服务); 8501 (代理服务); 8502 (磁盘服务); 8503 (实例服务); 8504 (spdk 服务) | TCP
+`Other Instance Manager` | 10000-30000 | TCP
+`Node in the Cluster` | 3260 | TCP
+`Backing Image Data Source` | 10000-30000 | TCP
+
+=== 出口：
+
+到 | 端口 | 协议
+-- | -- | --
+`Other Instance Manager` | 10000-30000 | TCP
+`Backing Image Data Source` | 8002 | TCP
+`External Backupstore` | 用户定义 | TCP
+
+== Longhorn CSI 插件
+
+=== 入口
+
+无
+
+=== 出口：
+
+到 | 端口 | 协议
+-- | -- | --
+`Longhorn Manager` | 9500 | TCP
+
+=== 更多信息
+
+`Longhorn CSI plugin` pods 通过 Unix 域套接字在 `CSI sidecar` 上与 `<Kuberlet-Directory>/plugins/driver.longhorn.io/csi.sock` pods 进行通信
+
+== CSI 边车 (csi-attacher, csi-provisioner, csi-resizer, csi-snapshotter)
+
+=== 入口：
+
+无
+
+=== 出口：
+
+到 | 端口 | 协议
+-- | -- | --
+`Kubernetes API server` | `Kubernetes API server port` | TCP
+
+=== 更多信息
+
+`CSI sidecar` pods 通过 Unix 域套接字在 `Longhorn CSI plugin` 上与 `<Kuberlet-Directory>/plugins/driver.longhorn.io/csi.sock` pods 进行通信
+
+== 驱动程序部署者
+
+=== 入口：
+
+无
+
+=== 出口：
+
+到 | 端口 | 协议
+-- | -- | --
+`Longhorn Manager` | 9500 | TCP
+`Kubernetes API server` | `Kubernetes API server port` | TCP
+
+== 引擎镜像
+
+=== 入口：
+
+无
+
+=== 出口：
+
+无
+
+== 后台镜像管理器
+
+=== 入口：
+
+来自 | 端口 | 协议
+-- | -- | --
+`Longhorn Manager` | 8000 | TCP
+`Other Backing Image Manager` | 30001-31000 | TCP
+
+=== 出口：
+
+到 | 端口 | 协议
+-- | -- | --
+`Instance Manager` | 10000-30000 | TCP
+`Other Backing Image Manager` | 30001-31000 | TCP
+`Backing Image Data Source` | 8000 | TCP
+
+== 后台镜像数据源
+
+=== 入口：
+
+来自 | 端口 | 协议
+-- | -- | --
+`Longhorn Manager` | 8000 | TCP
+`Instance Manager` | 8002 | TCP
+`Backing Image Manager` | 8000 | TCP
+
+=== 出口：
+
+到 | 端口 | 协议
+-- | -- | --
+`Instance Manager` | 10000-30000 | TCP
+`User provided server IP to download the images from` | 用户定义 | TCP
+
+== 共享管理器
+
+=== 入口
+
+来自 | 端口 | 协议
+-- | -- | --
+`Node in the cluster` | 2049 | TCP
+
+=== 出口：
+
+无
+
+== 备份/快照定期作业 Pod
+
+=== 入口：
+
+无
+
+=== 出口：
+
+到 | 端口 | 协议
+-- | -- | --
+`Longhorn Manager` | 9500 | TCP
+
+== 卸载程序
+
+=== 入口：
+
+无
+
+=== 出口：
+
+到 | 端口 | 协议
+-- | -- | --
+`Kubernetes API server` | `Kubernetes API server port` | TCP
+
+== 发现 Proc Kubelet Cmdline
+
+=== 入口：
+
+无
+
+=== 出口：
+
+无
+
+'''
+
+原始 GitHub 问题：
+https://github.com/longhorn/longhorn/issues/1805

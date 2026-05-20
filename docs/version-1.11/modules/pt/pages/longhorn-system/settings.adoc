@@ -1,0 +1,1261 @@
+= Categoria de
+:revdate: 2026-03-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Tipos de Formato de Valor por Motores de Dados Suportados
+
+Cada configuração suporta apenas um dos seguintes formatos, com base em sua definição.
+O formato suportado determina quais motores de dados podem ser configurados e se seus valores podem diferir.
+
+* *Valor único para todos os motores de dados suportados*
+** *Formato:* String não-JSON (por exemplo, `1024`)
+** O valor se aplica a todos os motores de dados suportados e deve ser o mesmo entre eles.
+** Valores específicos de motor de dados não são permitidos.
+
+* *Valores específicos de motor de dados para V1 e V2*
+** *Formato:* Objeto JSON (por exemplo, `{"v1": "value1", "v2": "value2"}`)
+** Permite especificar valores diferentes para os motores de dados V1 e V2.
+
+* *Valores específicos do motor de dados apenas para o V1*
+** *Formato:* Objeto JSON com apenas a chave `v1` (por exemplo, `{"v1": "value1"}`)
+** Apenas o motor de dados V1 pode ser configurado. O motor de dados V2 não é afetado.
+
+* *Valores específicos do motor de dados apenas para o V2*
+** *Formato:* Objeto JSON com apenas a chave `v2` (por exemplo, `{"v2": "value1"}`)
+** Apenas o motor de dados V2 pode ser configurado. O motor de dados V1 não é afetado.
+
+== Personalizando Configurações Padrão
+
+Para configurar {longhorn-product-name} antes de instalá-lo, consulte xref:longhorn-system/customize-default-settings.adoc[esta seção] para detalhes.
+
+== Informações sobre o sistema
+
+=== Imagem do Motor Padrão
+
+A imagem do motor padrão é a imagem usada pelo gerenciador e pode ser alterada apenas quando o gerenciador é iniciado.
+
+Cada {longhorn-product-name} lançamento inclui uma nova imagem do motor. Uma seta verde aparece nos volumes Longhorn que não estão usando o motor padrão, indicando que o volume precisa fazer upgrade.
+
+=== Imagem do Gerenciador de Instâncias Padrão
+
+A imagem do gerenciador de instâncias padrão é a imagem usada pelo gerenciador e pode ser alterada apenas quando o gerenciador é iniciado.
+
+=== Imagem do Gerenciador de Imagens de Backup Padrão
+
+A imagem do gerenciador de imagens de backup padrão é a imagem usada pelo gerenciador e pode ser alterada apenas quando o gerenciador é iniciado.
+
+=== Imagem do Gerenciador de Pacotes de Suporte
+
+{longhorn-product-name} usa a imagem do gerenciador de pacotes de suporte para gerar pacotes de suporte.
+
+Uma imagem padrão é fornecida durante a instalação e upgrade, e você também pode alterá-la nas configurações.
+
+Um exemplo da imagem do gerenciador de pacotes de suporte:
+
+*Valor padrão*: `longhornio/support-bundle-kit:v0.0.14`
+
+=== Versão atual de {longhorn-product-name}
+
+A versão atual de {longhorn-product-name}.
+
+=== Última versão de {longhorn-product-name}
+
+A versão mais recente disponível de {longhorn-product-name}. Isso é atualizado automaticamente pelo `Upgrade Checker`.
+
+[NOTE]
+====
+Isso está disponível apenas se `Upgrade Checker` estiver habilitado.
+====
+
+=== Versões estáveis de {longhorn-product-name}
+
+A versão estável mais recente de cada linha de lançamento menor. Ele é atualizado pelo `Upgrade Checker` automaticamente.
+
+== Geral
+
+=== Política de Drenagem de Nó
+
+*Valor padrão*: `block-if-contains-last-replica`
+
+Defina a política a ser usada quando um nó com a última réplica saudável de um volume é drenado. Opções disponíveis:
+
+* `block-if-contains-last-replica`: {longhorn-product-name} bloqueia a drenagem quando o nó contém a última réplica saudável de um volume.
+* `allow-if-replica-is-stopped`: {longhorn-product-name} permite a drenagem quando o nó contém a última réplica saudável de um volume, mas a réplica está parada.
++
+[WARNING]
+====
+Possível perda de dados se o nó for removido após a drenagem.
+====
++
+* `always-allow`: {longhorn-product-name} permite automaticamente a drenagem, mesmo que o nó contenha a última réplica saudável de um volume.
++
+[WARNING]
+====
+Possível perda de dados se o nó for removido após a drenagem. Também é possível corrupção de dados se a última réplica estava em execução durante a drenagem.
+====
++
+* `block-for-eviction`: {longhorn-product-name} automaticamente expulsa todas as réplicas e bloqueia a drenagem até que a expulsão esteja completa.
++
+[WARNING]
+====
+Pode resultar em drenagens lentas e movimento extra de dados associado à reconstrução de réplicas.
+====
++
+* `block-for-eviction-if-contains-last-replica`: {longhorn-product-name} automaticamente expulsa quaisquer réplicas que não tenham um contraparte saudável e bloqueia a drenagem até que a expulsão esteja completa.
++
+[WARNING]
+====
+Pode resultar em drenagens lentas e movimento extra de dados associado à reconstrução de réplicas.
+====
+
+Cada opção tem benefícios e desvantagens. Veja xref:troubleshooting-maintenance/maintenance.adoc#_node_drain_policy_recommendations[Recomendações de Política de Drenagem de Nó] para ajudar a decidir qual é a mais apropriada para o seu ambiente.
+
+=== Desanexar Volumes Anexados Manualmente Quando Cordonados
+
+*Valor padrão*: `false`
+
+{longhorn-product-name} desanexa automaticamente volumes que estão anexados manualmente aos nós que estão cordonados.
+Isso impede que o processo de drenagem fique preso pelo PDB do gerenciador de instâncias que ainda tem motor em execução no nó.
+
+=== Limpar Automaticamente Instantâneos Gerados pelo Sistema
+
+*Valor padrão*: `true`
+
+{longhorn-product-name} gera um instantâneo do sistema durante a reconstrução da réplica, e se um usuário não configurar um agendamento recorrente de instantâneos, todos os instantâneos gerados pelo sistema permanecerão na réplica, e o usuário terá que excluí-los manualmente. Esta configuração permite que {longhorn-product-name} limpe automaticamente os instantâneos gerados pelo sistema antes e depois da reconstrução da réplica.
+
+=== Limpar Automaticamente Instantâneos Obsoletos de Trabalhos de Backup Recorrentes
+
+*Valor padrão*: `true`
+
+Se habilitado, ao executar um trabalho de backup recorrente, {longhorn-product-name} tira um novo instantâneo antes de criar o backup. {longhorn-product-name} retém apenas o instantâneo usado pelo último trabalho de backup, mesmo que o valor do parâmetro de retenção não seja 1.
+
+Se desabilitado, esta configuração garante que os instantâneos retidos correspondam diretamente aos backups no destino de backup remoto.
+
+=== Excluir automaticamente o Pod de carga de trabalho quando o volume for desconectado inesperadamente
+
+*Valor padrão*: `true`
+
+Se habilitado, {longhorn-product-name} exclui automaticamente o pod de carga de trabalho que é gerenciado por um controlador (por exemplo, deployment, statefulset, daemonset, etc.) quando o volume Longhorn é desconectado inesperadamente (por exemplo, durante a atualização do Kubernetes, reinicialização do Docker ou desconexão de rede).
+Ao excluir o pod, seu controlador reinicia o pod e o Kubernetes cuida da reanexação e remontagem do volume.
+
+Se desabilitado, {longhorn-product-name} não exclui o pod de carga de trabalho que é gerenciado por um controlador. Você precisa reiniciar manualmente o pod para reanexar e remontar o volume.
+
+[NOTE]
+====
+* Esta configuração não se aplica a pods de carga de trabalho sem um controlador. {longhorn-product-name} nunca exclui tais pods.
+* Pods de carga de trabalho com volumes RWX de *rede de cluster*. A configuração não se aplica a tais pods porque o Longhorn Share Manager, que fornece o serviço NFS RWX, possui seu próprio mecanismo de resiliência. Esse mecanismo garante disponibilidade até que o volume seja reanexado, sem depender do ciclo de vida do pod para acionar a reanexação do volume. No entanto, a configuração se aplica a pods de carga de trabalho com volumes RWX de *rede de endpoint*. Para mais informações, veja xref:volumes/rwx-volumes.adoc[Volume ReadWriteMany (RWX)] e xref:longhorn-system/networking/storage-network.adoc#limitation[Rede de Armazenamento].
+====
+
+=== Lista negra para exclusão automática de pods de carga de trabalho na desconexão inesperada do volume
+
+*Valor padrão*: `""`
+
+Lista negra de valores do controlador `api/kind` para a configuração <<_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly,Excluir automaticamente o Pod de carga de trabalho quando o volume for desconectado inesperadamente>>. Se um pod de carga de trabalho for gerenciado por um controlador cujo `api/kind` está listado nesta lista negra, {longhorn-product-name} não excluirá automaticamente o pod quando seu volume for desconectado inesperadamente. Vários valores de controlador `api/kind` podem ser especificados, separados por ponto e vírgula. Por exemplo: `apps/v1/StatefulSet;apps/v1/DaemonSet`.
+
+[NOTE]
+====
+O controlador `api/kind` é sensível a maiúsculas e minúsculas e deve corresponder exatamente ao `api/kind` na referência do proprietário do pod de carga de trabalho.
+====
+
+=== Recuperação automática
+
+*Valor padrão*: `true`
+
+Se habilitado, os volumes são automaticamente recuperados quando todas as réplicas se tornam falhas, por exemplo, devido à desconexão de rede. {longhorn-product-name} tenta descobrir quais réplicas são utilizáveis e, em seguida, as utiliza para o volume.
+
+=== Limite de Upgrade Automático do Motor Concorrente por Nó
+
+*Valor padrão*: `0`
+
+Esta configuração controla como {longhorn-product-name} realiza automaticamente o upgrade dos motores dos volumes para a nova imagem padrão do motor após o Longhorn Manager ser atualizado.
+
+O valor desta configuração especifica o número máximo de motores por nó que podem fazer upgrade para a imagem padrão do motor simultaneamente.
+
+Se o valor for `0`, {longhorn-product-name} não realiza o upgrade automático dos motores dos volumes para a versão padrão.
+
+=== Limite de Restauração de Backup de Volume Concorrente por Nó
+
+*Valor padrão*: `5`
+
+Esta configuração controla quantos volumes em um nó podem restaurar o backup simultaneamente.
+
+{longhorn-product-name} bloqueia a restauração do backup uma vez que a contagem de volumes em restauração excede o limite.
+
+Defina o valor para *0* para desativar a restauração de backup.
+
+=== Criar Disco Padrão em Nós Rotulados
+
+*Valor padrão*: `false`
+
+Se não existirem outros discos, {longhorn-product-name} cria um disco padrão automaticamente, mas apenas em nós com o rótulo Kubernetes `node.longhorn.io/create-default-disk=true`.
+
+Se esta configuração estiver desativada, o disco padrão é criado em todos os novos nós quando o nó é detectado pela primeira vez.
+
+Use esta opção para escalar o cluster sem usar armazenamento em novos nós, ou para personalizar discos para nós Longhorn (xref:nodes/default-disk-and-node-config.adoc[veja a documentação]).
+
+=== Versão da API de Recurso Personalizado
+
+*Valor padrão*: `longhorn.io/v1beta2`
+
+A versão da API do recurso personalizado atual, por exemplo, `longhorn.io/v1beta2`. Definido automaticamente pelo gerenciador.
+
+=== Localidade de Dados Padrão
+
+*Valor padrão*: `disabled`
+
+Um volume {longhorn-product-name} tem localidade de dados quando pelo menos uma réplica reside no mesmo nó que o pod que utiliza o volume.
+
+Esta configuração define a localidade de dados padrão para volumes criados através da {longhorn-product-name} interface do usuário.
+Para implantações do Kubernetes, configure `dataLocality` no StorageClass.
+
+Os modos disponíveis são:
+
+* `disabled` (padrão): Uma réplica pode ou não residir no mesmo nó que o volume ou carga de trabalho anexada.
+* `best-effort`: {longhorn-product-name} tenta manter uma réplica no mesmo nó que o volume ou carga de trabalho anexada. O volume continua a operar mesmo que restrições ambientais impeçam a colocação local, como espaço em disco insuficiente ou tags de disco incompatíveis.
+* `strict-local`: {longhorn-product-name} impõe a colocação de uma única réplica no mesmo nó que o volume anexado. Este modo fornece maior IOPS e menor latência.
+
+=== Caminho de Dados Padrão
+
+*Valor padrão*: `/var/lib/longhorn/`
+
+Caminho padrão a ser usado para armazenar dados em um host.
+
+Pode ser usado com a opção `Create Default Disk on Labeled Nodes`, para fazer com que {longhorn-product-name} use apenas os nós com armazenamento específico montado, por exemplo, em `/opt/longhorn` ao escalar o cluster.
+
+=== Nome da {longhorn-product-name} StorageClass Estática Padrão
+
+*Valor padrão*: `longhorn-static`
+
+O `storageClassName` é usado para volumes persistentes (PVs) e reivindicações de volumes persistentes (PVCs) que referenciam um volume {longhorn-product-name} existente. Você não precisa criar um objeto StorageClass correspondente para esse propósito porque ele é usado apenas para correspondência de rótulos durante a vinculação de PVC. O valor deve corresponder a uma StorageClass existente. Se a StorageClass `longhorn-static` ainda não existir, {longhorn-product-name} a cria automaticamente. O valor padrão é `longhorn-static`.
+
+=== Contagem de Réplicas Padrão
+
+*Valor padrão*: `{"v1":"3","v2":"3"}`
+
+O número padrão de réplicas ao criar o volume a partir da {longhorn-product-name} interface. Para Kubernetes, atualize o `numberOfReplicas` na StorageClass
+
+A maneira recomendada de escolher a contagem padrão de réplicas é: se você tiver três ou mais nós para armazenamento, use 3; caso contrário, use 2. Usar uma única réplica em um cluster de nó único também é aceitável, mas a funcionalidade de alta disponibilidade não estaria disponível. Você ainda pode tirar instantâneos ou backups do volume.
+
+=== Confirmação de Exclusão
+
+*Valor padrão*: `false`
+
+Esta flag foi projetada para evitar que {longhorn-product-name} seja desinstalado acidentalmente, o que leva à perda de dados.
+
+* Defina esta flag como *true* para permitir a desinstalação de {longhorn-product-name}.
+* Se esta flag for *false*, a tarefa de desinstalação de {longhorn-product-name} falha.
+
+=== Desativar Contador de Revisões
+
+*Valor padrão*: `{"v1":"true"}`
+
+Permite que o controlador do motor e a réplica do motor desativem a atualização do arquivo do contador de revisões para cada gravação de dados. Isso melhora o desempenho do caminho de dados. Veja xref:high-availability/revision_counter.adoc[Contador de Revisões] para mais detalhes.
+
+=== Ativar Verificador de Atualizações
+
+*Valor padrão*: `true`
+
+O Verificador de Atualizações verifica periodicamente se há uma nova versão de {longhorn-product-name}. Quando há uma nova versão disponível, ele notifica o usuário na interface do usuário de {longhorn-product-name}.
+
+=== URL do Respondedor de Atualizações
+
+*Valor padrão*: `pass:[https://longhorn-upgrade-responder.rancher.io/v1/checkupgrade]`
+
+O Respondedor de Atualizações envia uma notificação sempre que uma nova versão de {longhorn-product-name} que você pode atualizar se torna disponível.
+
+=== Permitir Coleta de Métricas de Uso de {longhorn-product-name}
+
+*Valor padrão*: `true`
+
+Quando ativada, esta configuração permite que {longhorn-product-name} envie métricas de uso anônimas para https://metrics.longhorn.io/..
+
+Essas métricas ajudam a fornecer insights sobre como {longhorn-product-name} é utilizado e apoiam melhorias futuras do produto.
+
+*Informações do Nó coletadas de todos os nós do cluster incluem:*
+
+* Número de discos de cada tipo de dispositivo (HDD, SSD, NVMe, desconhecido).
++
+Este valor pode não ser preciso para máquinas virtuais.
+
+* Número de discos para cada tipo de disco Longhorn (bloco, sistema de arquivos).
+* Arquitetura do sistema host.
+* Versão do kernel do host.
+* Distribuição do sistema operacional (SO) do host.
+* Provedor de nó Kubernetes.
+
+*As informações do cluster coletadas de um dos nós do cluster incluem:*
+
+* UID do namespace Longhorn.
+* Número de nós Longhorn.
+* Número de volumes de cada modo de acesso (RWO, RWX, desconhecido).
+* Número de volumes de cada motor de dados (v1, v2).
+* Número de volumes de cada tipo de localidade de dados (desativado, melhor_esforço, local_rigoroso, desconhecido).
+* Número de volumes que estão criptografados ou não criptografados.
+* Número de volumes de cada tipo de frontend (blockdev, iscsi).
+* Número de réplicas.
+* Número de instantâneos.
+* Número de imagens de suporte.
+* Número de órfãos.
+* Tamanho médio do volume em bytes.
+* Tamanho médio real do volume em bytes.
+* Número médio de instantâneos por volume.
+* Número médio de réplicas por volume.
+* Uso médio de CPU do componente {longhorn-product-name} (gerenciador de instâncias, gerente) em millicores.
+* Uso médio de memória do componente {longhorn-product-name} (gerenciador de instâncias, gerente) em bytes.
+* Configurações do Longhorn:
+ ** Parcialmente incluído:
+  *** Tipo ou Protocolo de Destino de Backup (azblob, cifs, nfs, s3, nenhum, desconhecido). Isto é da configuração do Destino de Backup.
+ ** Incluído como verdadeiro ou falso para indicar se esta configuração está configurada:
+  *** Classe de Prioridade
+  *** Segredo do Registro
+  *** CronJob de Integridade de Dados de Instantâneo
+  *** Rede de Armazenamento
+  *** Rede de Endpoint para Volume RWX
+  *** Selecionador de Nó de Componentes Gerenciados pelo Sistema
+  *** Tolerância a Taint
+ ** Incluído como está:
+  *** Permitir Trabalho Recorrente Enquanto o Volume Estiver Desconectado
+  *** Permitir Criação de Volume Com Disponibilidade Degradada
+  *** Limpar Automaticamente Instantâneos Gerados pelo Sistema
+  *** Limpar Automaticamente Instantâneos Obsoletos de Trabalhos de Backup Recorrentes
+  *** Excluir automaticamente o Pod de carga de trabalho quando o volume for desconectado inesperadamente
+  *** Recuperação automática
+  *** Intervalo de Espera para Limpeza de Imagem de Backup
+  *** Intervalo de Espera para Recuperação de Imagem de Backup
+  *** Método de Compressão de Backup
+  *** Intervalo de Polling do Backupstore
+  *** Limite de Backup Concorrente
+  *** Limite de Atualização Automática do Motor Concorrente por Nó
+  *** Limite de Restauração de Backup Concorrente por Nó
+  *** Limite de Reconstrução de Réplica Concorrente por Nó
+  *** Versão da API CRD
+  *** Criar Nós com Disco Padrão Rotulado
+  *** Localidade de Dados Padrão
+  *** Contagem de Réplicas Padrão
+  *** Desativar Contador de Revisões
+  *** Desabilitar Agendamento em Nó Isolado
+  *** Tempo Limite da Réplica do Motor
+  *** TTL de Backup Falhado
+  *** Reconstrução Rápida de Réplica Habilitada
+  *** CPU Garantida do Gerenciador de Instâncias
+  *** Kubernetes Cluster Autoscaler Enabled
+  *** Política de Exclusão de Pods com Nó Inativo
+  *** Política de Drenagem de Nó
+  *** Exclusão Automática de Órfãos
+  *** Limite de Histórico de Trabalhos Falhados Recorrentes
+  *** Limite de Histórico de Trabalhos Bem-Sucedidos Recorrentes
+  *** Remover Instantâneos Durante o Trim do Sistema de Arquivos
+  *** Balanceamento Automático de Réplica
+  *** Tempo Limite do Cliente HTTP de Sincronização de Arquivo de Réplica
+  *** Intervalo de Espera para Reabastecimento de Réplicas
+  *** Anti Afinidade Suave de Réplicas
+  *** Anti Afinidade Suave de Zona de Réplicas
+  *** Anti Afinidade Suave de Disco de Réplicas
+  *** Limite de Restauração Concorrente
+  *** Tarefas Recorrentes de Restauração de Volume
+  *** Integridade dos Dados de Instantâneo
+  *** Verificação Imediata da Integridade dos Dados de Instantâneo Após a Criação do Instantâneo
+  *** Porcentagem Mínima de Armazenamento Disponível
+  *** Rede de Armazenamento para Volume RWX Habilitado
+  *** Porcentagem de Superprovisionamento de Armazenamento
+  *** Porcentagem de Armazenamento Reservado para Disco Padrão
+  *** Limite de Histórico de Falhas do Pacote de Suporte
+  *** Tempo Limite de Coleta de Nós do Pacote de Suporte
+  *** Política de Pull de Imagem de Pods Gerenciados pelo Sistema
+
+O `Upgrade Checker` precisa ser habilitado para enviar periodicamente os dados coletados.
+
+=== Política de Exclusão de Pod Quando o Nó Está Fora
+
+*Valor padrão*: `do-nothing`
+
+Define a ação do {longhorn-product-name} quando um Volume está preso com um Pod de StatefulSet ou Deployment em um nó que está fora.
+
+* `do-nothing` é o comportamento padrão do Kubernetes de nunca forçar a exclusão de pods de StatefulSet ou Deployment que estão em processo de término. Como o pod no nó que está fora não é removido, os volumes do Longhorn ficam presos em nós que estão fora.
+* `delete-statefulset-pod` {longhorn-product-name} força a exclusão dos pods em término de StatefulSet em nós inativos para liberar os volumes do Longhorn, permitindo que o Kubernetes inicie pods substitutos.
+* `delete-deployment-pod` {longhorn-product-name} força a exclusão dos pods em término de Deployment em nós inativos para liberar os volumes do Longhorn, permitindo que o Kubernetes inicie pods substitutos.
+* `delete-both-statefulset-and-deployment-pod` {longhorn-product-name} força a exclusão dos pods em término de StatefulSet ou Deployment em nós inativos para liberar os volumes do Longhorn, permitindo que o Kubernetes inicie pods substitutos.
+
+=== Segredo do Registro
+
+O nome do Secret do Kubernetes.
+
+=== Intervalo de Espera para Reabastecimento de Réplicas
+
+*Valor padrão*: `600`
+
+Quando há pelo menos um volume de réplica com falha em um volume degradado, este intervalo em segundos determina quanto tempo {longhorn-product-name} aguardará no máximo para reutilizar os dados existentes das réplicas com falha, em vez de criar diretamente uma nova réplica para este volume.
+
+WARNING: Este intervalo de espera funciona apenas quando há pelo menos uma réplica com falha no volume. E esta opção pode bloquear a reconstrução por um tempo.
+
+=== Política de Pull de Imagem de Pod Gerenciado pelo Sistema
+
+*Valor padrão*: `if-not-present`
+
+Esta configuração define a Política de Pull de Imagem dos pods gerenciados pelo sistema Longhorn, por exemplo, gerenciador de instâncias, imagem do mecanismo, driver CSI, etc.
+
+Observe que a nova Política de Pull de Imagem só é aplicada após a reinicialização dos pods gerenciados pelo sistema.
+
+Esta definição de configuração é exatamente a mesma que a do Kubernetes. Aqui estão as opções disponíveis:
+
+* `always`. Toda vez que o `kubelet` inicia um contêiner, o `kubelet` consulta o registro de imagens do contêiner para resolver o nome em um digest de imagem. Se o `kubelet` tiver uma imagem de contêiner com esse digest exato armazenado localmente, o `kubelet` usa sua imagem em cache; caso contrário, o `kubelet` baixa (pull) a imagem com o digest resolvido e usa essa imagem para iniciar o contêiner.
+* `if-not-present`. A imagem é baixada apenas se já não estiver presente localmente.
+* `never`. A imagem é considerada como existente localmente. Nenhuma tentativa é feita para baixar a imagem.
+
+=== Intervalo de Espera para Limpeza de Imagem de Suporte
+
+*Valor padrão*: `60`
+
+Este intervalo, em minutos, define quanto tempo {longhorn-product-name} aguarda antes de limpar um arquivo de imagem de suporte quando nenhuma réplica no disco está utilizando-o.
+
+=== Intervalo de Espera para Recuperação de Imagem de Suporte
+
+*Valor padrão*: `300`
+
+Este intervalo, em segundos, define quanto tempo {longhorn-product-name} aguarda antes de baixar novamente o arquivo de imagem de suporte após todos os arquivos de disco para essa imagem entrarem no estado `failed` ou `unknown`.
+
+[NOTE]
+====
+* Esta recuperação só funciona para a imagem de suporte cujo tipo de criação é `download`.
+* O estado do arquivo `unknown` significa que os pods do gerenciador relacionados ao pod não estão em execução ou que o próprio nó está desligado ou desconectado.
+====
+
+=== Número Mínimo Padrão de Cópias de Imagem de Suporte
+
+*Valor padrão*: `1`
+
+O número mínimo padrão de cópias de imagem de suporte que {longhorn-product-name} mantém.
+
+=== Tempo Limite da Réplica do Motor
+
+*Valor padrão*: `{"v1":"8","v2":"8"}`
+
+Número de segundos que um motor de dados V1 aguarda por uma réplica para responder antes de marcá-la como falha. Valores entre 8 e 30 são permitidos. Esta configuração entra em vigor apenas quando há solicitações de entrada ou saída pendentes.
+
+Esta configuração se aplica apenas a réplicas adicionais. Um motor V1 marca a última réplica ativa como falha somente após o dobro do número de segundos configurados (valor de tempo limite x 2) ter passado. Esse comportamento é destinado a equilibrar a responsividade do volume com a disponibilidade do volume.
+
+O motor pode rapidamente (após o tempo limite configurado) ignorar réplicas individuais que se tornam não responsivas em favor de outras disponíveis. Isso garante que futuras entradas ou saídas não sejam retidas.
+
+O motor aguarda a última réplica (até o dobro do tempo limite configurado) para evitar falhas desnecessárias devido à falta de backends disponíveis.
+
+=== Limite de Histórico de Falhas do Pacote de Suporte
+
+*Valor padrão*: `1`
+
+Esta configuração especifica quantos pacotes de suporte com falha podem existir no cluster.
+
+O pacote de suporte com falha retido é para fins de análise e precisa ser limpo manualmente.
+
+{longhorn-product-name} bloqueia a criação de pacotes de suporte ao atingir o limite superior da limitação. Você pode definir este valor para *0* para que {longhorn-product-name} purgue automaticamente todos os pacotes de suporte com falha.
+
+=== Tempo Limite de Coleta de Nós do Pacote de Suporte
+
+*Valor padrão*: `30`
+
+Número de minutos que {longhorn-product-name} permite para a coleta de informações do nó e logs do nó para o pacote de suporte.
+
+Se o processo de coleta não for concluído dentro do tempo alocado, {longhorn-product-name} continua gerando o pacote de suporte sem os dados do nó não coletados.
+
+=== Reconstrução Rápida de Réplica Habilitada
+
+*Valor padrão*: `{"v1":"true","v2":"true"}`
+
+A configuração habilita o recurso de reconstrução rápida de réplicas. Ela depende dos checksums dos arquivos de disco de instantâneo, portanto, definir a integridade dos dados de instantâneo para *enable* ou *fast-check* é um pré-requisito.
+
+=== Tempo limite do cliente HTTP para o servidor de sincronização de arquivos da réplica
+
+*Valor padrão*: `30`
+
+O valor em segundos especifica o tempo limite do cliente HTTP para o servidor de sincronização de arquivos da réplica usado para reconstrução de réplica, clonagem de volume, clonagem de instantâneo, etc.
+
+=== Reconstrução de Réplica Offline
+
+*Valor padrão*: `false`
+
+Controla se {longhorn-product-name} reconstrói automaticamente réplicas degradadas enquanto o volume está desconectado. Essa configuração só tem efeito se a configuração de nível de volume estiver definida como `ignored` ou `enabled`.
+
+Opções disponíveis:
+
+* `true`: Habilita a reconstrução de réplica offline para todos os volumes desconectados (a menos que substituído no nível do volume).
+* `false`: Desabilita a reconstrução de réplica offline globalmente (a menos que substituído no nível do volume).
+
+[NOTE]
+====
+A reconstrução offline ocorre apenas quando um volume está desconectado. Volumes em estado de falha não acionam a reconstrução offline.
+====
+
+Essa configuração permite que {longhorn-product-name} reconstrua automaticamente réplicas para volumes desconectados quando necessário.
+
+=== Tempo Limite Longo gRPC
+
+*Valor padrão*: `86400`
+
+Número de segundos que {longhorn-product-name} permite para a conclusão das operações de reconstrução de réplica e clonagem de instantâneo.
+
+=== Failover Rápido de Volume RWX (Experimental)
+
+*Valor padrão*: `false`
+
+Habilita a melhoria da alta disponibilidade do volume ReadWriteMany encurtando o tempo necessário para recuperar de uma falha de nó.
+
+=== Nível de Registro
+
+*Valor padrão*: `Log Level`
+
+O Longhorn Manager usa os seguintes níveis de log: `Panic`, `Fatal`, `Error`, `Warn`, `Info`, `Debug` e `Trace`. O nível de log padrão é `Info`.
+
+=== Caminho do Log
+
+*Valor padrão*: `/var/lib/longhorn/logs/`
+
+Essa configuração especifica o diretório no host onde {longhorn-product-name} armazena arquivos de registro para o pod do gerenciador de instâncias. Atualmente, isso é usado apenas para os pods do gerenciador de instâncias no mecanismo de dados v2.
+
+=== Nível de Log do Mecanismo de Dados
+
+*Valor padrão*: `{"v2":"Notice"}`
+
+Aplica-se apenas ao V2 Data Engine. Especifica o nível de registro para o daemon de destino do Storage Performance Development Kit (SPDK). Valores suportados: `Error`, `Warning`, `Notice`, `Info` e `Debug`.
+
+=== Flags de Log do Data Engine
+
+*Valor padrão*: `{"v2":""}`
+
+Aplica-se apenas ao V2 Data Engine. Especifica as flags de registro para o daemon de destino do Storage Performance Development Kit (SPDK).
+
+=== Limite de Largura de Banda de Reconstrução de Réplica
+
+*Valor padrão*: `{"v2":"0"}`
+
+Aplica-se apenas ao V2 Data Engine. Especifica o limite padrão de largura de banda de gravação, em megabytes por segundo (MB/s), para a reconstrução de réplicas de volume.
+
+=== URL do Gerente
+
+*Valor padrão*: `""`
+
+*Exemplo*: `pass:[https://longhorn.example.com]` ou `pass:[https://longhorn.example.com:8443]`
+
+A URL externa para acessar a API do Longhorn Manager. Quando configurada, esta URL é usada para gerar os campos `actions` e `links` nas respostas da API em vez de derivá-los dos cabeçalhos de solicitação ou usar IPs internos de pod.
+
+Esta configuração é útil ao acessar a API do Longhorn através do Ingress ou do Gateway API HTTPRoute, onde a API pode retornar IPs internos do cluster se o controlador de ingress não definir corretamente os cabeçalhos `X-Forwarded-*`.
+
+*Formato*: `scheme://host[:port]` onde:
+
+* `scheme`: Deve ser `http` ou `https`
+* `host`: Nome de host externo ou endereço IP
+* `port`: Número da porta opcional (padrão é 80 para http, 443 para https)
+
+*Requisitos*:
+
+* Uma URL não deve conter um caminho, parâmetros de consulta ou fragmentos
+* Endereços IPv6 devem ser colocados entre colchetes (por exemplo, `pass:[http://[2001:db8::1]:9500]`)
+
+*Quando usar*:
+
+* Acesse a interface do Longhorn ou a API através do Ingress com uma URL externa
+* Use a API Gateway HTTPRoute para acesso externo
+* Os clientes da API recebem IPs internos nas URLs de resposta
+
+*Quando vazio* (padrão): As URLs são construídas a partir dos cabeçalhos de solicitação HTTP (`X-Forwarded-*`) ou retornam ao host da solicitação.
+
+Para mais detalhes, veja xref:important-notes.adoc#_manager_url_for_external_api_access[URL do Gerente para Acesso Externo à API].
+
+=== Profundidade Padrão da Fila Ublk
+
+*Valor padrão*: `{"v2":"128"}`
+
+A profundidade padrão de cada fila para o front end Ublk. Essa configuração se aplica a volumes que utilizam o V2 Data Engine com front end Ublk.
+
+=== Número Padrão de Filas Ublk
+
+*Valor padrão*: `{"v2":"1"}`
+
+O número padrão de filas para o front end Ublk. Essa configuração se aplica a volumes que utilizam o V2 Data Engine com front end Ublk.
+
+=== Monitoramento de Saúde do Disco do Nó
+
+*Valor padrão*: `true`
+
+Essa configuração controla se {longhorn-product-name} monitora e registra informações de saúde para os discos do nó. Quando essa configuração está desabilitada, as verificações de saúde do disco e as atualizações de status são ignoradas.
+
+== Instantâneo
+
+=== Integridade dos Dados do instantâneo
+
+*Valor padrão*: `{"v1":"fast-check","v2":"fast-check"}`
+
+Essa configuração permite que os usuários habilitem ou desabilitem o hashing de arquivos de disco do instantâneo e a verificação da integridade dos dados. As opções disponíveis são:
+
+* *desabilitado*: Desabilita o hashing de arquivos de disco do instantâneo e as verificações de integridade dos dados.
+* *habilitado*: Habilita o hashing periódico de arquivos de disco do instantâneo e verificações completas da integridade dos dados. O sistema {longhorn-product-name} periodicamente gera hash dos arquivos de disco do instantâneo para detectar corrupção que não é percebida pelo sistema de arquivos, como a degradação de bits. Essas verificações podem afetar o desempenho do sistema durante cada varredura.
+* *verificação-rápida*: Habilita o hashing de arquivos de disco de snapshot com verificações de integridade de dados rápidas. Neste modo, o sistema faz hash dos arquivos de disco de snapshot apenas se eles não tiverem sido hashados antes ou se o tempo de modificação tiver mudado. A corrupção que não é percebida pelo sistema de arquivos não pode ser detectada neste modo, mas o impacto no desempenho é reduzido.
+
+=== Verificação Imediata de Integridade dos Dados do instantâneo Após a Criação de um instantâneo
+
+*Valor padrão*: `{"v1":"false","v2":"false"}`
+
+O hashing dos arquivos de disco do instantâneo impacta o desempenho do sistema. O hashing e a verificação imediatos do instantâneo podem ser desativados para minimizar o impacto após a criação de um instantâneo.
+
+=== CronJob de Verificação de Integridade de Dados do Snapshot
+
+*Valor padrão*: `{"v1":"0 0 */7 * *","v2":"0 0 */7 * *"}`
+
+Formato de string do cron do Unix. A configuração especifica quando {longhorn-product-name} verifica a integridade dos dados dos arquivos de disco de snapshot.
+
+[WARNING]
+====
+O hashing dos arquivos de disco de snapshot impacta o desempenho do sistema. Recomenda-se realizar verificações de integridade de dados durante horários de menor movimento e reduzir a frequência das verificações.
+====
+
+=== Contagem Máxima de Instantâneos
+
+*Valor padrão*: `250`
+
+Contagem máxima de instantâneos para um volume. O valor deve estar entre 2 e 250.
+
+=== Congelar o sistema de arquivos para instantâneo
+
+*Valor padrão*: `{"v1":"false"}`
+
+Esta configuração se aplica apenas a volumes que utilizam o modo de volume Kubernetes `Filesystem`.
+Quando habilitado, {longhorn-product-name} congela o sistema de arquivos do volume imediatamente antes de criar um snapshot iniciado pelo usuário.
+Quando desabilitado, ou quando o modo de volume é `Block`, {longhorn-product-name} realiza uma sincronização do sistema antes de criar um snapshot iniciado pelo usuário.
+
+Instantâneos criados com o congelamento do sistema de arquivos ativado são mais propensos a serem consistentes porque o sistema de arquivos está em um estado estável no momento da criação do instantâneo. No entanto, sob alta entrada ou saída, congelar o sistema de arquivos pode levar um tempo considerável e pode pausar brevemente a atividade de carga de trabalho.
+
+Quando essa configuração está desativada, {longhorn-product-name} descarrega os dados no disco antes de criar o snapshot, mas não pode bloquear completamente as gravações entre a sincronização do sistema e a criação do snapshot.
+As cargas de trabalho normalmente não percebem a operação de snapshot porque a entrada e a saída continuam durante a sincronização.
+
+O valor padrão é `false`. Kernels `v5.17` e anteriores podem não se recuperar corretamente se um volume falhar durante um congelamento ativo do sistema de arquivos. Nessa situação, o kernel pode impedir a desmontagem do sistema de arquivos ou a parada de processos que o utilizam até que você reinicie o nó. Ative esta configuração apenas ao usar a versão do kernel `5.17` ou posterior e sistemas de arquivos ext4 ou XFS.
+
+Você pode substituir esta configuração por volume usando o campo `freezeFilesystemForSnapshot` na interface do usuário {longhorn-product-name}, uma StorageClass ou editando um volume existente.
+`freezeFilesystemForSnapshot` aceita os seguintes valores:
+
+*Valor padrão*: `ignored`
+
+* `ignored`: Instruções para {longhorn-product-name} usar a configuração global. Ela é a opção padrão.
+* `enabled`: Ativa o congelamento antes dos snapshots, independentemente da configuração global.
+* `disabled`: Desativa o congelamento antes dos snapshots, independentemente da configuração global.
+
+== Órfão
+
+=== Exclusão Automática de Recursos Órfãos
+
+*Exemplo*: `replica-data;instance`
+
+Esta configuração permite que {longhorn-product-name} exclua automaticamente recursos `orphan`, que são tipicamente Recursos Personalizados (CRs) criados por {longhorn-product-name} para representar entidades órfãs detectadas. A exclusão de um `orphan` CR aciona subsequentemente a limpeza dos dados órfãos reais ou da instância de runtime que ele representa. No entanto, recursos `orphan` associados a nós que estão em um estado `down` ou `unknown` não serão limpos automaticamente por esta configuração.
+
+Você pode listar os tipos de recursos a serem excluídos automaticamente como uma string separada por ponto e vírgula. Os tipos disponíveis incluem:
+
+* `replica-data`: Representa o armazenamento de dados de réplica.
+* `instance`: Representa a instância de tempo de execução do mecanismo e da réplica.
+
+=== Período de Graça para Exclusão Automática de Recursos Orfãos
+
+*Valor padrão*: `300` segundos
+
+Número de segundos que {longhorn-product-name} aguarda antes de excluir automaticamente um recurso personalizado (CR) órfão e os dados órfãos ou instância de runtime que ele representa.
+
+[NOTE]
+====
+O período extra não entra em vigor quando você exclui manualmente um CR órfão.
+====
+
+== Backups
+
+=== Permitir Trabalho Recorrente Enquanto o Volume Estiver Desconectado
+
+*Valor padrão*: `false`
+
+Se esta configuração estiver habilitada, {longhorn-product-name} anexa automaticamente o volume e tira um instantâneo ou backup quando é hora de fazer o instantâneo ou backup recorrente.
+
+[NOTE]
+====
+Durante o tempo em que o volume foi anexado automaticamente, o volume não está pronto para a carga de trabalho. A carga de trabalho deve aguardar até que o trabalho recorrente termine.
+====
+
+==== Tempo Limite de Execução do Backup
+
+*Valor padrão*: `1`
+
+Número de minutos que {longhorn-product-name} permite para a execução do backup.
+
+=== Tempo de Vida do Backup com Falha
+
+*Valor padrão*: `1440`
+
+O intervalo em minutos para manter o recurso de backup com falha. Defina como 0 para desativar a exclusão automática.
+
+Backups com falha são verificados e limpos durante a sondagem do backupstore, que é controlada pela configuração *Intervalo de Sondagem do Backup*. Portanto, este valor determina o intervalo mínimo de espera da limpeza. E o intervalo real de limpeza é múltiplo de *Intervalo de Sondagem do Backup*. Desabilitar *Intervalo de Sondagem do Backup* também significa desabilitar a exclusão automática de backups com falha.
+
+=== Limite de Histórico de Tarefas com Falha do cron
+
+*Valor padrão*: `1`
+
+Esta configuração especifica quantos históricos de tarefas de backup ou snapshot com falha devem ser retidos.
+
+O histórico não é retido se o valor for 0.
+
+=== Limite de Histórico de Tarefas Bem-Sucedidas do cron
+
+*Valor padrão*: `1`
+
+Esta configuração especifica quantos históricos de tarefas de backup ou snapshot bem-sucedidas devem ser retidos.
+
+O histórico não será retido se o valor for 0.
+
+=== Tarefas Recorrentes de Restauração de Volume
+
+*Valor padrão*: `false`
+
+Esta configuração permite restaurar os trabalhos recorrentes de um volume de backup a partir do destino de backup durante uma restauração de volume, caso não existam no cluster.
+Esta também é uma configuração específica do volume com as opções abaixo. Os usuários podem personalizá-la para cada volume para substituir a configuração global.
+
+*Valor padrão*: `ignored`
+
+* `ignored`: Esta é a opção padrão que instrui {longhorn-product-name} a herdar da configuração global.
+* `enabled`: Esta opção instrui {longhorn-product-name} a restaurar trabalhos ou grupos de volume recorrentes do destino de backup de forma forçada.
+* `disabled`: Esta opção instrui {longhorn-product-name} para que nenhuma restauração de trabalhos ou grupos de volume recorrentes seja feita.
+
+=== Método de compressão de backup
+
+*Valor padrão*: `lz4`
+
+Esta configuração permite que os usuários especifiquem o método de compressão de backup.
+
+* `none`: Desativar o método de compressão. Adequado para dados multimídia, como imagens e vídeos codificados.
+* `lz4`: Método de compressão rápida. Adequado para arquivos planos.
+* `gzip`: Uma taxa de compressão um pouco mais alta, mas lenta.
+
+=== Limite de concorrência por backup
+
+*Valor padrão*: `2`
+
+Esta configuração controla quantas threads de trabalho podem ser executadas concorrentemente por backup.
+
+=== Limite de Concorrência por Restauração
+
+*Valor padrão*: `2`
+
+Esta configuração controla quantas threads de trabalho podem ser executadas por restauração de forma concorrente.
+
+=== Tamanho de bloco de backup padrão
+
+*Valor padrão*: `2`
+
+Especifica o tamanho de bloco de backup padrão (em MiB), utilizado ao criar um novo volume. Os valores suportados são `2` ou `16`.
+
+== Programação
+
+=== Permitir Criação de Volume com Disponibilidade Degradada
+
+*Valor padrão*: `true`
+
+Esta configuração permite que o usuário crie e anexe um volume que não possui todas as réplicas programadas no momento da criação.
+
+NOTE: Recomenda-se desativar esta configuração ao usar {longhorn-product-name} no ambiente de produção. Veja xref:installation-setup/best-practices.adoc[Melhores Práticas] para mais detalhes.
+
+=== Desabilitar Agendamento em Nó Isolado
+
+*Valor padrão*: `true`
+
+Quando esta configuração está marcada, o Longhorn Manager não permite agendar réplicas em nós isolados do Kubernetes.
+
+Quando esta configuração não está marcada, o Longhorn Manager permite agendar réplicas em nós isolados do Kubernetes.
+
+=== Nível de Anti-Afinidade Suave de Nó de Réplica
+
+*Valor padrão*: `false`
+
+Quando esta configuração está marcada, o Longhorn Manager permite agendar em nós com réplicas saudáveis existentes do mesmo volume.
+
+Quando esta configuração não está marcada, o Longhorn Manager impede o agendamento em nós com réplicas saudáveis existentes do mesmo volume.
+
+[NOTE]
+====
+* Esta configuração é substituída se as réplicas forem proibidas de compartilhar uma zona pela configuração de Anti-Afinidade de Nível de Zona de Réplica.
+====
+
+=== Nível de Anti-Afinidade Suave de Zona de Réplica
+
+*Valor padrão*: `true`
+
+Quando esta configuração está marcada, o Longhorn Manager permite agendar novas réplicas de um volume nos nós na mesma zona que réplicas saudáveis existentes.
+
+Quando esta configuração não está marcada, o Longhorn Manager impede o agendamento de novas réplicas de um volume nos nós na mesma zona que réplicas saudáveis existentes.
+
+[NOTE]
+====
+* Nós que não pertencem a nenhuma zona são tratados como se pertencessem à mesma zona.
+* {longhorn-product-name} depende do rótulo `topology.kubernetes.io/zone=<Zone name of the node>` no objeto de nó do Kubernetes para identificar a zona.
+====
+
+=== Anti-afinidade suave em nível de disco de réplica
+
+*Valor padrão*: `true`
+
+Quando esta configuração está marcada, o Longhorn Manager permite agendar novas réplicas de um volume nos mesmos discos que réplicas saudáveis existentes.
+
+Quando esta configuração não está marcada, o Longhorn Manager impede o agendamento de novas réplicas de um volume nos mesmos discos que réplicas saudáveis existentes.
+
+[NOTE]
+====
+* Mesmo quando o compartilhamento de disco está habilitado, {longhorn-product-name} prefere usar um disco diferente quando disponível, incluindo discos no mesmo nó.
+* Esta configuração é substituída se as réplicas forem proibidas de compartilhar uma zona ou um nó por qualquer uma das outras configurações de Anti-Afinidade Suave.
+====
+
+=== Rebalanceamento Automático de Réplicas
+
+*Valor padrão*: `disabled`
+
+Ao habilitar esta configuração, as réplicas são reequilibradas automaticamente quando um nó disponível é descoberto.
+
+As opções globais disponíveis são:
+
+* `disabled`. Ela é a opção padrão. Nenhum balanceamento automático de réplicas será realizado.
+* `least-effort`. Esta opção instrui {longhorn-product-name} a balancear réplicas para redundância mínima.
+* `best-effort`. Esta opção instrui {longhorn-product-name} a tentar balancear réplicas para redundância uniforme. {longhorn-product-name} não reprograma forçosamente as réplicas para uma zona que não possui nós suficientes para suportar um balanceamento uniforme. Em vez disso, {longhorn-product-name} reprogramará para balancear no nível do nó.
+
+{longhorn-product-name} também suporta personalização para volumes individuais. A configuração pode ser especificada na interface do usuário ou com o manifesto do Kubernetes volume.spec.replicaAutoBalance, isso sobrepõe a configuração global.
+As opções de especificação de volume disponíveis são:
+
+*Valor padrão*: `ignored`
+
+* `ignored`. Esta é a opção padrão que instrui {longhorn-product-name} a herdar da configuração global.
+* `disabled`. Esta opção instrui {longhorn-product-name} a não realizar o balanceamento automático de réplicas.
+* `least-effort`. Esta opção instrui {longhorn-product-name} a balancear réplicas para redundância mínima.
+* `best-effort`. Esta opção instrui {longhorn-product-name} a tentar balancear réplicas para redundância uniforme. {longhorn-product-name} não reprograma forçosamente as réplicas para uma zona que não possui nós suficientes para suportar um balanceamento uniforme. Em vez disso, {longhorn-product-name} reprogramará para balancear no nível do nó.
+
+=== Limite de Pressão de Disco para Balanceamento Automático de Réplicas (%)
+
+*Valor padrão*: `90`
+
+Porcentagem de armazenamento atualmente utilizado que aciona o reequilíbrio automático de réplicas.
+
+Quando o limite é atingido, {longhorn-product-name} reconstrói automaticamente réplicas que estão sob pressão de disco em outro disco dentro do mesmo nó.
+
+Para desabilitar esta configuração, defina o valor como *0*.
+
+Esta configuração entra em vigor apenas quando as seguintes condições são atendidas:
+
+* <<_replica_auto_balance,Balanceamento Automático de Réplicas>> está definido como *melhor esforço*. Para desabilitar esta configuração (limite de pressão de disco) quando o Balanceamento Automático de Réplicas está definido como melhor esforço, defina o valor desta configuração como *0*.
+* Pelo menos outro disco no nó tem espaço disponível suficiente.
+
+Esta configuração não é afetada pela <<_replica_node_level_soft_anti_affinity,configuração de Nível de Anti-Afinidade Suave de Nó de Réplica>>, que pode impedir {longhorn-product-name} de reconstruir uma réplica no mesmo nó. Independentemente do valor dessa configuração, esta configuração ainda permite que {longhorn-product-name} tente reconstruir réplicas em um disco diferente no mesmo nó para fins de migração.
+
+=== Porcentagem Mínima de Armazenamento Disponível
+
+*Valor padrão*: `25`
+
+Esta configuração controla o espaço livre mínimo que deve permanecer em um disco, com base em seu *Armazenamento Máximo*, antes que {longhorn-product-name} possa agendar uma nova réplica.
+
+Por padrão, {longhorn-product-name} garante que pelo menos *25%* da capacidade total do disco permaneça livre. Se adicionar uma réplica reduzir o espaço disponível abaixo desse limite, {longhorn-product-name} marca temporariamente o disco como indisponível para agendamento até que espaço suficiente seja liberado.
+
+Essa proteção ajuda a proteger seus discos de ficarem muito cheios, o que pode causar problemas de desempenho ou falhas de armazenamento. Manter um buffer de espaço livre ajuda a manter o sistema estável e garante espaço para necessidades de armazenamento inesperadas.
+
+Veja xref:nodes/multiple-disks#_configuration[Suporte a Múltiplos Discos] para mais detalhes.
+
+=== Porcentagem de Sobrecarga de Armazenamento
+
+*Valor padrão*: `100`
+
+A porcentagem de sobrecarga define a quantidade de armazenamento que pode ser alocada em relação à capacidade do disco rígido.
+
+Ajustar esta configuração permite que o Longhorn Manager agende novas réplicas em um disco, desde que o tamanho combinado de todas as réplicas permaneça dentro da porcentagem de sobrecarga permitida do espaço utilizável do disco. O espaço utilizável do disco é calculado como *Armazenamento Máximo* menos *Armazenamento Reservado*.
+
+[NOTE]
+====
+As réplicas podem consumir mais espaço do que o tamanho nominal de um volume devido a dados de instantâneo. Para recuperar espaço em disco, exclua instantâneos que não são mais necessários.
+====
+
+[Example]
+====
+Suponha que um disco tenha um *Armazenamento Máximo* de 100 GiB e *Armazenamento Reservado* de 10 GiB, resultando em 90 GiB de capacidade utilizável.
+
+Se a Porcentagem de Sobrecarga de Armazenamento estiver definida para 200%, a Sobrecarga de Armazenamento Máxima Permitida é de 180 GiB (200% de 90 GiB).
+
+Isso significa que o Longhorn Manager pode continuar agendando réplicas para este disco até que o tamanho total agendado atinja 180 GiB, mesmo que o espaço utilizável real seja de apenas 90 GiB.
+====
+
+=== Porcentagem de Armazenamento Reservado para Disco Padrão
+
+*Valor padrão*: `30`
+
+A porcentagem reservada especifica a porcentagem do espaço em disco que não será alocada para o disco padrão em cada novo nó Longhorn.
+
+Esta configuração afeta apenas o disco padrão de um novo nó ou nós ao instalar {longhorn-product-name}.
+
+=== Permitir Volume de Seletor de Nó Vazio
+
+*Valor padrão*: `true`
+
+Esta configuração permite que a réplica do volume sem seletor de nó seja agendada em um nó com tags.
+
+=== Permitir Volume de Seletor de Disco Vazio
+
+*Valor padrão*: `true`
+
+Esta configuração permite que a réplica do volume sem seletor de disco seja agendada em um disco com tags.
+
+== Zona de Perigo
+
+A partir da versão {longhorn-product-name} v1.6.0, {longhorn-product-name} permite que você modifique as configurações da Zona de Perigo sem precisar esperar que todos os volumes sejam desanexados. Suas configurações preferidas são aplicadas imediatamente nos seguintes cenários:
+
+* Sem volumes anexados: Quando nenhum volume está anexado antes que as configurações sejam configuradas, as alterações nas configurações são aplicadas imediatamente.
+* Atualização da imagem do motor (atualização ao vivo): Durante uma atualização ao vivo, que envolve a criação de um novo pod do Gerenciador de Instâncias, as alterações nas configurações são aplicadas imediatamente ao novo pod.
+
+As configurações são sincronizadas a cada hora. Quando todos os volumes estão desanexados, as configurações na tabela a seguir são aplicadas imediatamente e os componentes gerenciados pelo sistema (por exemplo, Gerenciador de Instâncias, Driver CSI e imagens do motor) são reiniciados.
+
+Se você não desanexar todos os volumes antes que as configurações sejam sincronizadas, as configurações não são aplicadas e você deve reconfigurar as mesmas configurações após desanexar os volumes restantes. Você pode visualizar a lista de configurações não aplicadas na seção *Zona de Perigo* da interface do usuário {longhorn-product-name}, ou executar o seguinte comando CLI para verificar o valor do campo `APPLIED`.
+
+[subs="+attributes",shell]
+----
+  ~# kubectl -n longhorn-system get setting priority-class
+  NAME             VALUE               APPLIED   AGE
+  priority-class   longhorn-critical   true      3h26m
+----
+
+|===
+| Configuração | Informações adicionais | Componentes Afetados
+
+| <<_kubernetes_taint_toleration,Tolerância a Taint do Kubernetes>>
+| xref:nodes/taints-tolerations.adoc[Taints e Tolerâncias]
+| Componentes gerenciados pelo sistema
+
+| <<_priority_class,Classe de Prioridade>>
+| xref:nodes/priority-class.adoc[Classe de Prioridade]
+| Componentes gerenciados pelo sistema
+
+| <<_system_managed_components_node_selector,Selecionador de Componentes Gerenciados pelo Sistema>>
+| xref:nodes/node-selector.adoc[Selecionador de Nó]
+| Componentes gerenciados pelo sistema
+
+| <<_storage_network,Rede de Armazenamento>>
+| xref:longhorn-system/networking/storage-network.adoc[Rede de Armazenamento]
+| Componentes do Gerenciador de Instâncias e Imagens de Backup
+
+| <<_v1_data_engine,Motor de Dados V1>>
+|
+| Componente do Gerenciador de Instâncias
+
+| <<_v2_data_engine,Motor de Dados V2>>
+| xref:longhorn-system/v2-data-engine/quick-start-guide.adoc[Motor de Dados V2 (Experimental)]
+| Componente do Gerenciador de Instâncias
+
+| <<_guaranteed_instance_manager_cpu,CPU do Gerenciador de Instâncias Garantido>>
+|
+| Componente do Gerenciador de Instâncias
+|===
+
+Para as configurações do Motor de Dados V1 e V2, você pode desativar os Motores de Dados apenas quando todos os volumes associados estiverem desanexados. Por exemplo, você pode desativar o Motor de Dados V2 apenas quando todos os volumes V2 estiverem desanexados (mesmo quando os volumes V1 ainda estiverem anexados).
+
+=== Motor de Dados V1
+
+*Valor padrão*: `true`
+
+Esta configuração permite que você ative o Motor de Dados V1.
+
+=== Motor de Dados V2
+
+*Valor padrão*: `false`
+
+Esta configuração ativa o Motor de Dados V2, que é um recurso experimental baseado no Kit de Desenvolvimento de Desempenho de Armazenamento (SPDK).  O Motor de Dados V2 é um recurso de Pré-visualização Técnica. Para mais informações, veja [Motor de Dados V2 (Pré-visualização Técnica)] xref:longhorn-system/v2-data-engine/v2-data-engine.adoc[Motor de Dados V2 (Experimental)].
+
+[WARNING]
+====
+* NÃO ALTERE ESTA CONFIGURAÇÃO COM VOLUMES ANEXADOS. {longhorn-product-name} bloqueará a atualização desta configuração quando houver volumes anexados.
+* Quando o Motor de Dados V2 está ativado, cada pod do gerenciador de instâncias utiliza 1 núcleo de CPU. Este alto uso de CPU é atribuído ao daemon de destino do Kit de Desenvolvimento de Desempenho de Armazenamento (SPDK) que está sendo executado dentro de cada pod do gerenciador de instâncias. O daemon alvo do SPDK gerencia as operações de entrada/saída (IO) e requer polling intensivo. Como resultado, consome 100% de um núcleo de CPU dedicado para gerenciar e processar eficientemente as solicitações de entrada/saída, garantindo desempenho e capacidade de resposta ideais para operações de armazenamento.
+====
+
+=== Limite de Rebuild de Réplicas Concorrentes por Nó
+
+*Valor padrão*: `5`
+
+Esta configuração controla quantas réplicas em um nó podem ser reconstruídas simultaneamente.
+
+Normalmente, {longhorn-product-name} pode bloquear o início da réplica uma vez que a contagem atual de reconstrução em um nó excede o limite. Mas quando o valor é 0, significa desabilitar a reconstrução da réplica.
+
+[WARNING]
+====
+* A antiga configuração "Desabilitar a Reconstrução de Réplicas" foi substituída por esta configuração.
+* Diferente de depender do atraso no início da réplica para limitar a reconstrução concorrente, se a reconstrução estiver desabilitada, o reabastecimento do objeto réplica será diretamente pulado.
+* Quando o valor é 0, a funcionalidade de evacuação e localidade de dados não funcionará. Mas isso não deve ter nenhum impacto em qualquer reconstrução de réplica atual e restauração de backup.
+====
+
+=== Limite de Sincronização Concorrente da Reconstrução de Réplicas
+
+*Valor padrão*: `{"v1":"1"}`
+
+Esta configuração define o número máximo de réplicas saudáveis (de 1 a 5) que podem sincronizar instantâneos simultaneamente para uma única réplica em reconstrução, permitindo a reconstrução escalonada de réplicas.
+
+Quando definido para `1` (padrão), apenas uma réplica fonte sincroniza com a réplica em reconstrução por vez, que é o comportamento tradicional de reconstrução de fonte única. Quando definido para um valor mais alto (por exemplo, `2` a `5`), várias réplicas saudáveis podem sincronizar diferentes instantâneos com a réplica em reconstrução simultaneamente, potencialmente reduzindo o tempo de reconstrução.
+
+*Substituição por volume*: Esta configuração pode ser substituída para volumes individuais através da interface do Longhorn ou modificando o campo `spec.rebuildConcurrentSyncLimit` no recurso personalizado de Volume.
+
+Para mais detalhes, veja xref:high-availability/scale-replica-rebuilding.adoc[Escalar a Reconstrução de Réplicas].
+
+=== Limite de Reabastecimento de Imagem de Backup Concorrente por Nó
+
+*Valor padrão*: `5`
+
+Esta configuração controla quantas cópias de imagem de backup em um nó podem ser reabastecidas simultaneamente.
+
+Normalmente, {longhorn-product-name} pode bloquear o início da cópia da imagem de backup uma vez que a contagem atual de reabastecimento em um nó excede o limite. Mas quando o valor é 0, significa desabilitar o reabastecimento da imagem de backup.
+
+=== Tolerância de Taint do Kubernetes
+
+*Exemplo*: `nodetype=storage:NoSchedule`
+
+Se você quiser dedicar nós apenas para armazenar {longhorn-product-name} réplicas e rejeitar outras cargas de trabalho gerais, pode definir tolerâncias para *todas* {longhorn-product-name} componentes e adicionar taints aos nós dedicados para armazenamento.
+
+O sistema Longhorn contém componentes implantados pelo usuário (por exemplo, Longhorn Manager, Longhorn driver, Longhorn UI) e componentes gerenciados pelo sistema (por exemplo, Gerenciador de Instâncias, imagem do mecanismo, driver CSI, etc.)
+Esta configuração apenas define tolerâncias de taint para componentes gerenciados pelo sistema.
+Dependendo de como você implantou o Longhorn, você precisa definir tolerâncias de taint para componentes implantados pelo usuário no gráfico Helm ou no arquivo YAML de implantação.
+
+Para aplicar a configuração de tolerância modificada imediatamente, certifique-se de que todos os volumes do Longhorn estejam desanexados. Quando os volumes estão em uso, {longhorn-product-name} componentes não são reiniciados, e você precisa reconfigurar as configurações após desanexar os volumes restantes. Caso contrário, você pode esperar que a alteração da configuração seja reconciliada em uma hora.
+Recomendamos definir tolerâncias durante a implantação {longhorn-product-name} porque o sistema Longhorn não pode ser operado durante a atualização.
+
+Várias tolerâncias podem ser definidas aqui, e essas tolerâncias são separadas por ponto e vírgula. Por exemplo:
+
+* `key1=value1:NoSchedule; key2:NoExecute`
+* `:` esta tolerância tolera tudo porque uma chave vazia com operador `Exists` corresponde a todas as chaves, valores e efeitos
+* `key1=value1:` esta tolerância tem efeito vazio. Ela corresponde a todos os efeitos com chave `key1` Veja xref:nodes/taints-tolerations.adoc[Tolerância de Taint] para detalhes.
+
+=== Classe de Prioridade
+
+*Valor padrão*: `longhorn-critical`
+
+Por padrão, {longhorn-product-name} cargas de trabalho são executadas com a mesma prioridade que outros pods no cluster.
+Quando um nó está sob pressão, como falta de memória, {longhorn-product-name} cargas de trabalho são tratadas da mesma forma que outros pods para evacuação.
+
+A configuração da Classe de Prioridade atribui uma PriorityClass às cargas de trabalho do sistema {longhorn-product-name}.
+Você pode usar esta configuração para dar a essas cargas de trabalho uma prioridade mais alta, para que elas tenham menos probabilidade de serem evacuadas quando um nó enfrenta pressão de recursos.
+
+O sistema {longhorn-product-name} inclui componentes implantados pelo usuário (como Longhorn Manager, Longhorn driver e Longhorn UI) e componentes gerenciados pelo sistema (como Gerenciador de Instâncias, a imagem do motor e o driver CSI).
+
+Esta configuração se aplica apenas a componentes gerenciados pelo sistema. Dependendo de como você implantou {longhorn-product-name}, é necessário definir a PriorityClass para componentes implantados pelo usuário no gráfico Helm ou no seu YAML de implantação.
+
+[WARNING]
+====
+Altere esta configuração somente após desanexar todos os volumes Longhorn.
+Aplicar a nova PriorityClass reinicia os componentes do sistema Longhorn.
+Durante a atualização, o sistema está indisponível e nenhuma operação Longhorn pode ser executada.
+Para evitar interrupções, configure a PriorityClass durante a implantação inicial do {longhorn-product-name}.
+====
+
+Veja xref:nodes/priority-class.adoc[Classe de Prioridade] para mais detalhes.
+
+=== Selecionador de Nós de Componentes Gerenciados pelo Sistema
+
+*Exemplo*: `label-key1:label-value1;label-key2:label-value2`
+
+Para restringir os componentes {longhorn-product-name} a serem executados apenas em um conjunto específico de nós, você pode definir o selecionador de nós para todos os componentes {longhorn-product-name}.
+
+O sistema Longhorn contém componentes implantados pelo usuário (por exemplo, Longhorn Manager, Longhorn Driver, Longhorn UI) e componentes gerenciados pelo sistema (por exemplo, Instance Manager, Engine Image, CSI driver, etc.)
+Você precisa definir o selecionador de nós para ambos. Esta configuração define apenas o selecionador de nós para componentes gerenciados pelo sistema. Siga as instruções em xref:nodes/node-selector.adoc[Selecionador de Nós] para alterar o selecionador de nós.
+
+[WARNING]
+====
+Como todos os componentes {longhorn-product-name} serão reiniciados, o sistema Longhorn ficará temporariamente indisponível.
+====
+
+Para aplicar uma configuração imediatamente, certifique-se de que todos os volumes Longhorn estejam desanexados. Quando os volumes estão em uso, {longhorn-product-name} componentes não são reiniciados, e você precisa reconfigurar as configurações após desanexar os volumes restantes. Caso contrário, você pode esperar que a alteração da configuração seja reconciliada em uma hora.
+Não opere o sistema Longhorn enquanto as configurações do selecionador de nós estão sendo atualizadas e os componentes {longhorn-product-name} estão sendo reiniciados.
+
+=== Kubernetes Cluster Autoscaler Habilitado (Experimental)
+
+*Valor padrão*: `false`
+
+Definir o Kubernetes Cluster Autoscaler Habilitado para `true` permite que {longhorn-product-name} desbloqueie o escalonamento do Kubernetes Cluster Autoscaler.
+
+Veja xref:high-availability/kubernetes-cluster-autoscaler.adoc[Suporte ao Kubernetes Cluster Autoscaler] para mais detalhes.
+
+WARNING: A reconstrução de réplicas pode ser cara porque nós com réplicas reutilizáveis podem ser removidos pelo Kubernetes Cluster Autoscaler.
+
+=== Rede de Armazenamento
+
+*Exemplo*: `kube-system/demo-192-168-0-0`
+
+A rede de armazenamento utiliza o Multus NetworkAttachmentDefinition para segregar o tráfego de dados no cluster da rede padrão do Kubernetes.
+
+Por padrão, essa configuração se aplica apenas ao caminho de tráfego do plano de dados do Longhorn. Para o tráfego de endpoint de volume RWX (Read-Write-Many), consulte <<_endpoint_network_for_rwx_volume,Rede de Endpoint para Volume RWX>>.
+
+WARNING: Essa configuração deve ser alterada após todos os volumes do Longhorn serem desanexados, pois alguns pods que executam componentes do sistema Longhorn são recriados para aplicar a configuração. Quando todos os volumes estão desanexados, {longhorn-product-name} tenta reiniciar todos os pods do Instance Manager e do Backing Image Manager imediatamente. Quando os volumes estão em uso, os componentes {longhorn-product-name} não são reiniciados, e você precisa reconfigurar as configurações após desanexar os volumes restantes; caso contrário, você pode aguardar que a alteração da configuração seja reconciliada em uma hora.
+
+Consulte xref:longhorn-system/networking/storage-network.adoc[Rede de Armazenamento] para mais detalhes.
+
+=== Rede de Endpoint para Volume RWX
+
+*Valor padrão*: `kube-system/demo-172-16-0-0`
+
+Especifique um Multus NetworkAttachmentDefinition para fornecer uma rede dedicada para montagem de volumes RWX (ReadWriteMany).
+
+Deixe isso em branco para usar a rede padrão do cluster Kubernetes.
+
+[WARNING]
+====
+Essa configuração deve ser alterada após todos os volumes {longhorn-product-name} RWX serem desanexados, pois alguns pods que executam componentes {longhorn-product-name} são recriados para aplicar a configuração. Quando todos os volumes RWX estão desanexados, {longhorn-product-name} tenta reiniciar todos os pods do plug-in CSI imediatamente. Quando os volumes estão em uso, os pods que executam componentes {longhorn-product-name} não são reiniciados, portanto, as configurações devem ser reconfiguradas após os volumes restantes serem desanexados. Se você não conseguir reconfigurar as configurações manualmente, pode optar por esperar, pois as configurações são sincronizadas a cada hora.
+
+Os volumes RWX são montados com a rede de endpoint dentro do namespace de rede do contêiner do pod do plug-in CSI. Como resultado, reiniciar o pod do plug-in CSI pode levar a montagens de volume RWX não responsivas. Quando isso ocorre, você deve reiniciar o pod de carga de trabalho para restabelecer a conexão de montagem. Alternativamente, você pode habilitar a configuração <<_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly,Excluir Automaticamente o Pod de Carga de Trabalho quando o Volume for Desanexado Inesperadamente>>.
+====
+
+Para mais informações, consulte xref:longhorn-system/networking/storage-network.adoc[Rede de Armazenamento].
+
+=== Remover Instantâneas Durante o Trim do Sistema de Arquivos
+
+*Exemplo*: `false`
+
+Esta configuração permite que o recurso de trim do sistema de arquivos Longhorn marque automaticamente o último instantâneo e seus ancestrais como removidos, e pare no instantâneo que contém múltiplos filhos.
+
+O recurso de trim do sistema de arquivos Longhorn pode ser aplicado apenas à cabeça do volume e às instantâneos removidas continuamente ou de sistema.
+
+Observe que tentar remover arquivos de um instantâneo válido não fará nada, apenas fará com que o sistema de arquivos descarte esse tipo de informação de arquivo trimmável mantida em memória. Mais tarde, se você marcar o instantâneo como removido e quiser tentar o trim novamente, pode ser necessário desmontar e montar novamente o sistema de arquivos para que este possa recolher as informações de arquivos trimmáveis.
+
+Veja xref:volumes/trim-filesystem.adoc[Trim do Sistema de Arquivos] para mais detalhes.
+
+=== CPU Garantida para o Instance Manager
+
+*Valor padrão*: `{"v1":"12","v2":"12"}`
+
+Porcentagem dos recursos totais de CPU alocáveis em cada nó a ser reservada para cada pod do Instance Manager. Por exemplo, um valor de `10` significa que 10% da CPU total em um nó será alocada para cada pod do Instance Manager nesse nó. Isso ajuda a manter a estabilidade do engine e das réplicas durante períodos de alta carga de trabalho no nó.
+
+Para evitar falhas inesperadas da instância de volume (mecanismo/réplica) e garantir um desempenho de IO relativamente aceitável, você pode usar a seguinte fórmula para calcular um valor para esta configuração:
+
+ Guaranteed Instance Manager CPU = The estimated max Longhorn volume engine and replica count on a node * 0.1 / The total allocatable CPUs on the node * 100.
+
+O resultado do cálculo acima não significa que é o máximo de recursos de CPU que as cargas de trabalho {longhorn-product-name} requerem. Para explorar totalmente o desempenho de entrada ou saída do volume Longhorn, você pode alocar ou garantir mais recursos de CPU através desta configuração.
+
+Se for difícil estimar o uso agora, você pode deixá-lo com o valor padrão, que é 12%. Então você pode ajustá-lo quando não houver carga de trabalho em execução usando volumes Longhorn.
+
+[WARNING]
+====
+* O valor 0 significa desconfigurar as solicitações de CPU para os pods do Instance Manager.
+* Considerando os possíveis novos pods do Instance Manager na futura atualização do sistema, este valor flutuante varia de 0 a 40.
+* Um conjunto adicional de pods do Instance Manager pode precisar ser implantado quando o sistema Longhorn for atualizado. Se a CPU disponível atual dos nós não for suficiente para os novos pods do Instance Manager, você precisará desanexar os volumes usando os pods do Instance Manager mais antigos para que {longhorn-product-name} possa limpar automaticamente os pods antigos e liberar os recursos de CPU. E os novos pods com a imagem mais recente do Instance Manager serão lançados então.
+* Esta configuração global será ignorada para um nó se o campo "InstanceManagerCPURequest" no nó estiver definido.
+* Para o Data Engine v2, o daemon de destino do Storage Performance Development Kit (SPDK) dentro de cada pod do Instance Manager utiliza um ou mais núcleos de CPU dedicados. Definir um uso mínimo de CPU é crítico para manter a estabilidade durante períodos de alta carga no nó.
+====
+
+=== Desativar a Purga de Instantâneos
+
+*Valor padrão*: `false`
+
+Quando definido como verdadeiro, impede temporariamente todas as tentativas de purgar instantâneos de volume.
+
+{longhorn-product-name} normalmente purga instantâneos durante a reconstrução de réplicas e a exclusão de instantâneos iniciada pelo usuário. Durante a purga, {longhorn-product-name} combina instantâneos desnecessários em seus equivalentes mais novos, liberando o espaço ocupado por dados históricos.
+
+Permitir a purga de instantâneos durante operações normais é ideal, mas esse processo consome temporariamente espaço adicional em disco. Se o espaço em disco insuficiente impedir que o processo continue, considere desativar temporariamente a purga enquanto os dados são movidos para outros discos.
+
+=== Limpeza Automática de Instantâneos ao Deletar Backup
+
+*Valor padrão*: `false`
+
+Quando definido como verdadeiro, o instantâneo usado pelo backup será limpo automaticamente quando o backup for excluído.
+
+=== Tempo limite da verificação de liveness do pod do Instance Manager
+
+*Valor padrão*: `10` (em segundos)
+
+A configuração especifica o tempo limite para o liveness probe do pod do Instance Manager. O valor padrão é 10 segundos.
+
+[WARNING]
+====
+Ao aplicar a configuração, {longhorn-product-name} tentará reiniciar todos os pods do Instance Manager se todos os volumes estiverem desconectados e, eventualmente, reiniciar o pod do Instance Manager sem instâncias em execução.
+====
+
+=== Máscara de CPU do Data Engine
+
+*Valor padrão*: `{"v2":"true"}`
+
+Esta configuração se aplica apenas ao Data Engine V2. Ela habilita hugepages para o daemon de destino do Storage Performance Development Kit (SPDK). Se esta configuração estiver desativada, a memória legada será utilizada. O tamanho da alocação para esta memória é definido pela configuração do Tamanho da Memória do Data Engine.
+
+=== Data Engine HugePage habilitado
+
+*Valor padrão*: `{"v2":"2048"}` 
+
+Esta configuração se aplica apenas ao Data Engine V2 e especifica o tamanho da memória, em MiB, alocada para o daemon de destino do Storage Performance Development Kit (SPDK).
+
+* Quando o HugePage está habilitado, este valor define o tamanho do HugePage.
+* Quando o HugePage está desabilitado, a memória legada é utilizada.
+
+=== Data Engine Modo de Interrupção habilitado
+
+*Valor padrão*: `{"v2":"false"}`
+
+Aplica-se apenas ao *Data Engine V2*. Controla se o daemon de destino do Storage Performance Development Kit (SPDK) opera em *modo de interrupção* ou no *modo de polling* padrão.
+
+* `true`: Habilita o modo de interrupção, reduzindo o uso da CPU ao lidar com E/S através de interrupções.
+* `false`: Mantém o modo de polling habilitado para desempenho máximo e menor latência.
+
+[WARNING]
+====
+NÃO ALTERE ESTA CONFIGURAÇÃO COM VOLUMES ANEXADOS. {longhorn-product-name} bloqueará a atualização desta configuração quando houver volumes v2 anexados.
+====
+
+=== Caminho do Log
+
+*Valor padrão*: `/var/lib/longhorn/logs/`
+
+Especifica o diretório no host onde {longhorn-product-name} armazena arquivos de registro para o pod do gerenciador de instâncias. Atualmente, é utilizado apenas para os pods do gerenciador de instâncias no V2 Data Engine.
+
+=== Limite Concorrente de Tarefas Pesadas de Instantâneo
+
+*Valor padrão*: `5`
+
+* `< 1`: tarefas pesadas de instantâneo concorrentes ilimitadas.
+
+Esta configuração controla quantas tarefas pesadas de instantâneo, como operações de purga e clone, podem ser executadas concorrentemente em cada nó. É um mecanismo de melhor esforço. Como o sistema é distribuído, pode ocorrer uma sobrecarga temporária. O limitador reduz a sobrecarga no pior caso, mas não garante uma aplicação perfeita.
+
+=== Limites de Recursos de Componentes CSI Gerenciados pelo Sistema
+
+*Valor padrão*: `""`
+
+Esta configuração define as solicitações e limites de CPU e memória para componentes CSI gerenciados pelo sistema.
+Os componentes suportados incluem: `csi-attacher`, `csi-provisioner`, `csi-resizer`, `csi-snapshotter`, `longhorn-csi-plugin`, `node-driver-registrar` e `longhorn-liveness-probe`.
+
+O valor deve ser um objeto JSON com os nomes dos componentes como chaves e `ResourceRequirements` do Kubernetes (`requests` e `limits`) como valores. Apenas os componentes definidos no objeto JSON têm suas exigências de recursos substituídas. Todos os outros componentes continuam a usar os valores padrão de {longhorn-product-name}.
+
+[NOTE]
+====
+Atualizar os limites de recursos reinicia os componentes CSI afetados. Durante o reinício, a provisão de volumes, expansão, instantâneo e operações de anexar ou desanexar podem ser atrasadas. Os volumes montados existentes permanecem disponíveis.
+====
+
+*Exemplo*
+[source,json]
+----
+{
+  "csi-attacher": {
+    "requests": {"cpu": "100m", "memory": "128Mi"},
+    "limits": {"cpu": "200m", "memory": "256Mi"}
+  },
+  "csi-provisioner": {
+    "requests": {"cpu": "100m", "memory": "128Mi"},
+    "limits": {"cpu": "200m", "memory": "256Mi"}
+  },
+  "longhorn-csi-plugin": {
+    "requests": {"cpu": "100m", "memory": "128Mi"},
+    "limits": {"cpu": "200m", "memory": "256Mi"}
+  },
+  "node-driver-registrar": {
+    "requests": {"cpu": "50m", "memory": "64Mi"},
+    "limits": {"cpu": "100m", "memory": "128Mi"}
+  }
+}
+----
+
+=== Chaves de Topologia Permitidas para CSI
+
+*Valor padrão*: `""`
+
+*Exemplo*: `topology.kubernetes.io/zone`
+
+Uma lista de chaves de topologia separadas por vírgula que o driver CSI do Longhorn deve relatar em `NodeGetInfo` e usar ao construir PV `nodeAffinity`. Quando vazio (o padrão), nenhuma informação de topologia é passada e os PVs são criados sem `nodeAffinity`.
+
+Defina isso para uma ou mais https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone[etiquetas de topologia bem conhecidas do Kubernetes] (por exemplo, `topology.kubernetes.io/zone`) para que a StorageClass `allowedTopologies` e o parâmetro `strictTopology` possam ter efeito.
+
+[NOTE]
+====
+Alterar esta configuração reinicia os componentes CSI. Durante o reinício, novas operações de provisionamento de volumes, expansão, instantâneo ou de anexação/desanexação podem ser temporariamente atrasadas. Os volumes montados existentes permanecem utilizáveis.
+
+Mais detalhes em xref:nodes/topology-aware-provisioning.adoc[Provisão Consciente de Topologia].
+====

@@ -1,0 +1,119 @@
+= Configurar definições padrão de nó e disco
+:revdate: 2025-07-11
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Este recurso permite que o usuário personalize os discos padrão e as configurações de nó em {longhorn-product-name} para nós recém-adicionados usando rótulos e anotações do Kubernetes em vez da interface ou API {longhorn-product-name}.
+
+Personalizar as configurações padrão para discos e nós é útil para escalar o cluster, pois elimina a necessidade de configurar {longhorn-product-name} manualmente para cada novo nó se o nó contiver mais de um disco, ou se a configuração do disco for diferente para novos nós.
+
+{longhorn-product-name} não manterá os rótulos ou anotações do nó sincronizados com os discos ou tags atuais do Longhorn. Nem {longhorn-product-name} manterá os discos ou tags do nó sincronizados com os nós, rótulos ou anotações após os discos ou tags padrão terem sido criados.
+
+== Adicionando Tags de Nó a Novos Nós
+
+Quando um nó não tem uma tag, você pode usar uma anotação de nó para definir as tags do nó, como uma alternativa ao uso da {longhorn-product-name} interface ou API.
+
+. Escalar o cluster Kubernetes. Os nós recém-adicionados não contêm tags de nó.
+. Adicione anotações aos novos nós do Kubernetes que especifiquem quais devem ser as tags padrão do nó. O formato da anotação é:
++
+[,yaml]
+----
+node.longhorn.io/default-node-tags: <node tag list with JSON string format>
+----
++
+Por exemplo:
++
+[,yaml]
+----
+node.longhorn.io/default-node-tags: '["fast","storage"]'
+----
+
+. Aguarde {longhorn-product-name} sincronizar automaticamente a tag do nó. Se a lista de tags do nó estava originalmente vazia, {longhorn-product-name} atualiza o nó com a lista de tags, e você verá as tags para esse nó atualizadas de acordo com a anotação. Se o nó já tinha tags, você não verá nenhuma alteração na lista de tags.
+
+== Personalizando Discos Padrão para Novos Nós
+
+{longhorn-product-name} usa a configuração *Criar Disco Padrão em Nós Rotulados* para habilitar a personalização do disco padrão.
+
+Se a configuração estiver desativada, {longhorn-product-name} criará um disco padrão usando `setting.default-data-path` em todos os novos nós.
+
+Se a configuração estiver ativada, {longhorn-product-name} decidirá criar os discos padrão ou não, dependendo do valor do rótulo `node.longhorn.io/create-default-disk` do nó.
+
+* Se o valor do rótulo do nó for `true`, {longhorn-product-name} criará o disco padrão usando `settings.default-data-path` no nó. Se o nó já tiver discos existentes, {longhorn-product-name} não mudará nada.
+* Se o valor do rótulo do nó for `config`, {longhorn-product-name} verificará a anotação `node.longhorn.io/default-disks-config` e criará discos padrão de acordo com ela. Se não houver anotação, ou se a anotação for inválida, ou o valor do rótulo for inválido, {longhorn-product-name} não mudará nada.
+
+O valor do rótulo só terá efeito quando a configuração estiver habilitada.
+
+Se o rótulo `create-default-disk` não estiver definido, o disco padrão não será criado automaticamente nos novos nós quando a configuração estiver habilitada.
+
+A configuração descrita na anotação só terá efeito quando não houver discos ou tags existentes no nó.
+
+Se o rótulo ou a anotação falharem na validação, toda a anotação será ignorada.
+
+=== Pré-requisitos
+
+A configuração {longhorn-product-name} *Criar Disco Padrão em Nós Rotulados* deve estar habilitada.
+
+. Adicione novos nós ao cluster Kubernetes.
+. Adicione o rótulo ao nó. {longhorn-product-name} depende do rótulo para decidir como personalizar os discos padrão:
++
+[,yaml]
+----
+node.longhorn.io/create-default-disk: 'config'
+----
+
+. Em seguida, adicione uma anotação ao nó. A anotação é usada para especificar a configuração dos discos padrão. O formato é:
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config: <disks configuration with JSON string format>
+----
++
+Por exemplo, a seguinte configuração de disco pode ser especificada na anotação:
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config:
+'[
+    {
+        "path":"/mnt/disk1",
+        "allowScheduling":true
+    },
+    {
+        "name":"fast-ssd-disk",
+        "path":"/mnt/disk2",
+        "allowScheduling":false,
+        "storageReserved":10485760,
+        "tags":[
+            "ssd",
+            "fast"
+        ]
+    }
+]'
+----
++
+[NOTE]
+====
+Se o mesmo nome for especificado para discos diferentes, a configuração será considerada inválida.
+====
+
+. Aguarde {longhorn-product-name} criar automaticamente os discos padrão personalizados, de acordo com a anotação.
+
+== Inicie {longhorn-product-name} com múltiplos discos
+
+. Adicione o rótulo a todos os nós antes de iniciar {longhorn-product-name}.
++
+[,yaml]
+----
+node.longhorn.io/create-default-disk: 'config'
+----
+
+. Em seguida, adicione a anotação de configuração a todos os nós:
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config: '[ { "path":"/var/lib/longhorn", "allowScheduling":true
+  }, { "name":"fast-ssd-disk", "path":"/mnt/extra", "allowScheduling":false, "storageReserved":10485760,
+  "tags":[ "ssd", "fast" ] }]'
+----
+
+. Implante {longhorn-product-name} com `create-default-disk-labeled-nodes: true`, verifique xref:longhorn-system//customize-default-settings.adoc[aqui] para personalizar as configurações padrão de {longhorn-product-name}.

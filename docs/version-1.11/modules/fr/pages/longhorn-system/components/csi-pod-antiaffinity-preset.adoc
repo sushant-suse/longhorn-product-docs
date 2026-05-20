@@ -1,0 +1,80 @@
+= Anti-affinité des pods du composant CSI
+:revdate: 2025-12-02
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Ce document décrit comment configurer l'anti-affinité des pods pour les composants CSI de Longhorn.
+L'anti-affinité des pods augmente la résilience du stockage, en particulier dans les petits clusters, en veillant à ce que plusieurs répliques d'un composant CSI ne s'exécutent pas sur le même nœud.
+
+Pour plus de détails sur l'anti-affinité des pods, consultez la documentation Kubernetes sur https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity[l'affinité et l'anti-affinité inter-pods].
+
+== Configuration de l'anti-affinité des pods pour les composants CSI de Longhorn
+
+Vous pouvez configurer l'anti-affinité des pods pour ces composants CSI de Longhorn{nbsp}:
+
+* `csi-attacher`
+* `csi-provisioner`
+* `csi-resizer`
+* `csi-snapshotter`
+
+Le paramètre `podAntiAffinityPreset` accepte les valeurs suivantes{nbsp}:
+
+* *souple* (par défaut): Une règle de meilleur effort utilisant `preferredDuringSchedulingIgnoredDuringExecution`. Le planificateur essaie d'éviter de placer plusieurs répliques CSI sur le même nœud, mais cela n'est pas garanti.
+
+* *stricte*: Une règle stricte utilisant `requiredDuringSchedulingIgnoredDuringExecution`. Le planificateur bloque le placement des pods sur les nœuds qui violent la règle d'anti-affinité. Les pods peuvent rester dans l'état `Pending` si aucun nœud approprié n'existe.
+
+== Configuration lors de {longhorn-product-name} l'installation de
+
+Vous pouvez définir l'anti-affinité des pods lors de l'installation initiale en utilisant l'une des méthodes suivantes.
+
+=== Utilisation de Rancher
+
+Lors de l'installation de {longhorn-product-name} via l'interface utilisateur de Rancher, sélectionnez *Modifier en YAML* et ajoutez les paramètres suivants au YAML{nbsp}:
+
+[source, yaml]
+----
+csi:
+    podAntiAffinityPreset: "hard"
+----
+
+=== Utilisation de Helm
+
+Lors de l'installation de {longhorn-product-name} avec Helm, définissez la valeur `csi.podAntiAffinityPreset` dans votre fichier `values.yaml`{nbsp}:
+
+[source, yaml]
+----
+csi:
+  podAntiAffinityPreset: hard
+----
+
+Après l'avoir ajouté à votre fichier `values.yaml`, installez le chart comme d'habitude.
+
+=== Utiliser Kubectl
+
+Si vous déployez {longhorn-product-name} en utilisant `kubectl`, modifiez manuellement le déploiement `longhorn-driver-deployer` et ajoutez la variable d'environnement suivante à la spécification du conteneur{nbsp}:
+
+[source, yaml]
+----
+- name: CSI_POD_ANTIAFFINITY_PRESET
+  value: hard
+----
+
+== Configuration après {longhorn-product-name} l'installation de
+
+[WARNING]
+====
+Modifier le déploiement redéploie `longhorn-driver-deployer` et tous les pods CSI.
+====
+
+Pour mettre à jour une installation existante, modifiez manuellement le déploiement `longhorn-driver-deployer` et ajoutez la variable d'environnement suivante à la spécification du conteneur{nbsp}:
+
+[source, yaml]
+----
+- name: CSI_POD_ANTIAFFINITY_PRESET
+  value: hard
+----
+
+
+== History
+
+* https://github.com/longhorn/longhorn/issues/11617[Demande de fonctionnalité originale].

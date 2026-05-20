@@ -1,0 +1,46 @@
+= Recuperar de una copia de seguridad de SUSE® Storage sin el sistema instalado
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Este comando da a los usuarios la capacidad de restaurar una copia de seguridad a una `raw` imagen o a una `qcow2` imagen. Si la copia de seguridad se basa en un archivo de respaldo, los usuarios deben proporcionar el archivo de respaldo como una `qcow2` imagen con el parámetro `--backing file`.
+
+. Copia la https://github.com/longhorn/longhorn/blob/v{patch-version}/examples/restore_to_file.yaml.template[plantilla yaml]: Haz una copia de `examples/restore_to_file.yaml.template` como por ejemplo `restore.yaml`. 
+. Establece el nodo en el que se debe colocar el archivo de salida reemplazando `<NODE_NAME>`, por ejemplo, `node1`.
+. Especifica la ruta del host del archivo de salida modificando el campo `hostpath` del volumen `disk-directory`. Por defecto, el directorio es `/tmp/restore/`.
+. Establece el primer argumento (URL de copia de seguridad) reemplazando `<BACKUP_URL>`, por ejemplo, `s3://<your-bucket-name>@<your-aws-region>/backupstore?backup=<backup-name>&volume=<volume-name>`.
+ ** `<backup-name>` y `<volume-name>` se pueden recuperar de backup.cfg almacenado en la carpeta de destino de la copia de seguridad, por ejemplo, `backup_backup-72bcbdad913546cf.cfg`. El contenido será como se muestra a continuación:
++
+[subs="+attributes",json]
+----
+  {"Name":"backup-72bcbdad913546cf","VolumeName":"volume_1","SnapshotName":"79758033-a670-4724-906f-41921f53c475"}
+----
+. Establece el argumento `output-file` reemplazando `<OUTPUT_FILE>`, por ejemplo, `volume.raw` o `volume.qcow2`.
+. Establece el argumento `output-format` reemplazando `<OUTPUT_FORMAT>`. Las opciones soportadas son `raw` o `qcow2`.
+. Establece el argumento `longhorn-version` reemplazando `<LONGHORN_VERSION>`, por ejemplo, `v{patch-version}`
+. Establece el secreto de credencial S3 reemplazando `<S3_SECRET_NAME>`, por ejemplo, `minio-secret`.
+ ** El secreto de credencial se puede referenciar xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_set_up_aws_s3_backupstore[aquí] y debe ser creado en el espacio de nombres `longhorn-system'.
+. Ejecuta el yaml usando, por ejemplo:
+
+  kubectl create -f restore.yaml
+
+. Observa el resultado usando:
+
+ kubectl -n longhorn-system get pod restore-to-file -w
+
+Después de que el estado del pod cambie a `Completed`, deberías poder encontrar `<OUTPUT_FILE>` en, por ejemplo, `/tmp/restore` en el `<NODE_NAME>`.
+
+También proporcionamos un script, https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/restore-backup-to-file.sh[restore-backup-to-file.sh], para restaurar una copia de seguridad. Los siguientes parámetros deben especificarse:
+
+* `--backup-url`: Especifica la URL de copias de seguridad S3/NFS. por ejemplo, `s3://backupbucket@us-east-1/backupstore?backup=backup-bd326da2c4414b02&volume=volumeexamplename"`
+* `--output-file`: Establece el nombre del archivo de salida. por ejemplo, `volume.raw`
+* `--output-format`: Establece el formato del archivo de salida. por ejemplo, `raw` o `qcow2`
+* `--version`: Especifica la versión de Longhorn a utilizar. Por ejemplo, `v{patch-version}`
+
+Se pueden especificar parámetros opcionales:
+
+* `--aws-access-key`: Especifica la clave de acceso de las credenciales de AWS si las copias de seguridad son S3.
+* `--aws-secret-access-key`: Especifica la clave secreta de las credenciales de AWS si las copias de seguridad son S3.
+* `--backing-file`: imagen de respaldo. por ejemplo, `/tmp/backingfile.qcow2`
+
+Los archivos de imagen de salida se pueden encontrar en la carpeta `/tmp/restore` después de que el script haya terminado de ejecutarse.

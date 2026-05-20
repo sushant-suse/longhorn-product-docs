@@ -1,0 +1,52 @@
+= Prioritätsklasse
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+Die Einstellung der Prioritätsklasse kann verwendet werden, um eine höhere Priorität für {longhorn-product-name} Arbeitslasten im Cluster festzulegen, wodurch verhindert wird, dass sie die Ersten sind, die während Drucksituationen auf Knoten verdrängt werden.
+
+Für weitere Informationen darüber, wie die Pod-Priorität funktioniert, siehe die https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/[offizielle Kubernetes-Dokumentation].
+
+== Prioritätsklasse festlegen
+
+{longhorn-product-name} besteht aus benutzerbereitgestellten Komponenten (zum Beispiel Longhorn Manager, Longhorn Driver und {longhorn-product-name} UI) und systemverwalteten Komponenten (zum Beispiel Instance Manager, CSI Driver und Engine-Images).
+Sie müssen die Prioritätsklasse für beide Arten von Komponenten festlegen. Siehe weitere Details unten.
+
+[discrete]
+=== Prioritätsklasse während der {longhorn-product-name} Installation festlegen
+
+{longhorn-product-name} erstellt eine Prioritätsklasse `longhorn-critical` und setzt sie als Standard für seine benutzerbereitgestellten oder systemverwalteten Komponenten, wenn die folgenden Maßnahmen nicht ergriffen werden.
+
+. Setzen Sie die Taint-Prioritätsklasse für systemverwaltete Komponenten: folgen Sie den xref:longhorn-system/customize-default-settings.adoc[Standardanpassungen], um die Prioritätsklasse festzulegen, indem Sie den Wert für die `priority-class` Standardeinstellung ändern.
+. Setzen Sie die Taint-Prioritätsklasse für benutzerbereitgestellte Komponenten: Ändern Sie das Helm-Chart oder die YAML-Datei für die Bereitstellung, je nachdem, wie Sie {longhorn-product-name} bereitstellen.
+
+WARNING: {longhorn-product-name} wird nicht gestartet, wenn die Einstellung der Prioritätsklasse ungültig ist (zum Beispiel, wenn die Prioritätsklasse nicht existiert).
+Sie können überprüfen, ob dies der Fall ist, indem Sie den Status des Longhorn Manager-DaemonSets mit `kubectl -n longhorn-system describe daemonset.apps/longhorn-manager` prüfen.
+Sie müssen {longhorn-product-name} deinstallieren und die Installation neu starten, wenn dies der Fall ist.
+
+[discrete]
+=== Prioritätsklasse nach der {longhorn-product-name} Installation festlegen
+
+. Setzen Sie die Taint-Prioritätsklasse für systemverwaltete Komponenten: Die Einstellung der Prioritätsklasse kann in der {longhorn-product-name} UI gefunden werden, indem Sie auf menu:Einstellungen[Prioritätsklasse] klicken.
+. Setzen Sie die Taint-Prioritätsklasse für benutzerbereitgestellte Komponenten: Ändern Sie das Helm-Chart oder die YAML-Datei für die Bereitstellung, je nachdem, wie Sie {longhorn-product-name} bereitstellen.
+
+Benutzer können die Prioritätsklasse hier aktualisieren oder entfernen, beachten Sie jedoch, dass dies zur Neuerstellung aller {longhorn-product-name} Systemkomponenten führt.
+Die Einstellung der Prioritätsklasse wird Werte ablehnen, die als ungültige Prioritätsklassen erscheinen.
+
+== Verwendung
+
+Um sicherzustellen, dass Ihre bevorzugten Einstellungen der Prioritätsklasse sofort angewendet werden, stoppen Sie alle Arbeitslasten und trennen Sie alle Longhorn-Volumes, bevor Sie die Einstellungen konfigurieren.
+
+{longhorn-product-name} wird vorübergehend nicht verfügbar, wenn alle Komponenten neu gestartet werden.
+Betreiben Sie das Longhorn-System nicht, nachdem Sie die Einstellung der Prioritätsklasse geändert haben, da die Longhorn-Komponenten neu gestartet werden.
+
+Wenn alle Longhorn-Volumes getrennt sind, wird die benutzerdefinierte Einstellung sofort auf die systemverwalteten Komponenten angewendet.
+Wenn eines oder mehrere Longhorn-Volumes noch angeschlossen sind, wird die benutzerdefinierte Einstellung nur auf den Instanzmanager angewendet, wenn keine Engines und Replikatinstanzen ausgeführt werden. Sie sind verpflichtet, die Einstellung nach dem Trennen der verbleibenden Volumes neu zu konfigurieren. Alternativ können Sie auf die nächste Synchronisierung der Einstellungen warten, die in einer Stunde stattfinden wird.
+
+Löschen Sie die von {longhorn-product-name} verwendete Prioritätsklasse nicht, da dies dazu führen kann, dass neue {longhorn-product-name} Arbeitslasten nicht online gehen können.
+
+== Verlauf
+
+https://github.com/longhorn/longhorn/issues/1487[Original Feature Request]

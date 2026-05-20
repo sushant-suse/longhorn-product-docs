@@ -1,0 +1,146 @@
+= Instala {longhorn-product-name} usando Argo CD
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Requisitos previos
+
+[NOTE]
+====
+La instalación de {longhorn-product-name} requiere acceso autenticado a la Colección de Aplicaciones de SUSE. Para más detalles, consulta https://docs.apps.rancher.io/get-started/authentication[la guía de autenticación].
+====
+
+* Tu estación de trabajo: Instala el https://argo-cd.readthedocs.io/en/stable/cli_installation/[CLI de Argo CD].
+* Kubernetes cluster:
+ ** Asegúrate de que cada nodo cumpla con los xref:installation-setup/requirements.adoc[requisitos de instalación].
+ ** Instala https://argo-cd.readthedocs.io/en/stable/[Argo CD].
++
+[,bash]
+----
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/core-install.yaml
+----
++
+Permite un tiempo para el despliegue de los componentes de Argo CD en el espacio de nombres `argocd`.
+
+____
+La xref:longhorn-system/system-access/longhorn-cli.adoc[herramienta shell de Longhorn] se puede utilizar para comprobar el entorno {longhorn-product-name} en busca de posibles problemas.
+____
+
+== Instalación
+
+. Inicia sesión en Argo CD.
++
+[,bash]
+----
+ argocd login --core
+----
+
+. Establece el espacio de nombres actual a `argocd`.
++
+[,bash]
+----
+ kubectl config set-context --current --namespace=argocd
+----
+
+. Crea el recurso personalizado de la aplicación {longhorn-product-name}.
++
+[subs="+attributes",bash]
+----
+cat > longhorn-application.yaml <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn
+  namespace: argocd
+spec:
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+  project: default
+  sources:
+    - chart: longhorn
+      repoURL: https://charts.longhorn.io/
+      targetRevision: v{{<current-version>}} # Replace with the Longhorn version you'd like to install or upgrade to
+      helm:
+        values: |
+          preUpgradeChecker:
+            jobEnabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: longhorn-system
+  # add ignoreDifferences to prevent preserveUnknownFields field from make causing the application to be out of sync
+  ignoreDifferences:
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: engineimages.longhorn.io
+      jsonPointers: ["/spec/preserveUnknownFields"]
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: engines.longhorn.io
+      jsonPointers: ["/spec/preserveUnknownFields"]
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: instancemanagers.longhorn.io
+      jsonPointers: ["/spec/preserveUnknownFields"]
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: nodes.longhorn.io
+      jsonPointers: ["/spec/preserveUnknownFields"]
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: replicas.longhorn.io
+      jsonPointers: ["/spec/preserveUnknownFields"]
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: settings.longhorn.io
+      jsonPointers: ["/spec/preserveUnknownFields"]
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: volumes.longhorn.io
+      jsonPointers: ["/spec/preserveUnknownFields"]
+EOF
+kubectl apply -f longhorn-application.yaml
+----
+
+. Despliega {longhorn-product-name} con la configuración establecida.
++
+[,bash]
+----
+ argocd app sync longhorn
+----
+
+. Verifica que {longhorn-product-name} se haya instalado correctamente.
++
+[,bash]
+----
+ kubectl -n longhorn-system get pod
+----
++
+Ejemplo de una instalación exitosa:
++
+[,bash]
+----
+ NAME                                                READY   STATUS    RESTARTS   AGE
+ longhorn-ui-b7c844b49-w25g5                         1/1     Running   0          2m41s
+ longhorn-manager-pzgsp                              1/1     Running   0          2m41s
+ longhorn-driver-deployer-6bd59c9f76-lqczw           1/1     Running   0          2m41s
+ longhorn-csi-plugin-mbwqz                           2/2     Running   0          100s
+ csi-snapshotter-588457fcdf-22bqp                    1/1     Running   0          100s
+ csi-snapshotter-588457fcdf-2wd6g                    1/1     Running   0          100s
+ csi-provisioner-869bdc4b79-mzrwf                    1/1     Running   0          101s
+ csi-provisioner-869bdc4b79-klgfm                    1/1     Running   0          101s
+ csi-resizer-6d8cf5f99f-fd2ck                        1/1     Running   0          101s
+ csi-provisioner-869bdc4b79-j46rx                    1/1     Running   0          101s
+ csi-snapshotter-588457fcdf-bvjdt                    1/1     Running   0          100s
+ csi-resizer-6d8cf5f99f-68cw7                        1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-df8v6                       1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-g9cwc                       1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-8l9sw                       1/1     Running   0          101s
+ csi-resizer-6d8cf5f99f-smdjw                        1/1     Running   0          101s
+ instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc   1/1     Running   0          114s
+ engine-image-ei-df38d2e5-cv6nc                      1/1     Running   0          114s
+----
+
+. xref:longhorn-system/system-access/create-ingress.adoc[Crea un controlador de Ingress NGINX con autenticación básica] para acceder a la interfaz de usuario. La autenticación en la interfaz de usuario no está habilitada por defecto.
+. xref:longhorn-system/system-access/system-access.adoc[Accede a la interfaz de usuario].

@@ -1,0 +1,24 @@
+= 卷快照和备份
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+____
+在早期版本中，Longhorn使用了一种与远程备份目标的"阻塞方式"进行通信。因此，有一些非自愿因素影响依赖于远程备份目标的功能。例如，低延迟、列出备份，或在备份目标操作后导致进一步的级联问题。
+____
+
+____
+在当前版本中，Longhorn开始使用异步备份操作来解决前一版本中提到的问题。
+
+* 为此，首先创建备份集群自定义资源，然后对远程备份目标执行以下快照和备份操作。
+* 一旦备份创建完成，异步拉取远程备份目标的备份卷和备份的状态。然后，更新相应集群自定义资源的状态。
+
+此增强功能使备份查询具备扩展性，以协助解决因阻塞方式而导致的资源消耗问题。这是因为所有备份都作为自定义资源保存，而不是直接从远程目标查询。
+
+NOTE: 在Longhorn升级后，如果某个卷尚未升级到最新的Longhorn Engine（≥v1.2.0）。在创建备份时，由于最新 Longhorn 版本（≥v1.2.0）中备份名称处理方式不同，备份会暂处于中间过渡状态。然后，Longhorn将确保备份与远程备份目标同步，并将其更新为最终正确状态，其中远程备份目标作为唯一的真实依据。要升级Longhorn Engine，请参考xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[]或xref:upgrades/longhorn-components/auto-upgrade-engine.adoc[]。
+____
+
+* xref:/snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[设置备份目标]
+* xref:/snapshots-backups/volume-snapshots-backups/create-backup.adoc[创建备份]
+* xref:/snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[从备份中恢复]
+* xref:/snapshots-backups/volume-snapshots-backups/restore-volume-statefulset.adoc[为Kubernetes StatefulSets恢复卷]

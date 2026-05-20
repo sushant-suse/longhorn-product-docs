@@ -1,0 +1,94 @@
+= Mode d'interruption
+:revdate: 2025-11-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+À partir de la version 1.10.0, {longhorn-product-name} prend en charge le *mode d'interruption SPDK* pour les volumes du moteur de données V2. Le mode d'interruption offre une alternative au *mode de sondage* par défaut, améliorant l'efficacité de l'UC dans certains environnements.
+
+Le mode d'interruption est particulièrement adapté aux clusters disposant de ressources d'UC limitées et à un nombre relativement restreint de volumes. Alors que le mode de sondage maximise les performances en maintenant l'utilisation de l'UC proche de 100 % sur les cœurs alloués, le mode d'interruption réduit l'utilisation de l'UC en permettant au réacteur SPDK d'ajuster son utilisation de manière dynamique au lieu de sonder en continu.
+
+== Présentation
+
+=== Mode de sondage vs. Mode d'interruption
+
+* *Mode de sondage (par défaut)*{nbsp}:
+** Il sonde en continu les opérations d'E/S.
+** Il offre la latence la plus faible.
+** Il consomme ~100 % du cœur d'UC alloué à tout moment.
+** Il est le mieux adapté aux charges de travail à haute performance avec des E/S fréquentes.
+* *Mode d'interruption*{nbsp}:
+** Il utilise un traitement des E/S basé sur les interruptions.
+** La consommation de l'UC évolue avec le nombre de volumes attachés.
+** Il est mieux adapté aux environnements à ressources limitées.
+
+== Conditions préalables
+
+* {longhorn-product-name} version 1.10.0 ou ultérieure
+* Moteur de données V2 activé
+* Aucun volume v2 attaché lors du changement de paramètre
+* Pour les disques NVMe, l'IOMMU doit être activé. Pour vérifier{nbsp}:
++
+[,bash]
+----
+find /sys/kernel/iommu_groups/ -type l
+----
++
+Exemple de sortie (IOMMU activé){nbsp}:
++
+[,bash]
+----
+/sys/kernel/iommu_groups/0/devices/0000:e6:0b.1
+/sys/kernel/iommu_groups/1/devices/0000:34:0a.6
+/sys/kernel/iommu_groups/2/devices/0000:a0:00.0
+----
++
+Si la commande ne renvoie aucune sortie, l'IOMMU n'est pas activé.
++
+[NOTE]
+====
+Le support de l'IOMMU peut ne pas être exposé sur les instances virtualisées. En cas de doute, envisagez d'utiliser une instance de matériel sans système d'exploitation ou consultez la documentation ou l'équipe de support de votre fournisseur de cloud.
+====
++
+Pour plus d'informations, reportez-vous à la https://spdk.io/doc/system_configuration.html[documentation officielle de SPDK].
+
+== Configuration
+
+=== Paramètre global
+
+Pour activer le mode d'interruption globalement, mettez à jour le paramètre xref:longhorn-system/settings.adoc#_data_engine_interrupt_mode_enabled[data-engine-interrupt-mode-enabled].
+
+=== Considérations importantes
+
+* *Exigence d'état du volume*{nbsp}: Le paramètre ne peut être modifié que lorsque aucun volume V2 n'est attaché. {longhorn-product-name} bloque les mises à jour si un volume V2 est actif.
+* *Effet global*{nbsp}: Le paramètre s'applique à tous les volumes V2.
+
+== Caractéristiques de performance
+
+=== Cas d'utilisation recommandés
+
+Activez le mode d'interruption pour ces cas{nbsp}:
+
+* Vous fonctionnez dans des clusters à ressources limitées.
+* Vous gérez un petit nombre de volumes.
+* Les ressources de l'UC sont limitées ou partagées avec d'autres charges de travail.
+* Les modèles d'E/S sont sporadiques plutôt que continus.
+* L'efficacité énergétique est une priorité.
+
+== limites
+
+=== Mise en œuvre hybride
+
+Le mode d'interruption de volume V2 actuel utilise une approche hybride pour le transport NVMe/TCP{nbsp}:
+
+* *Opérations de la file d'attente d'administration*{nbsp}: Il repose toujours sur un sondage périodique pour le maintien de la connexion et la récupération du contrôleur.
+* *Achèvement de la file d'attente E/S* : Il utilise le sondage pour l'achèvement des commandes.
+* *Utilisation résiduelle de l'UC* : Cela entraîne une charge UC faible mais constante, même lorsque les volumes attachés sont inactifs.
+
+=== Compromis de performance
+
+* *Latence*{nbsp}: Elle est légèrement supérieure à celle du mode de sondage.
+
+=== Restrictions opérationnelles
+
+* *Modifications de paramètres*{nbsp}: Il ne peut pas être modifié tant que les volumes V2 sont attachés.
+* *Portée globale*{nbsp}: Il s'applique globalement{nbsp}; aucune substitution par volume n'est disponible.

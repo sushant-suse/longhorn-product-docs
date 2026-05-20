@@ -1,0 +1,18 @@
+include::partial$longhorn-globals.adoc[]
+= {longhorn-product-name-tm} Visão geral
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:description: Armazenamento em blocos distribuído nativo de nuvem para Kubernetes
+
+*{longhorn-product-name}* é um sistema de https://cloudacademy.com/blog/object-storage-block-storage/[armazenamento em blocos] distribuído, leve, confiável e poderoso para Kubernetes. É derivado do projeto de código aberto https://www.cncf.io/projects/longhorn/[Longhorn].
+
+{longhorn-product-name} implementa armazenamento em blocos distribuído usando contêineres e microsserviços. Ele cria um controlador de armazenamento dedicado para cada volume de dispositivo de bloco e replica o volume de forma síncrona em várias réplicas armazenadas em vários nós. O controlador de armazenamento e as réplicas são orquestrados usando o Kubernetes.
+
+== Recursos
+
+* Armazenamento em blocos distribuído de nível empresarial sem ponto único de falha
+* Instantâneo incremental do armazenamento em blocos
+* Backup para armazenamento secundário (https://www.extrahop.com/resources/protocols/nfs/[NFS] ou https://aws.amazon.com/s3/[armazenamento de objetos] compatível com S3) baseado na detecção eficiente de mudanças nos blocos
+* Instantâneos e backups recorrentes
+* Fazer upgrade automatizado e não disruptivo. Você pode fazer upgrade de toda a pilha de software {longhorn-product-name} sem interromper os volumes de armazenamento em execução.
+* Um painel de GUI intuitivo

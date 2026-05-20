@@ -1,0 +1,74 @@
+= RWX 卷快速故障转移（实验性）
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+版本 1.7.0 添加了一项功能，可以在节点故障时最小化 ReadWriteMany 卷的停机时间。 启用后，Longhorn 使用基于租约的机制来监控导出卷的 NFS 服务器 pod 的状态。如果 NFS 服务器变得无响应，Longhorn 会迅速将其迁移到另一个节点。 有关 NFS 服务器如何工作的详细信息，请参见 xref:volumes/rwx-volumes.adoc[RWX 卷]。
+
+要启用此功能，您需要将 xref:longhorn-system/settings.adoc#_rwx_volume_fast_failover_experimental[RWX 卷快速故障转移] 设置为 "true"。 现有的 RWX 卷在设置更改后需要重新启动才能使用该功能。 这可以通过将工作负载缩减到零，然后再恢复到正常状态来完成。 新卷将在创建时获取该设置，并进行适当配置。
+
+启用该功能后，当创建或重新创建 pod 时，Longhorn 还会在 `longhorn-system` 命名空间中创建一个关联的租约对象，其名称与卷相同。 NFS 服务器 pod 保持租约的续期，以证明其存活。 如果续期停止，Longhorn 将采取措施在另一个节点上创建新的 NFS 服务器 pod，并重新附加工作负载，即使在旧节点未被 Kubernetes 标记为 `Not Ready` 之前。
+
+除了添加监控和快速反应外，该功能还更改了 NFS 服务器配置，以使用缩短的客户端重新连接宽限期。
+
+如果设置更改回 "false"，则禁用租约检查，pod 迁移将使用常规 Kubernetes 节点故障规则，即使在现有卷上也是如此。 当服务器 pod 下次重新启动时，它将恢复为正常的宽限期配置。
+
+有关更多信息，请参见 https://github.com/longhorn/longhorn/issues/6205.
+
+[NOTE]
+====
+在少数情况下，故障转移可能会出现死锁。如果 NFS 服务器 pod 的创建被一个恢复操作阻塞，而该恢复操作又被故障转移进行中的状态阻塞，就会发生这种情况。 如果是这种情况，并且故障转移超过一两分钟，解决方法是删除关联的租约对象。 这将清除状态，并在替换服务器 pod 时创建一个新的租约。 例如，如果被阻塞的卷名为 `pvc-2ce4e82e-7ccc-46c0-90a8-a141501fbf93` 并且启用了该功能，则会有一个同名的租约。 要删除关联的租约对象：
+
+[subs="+attributes",bash]
+----
+kubectl -n longhorn-system delete lease pvc-2ce4e82e-7ccc-46c0-90a8-a141501fbf93
+----
+
+例如，请参见 https://github.com/longhorn/longhorn/issues/9093.
+====
+
+== 资源消耗和系统性能影响
+
+Longhorn团队调查了RWX卷对资源消耗和系统性能的影响。基准测试研究使用了60个RWX卷，结果显示启用_RWX卷快速故障转移_功能会导致以下结果：
+
+* 发送到Kubernetes API服务器（kube-apiserver）的请求增加
+* 从 kube-apiserver 发送到 etcd 的远程过程调用（RPC）增加
+* CPU和内存使用量略有增加
+
+=== *环境：*
+
+* *Setup（设置）：*1个控制节点 + 3个工作节点（v1.27.15+rke2r1）
+* *工作负载：*60个部署，60个RWX卷，挂载方式为`soft`
+
+=== *测试结果：*
+
+|===
+| *度量*| *快速故障转移已禁用*| *快速故障转移已启用*| *差异*
+
+| *API请求速率（kube-apiserver）*
+| 37.5 req/s
+| 59 req/s
+| +57.3%
+
+| *RPC速率（kube-apiserver到etcd）*
+| 37 ops/s
+| 57 ops/s
+| +54.1%
+
+| *内存用量*
+| 较低的峰值/最小值
+| 较高的峰值/最小值
+| 启用快速故障转移后使用量增加
+
+| *Longhorn Manager CPU/RAM 使用情况*
+| 405 MB / 0.1 CPU
+| 417 MB / 0.13 CPU
+| +3% RAM / +30% CPU
+
+| *共享管理器 CPU/RAM 使用情况*
+| 2.2 GB / 0.235 CPU
+| 2.25 GB / 0.26 CPU
+| +2.3% RAM / +10.6% CPU
+|===
+
+有关详细的屏幕截图和更多上下文，请参阅 https://github.com/longhorn/longhorn/issues/6205#issuecomment-2262625965[相关问题讨论].

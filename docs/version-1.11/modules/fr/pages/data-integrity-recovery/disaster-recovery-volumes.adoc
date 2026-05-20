@@ -1,0 +1,120 @@
+= Volumes de reprise après sinistre
+:revdate: 2025-07-04
+:page-revdate: {revdate}
+:description: Aide et problèmes potentiels associés à des fournisseurs de cloud spécifiques.
+:current-version: {page-component-version}
+
+Assurer la résilience des données est important lors de l'utilisation d'applications conteneurisées. Un *volume de reprise après sinistre Longhorn* est un type spécial de volume conçu pour maintenir une copie de secours des données dans un cluster Kubernetes secondaire. Il est créé à partir de sauvegardes d'un volume principal et maintenu en synchronisation pour permettre une récupération rapide si le cluster principal devient indisponible.
+
+Le volume de reprise après sinistre stocke une réplique des données géographiquement séparée. La fréquence de sauvegarde détermine à quel point le volume de reprise après sinistre est à jour et, par conséquent, le montant potentiel de perte de données en cas de défaillance du site.
+
+== Fonctionnement
+
+La fonctionnalité des volumes de reprise après sinistre repose sur la réplication asynchrone via un stockage de sauvegarde partagé.
+
+*Cible de sauvegarde partagée*
+
+Vos clusters Kubernetes principal et secondaire doivent être configurés pour utiliser la même cible de sauvegarde externe (par exemple, un stockage d'objets compatible S3 ou un partage NFS).
+
+*Sauvegarde et restauration incrémentales*
+
+Un volume de reprise après sinistre est créé à partir d'une sauvegarde existante. Il interroge en continu la cible de sauvegarde pour des sauvegardes plus récentes du volume source et les restaure de manière incrémentale. Le champ *Dernière sauvegarde* dans l'interface utilisateur affiche la sauvegarde la plus récente qui a été restaurée.
+
+Pour garder le volume de reprise après sinistre à jour, configurez des tâches récurrentes sur le volume source pour effectuer des sauvegardes incrémentales régulières. Ces sauvegardes récurrentes fournissent au volume de reprise après sinistre de nouvelles sauvegardes à restaurer, aidant à garantir une perte de données minimale en cas de sinistre.
+
+*État de veille*
+
+Le volume de reprise après sinistre reste dans un état de veille passif. Il n'est pas monté ni accessible par des charges de travail, ce qui empêche les incohérences de données. L'interface utilisateur indique l'état du volume avec une icône{nbsp}:
+
+* Icône grise{nbsp}: Le volume est occupé à restaurer des données et ne peut pas être activé.
+* Icône bleue{nbsp}: Le volume est entièrement synchronisé et prêt à être activé.
+
+*Activation*
+
+En cas de sinistre, vous activez manuellement le volume de reprise après sinistre. Ce processus le convertit en un volume Longhorn standard et accessible en écriture que vous pouvez attacher à vos applications dans le cluster de récupération.
+
+== Création d'un volume de reprise après sinistre.
+
+Vous pouvez créer un volume de reprise après sinistre en utilisant soit l'interface utilisateur {longhorn-product-name}, soit `kubectl`.
+
+[IMPORTANT]
+====
+Configurez deux clusters Kubernetes, appelés Cluster A et Cluster B. Installez {longhorn-product-name} sur les deux clusters et configurez la même cible de sauvegarde sur les deux. Pour obtenir de l'aide sur la configuration de la cible de sauvegarde, consultez la xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[page de configuration de la cible de sauvegarde].
+====
+
+=== Utilisation de l'interface utilisateur {longhorn-product-name}
+
+. Dans votre cluster principal, assurez-vous que le volume source dispose d'au moins une sauvegarde.
+. Dans l'interface utilisateur {longhorn-product-name} de votre cluster secondaire (de récupération), accédez à la *page de sauvegarde*.
+. Sélectionnez la sauvegarde souhaitée dans la liste et choisissez *Créer un volume de reprise après sinistre*. Nous recommandons d'utiliser le même nom que le volume d'origine.
+. {longhorn-product-name} créera le volume, qui apparaîtra sur la *page des volumes* avec un état de veille.
+
+=== Utilisation de la commande `kubectl`
+
+. **Obtenir l'URL de sauvegarde :** Tout d'abord, copiez l'URL complète de la sauvegarde source depuis la *page de sauvegarde* dans l'interface utilisateur {longhorn-product-name}. Le format de cette URL dépend de votre cible de sauvegarde configurée (par exemple, S3 ou NFS).
+
+. **Créez un manifeste YAML :** Créez un fichier (par exemple, `dr-volume.yaml`) avec le contenu suivant. Remplacez l'URL du placeholder et ajustez le nom, la taille, `accessMode`, etc., pour correspondre à votre volume source. Dans ce fichier, le champ `standby: true` définit le volume comme un volume de reprise après sinistre en veille.
+
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  name: example-dr-volume
+  namespace: longhorn-system
+spec:
+  size: "2147483648"
+  accessMode: rwo
+  numberOfReplicas: 3
+  fromBackup: "nfs://longhorn-nfs-server.example.com:/opt/backupstore?backup=backup-b69a1249e97f4a27&volume=pvc-33509786-92d7-427c-9b5a-b6d61d56b063"
+  # This flag is essential to create a standby volume
+  Standby: true
+----
+
+. **Appliquez le manifeste :** Appliquez le manifeste à votre cluster secondaire pour créer le volume.
+
+== Activation d'un volume de reprise après sinistre
+
+Lorsqu'un basculement est nécessaire, activez le volume de reprise après sinistre pour le rendre accessible en écriture.
+
+{longhorn-product-name} prend en charge l'activation dans les conditions suivantes{nbsp}:
+
+* Le volume est sain, indiquant que toutes les répliques sont dans un état sain.
+* Le volume est dégradé (certaines répliques ont échoué), mais uniquement si le paramètre global xref:longhorn-system/settings.adoc#_allow_volume_creation_with_degraded_availability[`Allow Volume Creation with Degraded Availability`] est activé.
+
+[IMPORTANT]
+====
+Lorsque le paramètre `Allow Volume Creation with Degraded Availability` est désactivé, tenter d'activer un volume de reprise après sinistre dégradé entraîne le blocage du volume dans l'état `Attached`.
+
+Après avoir activé le paramètre, le volume de reprise après sinistre s'activera et se convertira en un volume normal, tout en demeurant dans l'état `Detached`.
+====
+
+=== Utilisation de l'interface utilisateur {longhorn-product-name}
+
+. Allez à la page *Volumes* dans l'interface {longhorn-product-name} de votre cluster secondaire.
+. Sélectionnez le volume de reprise après sinistre que vous souhaitez activer.
+. Cliquez sur le bouton *Activer le volume de reprise après sinistre* dans le menu déroulant *Opération*.
+. Le volume passera à l'état `Detached`, et vous pourrez l'attacher à vos charges de travail.
+
+=== Utilisation de la commande `kubectl`
+
+. Exécutez la commande suivante pour activer le volume de reprise après sinistre et mettre à jour le frontend{nbsp}:
+
+[,bash]
+----
+kubectl patch volume example-dr-volume1 -n longhorn-system --type='json' -p='[
+  {"op": "replace", "path": "/spec/Standby", "value": false},
+  {"op": "replace", "path": "/spec/frontend", "value": "blockdev"}
+]'
+----
+
+. Le volume passera à l'état `Detached`, et vous pourrez l'attacher à vos charges de travail.
+
+== limites
+
+Parce que le but principal d'un volume de reprise après sinistre est de restaurer des données à partir de sauvegardes, les actions suivantes ne sont pas prises en charge tant que le volume n'est pas activé{nbsp}:
+
+* Créer, supprimer ou restaurer des instantanés
+* Créer des sauvegardes
+* Créer des volumes persistants (PVs)
+* Créer des demandes de volumes persistants (PVCs)

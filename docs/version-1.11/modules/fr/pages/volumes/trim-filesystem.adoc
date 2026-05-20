@@ -1,0 +1,112 @@
+= Rogner le système de fichiers
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn prend en charge le rognage du système de fichiers à l'intérieur des volumes Longhorn. Le rognage récupérera l'espace gaspillé par les fichiers supprimés du système de fichiers.
+
+[NOTE]
+====
+
+
+* Le rognage des fichiers supprimés dans les instantanés n'a aucun effet sur le système de fichiers car les instantanés valides sont immuables. Cependant, le système de fichiers se souvient chaque fois qu'il a rogné des blocs associés à un instantané. À cause de cela, vous devrez peut-être démonter et remonter le système de fichiers avant de réessayer de rogner un instantané qui a été marqué comme supprimé.
+* Si vous autorisez la suppression automatique des instantanés lors du rognage du système de fichiers, utilisez l'option de montage `discard` avec prudence. `discard` déclenche fréquemment la suppression des instantanés et interrompt des opérations telles que la création de sauvegardes.
+====
+
+== Conditions préalables
+
+* La version de Longhorn doit être v1.4.0 ou supérieure.
+* Il y a un système de fichiers rognable comme EXT4 ou XFS à l'intérieur du volume Longhorn.
+* Le volume est attaché et monté sur un point de montage avant le rognage.
+
+== Rogner le système de fichiers dans un volume Longhorn
+
+Vous pouvez rogner un volume Longhorn en utilisant soit l'interface Longhorn, soit la commande `fstrim`.
+
+=== Via l'interface Longhorn
+
+Vous pouvez directement cliquer sur l'opération de volume `Trim Filesystem` pour les volumes attachés.
+
+Ensuite, Longhorn va *faire de son mieux* pour déterminer le point de montage et exécuter `fstrim <the mount point>`.  Si quelque chose ne va pas ou si le système de fichiers n'existe pas, l'interface renverra une erreur.
+
+=== Via la commande shell
+
+Lorsque vous utilisez `fstrim`, vous devez identifier le point de montage du volume puis exécuter la commande `fstrim <the mount point>`.
+
+* Volume RWO: Le point de montage est soit un pod de la charge de travail, soit le nœud auquel le volume a été attaché manuellement.
+* Volume RWX{nbsp}: Le point de montage est le pod gestionnaire de partage du volume. Le pod gestionnaire de partage contient le serveur NFS et est généralement nommé `share-manager-<volume name>`.
+
+Pour rogner un volume RWX, effectuez les étapes suivantes{nbsp}:
+
+. Identifiez puis ouvrez un shell à l'intérieur du pod gestionnaire de partage du volume.
++
+----
+ kubectl -n longhorn-system exec -it <the share manager pod> -- bash
+----
+
+. Identifiez le répertoire de travail du serveur NFS (par exemple, `/export/<volume name>`).
++
+----
+ mount | grep <volume name>
+ /dev/longhorn/<volume name> on /export/<volume name> type ext4 (rw,relatime)
+----
+
+. Rognez le répertoire de travail.
++
+----
+ fstrim /export/<volume name>
+----
+
+==== Rognez périodiquement le système de fichiers
+
+Vous pouvez configurer un xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc#_set_up_recurring_jobs[RecurringJob] pour rogner périodiquement le système de fichiers.
+
+== Supprimer automatiquement les instantanés lors du rognage du système de fichiers
+
+Par conception, les instantanés valides des volumes Longhorn sont immuables, vous ne pouvez donc utiliser la fonction de rognage du système de fichiers qu'avec les éléments suivants{nbsp}:
+
+* Tête de volume
+* Chaîne continue d'instantanés antérieurs créés par le système ou marqués comme supprimés
+
+Si la majeure partie de l'espace réel consommé par un volume est associée à des instantanés valides, l'opération de rognage n'est pas très efficace.
+
+=== Paramètre global{nbsp}: "Supprimer les instantanés lors du rognage du système de fichiers"
+
+Si vous souhaitez que Longhorn récupère automatiquement le maximum d'espace, vous pouvez activer le paramètre xref:longhorn-system/settings.adoc#_remove_snapshots_during_filesystem_trim[_Supprimer les instantanés lors du rognage du système de fichiers_].
+Lorsque ce paramètre global est activé, le dernier instantané et la chaîne continue d'instantanés précédents sont automatiquement marqués comme supprimés, permettant à Longhorn de récupérer de l'espace pour autant d'instantanés que possible. Cependant, le paramètre peut entraîner la suppression (et l'éventuelle purge) d'instantanés que vous avez intentionnellement créés.
+
+=== Le champ de spécification de volume "UnmapMarkSnapChainRemoved"
+
+Il existe un champ par volume `volume.Spec.UnmapMarkSnapChainRemoved` qui écrase le paramètre global mentionné ci-dessus.
+
+Les options pour ce paramètre spécifique au volume sont "désactivé", "activé" et "ignoré". Lorsque la valeur est "ignorée", le paramètre global prend effet.
+
+Vous pouvez configurer ce paramètre dans une StorageClass afin que la valeur soit appliquée à tous les volumes créés en utilisant cette StorageClass.
+
+== Problèmes connus et limitations
+
+=== Reconstruire des volumes
+
+Par conception, Longhorn désassocie les blocs dans la tête du volume et dans la chaîne continue d'instantanés précédents marqués comme supprimés. Certains de ces instantanés peuvent être déplacés d'une réplique à une autre lors de la reconstruction du volume, donc Longhorn ne peut pas rogner le système de fichiers des volumes affectés lorsque la reconstruction est en cours.
+
+Parce que la reconstruction peut prendre beaucoup de temps, Longhorn ne désassocie tout simplement pas les blocs pendant une reconstruction au lieu de renvoyer une erreur d'E/S au système de fichiers. Ce comportement bénéficie particulièrement aux charges de travail de VM, qui réagissent mal lorsque des tentatives répétées de compléter une opération de rognage renvoient des erreurs. Voir https://github.com/longhorn/longhorn/issues/7103[Problème #7103] pour plus d'informations.
+
+Une opération de rognage initiée pendant la reconstruction n'a aucun effet. Les futures opérations de rognage sur le même volume monté peuvent également n'avoir aucun effet car le système de fichiers se souvient des blocs qu'il a rognés. Vous devrez peut-être démonter et remonter le système de fichiers avant d'essayer de démarrer à nouveau l'opération de rognage.
+
+=== Agrandir des volumes
+
+Longhorn ne peut pas rogner le système de fichiers pendant l'expansion du volume. Parce que l'expansion est rapide, Longhorn renvoie une erreur d'E/S chaque fois que le problème est rencontré. Le système de fichiers reconnaît que les blocs n'ont pas été rognés et peut réessayer sans avoir à démonter et remonter.
+
+=== Volumes chiffrés
+
+* Par défaut, les commandes TRIM ne sont pas activées par le gestionnaire de périphériques. Vous pouvez consulter https://wiki.archlinux.org/title/Dm-crypt/Specialties#Discard/TRIM_support_for_solid_state_drives_(SSD)[ce document] pour plus de détails.
+* Si vous souhaitez toujours rogner un volume Longhorn chiffré, vous pouvez{nbsp}:
+ .. Accéder au nœud hôte auquel le volume est attaché.
+ .. Activez le flag `discards` pour le volume chiffré. La phrase de passe est enregistrée dans le secret correspondant{nbsp}:
++
+[subs="+attributes",shell]
+----
+  cryptsetup --allow-discards --persistent refresh <Longhorn volume name>
+----
+
+ .. Utilisez directement l'interface Longhorn pour rogner le volume ou exécutez `fstrim` pour *le point de montage* de `/dev/mapper/<volume name>` manuellement.

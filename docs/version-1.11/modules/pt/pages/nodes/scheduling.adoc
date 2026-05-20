@@ -1,0 +1,287 @@
+= Programação
+:revdate: 2026-03-06
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+O {longhorn-product-name} agenda réplicas com base em vários fatores.
+
+== Política de Agendamento
+
+A política de agendamento de {longhorn-product-name} tem duas etapas. O agendador só avança para a próxima etapa se a etapa anterior for satisfeita. Caso contrário, o agendamento falha.
+
+Se alguma tag foi definida para ser selecionada para agendamento, a tag do nó e a tag do disco devem corresponder quando o nó ou o disco for selecionado.
+
+A primeira etapa é a *etapa de seleção de nó e zona*. {longhorn-product-name} filtra o nó e a zona com base nas configurações `Replica Node Level Soft Anti-Affinity` e `Replica Zone Level Soft Anti-Affinity`.
+
+A segunda etapa é a *etapa de seleção de disco*. {longhorn-product-name} filtra os discos que satisfazem a primeira etapa com base nas configurações `Replica Disk Level Soft Anti-Affinity`, `Storage Minimal Available Percentage`, `Storage Over Provisioning Percentage` e outros fatores relacionados ao disco, como espaço em disco solicitado.
+
+=== A Etapa de Seleção de Nó e Zona
+
+{longhorn-product-name} avalia quais nós são adequados para agendar uma nova réplica com base em uma série de critérios. O processo de tomada de decisão segue uma ordem específica para garantir a colocação ideal para tolerância a falhas.
+
+==== 1. Correspondência de Tag de Nó
+
+{longhorn-product-name} primeiro verifica as tags de seletor de nó no volume.
+
+* Se o volume tiver tags de seletor de nó, apenas nós com tags correspondentes são elegíveis.
+* Se o volume tiver *nenhum seletor de nó*, o comportamento depende da configuração *Permitir Volume de Seletor de Nó Vazio*:
+* `true` (padrão): Agenda em nós *com ou sem tags*.
+* `false`: Agenda *apenas* em nós *sem tags*.
+
+==== 2. Tratamento de Nó Isolado
+
+A configuração *Desativar Agendamento em Nó Isolado* determina se nós isolados são elegíveis para agendamento de réplicas:
+
+* `true` (padrão): Nós isolados são excluídos.
+* `false`: Nós isolados são elegíveis.
+
+==== 3. Regras de Anti-Afinidade Entre Nós e Zonas
+
+{longhorn-product-name} prioriza a distribuição de réplicas entre diferentes *nós* e *zonas* para melhorar a tolerância a falhas. Um *"novo"* nó ou zona é aquele que *não* hospeda atualmente nenhuma réplica do volume, enquanto um *"existente"* nó ou zona já hospeda uma réplica do volume.
+
+O agendador tenta colocar a nova réplica no local mais "isolado" possível, seguindo esta hierarquia de preferência:
+
+. *Novo Nó em uma Nova Zona* (mais preferido)
+. *Novo Nó em uma Zona Existente*
+. *Nó Existente em uma Zona Existente* (menos preferido)
+
+A tabela a seguir detalha as configurações necessárias para que uma réplica seja agendada em cada cenário:
+
+[cols="3,3,3,3a", options="header"]
+|===
+|Cenário |Nível de Zona da Réplica Anti-Afinidade Suave |Nível de Nó da Réplica Anti-Afinidade Suave |Ação do Agendador
+
+| *Novo Nó em uma Nova Zona*
+| `false`
+| `false`
+| *Agenda* a réplica.
+
+|
+| Qualquer outro valor
+| Qualquer outro valor
+| *Não* agenda a réplica.
+
+| *Novo Nó em uma Zona Existente*
+| `true`
+| `false`
+| *Agenda* a réplica se nenhuma nova zona estiver disponível.
+
+|
+| Qualquer outro valor
+| Qualquer outro valor
+| *Não* agenda a réplica.
+
+| *Nó Existente em uma Zona Existente*
+| `true`
+| `true`
+| *Agenda* a réplica se não houver outras opções disponíveis.
+
+|
+| Qualquer outro valor
+| Qualquer outro valor
+| *Não* agenda a réplica.
+|===
+
+=== Etapa de Seleção de Disco
+
+Após a etapa de seleção de nó e zona, {longhorn-product-name} determina se pode agendar a réplica em qualquer disco do nó selecionado. Ele verifica os discos disponíveis com base na correspondência de tags, espaço total do disco e espaço disponível no disco. Ele também considera se outra réplica já existe e as configurações de anti-afinidade.
+
+{longhorn-product-name} verifica todos os discos disponíveis no nó selecionado para garantir que atendam aos seguintes critérios:
+
+. *Correspondência de Tag de Disco*:
+* Se o volume tiver tags de disco, o disco deve corresponder a qualquer tag especificada necessária para a réplica.
+* Se o volume não tiver tags de disco, o comportamento depende da configuração *Permitir Volume Seletor de Disco Vazio*:
+** `true` (padrão): Permite agendamento em discos com ou sem tags.
+** `false`: Permite apenas agendamento em discos sem tags.
+. *Verificação de Espaço Disponível*:
+* O disco deve ter espaço disponível suficiente com base no `Storage Minimal Available Percentage` configurado.
+. *Configurações de Anti-Afinidade*:
+* *Anti-Afinidade Rigorosa*: Impede o agendamento de uma réplica em um disco que já hospeda outra réplica do mesmo volume.
+* *Anti-Afinidade Suave* (quando habilitado): Prefere agendar a réplica em um disco sem uma réplica existente, mesmo que seja uma escolha menos ideal em termos de espaço ou outros fatores.
+. *Condições de Espaço*: Duas fórmulas determinam se um disco é agendável:
+* *Condição de Uso de Espaço Real*: Garante que haja armazenamento utilizável suficiente após considerar o espaço atualmente utilizado.
+** Fórmula: `(Storage Available - Actual Size) > (Storage Maximum × Minimal Available Percentage) / 100`
+* *Condição de Espaço de Agendamento*: Garante que o tamanho da réplica (mais quaisquer dados agendados, mas não escritos) se encaixe dentro do limite de sobreprovisionamento.
+** Fórmula: `(Size + Storage Scheduled) <= ((Storage Maximum - Storage Reserved) × Over Provisioning Percentage) / 100`
+
+[NOTE]
+====
+Durante a avaliação do disco, como nenhuma réplica específica está sendo agendada ainda, `Actual Size` e `Size` são temporariamente tratados como `0` nessas fórmulas.
+====
+
+Se alguma dessas condições falhar, incluindo a etiqueta do disco, anti-afinidade ou requisitos de espaço, o disco é marcado como não agendável, e {longhorn-product-name} não colocaria a réplica nesse disco.
+
+==== Cenário de Exemplo
+
+Considere um nó (*Node A*) com dois discos:
+
+* *Disco X*: 1 GB disponível, 4 GB de espaço máximo
+* *Disco Y*: 2 GB disponíveis, 8 GB de espaço máximo
+
+===== Fase 1: Avaliação Inicial do Disco
+
+Durante a fase inicial de seleção de disco, {longhorn-product-name} realiza uma verificação básica em todos os discos disponíveis. Neste ponto, nenhuma réplica específica foi selecionada, então `Actual Size` e `Size` são tratados como `0`.
+
+*Avaliação do Disco X*
+
+* *Espaço Disponível*: 1 GB
+* *`Storage Minimal Available Percentage`*: 25% (padrão)
+* *Espaço disponível mínimo requerido*: `(4 GB × 25) / 100 = 1 GB`
+* *Resultado*: *Disco X* falha no `Actual Space Usage Condition` porque seu espaço disponível (1 GB) não é maior que o mínimo requerido (1 GB). Portanto, o Disco X não é agendável a menos que o `Storage Minimal Available Percentage` seja definido como `0`.
+
+*Avaliação do Disco Y*
+
+* *Espaço Disponível*: 2 GB
+* *`Storage Minimal Available Percentage`*: 10%
+* *Espaço disponível mínimo requerido*: `(8 GB × 10) / 100 = 0.8 GB`
+* *Resultado*: *Disco Y* passa no `Actual Space Usage Condition` porque seu espaço disponível (2 GB) é maior que o mínimo requerido (0,8 GB).
+
+Em seguida, verificamos o `Scheduling Space Condition`:
+
+* *Espaço Agendado*: 2 GB
+* *`Storage Reserved`*: 1 GB
+* *`Over Provisioning Percentage`*: 100% (padrão)
+* *Armazenamento Máximo Provisionável*: `(8 GB - 1 GB) × 100 / 100 = 7 GB`
+* *Resultado*: *Disco Y* passa no `Scheduling Space Condition` porque o espaço atualmente agendado (2 GB) é menor que o armazenamento máximo provisionável (7 GB).
+
+Como o Disco Y passa em todas as condições, ele é marcado como um candidato a disco agendável.
+
+===== Estágio 2: Regras de Anti-Afinidade
+
+Assuma que tanto o Disco X quanto o Disco Y passam nas verificações iniciais de espaço e que o Disco X já hospeda uma réplica para o mesmo volume.
+
+*Anti-Afinidade Rigorosa*
+
+* {longhorn-product-name} não agendaria a nova réplica no Disco X. Em vez disso, tentaria agendá-la no Disco Y.
+* Se o Disco Y não for adequado (por exemplo, etiquetas de disco incompatíveis), o agendamento para esta réplica falharia.
+
+*Anti-Afinidade Suave*
+
+* Se *anti-afinidade suave* estiver habilitada, {longhorn-product-name} *prefere* agendar a réplica no Disco Y para evitar a co-localização de réplicas.
+* No entanto, se o Disco Y não for adequado por qualquer motivo, {longhorn-product-name} *pode ainda agendar* a réplica no Disco X. Isso permite compartilhar um disco como uma opção de fallback quando não há outros candidatos viáveis disponíveis.
+
+== Algoritmo de Agendamento
+
+Após identificar os discos candidatos que atendem a todos os requisitos de agendamento, o passo final é selecionar o disco ideal para a réplica. Essa seleção é determinada usando o algoritmo de balanceamento, que visa distribuir as réplicas de forma uniforme entre os nós e discos.
+
+=== Fórmula do Fator de Balanceamento por Armazenamento Utilizável
+
+* `Disk_Usable_Storage = (Disk.StorageAvailable - Disk.StorageReserved) - Disk.StorageScheduled`
+* Pontuação mais baixa = distribuição mais equilibrada.
+
+*Fórmula:*
+
+----
+BalanceScore(X) = (max(X) - min(X)) / mean(X)
+----
+
+Onde:
+
+* `X` = conjunto de valores de armazenamento utilizável (por nó ou por disco).
+
+*Processo de seleção:*
+
+. Simule a colocação da réplica em cada nó candidato e calcule a pontuação de balanceamento resultante. +
+  → Escolha o nó com a menor pontuação (distribuição mais equilibrada).
+
+. Dentro do nó selecionado, simule a colocação em cada disco candidato e calcule novamente a pontuação de balanceamento. +
+  → Escolha o disco com a menor pontuação entre eles.
+
+==== Cenário de exemplo
+
+Suponha que o cluster tenha dois nós, e cada nó contenha dois discos candidatos que são elegíveis para agendamento de réplica.
+
+Replica size = 100 GiB.
+
+[cols="1,1,1", options="header"]
+|===
+| Nó | Disco | Armazenamento Utilizável (GiB)
+
+| Nó A | A1 | 900
+| Nó A | A2 | 100
+| Nó B | B1 | 600
+| Nó B | B2 | 700
+|===
+
+*Etapa 1: Seleção de Nó*
+
+*Simular colocação no Nó A*
+
+Novos totais:
+
+* Nó A = (900 + 100) − 100 = 900
+* Nó B = (600 + 700) = 1300
+
+Pontuação de saldo do nó:
+
+----
+BalanceScore_NodeA  = (1300 - 900) / ((1300 + 900) / 2)
+                    = 400 / 1100
+                    ≈ 0.364
+----
+
+*Simular colocação no Nó B*
+
+Novos totais:
+
+* Nó A = (900 + 100) = 1000
+* Nó B = (600 + 700) - 100 = 1200
+
+Pontuação de saldo do nó:
+
+----
+BalanceScore_NodeB  = (1200 - 1000) / ((1200 + 1000) / 2)
+                    = 200 / 1100
+                    ≈ 0.182
+----
+
+Escolha *Nó B* (pontuação mais baixa, mais equilibrado).
+
+*Etapa 2: Seleção de Disco*
+
+*Simular colocação no B1 (600 → 500)*
+
+Novo espaço utilizável no disco: B1 = 500, B2 = 700
+
+Pontuação de saldo do disco:
+
+----
+BalanceScore_DiskB1 = (700 - 500) / ((700 + 500) / 2)
+                    = 200 / 600
+                    ≈ 0.333
+----
+
+*Simular colocação no B2 (700 → 600)*
+
+Novo espaço utilizável no disco: B1 = 600, B2 = 600
+
+Pontuação de saldo do disco:
+
+----
+BalanceScore_DiskB2 = (600 - 600) / ((600 + 600) / 2)
+                    = 0 / 600
+                    = 0
+----
+
+Escolha *Disco B2* (equilíbrio perfeito entre B1 e B2).
+
+== Categoria de
+
+Para mais informações sobre configurações relevantes para agendar réplicas em nós e discos, consulte a referência de configurações:
+
+* xref:longhorn-system/settings.adoc#_disable_scheduling_on_cordoned_node[Desativar Agendamento em Nó Isolado]
+* xref:longhorn-system/settings.adoc#_replica_node_level_soft_anti_affinity[Anti-Afinidade Suave de Réplica] (também chamada de Anti-Afinidade Suave em Nível de Nó de Réplica)
+* xref:longhorn-system/settings.adoc#_replica_zone_level_soft_anti_affinity[Anti-Afinidade Suave em Nível de Zona de Réplica]
+* xref:longhorn-system/settings.adoc#_replica_disk_level_soft_anti_affinity[Anti-Afinidade Suave em Nível de Disco de Réplica]
+* xref:longhorn-system/settings.adoc#_storage_minimal_available_percentage[Porcentagem Mínima de Armazenamento Disponível]
+* xref:longhorn-system/settings.adoc#_storage_over_provisioning_percentage[Porcentagem de Sobreprovisionamento de Armazenamento]
+* xref:longhorn-system/settings.adoc#_allow_empty_node_selector_volume[Permitir Volume de Seletor de Nó Vazio]
+* xref:longhorn-system/settings.adoc#_allow_empty_disk_selector_volume[Permitir Volume de Seletor de Disco Vazio]
+
+[NOTE]
+====
+{longhorn-product-name} depende do rótulo `topology.kubernetes.io/zone=<Zone name of the node>` ou `topology.kubernetes.io/region=<Region name of the node>` no objeto do nó Kubernetes para identificar a zona ou a região.
+
+Uma vez que estes são reservados e utilizados pelo Kubernetes como https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone[rótulos bem conhecidos].
+====
+

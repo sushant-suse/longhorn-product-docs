@@ -1,0 +1,21 @@
+= Kubernetesクラスターオートスケーラーサポート（実験的）
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+デフォルトでは、LonghornはKubernetesクラスターオートスケーラーがノードをスケールダウンするのをブロックします。理由は次のとおりです：
+
+* LonghornはすべてのエンジンおよびレプリカインスタンスマネージャーポッドのためにPodDisruptionBudgetsを作成します。
+* Longhornインスタンスマネージャーポッドには厳格なPodDisruptionBudgetsがあります。
+* LonghornインスタンスマネージャーポッドはKubernetesのビルトインワークロードコントローラーによってバックアップされていません。
+* Longhornポッドはローカルストレージボリュームマウントを使用しています。
+
+詳細については、 https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/FAQ.md#what-types-of-pods-can-prevent-ca-from-removing-a-node[CAがノードを削除するのを防ぐことができるポッドの種類は何ですか？]を参照してください。
+
+Kubernetesクラスターオートスケーラーのスケーリングを解除したい場合は、設定xref:longhorn-system/settings.adoc#_kubernetes_cluster_autoscaler_enabled_experimental[Kubernetesクラスターオートスケーラー有効]を設定できます。
+
+この設定が有効な場合、Longhornは最小限の数のインスタンスマネージャーPodDisruptionBudgetを保持します。各ボリュームは、インスタンスマネージャーPodDisruptionBudgetによって少なくとも1つのレプリカが保護され、冗長なPodDisruptionBudgetが存在しないため、クラスターオートスケーラーによるスケールダウンが妨げられることはありません。
+
+この設定が有効になっている場合、LonghornはKubernetesのビルトインワークロードコントローラーによってバックアップされていない、またはローカルストレージマウントを使用しているLonghornワークロードに`cluster-autoscaler.kubernetes.io/safe-to-evict`注釈を追加します。
+
+WARNING: レプリカの再構築は高価になる可能性があります。なぜなら、再利用可能なレプリカを持つノードがKubernetesクラスターオートスケーラーによって削除される可能性があるからです。

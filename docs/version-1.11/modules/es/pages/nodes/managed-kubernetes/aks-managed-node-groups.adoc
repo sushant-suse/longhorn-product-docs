@@ -1,0 +1,54 @@
+= Grupos de nodos gestionados en Azure Kubernetes Service (AKS)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Consulta https://docs.microsoft.com/en-us/azure/aks/use-multiple-node-pools[Crear y gestionar múltiples grupos de nodos para un clúster en Azure Kubernetes Service (AKS)] para más información.
+
+A continuación se muestra un ejemplo para reemplazar los nodos del clúster con un nuevo tamaño de almacenamiento.
+
+== Expansión de almacenamiento
+
+AKS no admite disco adicional en su https://docs.microsoft.com/en-us/azure/templates/Microsoft.ContainerService/2022-01-01/managedclusters?tabs=bicep#template-format[plantilla]. Es posible la conexión manual de discos. Luego, el dispositivo en bruto debe ser montado ya sea manualmente en la VM o durante el lanzamiento con CustomScriptExtension que https://docs.microsoft.com/en-us/azure/aks/support-policies#user-customization-of-agent-nodes[no es compatible] en AKS.
+
+. En Longhorn, establece `replica-replenishment-wait-interval` en `0`.
+. Añadir un nuevo grupo de nodos. Más tarde, los componentes de Longhorn se desplegarán automáticamente en los nodos de este grupo.
++
+----
+ AKS_NODEPOOL_NAME_NEW=<new-nodepool-name>
+ AKS_RESOURCE_GROUP=<aks-resource-group>
+ AKS_CLUSTER_NAME=<aks-cluster-name>
+ AKS_DISK_SIZE_NEW=<new-disk-size-in-gb>
+ AKS_NODE_NUM=<number-of-nodes>
+ AKS_K8S_VERSION=<kubernetes-version>
+
+ az aks nodepool add \
+   --resource-group ${AKS_RESOURCE_GROUP} \
+   --cluster-name ${AKS_CLUSTER_NAME} \
+   --name ${AKS_NODEPOOL_NAME_NEW} \
+   --node-count ${AKS_NODE_NUM} \
+   --node-osdisk-size ${AKS_DISK_SIZE_NEW} \
+   --kubernetes-version ${AKS_K8S_VERSION} \
+   --mode System
+----
+
+. Usando la interfaz de Longhorn para deshabilitar la programación de discos y solicitar la evacuación de nodos en el antiguo grupo de nodos.
+. Cordon y drenar los nodos de Kubernetes en el antiguo grupo de nodos.
++
+----
+ AKS_NODEPOOL_NAME_OLD=<old-nodepool-name>
+
+ for n in `kubectl get nodes | grep ${AKS_NODEPOOL_NAME_OLD}- | awk '{print $1}'`; do
+   kubectl cordon $n && \
+   kubectl drain $n --ignore-daemonsets --delete-emptydir-data
+ done
+----
+
+. Eliminar el antiguo grupo de nodos.
++
+----
+ az aks nodepool delete \
+   --cluster-name ${AKS_CLUSTER_NAME} \
+   --name ${AKS_NODEPOOL_NAME_OLD} \
+   --resource-group ${AKS_RESOURCE_GROUP}
+----

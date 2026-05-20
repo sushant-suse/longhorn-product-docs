@@ -1,0 +1,383 @@
+= 要求
+:revdate: 2026-02-05
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Kubernetes 集群中安装 {longhorn-product-name} 的每个节点必须满足以下要求：
+
+* 与 Kubernetes 兼容的容器运行时（Docker v1.13+、containerd v1.3.7+ 等）
+* Kubernetes v1.25 或更高版本
+* 必须安装 `open-iscsi`，并且 `iscsid` 守护程序在所有节点上运行。这是必要的，因为 {longhorn-product-name} 依赖于主机上的 `iscsiadm` 为 Kubernetes 提供持久卷。有关安装 `open-iscsi` 的帮助，请参阅 <<_installing_open_iscsi,安装 open-iscsi>>。
+* RWX 支持要求每个节点都安装 NFSv4 客户端。
+ ** 有关安装 NFSv4 客户端的信息，请参阅 <<_installing_nfsv4_client,安装 NFSv4 客户端>>。
+* 主机文件系统支持 `file extents` 功能以存储数据。目前我们支持：
+ ** ext4
+ ** XFS
+* 必须安装 `bash`、`curl`、`findmnt`、`grep`、`awk`、`blkid`、`lsblk`。
+* 必须启用 https://kubernetes-csi.github.io/docs/deploying.html#enabling-mount-propagation[挂载传播]。
+
+{longhorn-product-name} 工作负载必须能够以 root 身份运行，以便 {longhorn-product-name} 能够正确部署和操作。
+
+可以使用 xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn 命令行工具] 检查 Longhorn 环境中的潜在问题。
+
+有关最低推荐硬件的信息，请参阅 xref:installation-setup/best-practices.adoc#_minimum_recommended_hardware[最佳实践指南]。
+
+[discrete]
+== 操作系统/发行版特定配置
+
+在某些操作系统和发行版上使用 {longhorn-product-name} 之前，您必须执行额外的设置。
+
+* Google Kubernetes Engine (GKE)：请参阅 xref:installation-setup/os-distro/gke.adoc[GKE]。
+* K3s 集群：请参阅 xref:installation-setup/os-distro/k3s.adoc[K3s]。
+
+[discrete]
+== 检查 Kubernetes 版本
+
+使用以下命令检查您的 Kubernetes 服务器版本：
+
+[,shell]
+----
+kubectl version
+----
+
+结果：
+
+[,shell]
+----
+Client Version: version.Info{Major:"1", Minor:"26", GitVersion:"v1.26.10", GitCommit:"b8609d4dd75c5d6fba4a5eaa63a5507cb39a6e99", GitTreeState:"clean", BuildDate:"2023-10-18T11:44:31Z", GoVersion:"go1.20.10", Compiler:"gc", Platform:"linux/amd64"}
+Server Version: version.Info{Major:"1", Minor:"26", GitVersion:"v1.26.10+k3s2", GitCommit:"cb5cb5557f34e240e38c68a8c4ca2506c68b1d86", GitTreeState:"clean", BuildDate:"2023-11-08T03:21:46Z", GoVersion:"go1.20.10", Compiler:"gc", Platform:"linux/amd64"}
+----
+
+`Server Version` 应大于或等于 v1.25。
+
+[discrete]
+=== Pod 安全策略
+
+{longhorn-product-name} 附带一个默认的 Pod 安全策略，这将为 {longhorn-product-name} 提供必要的权限以正常运行。
+
+在启用 Pod 安全策略的集群上，{longhorn-product-name} 正常工作无需特殊配置。
+
+[discrete]
+=== 挂载传播的注意事项
+
+如果您的 Kubernetes 集群是由 Rancher v2.0.7+ 或更高版本提供的，则默认启用挂载传播功能。
+
+如果禁用挂载传播，基础镜像功能将被禁用。
+
+[discrete]
+=== 根权限和特权权限
+
+{longhorn-product-name} 组件需要根访问权限和特权权限以实现卷操作和管理，因为 {longhorn-product-name} 依赖于主机上不同命名空间的系统资源。例如，{longhorn-product-name} 使用 `nsenter` 来了解块设备的使用情况或在主机上加密/解密卷。
+
+以下是 {longhorn-product-name} 组件需要根和特权权限访问的目录：
+
+* Longhorn Manager
+ ** /boot:从主机上的 `/boot/config-$(uname -r)` 获取所需模块的信息。
+ ** /dev:由 Longhorn 创建的块设备位于 `/dev` 路径下。
+ ** /proc:找到被识别的主机进程，如容器运行时，然后使用 `nsenter` 访问主机上的挂载点，以了解磁盘使用情况。
+ ** /var/lib/longhorn:主机上存储卷数据的默认路径。
+* Longhorn 引擎镜像
+ ** /var/lib/longhorn/engine-binaries:存储 Longhorn 引擎二进制文件的默认路径。
+* Longhorn 实例管理器
+ ** /:访问此节点上的任何数据路径并访问 Longhorn 引擎二进制文件。
+ ** /dev:由 Longhorn 创建的块设备位于 `/dev` 路径下。
+ ** /proc:找到被识别的主机进程，如容器运行时，然后使用 `nsenter` 管理 iSCSI 目标和发起者，以及一些文件系统。
+* Longhorn 共享管理器
+ ** /dev:由 Longhorn 创建的块设备位于 `/dev` 路径下。
+ ** /lib/modules:`cryptsetup` 进行卷加密所需的内核模块。
+ ** /proc:找到被识别的主机进程，如容器运行时，然后使用 `nsenter` 进行卷加密。
+ ** /sys:通过 `cryptsetup` 支持卷加密。
+* Longhorn CSI 插件
+ ** /:通过 NFS 客户端挂载器进行主机检查（已弃用）。请注意，这将在未来的版本中被去除。
+ ** /dev:由 Longhorn 创建的块设备位于 `/dev` 路径下。
+ ** /lib/modules:Longhorn CSI 插件所需的内核模块。
+ ** /sys:通过 `cryptsetup` 支持卷加密。
+ ** /var/lib/kubelet/plugins/kubernetes.io/csi:Longhorn CSI 插件创建块设备暂存路径的位置（通过 `NodeStageVolume`）。暂存路径将通过 `NodePublishVolume` 绑定挂载到目标路径 `/var/lib/kubelet/pods`，以支持单个卷挂载到多个 Pod。
+ ** /var/lib/kubelet/plugins_registry:节点驱动注册程序将 CSI 插件注册到 kubelet 的路径。
+ ** /var/lib/kubelet/plugins/driver.longhorn.io:用于 kubelet 和 Longhorn CSI 驱动之间通信的套接字路径。
+ ** /var/lib/kubelet/pods:Longhorn CSI 驱动从目标路径（通过 `NodePublishVolume`）挂载卷的路径。
+* Longhorn CSI 附加器/供应器/调整器/快照器
+ ** /var/lib/kubelet/plugins/driver.longhorn.io:用于 kubelet 和 Longhorn CSI 驱动之间通信的套接字路径。
+* Longhorn 后备镜像管理器
+ ** /var/lib/longhorn:主机上存储数据的默认路径。
+* Longhorn 后备镜像数据源
+ ** /var/lib/longhorn:主机上存储数据的默认路径。
+* Longhorn 系统恢复发布
+ ** /var/lib/longhorn/engine-binaries:存储 Longhorn 引擎二进制文件的默认路径。
+
+[discrete]
+== 安装 open-iscsi
+
+安装 `open-iscsi` 的命令因 Linux 发行套件而异。
+
+对于 GKE，我们建议使用 Ubuntu 作为来宾操作系统镜像，因为它已经包含了 ``open-iscsi``。
+
+您可能需要编辑集群安全组以允许 SSH 访问。
+
+* SUSE 和 openSUSE：运行以下命令：
++
+----
+zypper install open-iscsi
+systemctl enable iscsid
+systemctl start iscsid
+----
+
+* Debian 和 Ubuntu：运行以下命令：
++
+----
+apt-get install open-iscsi
+----
+
+* RHEL、CentOS 和 EKS _(EKS Kubernetes Worker AMI with AmazonLinux2 image)_：运行以下命令：
++
+----
+yum --setopt=tsflags=noscripts install iscsi-initiator-utils
+echo "InitiatorName=$(/sbin/iscsi-iname)" > /etc/iscsi/initiatorname.iscsi
+systemctl enable iscsid
+systemctl start iscsid
+----
+
+请确保在 iscsid 服务启动之前已加载 iscsi_tcp 模块。通常，它应该在软件包安装时自动加载。
+
+----
+modprobe iscsi_tcp
+----
+
+IMPORTANT: 在 SUSE 和 openSUSE 上，`iscsi_tcp` 模块仅包含在 `kernel-default` 软件包中。如果您的系统上安装了`kernel-default-base`软件包，您必须用`kernel-default`替换它。
+
+我们还提供了一个`iscsi`安装程序，以便用户更轻松地自动安装`open-iscsi`。您可以使用xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI]来安装先决条件。
+
+您可以使用 `longhornctl check preflight` 命令。此命令验证您的Kubernetes集群环境，以确保其满足{longhorn-product-name}的要求。它执行一系列检查，可以帮助识别可能阻止{longhorn-product-name}正常运行的潜在问题。
+
+示例：
+
+[,shell]
+----
+> longhornctl check preflight
+INFO[2025-08-22T12:58:40+08:00] Initializing preflight checker
+INFO[2025-08-22T12:58:40+08:00] Cleaning up preflight checker
+INFO[2025-08-22T12:58:42+08:00] Running preflight checker
+INFO[2025-08-22T12:58:49+08:00] Retrieved preflight checker result:
+ip-10-0-1-132:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-client is installed
+  - Package open-iscsi is installed
+  - Package cryptsetup is installed
+  - Package device-mapper is installed
+  - Module dm_crypt is loaded
+  warn:
+  - Kube DNS "coredns" is set with fewer than 2 replicas; consider increasing replica count for high availability
+INFO[2025-08-22T12:58:49+08:00] Cleaning up preflight checker
+INFO[2025-08-22T12:58:50+08:00] Completed preflight checker
+----
+
+在少数情况下，可能需要修改已安装的SELinux策略以使{longhorn-product-name}正常工作。如果您正在运行最新版本的Fedora下游发行版（例如Fedora、RHEL、Rocky、CentOS等）并计划保持SELinux启用，请参见link:https://longhorn.io/kb/troubleshooting-volume-attachment-fails-due-to-selinux-denials[知识库]以获取详细信息。
+
+[discrete]
+== 安装NFSv4客户端
+
+备份功能需要NFSv4、v4.1或v4.2，而ReadWriteMany（RWX）卷功能需要NFSv4.1。在安装 NFSv4 客户端用户空间守护进程和实用程序之前，请确保在每个 {longhorn-product-name} 节点上启用了客户端内核支持。
+
+* 检查 `NFSv4.1` 支持是否在内核中启用。
++
+----
+cat /boot/config-`uname -r`| grep CONFIG_NFS_V4_1
+----
+
+* 检查 `NFSv4.2` 支持是否在内核中启用。
++
+----
+cat /boot/config-`uname -r`| grep CONFIG_NFS_V4_2
+----
+
+用于安装 NFSv4 客户端的命令因 Linux 发行套件而异。
+
+* 对于 Debian 和 Ubuntu，请使用此命令：
++
+----
+apt-get install nfs-common
+----
+
+* 对于 RHEL、CentOS 和带有 `EKS Kubernetes Worker AMI with AmazonLinux2 image` 的 EKS，请使用此命令：
++
+----
+yum install nfs-utils
+----
+
+* 对于 SUSE/OpenSUSE，您可以通过以下方式安装 NFSv4 客户端：
++
+----
+zypper install nfs-client
+----
+
+* 对于 Talos Linux， https://www.talos.dev/v1.6/kubernetes-guides/configuration/storage/#nfs[NFS 客户端是 Talos 团队维护的 `kubelet` 映像的一部分]。
+* 对于容器优化的操作系统， https://cloud.google.com/kubernetes-engine/docs/concepts/node-images#storage_driver_support[NFS 在节点映像中得到支持]。
+
+我们还提供了一个 `nfs` 安装程序，以便用户更轻松地自动安装 `nfs-client`。您可以使用xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI]来安装先决条件。
+
+您可以使用`longhornctl check preflight`命令。此命令验证您的Kubernetes集群环境，以确保其满足{longhorn-product-name}。它执行一系列检查，可以帮助识别可能阻止{longhorn-product-name}正常运行的潜在问题。
+
+示例：
+
+[,shell]
+----
+> longhornctl check preflight
+INFO[2025-08-22T12:58:40+08:00] Initializing preflight checker
+INFO[2025-08-22T12:58:40+08:00] Cleaning up preflight checker
+INFO[2025-08-22T12:58:42+08:00] Running preflight checker
+INFO[2025-08-22T12:58:49+08:00] Retrieved preflight checker result:
+ip-10-0-1-132:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-client is installed
+  - Package open-iscsi is installed
+  - Package cryptsetup is installed
+  - Package device-mapper is installed
+  - Module dm_crypt is loaded
+  warn:
+  - Kube DNS "coredns" is set with fewer than 2 replicas; consider increasing replica count for high availability
+INFO[2025-08-22T12:58:49+08:00] Cleaning up preflight checker
+INFO[2025-08-22T12:58:50+08:00] Completed preflight checker
+----
+
+[discrete]
+== 安装Cryptsetup和LUKS
+
+https://gitlab.com/cryptsetup/cryptsetup[Cryptsetup] 是一个开源工具，用于方便地设置 `dm-crypt` 基于设备映射的目标，并且 {longhorn-product-name} 使用 https://gitlab.com/cryptsetup/cryptsetup#luks-design[LUKS2]（Linux统一密钥设置）格式，这是Linux磁盘加密的标准，以支持卷加密。
+
+用于安装cryptsetup工具的命令因Linux发行套件而异。
+
+* 对于Debian和Ubuntu，请使用此命令：
++
+[subs="+attributes",shell]
+----
+apt-get install cryptsetup
+----
+
+* 对于RHEL、CentOS、Rocky Linux和带有 `EKS Kubernetes Worker AMI with AmazonLinux2 image` 的EKS，请使用以下命令：
++
+[subs="+attributes",shell]
+----
+yum install cryptsetup
+----
+
+* 对于SUSE/OpenSUSE，请使用以下命令：
++
+[subs="+attributes",shell]
+----
+zypper install cryptsetup
+----
+
+[discrete]
+== 安装设备映射用户空间工具
+
+设备映射器是Linux内核提供的一个框架，用于将物理块设备映射到更高级别的虚拟块设备。它构成了 `dm-crypt` 磁盘加密的基础，并在v2卷的顶部提供线性dm设备。设备映射器通常在许多Linux发行套件中默认包含。一些轻量级或高度自定义的发行套件，或某个发行套件的最小安装可能会排除它，以节省空间或减少复杂性。
+
+用于安装设备映射器的命令因Linux发行套件而异。
+
+* 对于Debian和Ubuntu，请使用此命令：
++
+[subs="+attributes",shell]
+----
+apt-get install dmsetup
+----
+
+* 对于RHEL、CentOS、Rocky Linux和带有 `EKS Kubernetes Worker AMI with AmazonLinux2 image` 的EKS，请使用以下命令：
++
+[subs="+attributes",shell]
+----
+yum install device-mapper
+----
+
+* 对于SUSE/OpenSUSE，请使用以下命令：
++
+[subs="+attributes",shell]
+----
+zypper install device-mapper
+----
+
+== Longhorn命令行工具
+
+=== 使用Longhorn命令行工具检查先决条件
+
+`longhornctl` 工具是用于Longhorn操作的命令行界面（CLI）。有关更多信息，请参见 xref:longhorn-system/system-access/install-longhorn-cli.adoc[命令行工具（longhornctl）]。
+
+要检查先决条件和配置，请下载 `longhornctl` 工具，然后运行 `check` 子命令：
+
+[subs="+attributes",bash]
+----
+# For AMD64 platform
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-amd64
+# For ARM platform
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-arm64
+
+chmod +x longhornctl
+./longhornctl check preflight
+----
+
+结果示例：
+
+[,text]
+----
+INFO[2024-01-01T00:00:01Z] Initializing preflight checker
+INFO[2024-01-01T00:00:01Z] Cleaning up preflight checker
+INFO[2024-01-01T00:00:01Z] Running preflight checker
+INFO[2024-01-01T00:00:02Z] Retrieved preflight checker result:
+worker1:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-common is installed
+  - Package open-iscsi is installed
+  warn:
+  - multipathd.service is running. Please refer to https://longhorn.io/kb/troubleshooting-volume-with-multipath/ for more information.
+worker2:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-common is not installed
+  - Package open-iscsi is installed
+----
+
+=== 使用Longhorn命令行工具安装先决条件
+
+在安装Longhorn之前，请使用 `install` 子命令安装和设置预检依赖项。这涉及可能需要在某些Linux发行套件上重启系统的操作。
+
+以下是如何使用 `install` 子命令的示例：
+
+. 从本地下载的 `longhornctl` 二进制文件运行：
++
+[,bash]
+----
+./longhornctl install preflight
+----
+
+. 使用显式 `kube-config` 和 `image` 参数运行：
++
+[subs="+attributes",bash]
+----
+longhornctl --kubeconfig ~/.kube/config --image longhornio/longhorn-cli:v{patch-version} install preflight
+----
+
+运行安装命令后的结果示例：
+
+[,text]
+----
+INFO[2025-03-11T08:17:57+08:00] Initializing preflight installer
+INFO[2025-03-11T08:17:57+08:00] Cleaning up preflight installer
+INFO[2025-03-11T08:17:57+08:00] Running preflight installer
+INFO[2025-03-11T08:17:57+08:00] Installing dependencies with package manager
+INFO[2025-03-11T08:18:28+08:00] Installed dependencies with package manager
+INFO[2025-03-11T08:18:28+08:00] Cleaning up preflight installer
+INFO[2025-03-11T08:18:28+08:00] Completed preflight installer. Use 'longhornctl check preflight' to check the result.
+----
+
+[NOTE]
+====
+在某些不可变的 Linux 发行套件上，例如 SUSE Linux Enterprise Micro (SLE Micro)，您可能需要在运行 `install` 子命令后重启工作节点，以使更改生效。重启后，您必须再次运行 `install` 子命令以完成操作。
+
+您使用的 Linux 发行套件的文档应概述此类要求。例如，link:https://documentation.suse.com/sle-micro/6.0/html/Micro-transactional-updates/index.html#reference-transactional-update-usage[SLE Micro 文档] 解释了通过 `transactional-update` 命令所做的所有更改仅在节点重启后才会生效。
+====

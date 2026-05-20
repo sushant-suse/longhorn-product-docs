@@ -1,0 +1,18 @@
+include::partial$longhorn-globals.adoc[]
+= {longhorn-product-name-tm} Présentation
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:description: Stockage de blocs distribué natif Cloud pour Kubernetes
+
+*{longhorn-product-name}* est un système de https://cloudacademy.com/blog/object-storage-block-storage/[stockage de blocs] distribué léger, fiable et puissant pour Kubernetes. Il est dérivé du projet Open Source https://www.cncf.io/projects/longhorn/[Longhorn].
+
+{longhorn-product-name} implémente le stockage de blocs distribué à l'aide de conteneurs et de microservices. Il crée un contrôleur de stockage dédié pour chaque volume de périphérique de bloc et réplique de manière synchrone le volume sur plusieurs répliques stockées sur plusieurs noeuds. Le contrôleur de stockage et les répliques sont eux-mêmes orchestrés à l'aide de Kubernetes.
+
+== Fonctions
+
+* Stockage de blocs distribué de niveau entreprise sans point de défaillance unique
+* Instantané incrémentiel du stockage de blocs
+* Sauvegarde vers un stockage secondaire (https://www.extrahop.com/resources/protocols/nfs/[NFS] ou stockage d'objets compatible https://aws.amazon.com/s3/[S3]) basé sur une détection efficace des blocs de changement
+* Instantanés et sauvegardes récurrents
+* Mises à niveau automatisées et non perturbatrices. Vous pouvez mettre à niveau l'ensemble de la pile logicielle {longhorn-product-name} sans perturber les volumes de stockage en cours d'exécution.
+* Un tableau de bord GUI intuitif

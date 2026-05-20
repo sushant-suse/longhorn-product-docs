@@ -1,0 +1,140 @@
+= Crea un HTTPRoute con Gateway API
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Si instalas {longhorn-product-name} en un clúster de Kubernetes con kubectl o Helm, puedes usar https://gateway-api.sigs.k8s.io/[Gateway API] HTTPRoute como una alternativa moderna a Ingress para exponer la interfaz de usuario de {longhorn-product-name} al tráfico externo.
+
+Gateway API es el sucesor de Ingress, ofreciendo capacidades de enrutamiento más expresivas y un enfoque estandarizado en diferentes implementaciones.
+
+== Requisitos previos
+
+. *CRDs de Gateway API instalados* en tu clúster:
++
+[source,shell]
+----
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml
+----
+
+. *Un controlador de Gateway* en ejecución en tu clúster (por ejemplo, Istio, Envoy Gateway, Cilium, NGINX Gateway Fabric, Traefik y otros).
+
+. *Al menos un recurso de Gateway* desplegado y configurado.
+
+== Configuración de valores de Helm
+
+Los siguientes valores de Helm controlan la generación de HTTPRoute:
+
+[cols="1,1,1,3",options="header"]
+|===
+| Key | Tipo | Default | Descripción
+
+| `httproute.enabled`
+| bool
+| `false`
+| Habilitar la generación de HTTPRoute para {longhorn-product-name} la interfaz de usuario
+
+| `httproute.parentRefs`
+| lista
+| `[]`
+| Referencias de Gateway que especifican qué Gateway o Gateways deben manejar esta ruta
+
+| `httproute.hostnames`
+| lista
+| `[]`
+| Lista de nombres de host para el HTTPRoute
+
+| `httproute.path`
+| cadena
+| `"/"`
+| Ruta para acceder a {longhorn-product-name} la interfaz de usuario
+
+| `httproute.pathType`
+| cadena
+| `"PathPrefix"`
+| Tipo de coincidencia de ruta: `Exact`, `PathPrefix` o `RegularExpression`
+
+| `httproute.annotations`
+| object
+| `{}`
+| Anotaciones para el recurso HTTPRoute
+|===
+
+== Instalación básica
+
+Instala {longhorn-product-name} con HTTPRoute habilitado:
+
+[,shell]
+----
+helm install longhorn longhorn/longhorn \
+  --namespace longhorn-system \
+  --create-namespace \
+  --set "httproute.enabled=true" \
+  --set "httproute.parentRefs[0].name=my-gateway" \
+  --set "httproute.parentRefs[0].namespace=default" \
+  --set "httproute.hostnames[0]=longhorn.example.com"
+----
+
+== configuración avanzada
+
+Para configuraciones más complejas, crea un archivo de valores:
+
+[,yaml]
+----
+httproute:
+  enabled: true
+  parentRefs:
+    - name: primary-gateway
+      namespace: gateway-system
+    - name: secondary-gateway
+      namespace: gateway-system
+      sectionName: https  # Target specific listener
+  hostnames:
+    - longhorn.example.com
+    - longhorn.example.org
+  path: /longhorn
+  pathType: PathPrefix
+  annotations:
+    custom-annotation: "value"
+----
+
+Instala con el archivo de valores:
+
+[,shell]
+----
+helm install longhorn longhorn/longhorn \
+  --namespace longhorn-system \
+  --create-namespace \
+  --values values.yaml
+----
+
+== Verificación
+
+. Verifica que se haya creado el HTTPRoute:
++
+[,shell]
+----
+kubectl get httproute -n longhorn-system
+----
+
+. Consulta los detalles del HTTPRoute:
++
+[,shell]
+----
+kubectl describe httproute longhorn-httproute -n longhorn-system
+----
+
+. Verifica que la ruta sea aceptada por el Gateway:
++
+[,shell]
+----
+kubectl get httproute longhorn-httproute -n longhorn-system -o jsonpath='{.status.parents[*].conditions}'
+----
++
+La salida debe mostrar `Accepted: True` y `ResolvedRefs: True`.
+
+. Accede a {longhorn-product-name} la interfaz de usuario a través de la dirección IP externa o el nombre de host de tu Gateway.
+
+== Referencias
+
+* https://gateway-api.sigs.k8s.io/[Documentación de Gateway API]
+* https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.HTTPRoute[Especificación de HTTPRoute]

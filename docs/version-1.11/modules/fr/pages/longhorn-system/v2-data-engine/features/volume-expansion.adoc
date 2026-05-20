@@ -1,0 +1,73 @@
+= Extension de volume
+:revdate: 2025-09-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+À partir de v1.10.0, {longhorn-product-name} prend en charge l'expansion en ligne pour les volumes du moteur de données v2 utilisant l'interface NVMe. Cette fonctionnalité vous permet d'étendre un volume à la taille demandée tout en maintenant la charge de travail en cours d'exécution.
+
+Pendant le processus d'extension, {longhorn-product-name} redimensionne automatiquement toutes les répliques pour correspondre à la taille demandée par l'utilisateur. Cela élimine le besoin d'interrompre ou de détacher l'application du volume, garantissant une mise à l'échelle du stockage fluide et sans interruption.
+
+Cette fonctionnalité améliore considérablement la flexibilité de gestion du stockage en permettant de mettre les volumes à l'échelle sans aucun temps d'arrêt.
+
+== Procédure d'utilisation
+
+=== Lors de la création du volume V2 à partir de l'interface {longhorn-product-name}
+
+. Sélectionnez un volume avec `Block Device` ou `NVMf` comme interface.
+. Dans l'interface {longhorn-product-name}, accédez à la page Volumes.
+. Cliquez sur *Étendre le volume* dans le menu des opérations sur les volumes.
+. Entrez la nouvelle taille souhaitée et confirmez. L'extension commencera automatiquement.
+
+=== Lors de la création du volume v2 à partir du manifeste
+
+. Créez un StorageClass pour le moteur de données v2. Assurez-vous que `allowVolumeExpansion` est défini sur `true`. Par exemple :
++
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+    name: longhorn-v2-data-engine
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  fsType: "ext4"
+  dataEngine: "v2"
+----
+. Créez une PersistentVolumeClaim (PVC) qui fait référence à ce StorageClass{nbsp}:
++
+[,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: longhorn-volv-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-v2-data-engine
+  resources:
+    requests:
+      storage: 2Gi
+----
+. Pour étendre le volume, modifiez le manifeste PVC pour augmenter la demande de stockage à une taille plus grande (voir ci-dessous), puis appliquez le manifeste mis à jour.
++
+[,yaml]
+----
+  resources:
+    requests:
+      storage: 3Gi
+----
+
+== Limitations connues
+
+L'interface `UBLK` ne prend pas en charge l'extension en ligne à partir de v1.10.0. Vous n'êtes pas autorisé à étendre un volume qui utilise l'interface `UBLK`.
+
+== Référence
+
+Pour plus d'informations, reportez-vous à https://github.com/longhorn/longhorn/issues/8022[Issue #8022].

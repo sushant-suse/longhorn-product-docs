@@ -1,0 +1,179 @@
+= 卷扩展
+:revdate: 2025-07-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+卷在两个阶段中扩展。首先，Longhorn 调整块设备的大小，然后扩展文件系统。
+
+Longhorn 支持在线扩展。大多数情况下，Longhorn 可以直接扩展附加的卷，而没有限制，无论卷是处于读写状态还是重建状态。
+
+如果卷没有通过 CSI 接口扩展（例如，对于早于 v1.16 的 Kubernetes），相应的 PVC 和 PV 的容量将不会改变。
+
+== 先决条件
+
+* 对于离线扩展，Longhorn 版本必须是 v0.8.0 或更高。
+* 对于在线扩展，Longhorn 版本必须是 v1.4.0 或更高。
+
+== 扩展 Longhorn 卷
+
+有两种方法可以扩展 Longhorn 卷：通过 PersistentVolumeClaim (PVC) 和通过 Longhorn UI。
+
+[discrete]
+==== Via PVC
+
+此方法仅在以下情况下适用：
+
+* PVC 是由 Kubernetes 使用 Longhorn StorageClass 动态提供的。
+* 相关 StorageClass 中的字段 `allowVolumeExpansion` 应为 `true`。
+
+如果适用，建议使用此方法，因为 PVC 和 PV 将自动更新，并且在扩展后保持一致。
+
+用法:找到 Longhorn 卷的相应 PVC，然后修改 PVC 的请求 `spec.resources.requests.storage`：
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"PersistentVolumeClaim","metadata":{"annotations":{},"name":"longhorn-simple-pvc","namespace":"default"},"spec":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"1Gi"}},"storageClassName":"longhorn"}}
+    pv.kubernetes.io/bind-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-provisioner: driver.longhorn.io
+  creationTimestamp: "2019-12-21T01:36:16Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+  name: longhorn-simple-pvc
+  namespace: default
+  resourceVersion: "162431"
+  selfLink: /api/v1/namespaces/default/persistentvolumeclaims/longhorn-simple-pvc
+  uid: 0467ae73-22a5-4eba-803e-464cc0b9d975
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: longhorn
+  volumeMode: Filesystem
+  volumeName: pvc-0467ae73-22a5-4eba-803e-464cc0b9d975
+status:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 1Gi
+  phase: Bound
+----
+
+[discrete]
+==== Via Longhorn UI
+
+用法:在 Longhorn UI 的卷页面上，点击 `Expand` 以扩展该卷。
+
+== 文件系统扩展
+
+只有在以下情况下，Longhorn 才会尝试扩展文件系统：
+
+* 扩展的大小应大于当前大小。
+* 在 Longhorn 卷中有一个 Linux 文件系统。
+* 在 Longhorn 卷中使用的文件系统如下：
+ ** ext4
+ ** xfs
+* 扩展的大小必须小于文件系统允许的最大文件大小（例如，`ext4` 的最大值为 16TiB）。
+* Longhorn 卷正在使用块设备前端。
+
+== 边缘案例
+
+[discrete]
+==== 处理卷还原
+
+如果卷还原到较小大小的快照，卷的前端仍然保持扩展大小。但文件系统的大小将与还原快照的大小相同。在这种情况下，您需要手动处理文件系统：
+
+. 将卷附加到随机节点。
+. 登录到相应的节点，并扩展文件系统。
++
+如果文件系统是 `ext4`，则卷可能需要在手动调整文件系统大小之前 https://linux.die.net/man/8/mount[挂载] 和 https://linux.die.net/man/8/umount[卸载] 一次。否则，执行 `resize2fs` 可能会导致错误：
++
+----
+ resize2fs: Superblock checksum does not match superblock while trying to open ......
+ Couldn't find valid filesystem superblock.
+----
++
+按照以下步骤调整文件系统大小：
++
+----
+ mount /dev/longhorn/<volume name> <arbitrary mount directory>
+ umount /dev/longhorn/<volume name>
+ mount /dev/longhorn/<volume name> <arbitrary mount directory>
+ resize2fs /dev/longhorn/<volume name>
+ umount /dev/longhorn/<volume name>
+----
+
+. 如果文件系统是 `xfs`，您可以直接挂载，然后扩展文件系统。
++
+----
+ mount /dev/longhorn/<volume name> <arbitrary mount directory>
+ xfs_growfs <the mount directory>
+ umount /dev/longhorn/<volume name>
+----
+
+[discrete]
+==== 加密卷
+
+Longhorn 对在线扩展的支持取决于 Kubernetes。
+
+* Kubernetes 从 v1.29 开始原生支持 https://kubernetes.io/blog/2023/12/15/csi-node-expand-secret-support-ga/[经过身份验证的 CSI 存储调整大小]。
+* 在 https://kubernetes.io/blog/2022/09/21/kubernetes-1-25-use-secrets-while-expanding-csi-volumes-on-node-alpha/[Kubernetes v1.25 到 v1.28] 中，需要功能门 `CSINodeExpandSecret`。
+
+您可以通过在StorageClass中指定以下xref:volumes/volume-encryption.adoc#_setting_up_kubernetes_secrets_and_storageclasses[加密参数]来启用加密卷的在线展开：
+
+* `csi.storage.k8s.io/node-expand-secret-name`
+* `csi.storage.k8s.io/node-expand-secret-namespace`
+
+如果您无法启用它但仍希望进行在线扩展，您可以：
+
+. 登录到附加了加密卷的节点主机。
+. 执行`cryptsetup resize <volume name>`。此命令所需的密码短语是相应机密的字段`CRYPTO_KEY_VALUE`。
+. 扩展文件系统。
+
+[discrete]
+==== RWX卷
+
+从v1.8.0开始，Longhorn支持RWX卷的文件系统（NFS）的完全自动在线扩展。此功能要求以下组件的v1.8.0版本正在运行：
+
+- Longhorn Manager
+- CSI插件
+- 共享管理器（管理NFS导出）
+
+[NOTE]
+====
+在升级期间，共享管理器的Pod（每个RWX卷一个）不会自动升级，以避免中断。
+====
+
+在扩展块设备后，CSI层向共享管理器发送调整大小命令，以在块设备内扩展文件系统。 使用较低版本的共享管理器时，命令会以"未实现"错误代码失败，因此不会发生扩展。在扩展之前获取正确的镜像，强制重启Pod。识别RWX卷的共享管理器Pod（通常命名为`share-manager-<volume name>`）并将其删除。
+
+[,shell]
+----
+kubectl -n longhorn-system delete pod <the share manager pod>
+----
+
+Pod会自动使用适当的版本重新创建，扩展完成。进一步的扩展将不需要任何额外的干预。
+
+[discrete]
+===== 脱机
+
+执行以下步骤以允许在离线状态下扩展RWX卷。
+
+. 通过将工作负载缩减到`replicas=0`来分离RWX卷。确保卷已完全分离。
+. 在缩放命令返回后，运行以下命令并验证状态为`detached`。
++
+[subs="+attributes",shell]
+----
+ kubectl -n longhorn-system get volume <volume-name>
+----
+
+. 使用PVC或Longhorn UI扩展块设备。
+. 增加工作负载。
+
+重新附加的卷将具有扩展的大小。此外，Share Manager pod将使用当前版本重新创建。

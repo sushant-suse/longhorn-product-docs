@@ -1,0 +1,54 @@
+= 磁盘健康监控
+:revdate: 2025-11-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 磁盘健康指标
+
+从 {longhorn-product-name} v1.11.0 开始，磁盘健康监控指标可用于 V1 和 V2 数据引擎。这些指标可帮助深入了解磁盘健康状态。
+
+[NOTE]
+====
+* {longhorn-product-name} 每 10 分钟收集一次健康数据。
+* 某些虚拟化或云环境（例如，AWS EBS）未公开完整的 SMART 数据，导致某些属性的值为零。
+* 可用的健康属性因磁盘类型和硬件而异。
+* 收集的完整健康数据集可在 `nodes.longhorn.io` 自定义资源（CRs）中获得。
+====
+
+=== 数据来源
+
+* *V1 数据引擎*:健康数据是通过 SMART 监控工具 (`smartctl`) 收集的。
+* *V2 数据引擎*:
+** *NVMe 磁盘*:健康数据是通过 SPDK 获取的。
+** *AIO 磁盘*:健康数据是通过 SMART 监控工具 (`smartctl`) 收集的。
+
+[NOTE]
+====
+健康数据的来源因磁盘类型而异：
+
+* V1 磁盘和 V2 AIO 磁盘：通过 SMART
+* V2 NVMe 磁盘：通过 SPDK
+
+可用的属性和格式因磁盘类型和硬件而异。有关详细信息：
+
+* SMART 属性： https://www.smartmontools.org/wiki/TocDoc[smartmontools 文档]
+* SPDK NVMe 健康数据： https://github.com/spdk/spdk/blob/v25.09/doc/jsonrpc.md.jinja2#L4805-L4856[`bdev_nvme_get_controller_health_info` JSON-RPC]
+====
+
+=== 健康属性
+
+`longhorn_disk_health_attribute_raw` 指标暴露原始属性值，带有以下标签：
+
+* `attribute`：属性的名称。
+* `attribute_id`：属性 ID，当收集方法提供时。
+* `disk`：Longhorn 磁盘标识符。
+* `node`：节点名称。
+
+[NOTE]
+====
+并非所有平台，尤其是云服务提供商，都能提供 SMART 数据。如果不支持 SMART，健康指标将显示为 `0`。
+====
+
+=== 参考资料
+
+* 相关 GitHub 问题 https://github.com/longhorn/longhorn/issues/12016[#12016].

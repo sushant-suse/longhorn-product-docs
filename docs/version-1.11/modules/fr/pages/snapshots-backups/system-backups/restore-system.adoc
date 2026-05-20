@@ -1,0 +1,129 @@
+= Restaurer le système SUSE® Storage
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Déploiements de restauration du système Longhorn
+
+* Longhorn restaure la ressource à partir de l'xref:snapshots-backups/system-backups/create-system-backup.adoc#_longhorn_system_backup_bundle[ensemble de sauvegarde du système Longhorn].
+* Longhorn ne restaure pas les `Volumes` existants et leurs `PersistentVolume` et `PersistentVolumeClaim` associés.
+* Longhorn restaure automatiquement un `Volume` à partir de sa dernière sauvegarde.
+* Pour éviter d'écraser les paramètres éligibles, Longhorn ne restaure pas le `ConfigMap/longhorn-default-setting`.
+* Longhorn ne restaure pas les <<_configurable_settings,paramètres configurables>>.
+* Puisque Longhorn ne sauvegarde pas les images de support du moteur de données V2, vous devez vous assurer que ces images sont disponibles dans le cluster avant de restaurer le système Longhorn. Cela permet à Longhorn de restaurer des volumes qui utilisent des images de support du moteur de données V2.
+
+== limites
+
+=== Chemin de restauration
+
+Longhorn ne prend pas en charge la restauration du système entre les versions majeures et mineures, sauf en cas d'échecs de mise à niveau, ex{nbsp}: 1.4.x \-> 1.5.
+
+== Créer une restauration du système Longhorn
+
+Vous pouvez restaurer le système Longhorn en utilisant l'interface utilisateur de Longhorn. Ou avec la commande `kubectl`.
+
+=== Conditions préalables
+
+* Un cluster Longhorn en cours d'exécution pour que Longhorn déploie les ressources dans le bundle de sauvegarde du système.
+* Configurer les `Nodes` et les étiquettes de disque pour `StorageClass`.
+* Avoir une sauvegarde du système Longhorn.
++
+Voir xref:snapshots-backups/system-backups/create-system-backup.adoc#_create_longhorn_system_backup[Sauvegarder le système Longhorn - Créer une sauvegarde du système Longhorn] pour les instructions.
+
+* Tous les `Volumes` existants sont détachés.
+
+=== Utiliser l'interface utilisateur Longhorn
+
+. Allez à la page `System Backups` dans le `Backup and Restore`.
+. Sélectionnez une sauvegarde système à restaurer.
+. Cliquez sur `Restore` dans le menu déroulant `Operation`.
+. Donnez un `Name` pour la restauration du système.
+. La restauration du système commence et montre l'état `Completed` une fois terminée.
+
+== Utiliser la commande `kubectl`
+
+. Trouvez le `SystemBackup` Longhorn à restaurer.
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME     VERSION   STATE   CREATED
+demo     v1.4.0    Ready   2022-11-24T04:23:24Z
+demo-2   v1.4.0    Ready   2022-11-24T05:00:59Z
+----
+
+. Exécutez `kubectl create` pour créer un `SystemRestore` Longhorn du `SystemBackup`.
++
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: SystemRestore
+metadata:
+  name: restore-demo
+  namespace: longhorn-system
+spec:
+  systemBackup: demo
+----
+
+. La restauration du système commence.
+. Le `SystemRestore` change d'état `Completed` une fois terminé.
++
+----
+> kubectl -n longhorn-system get systemrestore
+NAME           STATE       AGE
+restore-demo   Completed   59s
+----
+
+== Supprimer la restauration du système Longhorn
+
+WARNING: La suppression de la restauration du système supprime également le travail associé et annulera les déploiements de ressources restants. Vous pouvez <<_restart_longhorn_system_restore,Redémarrer la restauration du système Longhorn>> pour déployer les ressources restantes.
+
+Vous pouvez annuler ou supprimer une restauration du système Longhorn terminée en utilisant l'interface utilisateur Longhorn. Ou avec la commande `kubectl`.
+
+=== Utiliser l'interface utilisateur Longhorn
+
+. Allez à la page `System Backups` dans le `Backup and Restore`.
+. Supprimez une seule restauration du système dans le menu déroulant `Operation` à côté de la restauration du système. Ou supprimez en lot avec le bouton `Delete`.
+
+=== Utiliser la commande `kubectl`
+
+. Exécutez `kubectl delete` pour supprimer un `SystemRestore` Longhorn.
++
+----
+> kubectl -n longhorn-system get systemrestore
+NAME           STATE       AGE
+restore-demo   Completed   2m37s
+
+> kubectl -n longhorn-system delete systemrestore/restore-demo
+systemrestore.longhorn.io "restore-demo" deleted
+----
+
+== Redémarrer la restauration du système Longhorn
+
+. <<_delete_longhorn_system_restore,Supprimer la restauration du système Longhorn>> qui est en cours.
+. <<_create_longhorn_system_restore,Créer une restauration du système Longhorn>>.
+
+== Paramètres configurables
+
+Certains paramètres ne sont pas configurables avant la restauration du système Longhorn.
+
+* xref:longhorn-system/settings.adoc#_concurrent_volume_backup_restore_per_node_limit[Limite de restauration de sauvegarde de volume concurrente par nœud]
+* xref:longhorn-system/settings.adoc#_concurrent_replica_rebuild_per_node_limit[Limite de reconstruction de réplique concurrente par nœud]
+* xref:longhorn-system/settings.adoc#_backup_target[Cible de sauvegarde]
+* xref:longhorn-system/settings.adoc#_backup_target_credential_secret[Secret d'identification de la cible de sauvegarde]
+
+== Dépanner
+
+=== Les restaurations du système sont bloquées
+
+. Vérifiez le journal du Pod longhorn-system-rollout pour toute erreur.
++
+----
+> kubectl -n longhorn-system logs --selector=job-name=longhorn-system-rollout-<SYSTEM-RESTORE-NAME>
+----
+
+. Résolvez le problème s'il est identifiable, par exemple{nbsp}: supprimez la ressource de restauration problématique.
+. <<_restart_longhorn_system_restore,Redémarrer la restauration du système Longhorn>>.
+
+== History
+
+https://github.com/longhorn/longhorn/issues/1455[Demande de fonctionnalité originale]

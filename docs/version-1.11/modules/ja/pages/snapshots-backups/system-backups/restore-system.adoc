@@ -1,0 +1,129 @@
+= SUSE® Storageシステムを復元する
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Longhornシステム復元のロールアウト
+
+* Longhornはxref:snapshots-backups/system-backups/create-system-backup.adoc#_longhorn_system_backup_bundle[Longhornシステムバックアップバンドル]からリソースを復元します。
+* Longhornは既存の`Volumes`およびそれに関連する`PersistentVolume`および`PersistentVolumeClaim`を復元しません。
+* Longhornは最新のバックアップから`Volume`を自動的に復元します。
+* 適格な設定が上書きされるのを防ぐために、Longhornは`ConfigMap/longhorn-default-setting`を復元しません。
+* Longhornは<<_configurable_settings,設定可能な設定>>を復元しません。
+* LonghornがV2データエンジンのバックイメージをバックアップしないため、Longhornシステムを復元する前に、これらのイメージがクラスター内で利用可能であることを確認する必要があります。これにより、LonghornはV2データエンジンのバックイメージを使用するボリュームを復元できます。
+
+== 制限
+
+=== 復元パス
+
+Longhornは、アップグレードエラーを除いて、メジャー/マイナー版のシステム復元をサポートしていません。例：1.4.x \-> 1.5。
+
+== Longhornシステム復元を作成する
+
+Longhorn UIを使用してLonghornシステムを復元できます。または`kubectl`コマンドを使用して。
+
+=== 前提条件
+
+* システムバックアップバンドル内のリソースを展開するための稼働中のLonghornクラスター。
+* `Nodes`および`StorageClass`のディスクタグを設定します。
+* Longhornシステムのバックアップを作成しておいてください。
++
+手順についてはxref:snapshots-backups/system-backups/create-system-backup.adoc#_create_longhorn_system_backup[Longhornシステムのバックアップ - Longhornシステムバックアップの作成]を参照してください。
+
+* すべての既存の`Volumes`は切り離されています。
+
+=== Longhorn UIの使用
+
+. `Backup and Restore`の`System Backups`ページに移動します。
+. 復元するシステムバックアップを選択します。
+. `Operation`のドロップダウンメニューで`Restore`をクリックします。
+. システム復元のための`Name`を指定します。
+. システム復元が開始され、完了時に`Completed`の状態が表示されます。
+
+== `kubectl`コマンドの使用
+
+. 復元するLonghorn`SystemBackup`を見つけます。
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME     VERSION   STATE   CREATED
+demo     v1.4.0    Ready   2022-11-24T04:23:24Z
+demo-2   v1.4.0    Ready   2022-11-24T05:00:59Z
+----
+
+. `SystemBackup`のLonghorn`SystemRestore`を作成するために`kubectl create`を実行します。
++
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: SystemRestore
+metadata:
+  name: restore-demo
+  namespace: longhorn-system
+spec:
+  systemBackup: demo
+----
+
+. システム復元が開始されます。
+. 完了時に`SystemRestore`が状態`Completed`に変更されます。
++
+----
+> kubectl -n longhorn-system get systemrestore
+NAME           STATE       AGE
+restore-demo   Completed   59s
+----
+
+== Longhornシステム復元の削除
+
+WARNING: システム復元を削除すると、関連するジョブも削除され、残りのリソースの展開が中止されます。残りのリソースを展開するために<<_restart_longhorn_system_restore,Longhornシステム復元を再起動する>>ことができます。
+
+Longhorn UIを使用して、完了したLonghornシステム復元を中止または削除できます。または`kubectl`コマンドを使用して。
+
+=== Longhorn UIの使用
+
+. `Backup and Restore`の`System Backups`ページに移動します。
+. システム復元の隣にある`Operation`のドロップダウンメニューで単一のシステム復元を削除します。または、`Delete`ボタンでバッチ削除します。
+
+=== `kubectl`コマンドの使用
+
+. Longhorn`SystemRestore`を削除するために`kubectl delete`を実行します。
++
+----
+> kubectl -n longhorn-system get systemrestore
+NAME           STATE       AGE
+restore-demo   Completed   2m37s
+
+> kubectl -n longhorn-system delete systemrestore/restore-demo
+systemrestore.longhorn.io "restore-demo" deleted
+----
+
+== Longhornシステム復元を再起動します。
+
+. 進行中の<<_delete_longhorn_system_restore,Longhornシステム復元を削除する>>。
+. <<_create_longhorn_system_restore,Longhornシステム復元を作成する>>.
+
+== 設定可能な設定
+
+Longhornシステムの復元前に設定可能として除外される設定があります。
+
+* xref:longhorn-system/settings.adoc#_concurrent_volume_backup_restore_per_node_limit[ノードごとの同時ボリュームバックアップ復元の制限]
+* xref:longhorn-system/settings.adoc#_concurrent_replica_rebuild_per_node_limit[ノードごとの同時レプリカ再構築の制限]
+* xref:longhorn-system/settings.adoc#_backup_target[バックアップターゲット]
+* xref:longhorn-system/settings.adoc#_backup_target_credential_secret[バックアップターゲットの資格情報シークレット]
+
+== トラブルシューティング
+
+=== システム復元がハングする
+
+. エラーがないかLonghornシステムロールアウトPodのログを確認してください。
++
+----
+> kubectl -n longhorn-system logs --selector=job-name=longhorn-system-rollout-<SYSTEM-RESTORE-NAME>
+----
+
+. 問題が特定できる場合は解決してください。例：問題のある復元リソースを削除する。
+. <<_restart_longhorn_system_restore,Longhornシステム復元を再起動する>>.
+
+== 履歴
+
+https://github.com/longhorn/longhorn/issues/1455[元の機能リクエスト]

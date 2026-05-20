@@ -1,0 +1,178 @@
+= ノードディスクのサポート
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/features/node-disk-support.md"]
+:current-version: {page-component-version}
+
+Longhornは、ノード上でさまざまなディスクタイプ（AIO、NVMe、VirtIO）の追加と管理をサポートし、ファイルシステム操作、ストレージパフォーマンス、および互換性を向上させます。
+
+* ストレージパフォーマンスの向上
++
+NVMeおよびVirtIOディスクを利用することで、ディスク操作が高速化され、全体的なパフォーマンスが大幅に向上します。
+
+* ファイルシステムの互換性
++
+NVMeまたはVirtIOドライバで管理されるディスクは、トリミングのような高度な操作を含む、より良いファイルシステムサポートを提供します。
+
+* 柔軟性
++
+ユーザーは、自分の環境に最適なディスクタイプを選択できます：従来のセットアップにはAIO、高パフォーマンスが必要な場合はNVMe、仮想化環境にはVirtIOを使用します。
+
+* 管理が容易
++
+ディスクドライバの自動検出により、ディスクの追加と管理が簡素化され、管理の負担が軽減されます。
+
+== Longhornノードでのディスクの設定
+
+Longhornは、`node.spec.disks[i].diskDriver`が`auto`に設定されている場合、ディスクタイプを自動的に検出し、ストレージパフォーマンスを最適化します。検出と管理は次のようになります：
+
+* NVMeディスク：nvme bdevドライバを使用してspdk_tgtによって管理され、`node.status.diskStatus[i].diskDriver`は`nvme`に設定されています。
+* VirtIOディスク：virtio bdevドライバを使用してspdk_tgtによって管理され、`node.status.diskStatus[i].diskDriver`は`virtio-blk`に設定されています。
+* その他のディスク：aio bdevドライバを使用してspdk_tgtによって管理され、`node.status.diskStatus[i].diskDriver`は`aio`に設定されています。
+
+また、ユーザーは手動で`node.spec.disks[i].diskDriver`を`aio`に設定して、aio bdevドライバの使用を強制することができます。
+
+NVMeおよびVirtIOディスクをサポートするには、Longhornノードに追加するためのディスクパスとして、ディスクのBDF（バス、デバイス、機能）を見つける必要があります。以下の例は、NVMeディスク、VirtIOディスク、およびその他のディスクの設定方法を紹介します。
+
+____
+*注意*
+
+これらのディスクがLinuxカーネルドライバの代わりにNVMe bdevドライバまたはVirtIO bdevドライバによって管理されると、/dev/nvmeXnYまたは/dev/vdbXには表示されなくなります。
+____
+
+=== NVMeディスクの使用
+
+. ディスクの一覧を表示します
++
+まず、次のコマンドを実行して、システム上の利用可能なNVMeディスクを特定します：
++
+----
+# ls -al /sys/block/
+----
++
+出力の例：
++
+----
+lrwxrwxrwx  1 root root 0  Jul  30 12:20 loop0 -> ../devices/virtual/block/loop0
+lrwxrwxrwx  1 root root 0  Jul  30 12:20 nvme0n1 -> ../devices/pci0000:00/0000:00:01.2/0000:02:00.0/nvme/nvme0/nvme0n1
+lrwxrwxrwx  1 root root 0  Jul  30 12:20 nvme0n1 -> ../devices/pci0000:00/0000:00:01.2/0000:05:00.0/nvme/nvme1/nvme1n1
+----
+
+. NVMeディスクのBDFを取得します
++
+NVMeディスク`/dev/nvme1n1`のBDFを特定します。上記の例から、BDFは`0000:05:00.0`です。
+
+. NVMeディスクを`spec.disks`の`node.longhorn.io`に追加します
++
+----
+nvme-disk:
+  allowScheduling: true
+  diskType: block
+  diskDriver: auto
+  evictionRequested: false
+  path: 0000:05:00.0
+  storageReserved: 0
+  tags: []
+----
+
+. `status.diskStatus`を確認します。ディスクはエラーなしで検出され、diskDriverは`nvme`に設定されるべきです。
+
+____
+*注意:代替ディスク構成*
+
+異なるパスを使用してディスクを追加する場合、例えば：
+
+----
+ nvme-disk:
+   allowScheduling: true
+   diskType: block
+   diskDriver: auto
+   evictionRequested: false
+   path: /dev/nvme1n1
+   storageReserved: 0
+   tags: []
+----
+
+この場合、ディスクはaio bdevドライバによって管理され、`node.status.diskStatus[i].diskDriver`は`aio`に設定されます。
+____
+
+=== VirtIOディスクの使用
+
+手順はNVMeディスクと似ています。
+
+. ディスクの一覧を表示します
++
+まず、次のコマンドを実行して、システム上の利用可能なVirtIOディスクを特定します：
++
+----
+# ls -al /sys/block/
+----
++
+出力の例：
++
+----
+lrwxrwxrwx  1 root root 0  Jul  30 12:20 loop0 -> ../devices/virtual/block/loop0
+lrwxrwxrwx  1 root root 0 Feb 22 14:04 vda -> ../devices/pci0000:00/0000:00:02.3/0000:04:00.0/virtio2/block/vda
+lrwxrwxrwx  1 root root 0 Feb 22 14:24 vdb -> ../devices/pci0000:00/0000:00:02.6/0000:07:00.0/virtio5/block/vdb
+----
+
+. VirtIOディスクのBDFを取得します
++
+VirtIOディスク`/dev/vdb`のBDFを特定します。上記の例から、BDFは`0000:07:00.0`です。
+
+. VirtIOディスクを`spec.disks`の`node.longhorn.io`に追加します。
++
+----
+nvme-disk:
+  allowScheduling: true
+  diskType: block
+  diskDriver: auto
+  evictionRequested: false
+  path: 0000:07:00.0
+  storageReserved: 0
+  tags: []
+----
+
+. `status.diskStatus`を確認します。ディスクはエラーなしで検出され、`diskDriver`は`virtio-blk`に設定されるべきです。
+
+____
+*注意:代替ディスク構成*
+
+異なるパスを使用してディスクを追加する場合、例えば：
+
+----
+ nvme-disk:
+   allowScheduling: true
+   diskType: block
+   diskDriver: auto
+   evictionRequested: false
+   path: /dev/vdb
+   storageReserved: 0
+   tags: []
+----
+
+この場合、ディスクはaio bdevドライバによって管理され、`node.status.diskStatus[i].diskDriver`は`aio`に設定されます。
+____
+
+=== AIOディスクの使用
+
+NVMeまたはVirtIOドライバがディスクを管理できない場合、Longhornはaio bdevドライバを使用することになります。ユーザーはこれを手動で構成することもできます。
+
+. ディスクを`spec.disks`の`node.longhorn.io`に追加します。
++
+----
+ default-disk-loop:
+   allowScheduling: true
+   diskDriver: aio
+   diskType: block
+   evictionRequested: false
+   path: /dev/loop12
+   storageReserved: 0
+   tags: []
+----
+
+. ノードの状態の diskStatus を確認してください。ディスクはエラーなしで検出されるべきであり、`node.status.diskStatus[i].diskDriver`は`aio`に設定されています。
+
+== 履歴
+
+https://github.com/longhorn/longhorn/issues/7672[オリジナルの機能リクエスト]

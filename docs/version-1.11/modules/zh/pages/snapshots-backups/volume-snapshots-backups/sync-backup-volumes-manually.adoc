@@ -1,0 +1,20 @@
+= 手动同步备份卷
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+创建备份后，Longhorn 会创建一个与原始卷（备份基于的卷）对应的备份卷。备份卷是备份存储中的一个对象，包含同一卷的多个备份。
+
+早期的 Longhorn 版本以固定的时间间隔轮询并更新所有备份卷。Longhorn 提供了一种手动同步备份卷与备份目标的方法。
+
+IMPORTANT: 您必须设置一个 xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[备份目标] 并验证已创建备份卷，然后才能尝试同步。当没有备份目标和备份卷时，Longhorn 会返回错误。
+
+* 同步所有备份卷：
+ .. 在 Longhorn 用户界面上，转到 *备份*。
+ .. 点击 *同步所有备份卷*。
+* 同步单个备份卷：
+ .. 在 Longhorn 用户界面上，转到 *备份*。
+ .. 选择一个备份卷。
+ .. 点击 *同步备份卷*。
+
+要检查同步是否成功，请在 *备份* 屏幕上点击备份卷的名称。

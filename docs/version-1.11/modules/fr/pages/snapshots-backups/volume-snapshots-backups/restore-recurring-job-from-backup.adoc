@@ -1,0 +1,65 @@
+= Restaurer un travail récurrent à partir d'une sauvegarde
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn prend en charge la sauvegarde et la restauration des travaux récurrents ainsi que la sauvegarde et la restauration des volumes. Lors de la restauration d'un volume de sauvegarde, si les utilisateurs activent le paramètre `Restore Volume Recurring Jobs`, les travaux récurrents d'origine du volume seront restaurés en conséquence.
+
+Pour plus d'informations sur le paramètre `Restore Volume Recurring Jobs`, reportez-vous à la section xref:longhorn-system/settings.adoc#_restore_volume_recurring_jobs[Paramètres].
+
+Pour plus d'informations sur le fonctionnement de la sauvegarde des volumes, reportez-vous à la section xref:introduction/concepts.adoc#_3_backups_and_secondary_storage[concepts].
+
+Lors de la restauration d'un volume avec des travaux récurrents, Longhorn les restaurera ensemble. Si le nom du volume existe déjà, le volume et les travaux récurrents ne seront pas restaurés.  Si le nom du travail récurrent existe déjà mais que la spécification est différente, le travail récurrent restauré sera créé avec un nom généré aléatoirement pour éviter les conflits. Sinon, Longhorn essaiera de réutiliser les travaux récurrents existants s'ils sont identiques aux travaux récurrents restaurés d'un volume de sauvegarde.
+
+Par défaut, Longhorn ne restaurera pas automatiquement les travaux récurrents des volumes, les utilisateurs peuvent activer la restauration automatique via l'interface Longhorn ou kubectl.
+
+== Via l'interface Longhorn
+
+. Accédez au menu *Paramètres* et cliquez sur *Général*
+. Activez le `Restore Volume Recurring Jobs`
+. Accédez au menu *Sauvegarde*
+. Sélectionnez la ou les sauvegardes que vous souhaitez restaurer et cliquez sur *Restaurer la dernière sauvegarde.*
+. Dans le champ *Nom*, sélectionnez le volume que vous souhaitez restaurer.
+. Cliquez sur *OK*
+
+== Via la ligne de commande
+
+[subs="+attributes",bash]
+----
+# kubectl -n longhorn-system edit settings.longhorn.io restore-volume-recurring-jobs
+----
+
+Ensuite, définissez la valeur sur `true`.
+
+[subs="+attributes",text]
+----
+# kubectl -n longhorn-system get setting restore-volume-recurring-jobs
+NAME                            VALUE   AGE
+restore-volume-recurring-jobs   false   28m
+----
+
+=== Exemple de paramètre spécifique au volume
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  labels:
+    longhornvolume: vol-01
+  name: vol-01
+  namespace: longhorn-system
+spec:
+  restoreVolumeRecurringJob: ignored
+  engineImage: longhornio/longhorn-engine:v1.4.0
+  fromBackup: "s3://backupbucket@us-east-1?volume=minio-vol01&backup=backup-eeb2782d5b2f42bb"
+  frontend: blockdev
+----
+
+Les utilisateurs peuvent remplacer le paramètre `restore-volume-recurring-jobs` par la propriété de spécification de volume `spec.restoreVolumeRecurringJob`.
+
+* *ignoré*. Ceci est l'option par défaut qui indique à Longhorn d'hériter du paramètre global.
+* *activé*. Cette option indique à Longhorn de restaurer de manière forcée les travaux récurrents de volume à partir de la cible de sauvegarde.
+* *désactivé*. Cette option indique à Longhorn qu'aucune restauration des travaux récurrents du volume ne doit être effectuée.
+
+*Résultat :* Les travaux récurrents du volume restaurés sont disponibles sur la page *RecurringJob*.

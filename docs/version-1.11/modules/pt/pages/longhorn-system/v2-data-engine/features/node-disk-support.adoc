@@ -1,0 +1,178 @@
+= Suporte a Disco de Nó
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/features/node-disk-support.md"]
+:current-version: {page-component-version}
+
+O Longhorn agora suporta a adição e gerenciamento de vários tipos de disco (AIO, NVMe e VirtIO) em nós, melhorando as operações de sistema de arquivos, o desempenho de armazenamento e a compatibilidade.
+
+* Desempenho de Armazenamento Aprimorado
++
+A utilização de discos NVMe e VirtIO permite operações de disco mais rápidas, melhorando significativamente o desempenho geral.
+
+* Compatibilidade de Sistema de Arquivos
++
+Discos gerenciados com drivers NVMe ou VirtIO oferecem melhor suporte a sistemas de arquivos, incluindo operações avançadas como trimming.
+
+* Flexibilidade
++
+Os usuários podem selecionar o tipo de disco que melhor se adapta ao seu ambiente: AIO para configurações tradicionais, NVMe para necessidades de alto desempenho ou VirtIO para ambientes virtualizados.
+
+* Facilidade de Gerenciamento
++
+A detecção automática de drivers de disco simplifica a adição e o gerenciamento de discos, reduzindo a sobrecarga administrativa.
+
+== Configurar um Disco no Nó Longhorn
+
+O Longhorn detecta automaticamente o tipo de disco se `node.spec.disks[i].diskDriver` estiver definido como `auto`, otimizando o desempenho de armazenamento. A detecção e o gerenciamento são os seguintes:
+
+* Disco NVMe: gerenciado pelo spdk_tgt usando o driver nvme bdev, e `node.status.diskStatus[i].diskDriver` está definido como `nvme`.
+* Disco VirtIO: gerenciado pelo spdk_tgt usando o driver virtio bdev, e `node.status.diskStatus[i].diskDriver` está definido como `virtio-blk`.
+* Outros Discos: gerenciados pelo spdk_tgt usando o driver aio bdev, e `node.status.diskStatus[i].diskDriver` está definido como `aio`.
+
+Alternativamente, os usuários podem definir manualmente `node.spec.disks[i].diskDriver` como `aio` para forçar o uso do driver aio bdev.
+
+Para suportar discos NVMe e VirtIO, você precisa encontrar o BDF (Bus, Device, Function) do disco como um caminho de disco a ser adicionado ao nó Longhorn. Os seguintes exemplos fornecem uma introdução à configuração de discos NVMe, discos VirtIO e outros.
+
+____
+*Lembrete*
+
+Uma vez que esses discos são gerenciados pelo driver nvme bdev ou pelo driver virtio bdev, em vez do driver do kernel Linux, eles não serão listados sob /dev/nvmeXnY ou /dev/vdbX.
+____
+
+=== Usando Discos NVMe
+
+. Liste os discos
++
+Primeiro, identifique os discos NVMe disponíveis em seu sistema executando o seguinte comando:
++
+----
+# ls -al /sys/block/
+----
++
+Saída de exemplo:
++
+----
+lrwxrwxrwx  1 root root 0  Jul  30 12:20 loop0 -> ../devices/virtual/block/loop0
+lrwxrwxrwx  1 root root 0  Jul  30 12:20 nvme0n1 -> ../devices/pci0000:00/0000:00:01.2/0000:02:00.0/nvme/nvme0/nvme0n1
+lrwxrwxrwx  1 root root 0  Jul  30 12:20 nvme0n1 -> ../devices/pci0000:00/0000:00:01.2/0000:05:00.0/nvme/nvme1/nvme1n1
+----
+
+. Obtenha o BDF do disco NVMe
++
+Identifique o BDF do disco NVMe `/dev/nvme1n1`. Do exemplo acima, o BDF é `0000:05:00.0`.
+
+. Adicione o disco NVMe a `spec.disks` de `node.longhorn.io`
++
+----
+nvme-disk:
+  allowScheduling: true
+  diskType: block
+  diskDriver: auto
+  evictionRequested: false
+  path: 0000:05:00.0
+  storageReserved: 0
+  tags: []
+----
+
+. Verifique o `status.diskStatus`. O disco deve ser detectado sem erros, e o diskDriver deve ser definido como `nvme`.
+
+____
+*Observação: Configuração Alternativa de Disco*
+
+Se você adicionar o disco usando um caminho diferente, como:
+
+----
+ nvme-disk:
+   allowScheduling: true
+   diskType: block
+   diskDriver: auto
+   evictionRequested: false
+   path: /dev/nvme1n1
+   storageReserved: 0
+   tags: []
+----
+
+Neste caso, o disco será gerenciado pelo driver aio bdev, e o `node.status.diskStatus[i].diskDriver` é definido como `aio`.
+____
+
+=== Usando Discos VirtIO
+
+Os passos são semelhantes aos dos discos NVMe.
+
+. Liste os discos
++
+Primeiro, identifique os discos VirtIO disponíveis em seu sistema executando o seguinte comando:
++
+----
+# ls -al /sys/block/
+----
++
+Saída de exemplo:
++
+----
+lrwxrwxrwx  1 root root 0  Jul  30 12:20 loop0 -> ../devices/virtual/block/loop0
+lrwxrwxrwx  1 root root 0 Feb 22 14:04 vda -> ../devices/pci0000:00/0000:00:02.3/0000:04:00.0/virtio2/block/vda
+lrwxrwxrwx  1 root root 0 Feb 22 14:24 vdb -> ../devices/pci0000:00/0000:00:02.6/0000:07:00.0/virtio5/block/vdb
+----
+
+. Obtenha o BDF do disco VirtIO
++
+Identifique o BDF do disco VirtIO `/dev/vdb`. Do exemplo acima, o BDF é `0000:07:00.0`.
+
+. Adicione o disco VirtIO a `spec.disks` de `node.longhorn.io`
++
+----
+nvme-disk:
+  allowScheduling: true
+  diskType: block
+  diskDriver: auto
+  evictionRequested: false
+  path: 0000:07:00.0
+  storageReserved: 0
+  tags: []
+----
+
+. Verifique o `status.diskStatus`. O disco deve ser detectado sem erros, e o `diskDriver` deve ser definido como `virtio-blk`.
+
+____
+*Observação: Configuração alternativa de disco*
+
+Se você adicionar o disco usando um caminho diferente, como:
+
+----
+ nvme-disk:
+   allowScheduling: true
+   diskType: block
+   diskDriver: auto
+   evictionRequested: false
+   path: /dev/vdb
+   storageReserved: 0
+   tags: []
+----
+
+Neste caso, o disco será gerenciado pelo driver aio bdev, e o `node.status.diskStatus[i].diskDriver` é definido como `aio`.
+____
+
+=== Usando Discos AIO
+
+Quando nem os drivers NVMe nem VirtIO conseguem gerenciar um disco, o Longhorn usará por padrão o driver aio bdev. Os usuários também podem configurar isso manualmente.
+
+. Adicione o disco a `spec.disks` de `node.longhorn.io`
++
+----
+ default-disk-loop:
+   allowScheduling: true
+   diskDriver: aio
+   diskType: block
+   evictionRequested: false
+   path: /dev/loop12
+   storageReserved: 0
+   tags: []
+----
+
+. Verifique node.status.diskStatus. O disco deve ser detectado sem erros, e o `node.status.diskStatus[i].diskDriver` está definido como `aio`.
+
+== Histórico
+
+https://github.com/longhorn/longhorn/issues/7672[Solicitação de Recurso Original]

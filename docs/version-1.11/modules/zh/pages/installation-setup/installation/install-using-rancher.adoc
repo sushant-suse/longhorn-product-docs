@@ -1,0 +1,142 @@
+= 使用 Rancher 安装 {longhorn-product-name}
+:revdate: 2026-03-24
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+通过 Rancher 应用市场安装 {longhorn-product-name} 的一个好处是 Rancher 提供对 {longhorn-product-name} 用户界面的身份验证。
+
+如果有可用的新版本 {longhorn-product-name}，您将在 `Upgrade Available` 屏幕上看到一个 `Apps Marketplace` 标志。您可以点击 `Upgrade` 按钮来升级 Longhorn Manager.有关升级的更多信息，请 xref:upgrades/upgrades.adoc[点击这里]。
+
+== 先决条件
+
+安装 {longhorn-product-name} 的 Kubernetes 集群中的每个节点必须满足 xref:installation-setup/requirements.adoc[这些要求]。
+
+可以使用 xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn 命令行工具] 检查 {longhorn-product-name} 环境中的潜在问题。
+
+=== 身份验证
+
+要创建 `longhorn-system` 名称空间，请运行以下命令：
+
+[,shell]
+----
+kubectl create namespace longhorn-system
+----
+
+按照 https://docs.apps.rancher.io/get-started/authentication/#kubernetes[Kubernetes 身份验证文档] 在 `longhorn-system` 名称空间中创建一个秘密。
+
+[,shell]
+----
+kubectl create secret docker-registry application-collection \
+  --docker-server=dp.apps.rancher.io \
+  --namespace=longhorn-system \
+  --docker-username=<your-username-or-service-account-username> \
+  --docker-password=<access-token-or-service-account-secret>
+----
+
+== 安装
+
+要从 SUSE 应用集合安装 {longhorn-product-name}，而不是 Rancher 默认的 Longhorn 社区图表，请在 Rancher 中配置一个新的储存库，指向 SUSE 应用集合图表储存库以获取 {longhorn-product-name}。有关该过程的详细信息以及如何验证图表储存库，请参考 https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/helm-charts-in-rancher/oci-repositories#add-an-oci-based-helm-chart-repository[本指南]。
+
+以下步骤提供了在 Rancher 中的示例。有关详细说明，请参阅 Rancher 文档。
+
+. 在 Rancher 中，转到 *应用* > *存储库*。
++
+image::screenshots/install/rancher/navigation.png[镜像]
++
+. 点击 *创建* 按钮。
++
+. 在单选按钮中选择 *OCI 储存库*，并输入 OCI 图表注册表路径 `oci://dp.apps.rancher.io/charts/suse-storage` 以及身份验证，然后点击 *创建*。
++
+image::screenshots/install/rancher/oci-repository.png[镜像]
++
+储存库应成功添加。
++
+image::screenshots/install/rancher/repository-added.png[镜像]
++
+. 在 *应用* > *图表* 中，您可以看到 `suse-storage` 可供安装。
++
+image::screenshots/install/rancher/suse-storage-app.png[镜像]
++ 
+. 单击“安装”。
++ 
+image::screenshots/install/rancher/installing-longhorn.png[镜像]
++ 
+. 可选：选择要安装 {longhorn-product-name} 的项目。
++
+. 可选：自定义默认设置。
++
+image::screenshots/install/rancher/installing-longhorn-2.png[镜像]
++
+[NOTE]
+====
+如果您使用 {rancher-product-name}，则必须启用 **Container Registry for Rancher System Container Images** 并将值设置为 `dp.apps.rancher.io`，以确保从正确的注册表中拉取镜像。
+====
++
+image::screenshots/install/rancher/container-registry-setting.png[镜像]
++
+. 单击“下一步”。在 yaml 编辑器中，在 `global.imagePullSecrets` 字段中添加值 `application-collection`。
++
+image::screenshots/install/rancher/installing-longhorn-3.png[镜像]
++
+. 点击下一步。{longhorn-product-name} 将安装在 `longhorn-system` 名称空间中。
++
+image::screenshots/install/rancher/installed-longhorn.png[镜像]
++
+. 点击 {longhorn-product-name} 应用图标以导航到 {longhorn-product-name} 仪表板。
++
+image::screenshots/install/rancher/launch-longhorn.png[镜像]
+
+安装 {longhorn-product-name} 后，您可以通过从 Rancher 左侧面板导航到 *Longhorn* 选项来访问 {longhorn-product-name} 用户界面.
+
+== 启用网络策略访问用户界面
+
+请注意，当启用网络策略时，从 Rancher 访问用户界面可能会受到限制。
+
+Rancher 通过一个名为 remotedialer 的服务与 {longhorn-product-name} 用户界面进行交互，该服务促进了 Rancher 与其管理的下游集群之间的连接。该服务允许用户代理通过 Rancher 服务器上的一个端点访问集群。Remotedialer 通过使用 Kubernetes API 服务器作为代理连接到 {longhorn-product-name} 用户界面服务。
+
+然而，当启用网络策略时，Kubernetes API 服务器可能无法访问不同节点上的 pod。这是因为 Kubernetes API 服务器在主机的网络名称空间内运行，而没有专用的每个 pod IP 地址。如果您使用 Calico CNI 插件，主机的网络名称空间中的任何进程（例如 API 服务器）连接到 pod 时，会触发 Calico 在将数据包转发到远程主机之前将其封装在 IPIP 中。隧道地址被选择为源，以确保远程主机知道如何正确封装返回数据包。
+
+换句话说，为了使代理能够与网络策略一起工作，必须识别每个节点的隧道 IP，并在策略中明确允许。
+
+您可以通过以下方式找到隧道 IP：
+
+[,shell]
+----
+$ kubectl get nodes -oyaml | grep "Tunnel"
+      projectcalico.org/IPv4VXLANTunnelAddr: 10.42.197.0
+      projectcalico.org/IPv4VXLANTunnelAddr: 10.42.99.0
+      projectcalico.org/IPv4VXLANTunnelAddr: 10.42.158.0
+      projectcalico.org/IPv4VXLANTunnelAddr: 10.42.80.0
+----
+
+接下来，使用隧道 IP 在网络策略中允许流量。每当向集群添加新节点时，您可能需要更新网络策略。
+
+[,yaml]
+----
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: longhorn-ui-frontend
+  namespace: longhorn-system
+spec:
+  podSelector:
+    matchLabels:
+      app: longhorn-ui
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: 10.42.197.0/32
+    - ipBlock:
+        cidr: 10.42.99.0/32
+    - ipBlock:
+        cidr: 10.42.158.0/32
+    - ipBlock:
+        cidr: 10.42.80.0/32
+    ports:
+      - port: 8000
+        protocol: TCP
+----
+
+解决此问题的另一种方法是使用 `egress-selector-mode: cluster` 运行服务器节点。有关更多信息，请参见 https://documentation.suse.com/cloudnative/rke2/latest/en/reference/server_config.html#_critical_configuration_values[RKE2 服务器配置参考] 和 https://documentation.suse.com/cloudnative/k3s/latest/en/networking/basic-network-options.html#_control_plane_egress_selector_configuration[K3s 控制平面出口选择器配置]。

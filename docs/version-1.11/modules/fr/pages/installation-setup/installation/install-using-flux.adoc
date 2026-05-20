@@ -1,0 +1,116 @@
+= Installer SUSE® Storage à l'aide de Flux
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Conditions préalables
+
+[NOTE]
+====
+{longhorn-product-name} l'installation nécessite un accès authentifié à la SUSE Application Collection. Pour plus de détails, consultez https://docs.apps.rancher.io/get-started/authentication[le guide d'authentification].
+====
+
+* Votre poste de travail{nbsp}: Installez https://helm.sh/docs/[Helm] v3.0 ou version ultérieure.
+* Cluster Kubernetes{nbsp}:
+ ** Assurez-vous que chaque nœud remplit les xref:installation-setup/requirements.adoc[exigences d'installation].
+ ** https://fluxcd.io/flux/installation/#install-the-flux-cli[Installez le Flux CLI et les contrôleurs].
+ ** https://fluxcd.io/flux/installation/bootstrap/github/[Démarrez Flux avec GitHub] en utilisant le Flux CLI.
+Exécutez les commandes suivantes pour exporter votre jeton d'accès personnel GitHub (PAT) en tant que variable d'environnement, déployer les contrôleurs Flux sur votre cluster et configurer les contrôleurs pour synchroniser l'état du cluster à partir du dépôt GitHub spécifié.
++
+[,bash]
+----
+export GITHUB_TOKEN=<gh-token>
+flux bootstrap github \
+  --token-auth \
+  --owner=<github_username> \
+  --repository=<github_repo_name> \
+  --branch=<branch_name> \
+  --path=<folder_path_within_repo> \
+  --personal
+----
+
+____
+L'xref:longhorn-system/system-access/longhorn-cli.adoc[outil de ligne de commande Longhorn] peut être utilisé pour vérifier l'environnement Longhorn à la recherche de problèmes potentiels.
+____
+
+== Installation
+
+. Créez une ressource personnalisée HelmRepository (CR) qui pointe vers {longhorn-product-name}l'URL du chart Helm.
++
+[,bash]
+----
+ kubectl create ns longhorn-system
+ flux create source helm longhorn-repo \
+   --url=https://charts.longhorn.io \
+   --namespace=longhorn-system \
+   --export > helmrepo.yaml
+ kubectl apply -f helmrepo.yaml
+----
+
+. Créez un CR HelmRelease qui référence le HelmRepository et spécifie la version du chart Helm à installer.
++
+[subs="+attributes",bash]
+----
+ flux create helmrelease longhorn-release \
+   --chart=longhorn \
+   --source=HelmRepository/longhorn-repo \
+   --chart-version=v{patch-version} \
+   --namespace=longhorn-system \
+   --export > helmrelease.yaml
+ kubectl apply -f helmrelease.yaml
+----
+
+. Vérifiez que le CR HelmRelease a été créé et synchronisé avec succès.
++
+[,bash]
+----
+ flux get helmrelease longhorn-release -n longhorn-system
+----
+
+. Vérifiez que {longhorn-product-name} a été installé avec succès.
++
+[,bash]
+----
+ kubectl -n longhorn-system get pod
+----
++
+Exemple d'une installation réussie{nbsp}:
++
+[,bash]
+----
+ NAME                                                READY   STATUS    RESTARTS   AGE
+ longhorn-ui-b7c844b49-w25g5                         1/1     Running   0          2m41s
+ longhorn-manager-pzgsp                              1/1     Running   0          2m41s
+ longhorn-driver-deployer-6bd59c9f76-lqczw           1/1     Running   0          2m41s
+ longhorn-csi-plugin-mbwqz                           2/2     Running   0          100s
+ csi-snapshotter-588457fcdf-22bqp                    1/1     Running   0          100s
+ csi-snapshotter-588457fcdf-2wd6g                    1/1     Running   0          100s
+ csi-provisioner-869bdc4b79-mzrwf                    1/1     Running   0          101s
+ csi-provisioner-869bdc4b79-klgfm                    1/1     Running   0          101s
+ csi-resizer-6d8cf5f99f-fd2ck                        1/1     Running   0          101s
+ csi-provisioner-869bdc4b79-j46rx                    1/1     Running   0          101s
+ csi-snapshotter-588457fcdf-bvjdt                    1/1     Running   0          100s
+ csi-resizer-6d8cf5f99f-68cw7                        1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-df8v6                       1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-g9cwc                       1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-8l9sw                       1/1     Running   0          101s
+ csi-resizer-6d8cf5f99f-smdjw                        1/1     Running   0          101s
+ instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc   1/1     Running   0          114s
+ engine-image-ei-df38d2e5-cv6nc                      1/1     Running   0          114s
+----
+
+. xref:longhorn-system/system-access/create-ingress.adoc[Créez un contrôleur d'Ingress NGINX avec une authentification de base] pour accéder à l'interface utilisateur. L'authentification à l'interface utilisateur n'est pas activée par défaut.
+. xref:longhorn-system/system-access/system-access.adoc[Accédez à l'interface utilisateur].
+
+== Opérations continues grâce à GitOps
+
+Vous pouvez engager et pousser les manifestes exportés vers votre dépôt GitOps.
+
+[subs="+attributes",bash]
+----
+ git add helmrepo.yaml helmrelease.yaml
+ git commit -m "Add HelmRepository and HelmRelease for {longhorn-product-name} installation"
+ git push origin <branch_name>
+----
+
+Ensuite, vous pouvez modifier les CRs HelmRelease et HelmRepository en éditant les manifestes YAML dans votre dépôt GitOps. Flux détecte et applique automatiquement les modifications sans nécessiter d'accès direct à votre cluster Kubernetes.

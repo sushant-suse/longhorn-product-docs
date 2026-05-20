@@ -1,0 +1,20 @@
+= Synchroniser manuellement les volumes de sauvegarde
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Après avoir créé une sauvegarde, Longhorn crée un volume de sauvegarde qui correspond au volume original (sur lequel la sauvegarde est basée). Un volume de sauvegarde est un objet dans le stockage de sauvegarde qui contient plusieurs sauvegardes du même volume.
+
+Les versions antérieures de Longhorn interrogent et mettent à jour tous les volumes de sauvegarde à un intervalle fixe. Longhorn fournit un moyen de synchroniser manuellement les volumes de sauvegarde avec la cible de sauvegarde.
+
+IMPORTANT: Vous devez configurer une xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[cible de sauvegarde] et vérifier qu'un volume de sauvegarde a été créé avant d'essayer de synchroniser. Longhorn renvoie une erreur lorsqu'aucune cible de sauvegarde et aucun volume de sauvegarde n'existent.
+
+* Synchroniser tous les volumes de sauvegarde{nbsp}:
+ .. Dans l'interface utilisateur de Longhorn, allez à *Sauvegarde*.
+ .. Cliquez sur *Synchroniser tous les volumes de sauvegarde*.
+* Synchroniser un seul volume de sauvegarde{nbsp}:
+ .. Dans l'interface utilisateur de Longhorn, allez à *Sauvegarde*.
+ .. Sélectionnez un volume de sauvegarde.
+ .. Cliquez sur *Synchroniser le volume de sauvegarde*.
+
+Pour vérifier si la synchronisation a réussi, cliquez sur le nom du volume de sauvegarde sur l'écran *Sauvegarde*.

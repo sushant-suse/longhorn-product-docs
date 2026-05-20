@@ -1,0 +1,79 @@
+= Etiquetas de almacenamiento
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Descripción general
+
+La función de etiquetas de almacenamiento permite que solo ciertos nodos o discos se utilicen para almacenar datos de volumen de Longhorn. Por ejemplo, los datos sensibles al rendimiento pueden utilizar solo los discos de alto rendimiento que pueden etiquetarse como `fast`, `ssd` o `nvme`, o solo el nodo de alto rendimiento etiquetado como `baremetal`.
+
+Esta función admite tanto discos como nodos.
+
+== Configuración
+
+Las etiquetas se pueden configurar utilizando la interfaz de usuario de Longhorn:
+
+. _Nodo \-> Seleccionar un nodo \-> Editar Nodo y Discos_
+. Haz clic en `+Nueva Etiqueta de Nodo` o `+Nueva Etiqueta de Disco` para añadir nuevas etiquetas.
+
+Todas las réplicas programadas existentes en el nodo o disco no se verán afectadas por las nuevas etiquetas.
+
+== Uso
+
+Cuando se especifican múltiples etiquetas para un volumen, el disco y el nodo (al que pertenece el disco) deben tener todas las etiquetas especificadas para ser utilizables.
+
+=== INTERFAZ DE USUARIO
+
+Al crear un volumen, especifica la etiqueta del disco y la etiqueta del nodo en la interfaz de usuario.
+
+=== Kubernetes
+
+Utiliza los parámetros de StorageClass de Kubernetes para especificar etiquetas.
+
+Puedes especificar etiquetas en el StorageClass predeterminado de Longhorn añadiendo el parámetro `nodeSelector: "storage,fast"` en el ConfigMap llamado `longhorn-storageclass`.
+Por ejemplo:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: ConfigMap
+data:
+  storageclass.yaml: |
+    kind: StorageClass
+    apiVersion: storage.k8s.io/v1
+    metadata:
+      name: longhorn
+      annotations:
+        storageclass.kubernetes.io/is-default-class: "true"
+    provisioner: driver.longhorn.io
+    allowVolumeExpansion: true
+    reclaimPolicy: "Delete"
+    volumeBindingMode: Immediate
+    parameters:
+      numberOfReplicas: "3"
+      staleReplicaTimeout: "480"
+      diskSelector: "ssd"
+      nodeSelector: "storage,fast"
+----
+
+Si Longhorn está instalado a través de Helm, puedes lograrlo editando `persistence.defaultNodeSelector` en https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[`values.yaml`].
+
+Alternativamente, se puede utilizar una configuración de StorageClass personalizada, por ejemplo:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-fast
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "480" # 8 hours in minutes
+  diskSelector: "ssd"
+  nodeSelector: "storage,fast"
+----
+
+== Historial
+
+* https://github.com/longhorn/longhorn/issues/311[Solicitud de función original]

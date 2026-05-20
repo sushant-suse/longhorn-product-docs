@@ -1,0 +1,165 @@
+= Crie um {longhorn-product-name} backup do sistema
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Pacote de Backup do Sistema
+
+O backup do sistema Longhorn cria um pacote de recursos e o envia para o destino de backup remoto.
+
+Inclui os recursos abaixo associados ao sistema Longhorn:
+
+* BackingImages
+* ClusterRoles
+* ClusterRoleBindings
+* ConfigMaps
+* CustomResourceDefinitions
+* DaemonSets
+* Implantações
+* EngineImages
+* PersistentVolumes
+* PersistentVolumeClaims
+* Trabalhos Recorrentes
+* Funções
+* Vínculos de Função
+* Categoria de
+* Serviços
+* Contas de Serviço
+* StorageClasses
+* Volumes
+
+[NOTE]
+====
+* O destino de backup padrão (`default`) é sempre usado para armazenar backups do sistema.
+* O pacote de backup do sistema Longhorn inclui apenas recursos operados pelo Longhorn.
+* O Longhorn não faz backup do recurso `Nodes`. O Gerenciador Longhorn no cluster de destino é responsável por criar seus próprios recursos personalizados Longhorn `Node`.
+* O Longhorn não consegue fazer backup das imagens de backup do V2 Data Engine.
+====
+
+== Crie um Backup do Sistema
+
+Você pode criar um backup do sistema Longhorn usando a interface Longhorn. Ou com o comando `kubectl`.
+
+=== Pré-requisitos
+
+* xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[]. O Longhorn salva os backups do sistema no armazenamento remoto de backup. Você verá um erro durante a criação quando o destino do backup não estiver definido.
++
+NOTE: Ao remover o destino do backup, o recurso personalizado `SystemBackup` existente é eliminado. O Longhorn sincroniza com o armazenamento remoto de backup após definir o destino do backup. Outro cluster também pode sincronizar com a mesma lista de backups do sistema quando o destino do backup é o mesmo.
+
+* Crie um backup para todos os volumes (opcional).
++
+NOTE: O Longhorn restaura o volume do sistema com o backup mais recente. Recomendamos atualizar o último backup para todos os volumes. Ao fazer backups de volumes, você garante que os dados estejam atualizados com o backup do sistema. Para mais informações, consulte a seção <<_volume_backup_policy,Configuração - Política de Backup de Volume>>.
+
+=== Configuração
+
+==== Política de Backup de Volume
+
+O backup do sistema Longhorn oferece as seguintes opções de política de backup de volume:
+
+* `if-not-present`: O Longhorn cria um backup para volumes que não possuem um backup existente ou têm um backup mais recente desatualizado.
+* `always`: O Longhorn cria um backup para todos os volumes, independentemente de seus backups existentes.
+* `disabled`: O Longhorn não cria backups para volumes.
+
+=== Backup Único
+
+==== Crie um backup do sistema usando a interface
+
+. Vá para a página `System Backups` na lista suspensa `Backup and Restore`.
+. Clique em `Create` sob `System Backup`.
+. Dê um `Name` para o backup do sistema.
+. Selecione um `Volume Backup Policy` para o backup do sistema.
+. O backup do sistema estará pronto para uso quando o estado mudar para `Ready`.
+
+==== Crie um backup do sistema usando `kubectl`
+
+. Execute `kubectl create` para criar um recurso personalizado {longhorn-product-name} `SystemBackup`.
++
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: SystemBackup
+metadata:
+  name: demo
+  namespace: longhorn-system
+spec:
+  volumeBackupPolicy: if-not-present
+----
+
+. O backup do sistema estará pronto para uso quando o estado mudar para `Ready`.
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME   VERSION   STATE   CREATED
+demo   v1.4.0    Ready   2022-11-24T04:23:24Z
+----
+
+=== Trabalho Recorrente
+
+==== Crie um Trabalho de Backup Recorrente Usando a Interface
+
+. Vá para a tela *Trabalhos Recorrentes*.
+
+. Clique em *Criar Trabalho Recorrente*.
+
+. Defina as seguintes configurações:
++
+* *Nome*: Especifique um nome para o trabalho recorrente.
+* *Tarefa*: Selecione *Backup do Sistema*.
+* *Reter*: Especifique o número de backups do sistema que {longhorn-product-name} deve reter.
+* *Cron*: Especifique a expressão cron (uma string composta por campos separados por caracteres de espaço em branco) que define as propriedades do agendamento.
+* *Parâmetros*: Selecione *volume-backup-policy*.
+
+. Clique em *OK*.
+
+{longhorn-product-name} cria backups do sistema de acordo com o agendamento definido no campo *Cron*.
+
+==== Crie um Trabalho de Backup Recorrente Usando `kubectl`
+
+Execute `kubectl create` para criar um recurso personalizado {longhorn-product-name} `RecurringJob` com a tarefa `system-backup`.
+
+Exemplo:
+
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: demo
+  namespace: longhorn-system
+spec:
+  task: system-backup
+  cron: '* * * * *'
+  retain: 1
+  parameters:
+    volume-backup-policy: if-not-present
+----
+
+{longhorn-product-name} cria backups do sistema de acordo com o agendamento definido no campo `cron`.
+
+== Excluir Backups do Sistema
+
+Você pode excluir o backup do sistema Longhorn no destino de backup remoto usando a interface Longhorn. Ou com o comando `kubectl`.
+
+=== Excluir um Backup do Sistema Usando a Interface Longhorn
+
+. Vá para a página `System Backup` na lista suspensa `Setting`.
+. Exclua um único backup do sistema no menu suspenso `Operation` ao lado do backup do sistema. Ou exclua em lote com o botão `Delete`.
++
+NOTE: Excluir o backup do sistema também fará uma exclusão no armazenamento de backup.
+
+=== Excluir um Backup do Sistema Usando `kubectl`
+
+. Execute `kubectl delete` para excluir um recurso personalizado Longhorn `SystemBackup`.
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME   VERSION   STATE   CREATED
+demo   v1.4.0    Ready   2022-11-24T04:23:24Z
+
+> kubectl -n longhorn-system delete systembackup/demo
+systembackup.longhorn.io "demo" deleted
+----
+
+== Histórico
+
+https://github.com/longhorn/longhorn/issues/1455[Solicitação de Recurso Original]

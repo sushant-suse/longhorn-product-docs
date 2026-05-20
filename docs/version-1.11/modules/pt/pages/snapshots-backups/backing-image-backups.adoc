@@ -1,0 +1,117 @@
+= Imagem de Backup
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+O Longhorn suporta o backup de imagens de backup.
+
+== Pré-requisitos
+
+Você deve primeiro xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[configurar um destino de backup]. Se você pular esta etapa crucial, o destino de backup ausente impedirá que o Longhorn crie um backup da imagem de backup.
+
+== Crie um backup de uma imagem de backup
+
+Como as imagens de backup são globalmente únicas dentro do sistema Longhorn, os backups correspondentes também são globalmente únicos e são identificados pelo mesmo nome.
+
+=== Crie um backup usando YAML
+
+Exemplo de imagem de backup:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-backup
+  namespace: longhorn-system
+spec:
+  backingImage: parrot
+  backupTargetName: default
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+Exemplo de código YAML usado para criar um backup da imagem de backup de exemplo:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackupBackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  userCreated: true
+  labels:
+    usecase: test
+    type: raw
+----
+
+* `name`: Se os nomes não forem únicos, o Longhorn não conseguirá criar um backup da imagem de backup.
+* `backingImage`: Imagem de backup do backup.
+* `backupTargetName`: Endpoint usado para armazenar e acessar o backup no backupstore.
+* `userCreated`: Defina o valor para `true` para indicar que você criou o recurso customizado de backup, o que possibilitou a criação do backup no backupstore. O valor `false` indica que o recurso customizado de backup foi sincronizado do backupstore.
+* `labels`: Você pode adicionar rótulos ao backup da imagem de backup.
+
+=== Crie um backup usando a interface do Longhorn
+
+. Vá para *Configuração -> Imagem de Backup*.
+. Selecione a imagem de backup que você deseja fazer backup e clique em *Fazer Backup* no menu *Operação*.
+
+O Longhorn cria o backup e adiciona os detalhes à lista *Imagem de Backup*.
+
+image::screenshots/backing-image/backup.png[Imagem]
+
+== Restaure uma imagem de backup de um backup
+
+Você pode restaurar uma imagem de backup em outro cluster após criar um backup no backupstore.
+
+Exemplo de código YAML usado para restaurar uma imagem de backup:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+    name: parrot-restore
+    namespace: longhorn-system
+spec:
+    sourceType: restore
+    sourceParameters:
+        # change to your backup URL
+        # backup-url: nfs://longhorn-test-nfs-svc.default:/opt/backupstore?backingImage=parrot
+        backup-url: s3://backupbucket@us-east-1/?backingImage=parrot
+        concurrent-limit: "2"
+    checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+[IMPORTANT]
+====
+* `sourceType`: Defina o valor como `restore`.
+* `sourceParameters`: Configure os seguintes parâmetros:
+ ** `backup-url`: URL do recurso da imagem de backup no backupstore. Você pode encontrar essa informação no status do recurso customizado de backup `.Status.URL`.
+ ** `concurrent-limit`: Número máximo de threads de trabalho que podem ser executadas simultaneamente para cada operação de restauração. Quando não especificado, o Longhorn usa o valor padrão.
+* `checksum`: Você pode especificar o checksum SHA-512 esperado do arquivo de imagem de backup, que o Longhorn usa para validar o arquivo restaurado. Quando não especificado, o Longhorn usa o checksum do arquivo restaurado como referência.
+====
+
+=== Restaurar de um backup usando a interface do Longhorn
+
+. Vá para *Configuração -> Imagem de Backup*.
+. Selecione o backup que deseja usar e clique em *Restaurar* no menu *Operação*.
+. Se você estiver restaurando uma imagem de backup criptografada, especifique o `Secret` e o `Secret Namespace`.
+. Clique em *OK*.
+
+image::screenshots/backing-image/restore.png[Imagem]
+
+[IMPORTANT]
+====
+Atualmente, o Longhorn não armazena informações relacionadas a segredos em backups de imagens de backup. Você deve especificar o segredo e o namespace do segredo ao restaurar imagens de backup criptografadas. Este problema será resolvido em uma versão futura.
+====
+
+== Volume com uma imagem de backup
+
+Quando você cria um backup de um volume, o Longhorn cria automaticamente um backup da sua imagem de backup.
+
+Você pode restaurar um volume com uma imagem de backup. Se a imagem já existir no cluster, o Longhorn utiliza a imagem diretamente. Se a imagem existir no backupstore, mas não no cluster, o Longhorn restaura automaticamente a imagem de backup.

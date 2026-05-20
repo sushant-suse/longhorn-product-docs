@@ -1,0 +1,168 @@
+= Guide de maintenance des nœuds et de mise à niveau de Kubernetes
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Suivez les instructions pour gérer la maintenance planifiée des nœuds et mettre à niveau la version de Kubernetes pour le cluster.
+
+== Mise à jour du système d'exploitation du nœud ou de l'environnement d'exécution de conteneur
+
+. Marquez le nœud en cordon. Longhorn désactivera automatiquement la planification des nœuds lorsqu'un nœud Kubernetes est mis en cordon.
+. Vider le nœud pour déplacer la charge de travail ailleurs.
++
+Il est nécessaire d'utiliser `--ignore-daemonsets` pour vider le nœud. Le `--ignore-daemonsets` est nécessaire car Longhorn a déployé certains daemonsets tels que `Longhorn manager`, `Longhorn CSI plugin`, `engine image`.
++
+Pendant que le vidage se poursuit, les processus du moteur sur le nœud seront migrés avec les pods de charge de travail vers d'autres nœuds.
++
+NOTE: Les volumes qui ne sont pas attachés via le flux CSI sur le nœud (par exemple, attachés manuellement via l'interface utilisateur) ne seront pas automatiquement attachés à de nouveaux nœuds par Kubernetes pendant le vidage. Par conséquent, Longhorn empêchera le nœud de terminer l'opération de vidage. L'utilisateur devra détacher ces volumes manuellement pour débloquer le vidage.
++
+Pendant que le vidage se poursuit, les processus de réplique sur le nœud continueront soit à s'exécuter, soit seront finalement expulsés et arrêtés en fonction de la <<_node_drain_policy_recommendations,Politique de vidage du nœud>>.
++
+NOTE: Par défaut, s'il y a une dernière réplique saine pour un volume sur le nœud, Longhorn empêchera le nœud de terminer l'opération de vidage, afin de protéger la dernière réplique et d'éviter la perturbation de la charge de travail. Vous pouvez contrôler ce comportement avec le paramètre xref:longhorn-system/settings.adoc#_node_drain_policy[Politique de vidage du nœud], ou xref:nodes/disks-or-nodes-eviction.adoc[expulser la réplique vers d'autres nœuds avant de vider]. Voir <<_node_drain_policy_recommendations,Recommandations sur la politique de vidage du nœud>> pour des considérations lors du choix d'une politique.
++
+Après que le vidage soit terminé, il ne devrait y avoir aucun processus de moteur ou de réplique en cours d'exécution sur le nœud, car le pod de gestion d'instance qui les exécutait sera arrêté. En fonction de la <<_node_drain_policy_recommendations,Politique de vidage du nœud>>, les répliques programmées sur le nœud apparaîtront soit comme `Failed`, soit seront supprimées au profit de remplacements. Les charges de travail utilisant des volumes Longhorn fonctionneront comme prévu et suffisamment de répliques seront en cours d'exécution ailleurs pour répondre aux exigences de la politique.
++
+NOTE: Normalement, vous n'avez pas besoin d'expulser les répliques avant l'opération de vidage, tant que vous avez des répliques saines sur d'autres nœuds. Les répliques peuvent être réutilisées plus tard, une fois que le nœud est de nouveau en ligne et déverrouillé. Voir <<_node_drain_policy_recommendations,Politique de vidage du nœud>> pour plus d'informations.
+
+. Effectuez la maintenance nécessaire, y compris l'arrêt ou le redémarrage du nœud.
+. Déverrouillez le nœud. Longhorn réactivera automatiquement la planification des nœuds. S'il y a des répliques existantes sur le nœud, Longhorn pourrait utiliser ces répliques pour accélérer le processus de reconstruction. Vous pouvez définir le paramètre xref:longhorn-system/settings.adoc#_replica_replenishment_wait_interval[Intervalle d'attente pour le réapprovisionnement des répliques] pour personnaliser la durée pendant laquelle Longhorn doit attendre qu'une réplique potentiellement réutilisable soit disponible.
+
+== Suppression d'un disque
+
+Pour supprimer un disque{nbsp}:
+
+. Désactivez la planification du disque.
+. Expulsez toutes les répliques sur le disque.
+. Supprimez le disque.
+
+=== Réutilisation du nom du nœud
+
+Ces étapes s'appliquent également si vous avez remplacé un nœud en utilisant le même nom de nœud. Longhorn reconnaîtra que les disques sont différents une fois que le nouveau nœud sera opérationnel. Vous devrez d'abord supprimer les disques d'origine et les ajouter à nouveau pour le nouveau nœud s'il utilise le même nom que le nœud précédent.
+
+== Suppression d'un nœud
+
+Pour supprimer un nœud{nbsp}:
+
+. Désactivez la planification du disque.
+. Expulsez toutes les répliques sur le nœud.
+. Détachez tous les volumes sur le nœud.
++
+Si le nœud a été vidé, toutes les charges de travail doivent déjà être migrées vers un autre nœud.
++
+S'il reste d'autres volumes attachés, détachez-les avant de continuer.
+
+. Retirez le nœud de Longhorn en utilisant le `Delete` dans l'onglet `Node`.
++
+Ou, retirez le nœud de Kubernetes, en utilisant{nbsp}:
++
+kubectl delete node +++<node-name>++++++</node-name>+++
+
+. Longhorn supprimera automatiquement le nœud du cluster.
+
+== Mise à niveau de Kubernetes
+
+=== Mise à niveau directe
+
+La mise à niveau sur place est une méthode de mise à niveau dans laquelle les nœuds sont mis à niveau sans être retirés du cluster. Quelques exemples de solutions qui utilisent ces méthodes de mise à niveau sont https://documentation.suse.com/cloudnative/k3s/latest/en/upgrades/automated.html[{k3s-product-name} mises à niveau automatisées], https://documentation.suse.com/cloudnative/rancher-manager/latest/en/cluster-admin/backups-and-restore/backups-and-restore.html[{rancher-product-name} le guide de mise à niveau de Kubernetes], https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/[Kubeadm upgrade], etc...
+
+En supposant que le nœud et les disques ne soient pas supprimés, le guide de mise à niveau recommandé est{nbsp}:
+
+. Marquez le nœud en cordon et videz-le avant de mettre à niveau les composants de Kubernetes. Les instructions de vidage sont similaires à celles de <<_updating_the_node_os_or_container_runtime,Mise à jour du système d'exploitation du nœud ou de l'environnement d'exécution de conteneur>>.
+. Le drain `--timeout` doit être suffisamment grand pour que les reconstructions de répliques sur des nœuds sains puissent se terminer entre les mises à niveau des nœuds. Plus vous avez de répliques Longhorn sur le nœud en cours de vidage, plus il faut de temps pour que les répliques Longhorn soient reconstruites sur d'autres nœuds sains. Nous vous recommandons de tester et de sélectionner une valeur suffisamment élevée ou de la définir à 0 (c'est-à-dire sans délai d'expiration).
+. Le nombre de nœuds mis à niveau à la fois doit être inférieur au nombre de répliques Longhorn pour chaque volume.
+C'est pour qu'un volume Longhorn dispose d'au moins une réplique saine en fonctionnement à tout moment.
+. Envisagez de définir le paramètre xref:longhorn-system/settings.adoc#_node_drain_policy[Politique de vidage du nœud] sur `allow-if-replica-is-stopped` afin que le drainage ne soit pas bloqué par la dernière réplique saine d'un volume détaché. Voir <<_node_drain_policy_recommendations,Recommandations sur la politique de vidage du nœud>> pour des considérations lors de la sélection d'une politique.
+
+=== Kubernetes géré
+
+Reportez-vous aux rubriques suivantes{nbsp}:
+* xref:/upgrades/kubernetes/upgrade-k8s-on-aks.adoc[]
+* xref:/upgrades/kubernetes/upgrade-k8s-on-eks.adoc[]
+* xref:/upgrades/kubernetes/upgrade-k8s-on-gke.adoc[]
+
+== Recommandations sur la politique de vidage du nœud
+
+Il existe actuellement cinq politiques de vidage du nœud disponibles pour sélection. Chacune a ses propres avantages et inconvénients. Cette section fournit des conseils généraux sur chacune et suggère des situations dans lesquelles chacune pourrait être utilisée.
+
+=== Remarques importantes
+
+La politique de vidage du nœud est destinée à régir le comportement de Longhorn lorsqu'un nœud est activement en cours de vidage. Cependant, il n'existe aucun moyen pour Longhorn de faire la différence entre le fait de mettre un nœud en cordon et de le vider{nbsp}; ainsi, selon la politique, Longhorn peut agir dès qu'un nœud est mis en cordon, même s'il n'est pas en cours de vidage.
+
+La politique de vidage du nœud empêche l'éviction d'un pod de gestionnaire d'instance pendant un vidage, jusqu'à ce que certaines conditions soient remplies. Si le pod de gestionnaire d'instance ne peut pas être évincé, le drainage ne peut pas être complété. Cela empêche un utilisateur (ou un processus automatisé) de continuer à éteindre ou redémarrer un nœud s'il n'est pas sûr de le faire. Il peut être tentant d'ignorer l'échec du drainage et de procéder aux opérations de maintenance si cela semble prendre trop de temps, mais cela limite la capacité de Longhorn à protéger les données. Examinez toujours les événements et/ou les journaux pour essayer de déterminer POURQUOI le drainage ne progresse pas et prenez des mesures pour résoudre le problème sous-jacent.
+
+=== Bloquer si contient la dernière réplique
+
+C'est la politique par défaut. Elle vise à fournir un bon équilibre entre commodité et protection des données. Tant qu'elle est en vigueur, Longhorn empêchera l'éviction d'un pod de gestionnaire d'instance (et l'achèvement d'un vidage) sur un nœud mis en cordon qui contient la dernière réplique saine d'un volume.
+
+Avantages{nbsp}:
+
+* Protège les données en empêchant l'opération de vidage de se compléter jusqu'à ce qu'il y ait une réplique saine disponible pour chaque volume sur un autre nœud.
+
+Inconvénients{nbsp}:
+
+* S'il n'y a qu'une seule réplique pour le volume, ou si ses autres répliques sont non saines, l'utilisateur peut avoir besoin de demander manuellement (via l'interface utilisateur) l'éviction des répliques du disque ou du nœud.
+* Les volumes peuvent être dégradés après que le vidage soit complet. Si le nœud est redémarré, la redondance est réduite jusqu'à ce qu'il soit à nouveau opérationnel. Si le nœud est supprimé, la redondance est réduite jusqu'à ce qu'une autre réplique soit reconstruite.
+
+=== Autoriser si la dernière réplique est arrêtée
+
+Cette politique est similaire à `Block If Contains Last Replica`. Elle est intrinsèquement moins sûre, mais peut permettre aux opérations de vidage de se terminer plus rapidement. Elle empêche uniquement l'éviction d'un pod gestionnaire d'instances (et l'achèvement d'un drain) sur un nœud qui contient la dernière réplique saine en cours d'exécution.
+
+Avantages{nbsp}:
+
+* Elle permet à l'opération de drainage de se poursuivre dans des situations où le nœud en cours de drainage est censé revenir en ligne (les données ne seront pas perdues) et les répliques stockées sur les disques du nœud ne sont pas activement utilisées.
+
+Inconvénients{nbsp}:
+
+* Inconvénients similaires à `Block If Contains Last Replica`.
+* Si, pour une raison quelconque, le nœud ne revient jamais, les données sont perdues.
+
+=== Toujours autoriser
+
+Cette stratégie ne protège pas les données de quelque manière que ce soit, mais permet aux drains de se terminer immédiatement. Elle n'empêche jamais l'éviction d'un pod gestionnaire d'instances (et l'achèvement d'un drain). Ne l'utilisez pas dans un environnement de production.
+
+Avantages{nbsp}:
+
+* L'opération de drainage se termine rapidement sans que Longhorn ne gêne.
+
+Inconvénients{nbsp}:
+
+* Il n'y a aucune opportunité pour Longhorn de protéger les données.
+
+=== Bloquer pour éviction
+
+Cette stratégie offre le maximum de protection des données, mais peut entraîner de longs temps de drainage et des mouvements de données inutiles. Elle empêche l'éviction d'un pod gestionnaire d'instances (et l'achèvement d'un drain) tant que des répliques restent sur un nœud. De plus, elle prend des mesures pour évincer automatiquement les répliques du nœud.
+
+Il n'est pas recommandé de laisser cette stratégie activée en usage normal, car elle déclenchera l'éviction des répliques chaque fois qu'un nœud est cordonné. Activez-la uniquement pendant la maintenance planifiée.
+
+Un cas d'utilisation principal de cette stratégie est lors de la mise à niveau automatique des clusters dans lesquels les volumes n'ont aucune redondance (`numberOfReplicas == 1`). D'autres stratégies empêcheront le drainage jusqu'à ce que de telles répliques soient évincées manuellement, ce qui est peu pratique pour l'automatisation.
+
+Avantages{nbsp}:
+
+* Protège les données en empêchant l'opération de drainage de se terminer tant que toutes les répliques n'ont pas été relocalisées.
+* Évince automatiquement les répliques, de sorte que l'utilisateur n'ait pas besoin de le faire manuellement (via l'interface utilisateur).
+* Maintient la redondance des répliques à tout moment.
+
+Inconvénients{nbsp}:
+
+* L'opération de drainage est significativement plus lente que pour d'autres comportements. Chaque réplique doit être reconstruite sur un autre nœud avant de pouvoir se terminer. Le délai d'attente pour le drainage doit être ajusté en fonction de la quantité de données qui sera déplacée lors de la reconstruction.
+* L'opération de drainage est gourmande en données, surtout lorsque l'équilibrage automatique des répliques est activé, car les répliques évincées peuvent être déplacées de nouveau vers le nœud drainé lorsque/si celui-ci revient en ligne.
+* Comme toutes ces stratégies, elle se déclenche sur le cordon, et non sur le drainage. Si un utilisateur cordonne régulièrement des nœuds sans les drainer, les répliques seront reconstruites inutilement.
+
+=== Bloquer pour éviction si contient la dernière réplique.
+
+Cette stratégie offre la protection des données de la stratégie par défaut `Block If Contains Last Replica` avec la commodité supplémentaire de l'éviction automatique. Tant qu'elle est en vigueur, Longhorn empêchera l'éviction d'un pod gestionnaire d'instances (et l'achèvement d'un drainage) sur un nœud cordonné qui contient la dernière réplique saine d'un volume. De plus, les répliques qui répondent à cette condition sont automatiquement évincées du nœud.
+
+Il n'est pas recommandé de laisser cette stratégie activée en usage normal, car elle peut déclencher l'éviction de répliques chaque fois qu'un nœud est cordonné. Activez-la uniquement pendant la maintenance planifiée.
+
+Un cas d'utilisation principal de cette stratégie est lors de la mise à niveau automatique des clusters dans lesquels les volumes n'ont aucune redondance (`numberOfReplicas == 1`). D'autres stratégies empêcheront le drainage jusqu'à ce que de telles répliques soient évincées manuellement, ce qui est peu pratique pour l'automatisation.
+
+Avantages{nbsp}:
+
+* Protège les données en empêchant l'opération de drainage de se compléter jusqu'à ce qu'il y ait une réplique saine disponible pour chaque volume disponible sur un autre nœud.
+* Évince automatiquement les répliques, de sorte que l'utilisateur n'ait pas besoin de le faire manuellement (via l'interface utilisateur).
+* L'opération de drainage est seulement aussi lente et gourmande en données que nécessaire pour protéger les données.
+
+Inconvénients{nbsp}:
+
+* Les volumes peuvent être dégradés après que le drainage soit complet. Si le nœud est redémarré, la redondance est réduite jusqu'à ce qu'il soit à nouveau opérationnel. Si le nœud est supprimé, la redondance est réduite jusqu'à ce qu'une autre réplique soit reconstruite.
+* Comme toutes ces stratégies, elle se déclenche sur le cordon, et non sur le drainage. Si un utilisateur cordonne régulièrement des nœuds sans les drainer, les répliques seront reconstruites inutilement.

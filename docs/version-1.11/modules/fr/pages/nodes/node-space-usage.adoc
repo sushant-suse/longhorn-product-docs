@@ -1,0 +1,61 @@
+= Utilisation de l'espace du nœud
+:revdate: 2025-11-19
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Utilisation de l'espace de l'ensemble du cluster
+
+Dans la page `Dashboard`, {longhorn-product-name} vous montre les informations sur l'utilisation de l'espace du cluster{nbsp}:
+
+image::screenshots/volumes-and-nodes/space-usage-info-dashboard-page.png[Image]
+
+`Schedulable` : L'espace réel qui peut être utilisé pour la planification des volumes Longhorn.
+
+`Reserved` : L'espace réservé pour d'autres applications et le système.
+
+`Used` : L'espace réel qui a été utilisé par le système Longhorn et d'autres applications.
+
+`Disabled` : L'espace total des disques/nœuds sur lesquels les volumes Longhorn ne sont pas autorisés à être planifiés.
+
+== Utilisation de l'espace de chaque nœud
+
+Dans la page `Nodes`, {longhorn-product-name} montre l'allocation d'espace, la planification et les informations d'utilisation pour chaque nœud{nbsp}:
+
+image::screenshots/volumes-and-nodes/space-usage-info-node-page.png[Image]
+
+`Size` : L'espace *disponible maximum réel* qui peut être utilisé par les volumes Longhorn. Il est égal à l'espace disque total du nœud moins l'espace réservé.
+
+`Allocated` : Le nombre de gauche est la taille qui a été utilisée pour *la planification des volumes*, et cela ne signifie pas que l'espace a été utilisé pour le stockage des données des volumes Longhorn. Le nombre de droite est la taille *max* pour la planification des volumes, qui est le résultat de `Size` multiplié par `Storage Over Provisioning Percentage`. (Dans l'illustration ci-dessus, `Storage Over Provisioning Percentage` est 500.) Ainsi, la différence entre les 2 nombres (appelons-le l'espace allocable) détermine si une réplique de volume peut être planifiée sur ce nœud.
+
+`Used` : La partie gauche indique l'espace actuellement utilisé de ce nœud. La barre entière indique l'espace total du nœud.
+
+Remarquez que l'espace allocable peut être supérieur à l'espace disponible réel du nœud lorsque vous définissez `Storage Over Provisioning Percentage` à une valeur supérieure à 100. Si les volumes sont fortement utilisés et que beaucoup de données historiques doivent être stockées dans les instantanés de volume, veuillez faire attention à utiliser une grande valeur pour ce paramètre. Pour plus d'informations sur le paramètre, voir xref:longhorn-system/settings.adoc#_storage_over_provisioning_percentage[ici] pour les détails.
+
+=== État de planification du disque et message de dépannage
+
+Lorsqu'un disque devient *non planifiable*, {longhorn-product-name} expose directement la raison sous-jacente dans l'interface utilisateur.
+Sur la page *Nodes*, si la condition interne `Schedulable` du disque est `False`, l'interface utilisateur affiche le message exact de `node.diskStatus[x].conditions[Schedulable]`.
+Cette information est essentielle pour diagnostiquer les problèmes liés aux limites d'espace ou au surprovisionnement.
+
+*Exemple de message de dépannage*:
+
+[,bash]
+----
+Disk default-disk-1030100000000 (/var/lib/longhorn/) on the node ip-192-168-203-144.ap-southeast-1.compute.internal is not schedulable for more replica; Scheduling space condition failed: ScheduledTotal = 4294967296 (Size + StorageScheduled) is greater than ProvisionedLimit = -64504221696 (100% of StorageMax - StorageReserved).
+----
+
+*Comment interpréter ce message*:
+
+* *`ScheduledTotal`*{nbsp}: L'espace total actuellement *planifié* pour les répliques (à la fois existantes et en attente) sur ce disque.
++
+[NOTE]
+====
+Cela ne représente pas l'utilisation réelle du disque.
+====
+
+* *`ProvisionedLimit`*{nbsp}: La *capacité de planification maximale autorisée* pour ce disque. Elle est dérivée de{nbsp}:
+** la taille physique du disque (`StorageMax`)
+** son espace réservé (`StorageReserved`)
+** multiplié par le `Storage Over Provisioning Percentage` du cluster
+
+Lorsque `ScheduledTotal` dépasse `ProvisionedLimit`, le disque devient non planifiable et n'acceptera pas de nouvelles répliques jusqu'à ce que la configuration du disque ou les paramètres du cluster soient ajustés.

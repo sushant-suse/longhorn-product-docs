@@ -1,0 +1,22 @@
+= Interface de Linha de Comando (CLI)
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:description: Interface de Linha de Comando (CLI) para operações e solução de problemas do Longhorn.
+:current-version: {page-component-version}
+
+A ferramenta `longhornctl` é uma Interface de Linha de Comando (CLI) para operações do Longhorn. Ela interage com o Longhorn criando Recursos Personalizados do Kubernetes (CRs) e executando comandos dentro de um Pod dedicado para operações dentro do cluster e no host.
+
+== Cenários de uso comuns
+
+* *Instalação:*
+ ** `longhornctl install preflight`: Realize a instalação prévia das dependências e a configuração antes de instalar o Longhorn.
+* *Operações:*
+ ** `longhornctl export replica`: Extraia dados de um diretório de dados de réplica do Longhorn para um diretório designado em sua máquina host. Isso é útil para recuperar dados quando o Longhorn não está disponível.
+ ** `longhornctl trim volume`: Recupere espaço de armazenamento não utilizado dentro de um volume do Longhorn.
+* *Solucionando problemas:*
+ ** `longhornctl check preflight`: Identifica problemas potenciais antes do uso.
+ ** `longhornctl get replica`: Recupere detalhes sobre as réplicas do Longhorn no host.
+
+== Uso
+
+Para mais informações sobre os comandos disponíveis, consulte https://github.com/longhorn/cli/tree/v{patch-version}/docs/longhornctl.md[este documento] no repositório do GitHub, ou execute `longhornctl help` no seu terminal.

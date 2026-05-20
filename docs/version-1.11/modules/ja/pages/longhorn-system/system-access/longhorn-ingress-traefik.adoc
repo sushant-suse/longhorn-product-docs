@@ -1,0 +1,134 @@
+= ベーシック認証付きIngressの作成（Traefik）
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Kubernetesクラスターに{longhorn-product-name}を`kubectl`またはHelmでインストールする場合、外部トラフィックが{longhorn-product-name}のUIに到達できるようにIngressを作成する必要があります。
+
+`kubectl`およびHelmインストールでは、デフォルトで認証は有効になっていません。これらの手順では、ベーシック認証付きIngressの作成方法と、Traefikを使用して大きなファイルのアップロード（バックイメージ用）をサポートする方法を習得します。
+
+[NOTE]
+====
+これらの指示は、 https://doc.traefik.io/traefik[Traefik Ingress Controller]がクラスターにインストールされ、実行中であることを前提としています。TraefikはRKE2およびK3sのデフォルトのIngressコントローラーです。異なる環境を使用している場合は、進む前にTraefikがデプロイされていることを確認してください。`kubectl get pods -A | grep traefik`を実行することで、その存在を確認できます。
+====
+
+== 1.ベーシック認証シークレットの作成
+
+ベーシック認証ファイル`auth`を作成します。次の手順のために、シークレットには`auth`という名前のキーが必要です。
+
+[source,shell]
+----
+$ USER=<USERNAME_HERE>; PASSWORD=<PASSWORD_HERE>; echo "${USER}:$(openssl passwd -stdin -apr1 <<< ${PASSWORD})" > auth
+----
+
+`longhorn-system`ネームスペースにシークレットを作成します：
+
+[,shell]
+----
+$ kubectl -n longhorn-system create secret generic basic-auth --from-file=auth
+----
+
+== 2.Traefikミドルウェアの作成
+
+Traefikは、認証とリクエスト制限を処理するためにミドルウェアを利用します。`longhorn-middlewares.yml`という名前のファイルを作成します：
+
+[,yaml]
+----
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: longhorn-auth
+  namespace: longhorn-system
+spec:
+  basicAuth:
+    secret: basic-auth
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: longhorn-buffering
+  namespace: longhorn-system
+spec:
+  buffering:
+    # Allows backing image uploads up to 10,000MB
+    maxRequestBodyBytes: 10485760000 
+----
+
+設定を適用します。
+
+[,shell]
+----
+$ kubectl apply -f longhorn-middlewares.yml
+----
+
+== 3.Ingressマニフェストの作成
+
+Ingressマニフェスト`longhorn-ingress.yml`を作成します。バックイメージのアップロードが期待通りに機能することを確認するために、アノテーションを介して`longhorn-buffering`ミドルウェアを含めます。
+
+[,yaml]
+----
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: longhorn-ingress
+  namespace: longhorn-system
+  annotations:
+    # Connect the middlewares defined in step 2
+    traefik.ingress.kubernetes.io/router.middlewares: 
+      longhorn-system-longhorn-auth@kubernetescrd,
+      longhorn-system-longhorn-buffering@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: longhorn-frontend
+            port:
+              number: 80
+----
+
+== 4.Ingressの作成
+
+[,shell]
+----
+$ kubectl -n longhorn-system apply -f longhorn-ingress.yml
+----
+
+=== 例
+
+[source,shell]
+----
+$ USER=foo; PASSWORD=bar; echo "${USER}:$(openssl passwd -stdin -apr1 <<< ${PASSWORD})" > auth
+$ kubectl -n longhorn-system create secret generic basic-auth --from-file=auth
+secret/basic-auth created
+
+# (After applying middlewares and ingress manifests)
+
+$ kubectl -n longhorn-system get ingress
+NAME                CLASS    HOSTS   ADDRESS      PORTS   AGE
+longhorn-ingress   traefik   * 10.0.2.15    80      15s
+
+$ curl -I http://10.0.2.15/
+HTTP/1.1 401 Unauthorized
+Www-Authenticate: Basic realm="traefik"
+
+$ curl -u foo:bar -I http://10.0.2.15/
+HTTP/1.1 200 OK
+----
+
+== AWS EKS Kubernetesクラスターの追加手順
+
+AWS EKSでTraefik Ingressコントローラーをインターネットに公開するには、AWSロードバランサーをプロビジョニングする必要があります。追加の費用が発生する場合があります。
+
+. *Traefikをインストールする*:EKSクラスターにTraefikがまだインストールされていない場合は、 https://doc.traefik.io/traefik/getting-started/install-traefik/#use-the-helm-chart[公式のTraefik Helm Chartインストールガイド]に従ってください。
+. *ロードバランサーを構成する*:デフォルトでは、Traefikサービスのタイプを`LoadBalancer`に設定すると、AWS ELBの作成がトリガーされます。高度な構成（NLBの使用や特定のセキュリティグループなど）については、 https://doc.traefik.io/traefik/providers/kubernetes-ingress/#annotations[Traefik AWSガイド]を参照してください。
+
+== 参考資料
+
+* https://doc.traefik.io/traefik/[Traefikドキュメント]
+* https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-ingress/[Traefik Kubernetes Ingressガイド]
+* https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/[Kubernetesブログ - Ingress-NGINXの廃止]

@@ -1,0 +1,174 @@
+= Restaurer un volume pour un StatefulSet Kubernetes
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn prend en charge la restauration des sauvegardes, et l'un des cas d'utilisation de cette fonctionnalité est de restaurer des données pour une utilisation dans un StatefulSet Kubernetes, ce qui nécessite de restaurer un volume pour chaque réplique qui a été sauvegardée.
+
+Pour restaurer, suivez les instructions ci-dessous. L'exemple ci-dessous utilise un StatefulSet avec un volume attaché à chaque Pod et deux répliques.
+
+. Connectez-vous à la page `Longhorn UI` dans votre navigateur web. Sous l'onglet `Backup`, sélectionnez le nom du volume StatefulSet. Cliquez sur le menu déroulant de l'entrée de volume et restaurez-le. Nommez le volume quelque chose qui peut facilement être référencé plus tard pour le `Persistent Volumes`.
+ ** Répétez cette étape pour chaque volume que vous devez restaurer.
+ ** Par exemple, si vous restaurez un StatefulSet avec deux répliques qui avaient des volumes nommés `pvc-01a` et `pvc-02b`, la restauration pourrait ressembler à ceci{nbsp}:
+
++
+|===
+| Nom de la sauvegarde | Volume restauré
+
+| pvc-01a
+| statefulset-vol-0
+
+| pvc-02b
+| statefulset-vol-1
+|===
+. Dans Kubernetes, créez un `Persistent Volume` pour chaque volume Longhorn qui a été créé. Nommez les volumes quelque chose qui peut facilement être référencé plus tard pour le `Persistent Volume Claims`. La capacité `storage`, `numberOfReplicas`, `storageClassName` et `volumeHandle` doivent être remplacées ci-dessous. Dans l'exemple, nous faisons référence à `statefulset-vol-0` et `statefulset-vol-1` dans Longhorn et utilisons `longhorn` comme notre `storageClassName`.
++
+----
+ apiVersion: v1
+ kind: PersistentVolume
+ metadata:
+   name: statefulset-vol-0
+ spec:
+   capacity:
+     storage: <size> # must match size of Longhorn volume
+   volumeMode: Filesystem
+   accessModes:
+     - ReadWriteOnce
+   persistentVolumeReclaimPolicy: Delete
+   csi:
+     driver: driver.longhorn.io # driver must match this
+     fsType: ext4
+     volumeAttributes:
+       numberOfReplicas: <replicas> # must match Longhorn volume value
+       staleReplicaTimeout: '30' # in minutes
+     volumeHandle: statefulset-vol-0 # must match volume name from Longhorn
+   storageClassName: longhorn # must be same name that we will use later
+ ---
+ apiVersion: v1
+ kind: PersistentVolume
+ metadata:
+   name: statefulset-vol-1
+ spec:
+   capacity:
+     storage: <size>  # must match size of Longhorn volume
+   volumeMode: Filesystem
+   accessModes:
+     - ReadWriteOnce
+   persistentVolumeReclaimPolicy: Delete
+   csi:
+     driver: driver.longhorn.io # driver must match this
+     fsType: ext4
+     volumeAttributes:
+       numberOfReplicas: <replicas> # must match Longhorn volume value
+       staleReplicaTimeout: '30'
+     volumeHandle: statefulset-vol-1 # must match volume name from Longhorn
+   storageClassName: longhorn # must be same name that we will use later
+----
++
+Si vous utilisez des volumes chiffrés, vous devez spécifier le `nodePublishSecretRef` et le `nodeStageSecretRef` lors de la création du `PersistentVolume`.
++
+[,yaml]
+----
+kind: PersistentVolume
+metadata:
+  name: statefulset-encrypted-vol-0
+spec:
+  capacity:
+    storage: <size>
+    volumeMode: Filesystem
+    accessModes:
+      - ReadWriteOnce
+    persistentVolumeReclaimPolicy: Delete
+    csi:
+      driver: driver.longhorn.io
+      fsType: ext4
+      nodePublishSecretRef:
+        name: <secret-name>
+        namespace: <namespace>
+      nodeStageSecretRef:
+        name: <secret-name>
+        namespace: <namespace>
+      volumeAttributes:
+        numberOfReplicas: <replicas>
+        staleReplicaTimeout: "30"
+      volumeHandle: statefulset-encrypted-vol-0
+    storageClassName: longhorn
+----
+
+. Dans le `namespace`, le `StatefulSet` sera déployé, créez des PersistentVolume Claims *pour chaque* `Persistent Volume`. Le nom du `Persistent Volume Claim` doit suivre ce schéma de nommage{nbsp}:
++
+----
+ <name of Volume Claim Template>-<name of StatefulSet>-<index>
+----
++
+Les Pods StatefulSet sont indexés à partir de zéro. Dans cet exemple, le nom du `Volume Claim Template` est `data`, le nom du `StatefulSet` est `webapp`, et il y a deux répliques, qui sont les index `0` et `1`.
++
+----
+ apiVersion: v1
+ kind: PersistentVolumeClaim
+ metadata:
+   name: data-webapp-0
+ spec:
+   accessModes:
+   - ReadWriteOnce
+   resources:
+     requests:
+       storage: 2Gi # must match size from earlier
+   storageClassName: longhorn # must match name from earlier
+   volumeName: statefulset-vol-0 # must reference Persistent Volume
+ ---
+ apiVersion: v1
+ kind: PersistentVolumeClaim
+ metadata:
+   name: data-webapp-1
+ spec:
+   accessModes:
+   - ReadWriteOnce
+   resources:
+     requests:
+       storage: 2Gi # must match size from earlier
+   storageClassName: longhorn # must match name from earlier
+   volumeName: statefulset-vol-1 # must reference Persistent Volume
+----
+
+. Créez le `StatefulSet`{nbsp}:
++
+----
+ apiVersion: apps/v1beta2
+ kind: StatefulSet
+ metadata:
+   name: webapp # match this with the PersistentVolumeClaim naming scheme
+ spec:
+   selector:
+     matchLabels:
+       app: nginx # has to match .spec.template.metadata.labels
+   serviceName: "nginx"
+   replicas: 2 # by default is 1
+   template:
+     metadata:
+       labels:
+         app: nginx # has to match .spec.selector.matchLabels
+     spec:
+       terminationGracePeriodSeconds: 10
+       containers:
+       - name: nginx
+         image: registry.k8s.io/nginx-slim:0.8
+         ports:
+         - containerPort: 80
+           name: web
+         volumeMounts:
+         - name: data
+           mountPath: /usr/share/nginx/html
+   volumeClaimTemplates:
+   - metadata:
+       name: data # match this with the PersistentVolumeClaim naming scheme
+     spec:
+       accessModes: [ "ReadWriteOnce" ]
+       storageClassName: longhorn # must match name from earlier
+       resources:
+         requests:
+           storage: 2Gi # must match size from earlier
+----
+
+*Résultat :* Les données restaurées devraient maintenant être accessibles depuis l'intérieur du `StatefulSet`
+`Pods`.

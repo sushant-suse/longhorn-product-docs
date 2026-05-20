@@ -1,0 +1,165 @@
+= Créer une {longhorn-product-name} sauvegarde système
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Bundle de sauvegarde système
+
+La sauvegarde système Longhorn crée un package de ressources et le télécharge vers la cible de sauvegarde distante.
+
+Elle inclut les ressources ci-dessous associées au système Longhorn{nbsp}:
+
+* BackingImages
+* ClusterRoles
+* ClusterRoleBindings
+* ConfigMaps
+* Définitions de ressources personnalisées
+* DaemonSets
+* Déploiements
+* EngineImages
+* PersistentVolumes
+* PersistentVolumeClaims
+* Travaux récurrents
+* Rôles
+* RoleBindings
+* Paramètres
+* Services
+* ServiceAccounts
+* Classes de stockage
+* Volumes
+
+[NOTE]
+====
+* La cible de sauvegarde par défaut (`default`) est toujours utilisée pour stocker les sauvegardes système.
+* Le package de sauvegarde système Longhorn n'inclut que les ressources gérées par Longhorn.
+* Longhorn ne sauvegarde pas la ressource `Nodes`. Le Longhorn Manager sur le cluster cible est responsable de la création de ses propres ressources personnalisées Longhorn `Node`.
+* Longhorn ne peut pas sauvegarder les images de sauvegarde du moteur de données V2.
+====
+
+== Créer une sauvegarde du système
+
+Vous pouvez créer une sauvegarde du système Longhorn en utilisant l'interface utilisateur de Longhorn. Ou avec la commande `kubectl`.
+
+=== Conditions préalables
+
+* xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[]. Longhorn enregistre les sauvegardes du système dans le magasin de sauvegarde distant. Vous verrez une erreur lors de la création lorsque la cible de sauvegarde n'est pas définie.
++
+NOTE: La désactivation de la cible de sauvegarde efface la ressource personnalisée `SystemBackup` existante. Longhorn synchronise avec le magasin de sauvegarde distant après avoir défini la cible de sauvegarde. Un autre cluster peut également se synchroniser avec la même liste de sauvegardes système lorsque la cible de sauvegarde est la même.
+
+* Créer une sauvegarde pour tous les volumes (optionnel).
++
+NOTE: Longhorn restaure le volume du système avec la dernière sauvegarde. Nous recommandons de mettre à jour la dernière sauvegarde pour tous les volumes. En prenant des sauvegardes de volume, vous vous assurez que les données sont à jour avec la sauvegarde du système. Pour plus d'informations, veuillez vous référer à la section <<_volume_backup_policy,Configuration - Politique de sauvegarde de volume>>.
+
+=== Configuration
+
+==== Politique de sauvegarde de volume
+
+La sauvegarde du système Longhorn offre les options de politique de sauvegarde de volume suivantes{nbsp}:
+
+* `if-not-present` : Longhorn crée une sauvegarde pour les volumes qui n'ont pas de sauvegarde existante ou qui ont une dernière sauvegarde obsolète.
+* `always` : Longhorn crée une sauvegarde pour tous les volumes, indépendamment de leurs sauvegardes existantes.
+* `disabled` : Longhorn ne crée aucune sauvegarde pour les volumes.
+
+=== Sauvegarde unique
+
+==== Créer une sauvegarde système à l'aide de l'interface utilisateur
+
+. Allez à la page `System Backups` dans la liste déroulante `Backup and Restore`.
+. Cliquez sur `Create` sous `System Backup`.
+. Donnez un `Name` pour la sauvegarde système.
+. Sélectionnez un `Volume Backup Policy` pour la sauvegarde système.
+. La sauvegarde système sera prête à l'emploi lorsque l'état changera en `Ready`.
+
+==== Créer une sauvegarde système à l'aide de `kubectl`
+
+. Exécutez `kubectl create` pour créer une ressource personnalisée {longhorn-product-name} `SystemBackup`.
++
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: SystemBackup
+metadata:
+  name: demo
+  namespace: longhorn-system
+spec:
+  volumeBackupPolicy: if-not-present
+----
+
+. La sauvegarde système sera prête à l'emploi lorsque l'état changera en `Ready`.
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME   VERSION   STATE   CREATED
+demo   v1.4.0    Ready   2022-11-24T04:23:24Z
+----
+
+=== Travail récurrent
+
+==== Créer un travail de sauvegarde récurrent à l'aide de l'interface utilisateur
+
+. Allez à l'écran *Travaux récurrents*.
+
+. Cliquez sur *Créer un travail récurrent*.
+
+. Configurez les paramètres suivants :
++
+* *Nom*{nbsp}: Spécifiez un nom pour le travail récurrent.
+* *Tâche*{nbsp}: Sélectionnez *Sauvegarde système*.
+* *Conserver*{nbsp}: Spécifiez le nombre de sauvegardes système que {longhorn-product-name} doit conserver.
+* *Cron*{nbsp}: Spécifiez l'expression cron (une chaîne composée de champs séparés par des espaces blancs) qui définit les propriétés de planification.
+* *Paramètres*{nbsp}: Sélectionnez *volume-backup-policy*.
+
+. Cliquez sur *OK*.
+
+{longhorn-product-name} crée des sauvegardes système selon le calendrier défini dans le champ *Cron*.
+
+==== Créer un travail de sauvegarde récurrent en utilisant `kubectl`.
+
+Exécutez `kubectl create` pour créer une ressource personnalisée {longhorn-product-name} `RecurringJob` avec la tâche `system-backup`.
+
+Exemple :
+
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: demo
+  namespace: longhorn-system
+spec:
+  task: system-backup
+  cron: '* * * * *'
+  retain: 1
+  parameters:
+    volume-backup-policy: if-not-present
+----
+
+{longhorn-product-name} crée une sauvegarde système selon le calendrier défini dans le champ `cron`.
+
+== Supprimer les sauvegardes système.
+
+Vous pouvez supprimer la sauvegarde système Longhorn dans la cible de sauvegarde distante en utilisant l'interface utilisateur Longhorn. Ou avec la commande `kubectl`.
+
+=== Supprimer une sauvegarde système en utilisant l'interface utilisateur Longhorn.
+
+. Allez à la page `System Backup` dans la liste déroulante `Setting`.
+. Supprimez une seule sauvegarde système dans le menu déroulant `Operation` à côté de la sauvegarde système. Ou supprimez en lot avec le bouton `Delete`.
++
+NOTE: La suppression de la sauvegarde système entraînera également une suppression dans le magasin de sauvegarde.
+
+=== Supprimer une sauvegarde système en utilisant `kubectl`.
+
+. Exécutez `kubectl delete` pour supprimer une ressource personnalisée Longhorn `SystemBackup`.
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME   VERSION   STATE   CREATED
+demo   v1.4.0    Ready   2022-11-24T04:23:24Z
+
+> kubectl -n longhorn-system delete systembackup/demo
+systembackup.longhorn.io "demo" deleted
+----
+
+== History
+
+https://github.com/longhorn/longhorn/issues/1455[Demande originale de fonctionnalité]

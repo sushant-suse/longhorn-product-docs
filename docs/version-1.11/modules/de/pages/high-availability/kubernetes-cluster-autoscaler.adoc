@@ -1,0 +1,21 @@
+= Kubernetes Cluster Autoscaler Unterstützung (Experimentell)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Standardmäßig blockiert Longhorn den Kubernetes Cluster Autoscaler daran, Knoten herabzuskalieren, weil:
+
+* Longhorn erstellt PodDisruptionBudgets für alle Engine- und Replik-Instanz-Manager-Pods.
+* Longhorn Instanz-Manager-Pods haben strenge PodDisruptionBudgets.
+* Longhorn Instanz-Manager-Pods werden nicht von einem integrierten Arbeitslastcontroller von Kubernetes unterstützt.
+* Longhorn-Pods verwenden lokale Speicher-Volume-Mounts.
+
+Für weitere Informationen siehe https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/FAQ.md#what-types-of-pods-can-prevent-ca-from-removing-a-node[Welche Arten von Pods können verhindern, dass der CA einen Knoten entfernen?]
+
+Wenn Sie das Herabskalieren des Kubernetes Cluster Autoscalers freigeben möchten, können Sie die Einstellung xref:longhorn-system/settings.adoc#_kubernetes_cluster_autoscaler_enabled_experimental[Kubernetes Cluster Autoscaler Aktiviert] setzen.
+
+Wenn diese Einstellung aktiviert ist, wird Longhorn so wenige Instanz-Manager-PodDisruptionBudgets wie möglich beibehalten. Jedes Volume hat mindestens eine Replik unter dem Schutz eines Instanz-Manager-PodDisruptionBudgets, während kein redundantes PodDisruptionBudget den Cluster Autoscaler daran hindert, herabzuskalieren.
+
+Wenn diese Einstellung aktiviert ist, wird Longhorn auch die `cluster-autoscaler.kubernetes.io/safe-to-evict` Annotation zu Longhorn-Arbeitslasten hinzufügen, die nicht von einem integrierten Arbeitslastcontroller von Kubernetes unterstützt werden oder lokale Speicher-Mounts verwenden.
+
+WARNING: Das Wiederherstellen von Replikaten könnte teuer sein, da Knoten mit wiederverwendbaren Replikaten vom Kubernetes Cluster Autoscaler entfernt werden könnten.

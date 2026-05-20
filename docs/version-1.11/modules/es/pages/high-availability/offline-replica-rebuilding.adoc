@@ -1,0 +1,121 @@
+= Reconstrucción de réplicas fuera de línea
+:revdate: 2025-09-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+A partir de la versión 1.9.0, {longhorn-product-name} admite la reconstrucción de réplicas fuera de línea. Esta función permite que los volúmenes degradados reconstruyan automáticamente las réplicas mientras los volúmenes están desconectados.
+
+== Configuración Global `offline-replica-rebuilding`
+
+* Cuando está habilitado, {longhorn-product-name} inicia automáticamente la reconstrucción fuera de línea para los volúmenes elegibles.
+* Para más información sobre esta configuración global, consulta xref:longhorn-system/settings.adoc#_offline_replica_rebuilding[settings].
+
+== Anulación por Volumen
+
+* Puedes anular la configuración global de `offline-replica-rebuilding` para cada volumen de forma individual. Esto se puede hacer a través de la interfaz de usuario {longhorn-product-name} o editando el Recurso Personalizado del Volumen. Para usar `kubectl`, ejecuta el siguiente comando y luego modifica el campo `spec.offlineRebuilding`:
++
+[,bash]
+----
+kubectl -n longhorn-system edit volume <volume-name>
+----
++
+Reemplaza `<volume-name>` con el nombre de tu volumen específico.
+* Cuando el campo `spec.offlineRebuilding` por volumen está configurado en `enabled` o `disabled`, esta configuración tiene prioridad sobre la configuración global. El valor por defecto para `spec.offlineRebuilding` es `ignored`.
+
+La siguiente tabla muestra cómo interactúan las configuraciones globales y por volumen:
+
+|===
+| Configuración Global (`offline-replica-rebuilding`)
+| Configuración por Volumen (`spec.offlineRebuilding`)
+| Reconstrucción fuera de línea habilitada
+
+| `true`
+| `ignored`
+| Sí
+
+| `false`
+| `ignored`
+| No
+
+| `true`
+| `enabled`
+| Sí
+
+| `false`
+| `enabled`
+| Sí
+
+| `true`
+| `disabled`
+| No
+
+| `false`
+| `disabled`
+| No
+|===
+
+== Proceso
+
+* Cuando se activa la reconstrucción de réplicas fuera de línea, {longhorn-product-name} conecta el volumen sin activar el frontend, reconstruye cualquier réplica faltante y luego desconecta el volumen una vez que el proceso se completa.
+* Este proceso puede ser interrumpido si la carga de trabajo asociada aumenta y requiere el volumen.
+
+== Reconstrucción no iniciada o finalizada
+
+Cuando se inicia la reconstrucción fuera de línea, los volúmenes degradados pueden quedar atascados en el estado adjunto si no se cumplen las condiciones de reconstrucción. Para evitar esto, si no se satisfacen las condiciones necesarias, la reconstrucción fuera de línea no comenzará o será finalizada.
+
+* *Ventajas*:
+** Asegura que los volúmenes no permanezcan atascados en el estado adjunto si la reconstrucción nunca finaliza.
+** Previene intentos de reconstrucción innecesarios.
+** Reduce los ciclos innecesarios de conexión y desconexión de volúmenes.
+** Proporciona un comportamiento de reconstrucción predecible basado en la disponibilidad de recursos.
+
+* *Condiciones requeridas*: La reconstrucción fuera de línea comienza automáticamente para los volúmenes degradados una vez que se cumplen las condiciones requeridas. Estas condiciones incluyen:
+** Existe una réplica fallida reutilizable, o
+** Existe un candidato a disco:
+*** El gestor de instancias en el nodo que alberga el disco debe estar listo.
+*** El nodo que contiene el disco es programable.
+*** El disco en sí es programable.
+
+=== Antes de que comience la reconstrucción fuera de línea
+
+Cuando la reconstrucción fuera de línea está habilitada, {longhorn-product-name} determina si debe comenzar.
+
+. {longhorn-product-name} detecta un volumen degradado y desconectado.
+. El sistema valida si se cumplen las condiciones requeridas antes de iniciar la reconstrucción.
+. Si se cumplen las condiciones, la reconstrucción continúa. De lo contrario, el volumen permanece desconectado.
+. Las condiciones requeridas se reevalúan cuando se añade un nodo, se vuelve listo o se vuelve programable.
+
+=== Durante la reconstrucción fuera de línea
+
+{longhorn-product-name} determina si un proceso de reconstrucción debe ser finalizado mientras está en progreso.
+
+. {longhorn-product-name} detecta el estado del volumen cuando comienza la reconstrucción fuera de línea y el volumen está adjunto.
+. Si el estado de condición del volumen `Scheduled` se convierte en `False`, la reconstrucción fuera de línea se finaliza y el volumen se desacopla.
+. Si las condiciones requeridas se cumplen de nuevo, la reconstrucción fuera de línea se reinicia; de lo contrario, el volumen permanece desacoplado.
+
+=== Ejemplos
+
+* *Reconstrucción fuera de línea exitosa*:
+. Se crea un volumen con 3 réplicas en un clúster de 3 nodos de trabajo.
+. La reconstrucción fuera de línea está habilitada.
+. El volumen se desacopla y luego se elimina una réplica del volumen.
+. La reconstrucción fuera de línea comienza y el volumen está adjunto.
+. Después de que finaliza la reconstrucción, el volumen se desacopla.
+* *La reconstrucción fuera de línea no comienza incluso cuando está habilitada*:
+. Se crea un volumen con 3 réplicas en un clúster de 3 nodos de trabajo (A, B y C).
+. La reconstrucción fuera de línea está habilitada.
+. El nodo de trabajo A no es programable.
+. La réplica del volumen en el nodo de trabajo A se elimina.
+. Debido a que solo existen dos nodos de trabajo programables, la reconstrucción fuera de línea no comenzará.
+* *Un nodo de trabajo se drena durante la reconstrucción fuera de línea*:
+. Se crea un volumen con 3 réplicas en un clúster de 3 nodos de trabajo (A, B y C).
+. La reconstrucción fuera de línea está habilitada.
+. El volumen se desacopla, y luego se elimina la réplica del volumen en el nodo de trabajo A.
+. Comienza la reconstrucción fuera de línea, y el volumen se adjunta para reconstruir una réplica en el nodo de trabajo A.
+. El nodo de trabajo A se drena, haciéndolo no programable, y se elimina la réplica del volumen en el nodo de trabajo A.
+. El volumen permanece adjunto hasta que el estado de condición del volumen `Scheduled` se convierte en `False`.
+. El volumen se desacopla hasta que el nodo de trabajo A se vuelve a habilitar o se añade un nuevo nodo programable.
+
+== limitaciones
+
+La reconstrucción fuera de línea no es compatible con volúmenes defectuosos.

@@ -1,0 +1,320 @@
+= Wiederaufbau von Replikaten
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Wenn {longhorn-product-name} ein fehlgeschlagenes oder gelöschtes Replikat erkennt, leitet es automatisch einen Wiederaufbauprozess ein. Dieses Dokument erläutert den Workflow des Wiederaufbaus von Replikaten für die v1-Daten-Engine, einschließlich *voll*, *delta* und *schnell* Wiederaufbaumethoden. Es erklärt auch die Einschränkungen, die mit jeder Methode verbunden sind.
+
+*Der Wiederaufbau beginnt nicht in den folgenden Szenarien*:
+
+* Das Volume wird auf einen anderen Knoten migriert.
+* Das Volume ist ein altes Wiederherstellungs-/DR-Volume.
+* Das Volume wird in der Größe erweitert.
+
+== Workflow zum Wiederaufbau von Replikaten
+
+Die Wiederherstellung von Replikaten kann in den folgenden Szenarien für die v1-Daten-Engine auftreten:
+
+* Ein Knoten wird neu gestartet, entleert oder entfernt.
+* Ein Replikat wird fehlerhaft oder gelöscht.
+
+image::diagrams/architecture/replica-rebuilding-flow.png[Abbild]
+
+. Markieren Sie das Zielreplikat im `WO`-Modus (nur Schreibzugriff).
+. Erstellen Sie einen neuen Snapshot, der als Referenzpunkt für die Integritätsprüfungen des Volumes dient.
+. Generieren Sie die Synchronisierungsdateiliste für den Volumenkopf und die Snapshot-Dateien.
+
+=== Für die V1-Daten-Engine
+
+[start=4]
+
+. Starten Sie einen Empfangsserver auf der Zielreplik für jeden Snapshot.
+. Weisen Sie das Quellreplikat an, die Datensynchronisation zu beginnen.
+
+.. Für jeden Snapshot:
+
+* Überprüfen Sie, ob die Snapshot-Datei im Datenverzeichnis des Zielreplikats vorhanden ist.
+** Wenn _nein_, übertragen Sie die gesamten Snapshot-Daten vom Quell-Replikat zum Ziel-Replikat.
+Weitere Informationen hierzu finden Sie im <<_full_replica_rebuilding>>.
+** Wenn _ja_, überprüfen Sie, ob die Snapshot-Prüfsummendateien vorhanden sind und ob die Änderungszeit und die Prüfsummen zwischen den Ziel- und Quell-Replikaten identisch sind.
+*** Wenn _ja_, {longhorn-product-name} überspringt die Übertragung der Daten des Snapshots. Diese Optimierung reduziert die CPU-Auslastung, die Festplatten-E/A, die Netzwerk-E/A und die gesamte Wiederaufbauzeit. Weitere Informationen hierzu finden Sie im <<_fast_replica_rebuilding>>.
+*** Wenn _nein_, {longhorn-product-name} berechnet und vergleicht die Prüfsummen auf Blockebene mit dem SHA-512-Algorithmus. Wenn Unterschiede gefunden werden, werden nur die unterschiedlichen Blöcke synchronisiert.
+Weitere Informationen hierzu finden Sie im <<_delta_replica_rebuilding>>.
+
+=== Für die V2-Daten-Engine
+
+[start=4]
+
+. Stellen Sie die Quell- und Ziel-Replikate bereit und bereiten Sie eine flache Kopie mit der SPDK-Engine vor.
+. Für jeden Snapshot:
+
+* Überprüfen Sie, ob der Snapshot-Zeitstempel, die tatsächliche Größe und die Prüfsumme zwischen Quell- und Zielreplikaten übereinstimmen.
+** Wenn _ja_, {longhorn-product-name} überspringt die Übertragung der Daten dieses Snapshots.
+** Wenn _nein_, überprüfen Sie, ob sowohl die Quell- als auch die Ziel-Snapshots Bereichsprüfsummen enthalten.
+*** Wenn _ja_, holen Sie die Bereichsprüfsummen und vergleichen Sie diese. Wenn Unterschiede bestehen, werden nur die nicht übereinstimmenden Bereiche kopiert.
+Weitere Informationen hierzu finden Sie im <<_fast_replica_rebuilding>>.
+*** Wenn _nein_, löschen Sie den vorhandenen Ziel-Snapshot. Dann kopieren Sie den gesamten Snapshot vom Quell-Replikat zum Ziel-Replikat.
+Weitere Informationen hierzu finden Sie im <<_full_replica_rebuilding>>.
+
+=== Vollständiger Replikat-Wiederaufbau
+
+Wenn das Replikat nicht wiederherstellbar ist oder keine vorhandenen Daten hat, {longhorn-product-name} synchronisiert alle Daten von einem gesunden Replikat. Es rekonstruiert das Replikat, indem die gesamte Snapshot-Kette übertragen wird.
+
+Der vollständige Replikat-Wiederaufbau verbraucht erhebliche Netzwerkbandbreite und führt zu intensiven Festplattenschreibvorgängen auf dem Zielknoten. Es ist jedoch erforderlich, wenn das Zielreplikat keine verwendbaren Daten enthält.
+
+=== Delta-Replikat-Wiederaufbau
+
+Der Delta-Replikat-Wiederaufbau ist nur für die v1-Daten-Engine vorgesehen. Es beginnt mit einem wiederverwendbaren fehlgeschlagenen Replikat und überprüft die Datenintegrität für alle Snapshots blockweise.
+
+* Dies ist nur für die Wiederverwendung fehlgeschlagener Replikate verfügbar, und es gibt eine vorhandene Snapshot-Datei (mit demselben Namen) im Datenverzeichnis des fehlgeschlagenen Replikats.
+* Wenn ein Snapshot keine Prüfsumme hat, führt {longhorn-product-name} stattdessen den Delta-Replikat-Wiederaufbau für diesen Snapshot durch.
+
+* *Vorteile*:
+** Reduziert den Verbrauch der Netzwerkbandbreite.
+* *Nachteile*:
+** Erhöhter CPU-Overhead, da {longhorn-product-name} die Prüfsumme der Snapshot-Daten blockweise für die Datenintegritätsprüfung berechnet.
+** Die Wiederaufbauzeit wird von der CPU-Leistung beeinflusst.
+
+=== Schneller Replikat-Wiederaufbau
+
+Der schnelle Replikat-Wiederaufbau ist aktiviert, wenn die folgenden Bedingungen erfüllt sind:
+
+* Die Einstellung für den schnellen Replikat-Wiederaufbau ist aktiviert:
++
+--
+`fast-replica-rebuild-enabled: true`
+--
+
+* Snapshot-Prüfsummen-Dateien werden erstellt (Prüfsummen werden vorab berechnet) mit einer der folgenden Methoden:
++
+--
+* `snapshot-data-integrity` ist auf `enabled` gesetzt:
+  Ein geplanter Job berechnet die Prüfsummen für alle Snapshots in einem konfigurierten Intervall (Standard: 7 Tage).
+* `snapshot-data-integrity-immediate-check-after-snapshot-creation` ist auf `true` gesetzt:
+  Die Snapshot-Prüfsumme wird sofort nach der Erstellung des Snapshots berechnet.
+--
+
+[NOTE]
+====
+Diese Prüfsummenberechnungen verbrauchen Speicher- und Rechenressourcen.
+Die Berechnungszeit ist unvorhersehbar und kann die Speicherleistung negativ beeinflussen.
+Für weitere Informationen siehe xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[Snapshot-Datenintegrität].
+====
+
+* *Vorteile*:
+** Minimiert den Verbrauch der Netzwerkbandbreite.
+** Minimiert die Festplatten-E/A.
+* *Nachteile*:
+** Die Berechnung der Snapshot-Prüfsummen kann zeitaufwendig sein.
+** Der Zeitpunkt der Berechnung der Prüfsumme ist unvorhersehbar. Es kann sogar unter hoher E/A-Belastung ausgelöst werden.
+
+Für weitere Informationen siehe xref:high-availability/fast-replica-rebuilding.adoc[Schneller Replikat-Wiederaufbau].
+
+== Faktoren, die die Wiederaufbauleistung beeinflussen.
+
+* *Großer Volumenkopf*
+** *Warum es wichtig ist*:
+Der Volumenkopf ist eine spezielle Datei, die niemals eine vorab berechnete Prüfsumme hat.
+Wenn ein Replikat ausfällt, muss {longhorn-product-name} immer den gesamten Volumenkopf synchronisieren.
+Ein größerer Volumenkopf erhöht die Wiederaufbauzeit.
+** *Wie man es verhindert*:
+Nehmen Sie regelmäßig Snapshots, um die Größe des Volumenkopfes zu reduzieren.
+Planen Sie Snapshots vor geplanten Wartungsarbeiten, um die Wiederaufbauzeit zu minimieren.
+
+* *Es existieren keine Snapshots*
+** *Warum es wichtig ist*:
+Ohne Snapshots kann {longhorn-product-name} keine Datenübertragung überspringen oder vorhandene Daten wiederverwenden.
+Wenn ein Snapshot des Volumenkopfes erstellt wird, aber seine Prüfsumme nicht bereitsteht, muss {longhorn-product-name} einen Delta-Replikat-Wiederaufbau durchführen.
+Dies erhöht die CPU-Auslastung aufgrund von blockweisen Prüfsummenvergleichen.
+** *Wie man es verhindert*:
++
+--
+. Aktivieren Sie `snapshot-data-integrity-immediate-check-after-snapshot-creation` oder `snapshot-data-integrity`, um Prüfsummen vorab zu berechnen.
+   *Abwägung:* Erhöht die CPU-, Festplatten-E/A- und Speicherbenutzung während der Berechnung.
+. Verwenden Sie einen wiederkehrenden Job, um regelmäßig Snapshots zu erstellen.
+--
+
+* *Snapshot gelöscht*
+** *Warum es wichtig ist*:
+Wenn das Löschen von Snapshots beginnt, werden systemgenerierte Snapshots in den nächsten Snapshot zusammengeführt.
+Dies macht die Prüfsumme des nächsten Snapshots ungültig.
+** *Wie man es verhindert*:
++
+--
+. Aktivieren Sie `snapshot-data-integrity-immediate-check-after-snapshot-creation`, um sicherzustellen, dass die Prüfsummen nach dem Löschen berechnet werden.
+. Erstellen Sie proaktiv einen Snapshot und lassen Sie Zeit für die Generierung der Prüfsumme, bevor Sie Upgrades oder Wiederaufbauten durchführen.
+--
+
+* *Gleichzeitige Wiederaufbauten*
+** *Warum es wichtig ist*:
+Das Ausführen mehrerer Wiederaufbauten auf demselben Knoten kann die CPU, die Festplatten-E/A und die Netzwerk-E/A überbeanspruchen und die Leistung beeinträchtigen.
+** *Wie man es verhindert*:
+Passen Sie die Anzahl der gleichzeitigen Wiederaufbauten mit der Einstellung `concurrent-replica-rebuild-per-node-limit` an.
+
+* *Mehrere Replikatfehler*
+** *Warum es wichtig ist*:
+Erhöht die Wiederaufbauzeit und -komplexität.
+Wenn `auto-cleanup-system-generated-snapshot` `true` ist und keine benutzererstellten Snapshots existieren, können zwei fehlgeschlagene Replikate mindestens einen vollständigen Datentransfer auslösen.
++
+Für weitere Details siehe https://github.com/longhorn/longhorn/issues/9335[Vermeiden Sie "vollständigen Datentransfer" beim Wiederaufbau von zwei fehlgeschlagenen Replikaten].
++
+** *Wie man es verhindert*:
++
+--
+. Deaktivieren Sie `auto-cleanup-system-generated-snapshot`, bevor Sie Wartungsarbeiten durchführen.
+. Erstellen Sie Benutzersnapshots aller Volumes, bevor Sie mit der Wartung beginnen.
+. Verwenden Sie einen wiederkehrenden Job, um regelmäßig Snapshots zu erstellen.
+--
+
+* *Replikat-Wiederaufbau im großen Maßstab*
+** *Warum es wichtig ist*:
++
+Der Replikat-Wiederaufbau im großen Maßstab ermöglicht es einem wiederaufgebauten Replikat, gleichzeitig Snapshots von mehreren gesunden Replikaten abzurufen, was die Wiederaufbauleistung für bestimmte Arbeitslastmuster erheblich verbessert.
+** *Wie man aktiviert*:
++
+Setzen Sie `replica-rebuild-concurrent-sync-limit` > 1, um mehreren gesunden Replikaten zu erlauben, Synchronisierungsserver zu starten. Das wiederaufgebaute Replikat ruft dann gleichzeitig verschiedene Snapshots von verschiedenen Quellreplikaten ab. Dieses Feature ist besonders vorteilhaft für Volumes mit verstreuten kleinen Datenstücken und Löchern in ihren Snapshots.
++
+Für weitere Details siehe xref:high-availability/scale-replica-rebuilding.adoc[Scale Replica Rebuilding].
+
+== Anwendungsfälle
+
+=== Knoten-Neustart während des Upgrades
+
+Wenn ein Arbeitsknoten mit Replikaten im Rahmen eines geplanten Upgrades neu gestartet wird:
+
+. Das Replikat auf diesem Knoten wird vorübergehend nicht verfügbar und schlägt fehl, aber Lese- und Schreibvorgänge werden fortgesetzt.
+. Wenn der Knoten innerhalb des `replica-replenishment-wait-interval` wiederhergestellt wird, initiiert {longhorn-product-name} einen Wiederaufbau unter Verwendung des wiederverwendbaren fehlgeschlagenen Replikats.
+
+Während des Wiederaufbauprozesses:
+
+. {longhorn-product-name} wählt das neueste wiederverwendbare fehlgeschlagene Replikat aus, wenn mehrere wiederverwendbare fehlgeschlagene Replikate verfügbar sind.
+. Basierend auf dem Wiederaufbauszenario:
++
+--
+* *Wenn der schnelle Replikat-Wiederaufbau aktiviert ist und alle Snapshot-Prüfsummen vorhanden sind*:
+  {longhorn-product-name} löst <<_fast_replica_rebuilding>> aus.
+  Nur geänderte Blöcke im Volumenkopf werden synchronisiert, wodurch sowohl vollständiger als auch Delta-Wiederaufbau vermieden wird.
+
+* *Wenn der schnelle Replikat-Wiederaufbau aktiviert ist, aber einige Snapshot-Prüfsummen fehlen*:
+  {longhorn-product-name} löst <<_delta_replica_rebuilding>> aus.
+  Geänderte Blöcke von Snapshots ohne Prüfsummen werden synchronisiert, wodurch vollständiger Wiederaufbau vermieden wird.
+
+* *Wenn der schnelle Replikat-Wiederaufbau deaktiviert ist*:
+  {longhorn-product-name} führt Delta-Wiederaufbau durch, indem geänderte Blöcke von *allen* Snapshots synchronisiert werden, wodurch vollständiger Wiederaufbau vermieden wird.
+--
+
+=== Kurzfristige Knotenentleerung
+
+Wenn ein Arbeitsknoten für kurzfristige Wartungsarbeiten entleert und dann schnell wiederhergestellt wird:
+
+. Das Replikat auf dem entleerten Knoten wird sofort als fehlgeschlagen markiert.
+. Wenn der Knoten vor Ablauf der `replica-replenishment-wait-interval` wieder aktiviert wird, versucht {longhorn-product-name}, das fehlgeschlagene Replikat wiederzuverwenden.
+. Das Verhalten beim Wiederaufbau folgt der gleichen Logik wie im vorherigen Anwendungsfall beschrieben.
+
+== Relevante Einstellungen
+
+[cols="1,1,4", options="header"]
+|===
+|Einstellung |Standard |Beschreibung
+
+|`fast-replica-rebuild-enabled`
+|`true`
+|Ermöglicht schnelles Wiederaufbauen von Replikaten. Beruht auf vorab berechneten Snapshot-Prüfsummen.
+
+|xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[Snapshot-Datenintegrität]
+|`fast-check`
+|Hashes Snapshot-Diskdateien nur, wenn sie nicht gehasht sind oder sich ihre Änderungszeit geändert hat.
+
+|`snapshot-data-integrity-cronjob`
+|`0 0 */7 * *`
+|Cron-Zeitplan zur Berechnung der Prüfsummen für alle Snapshots. Standard: alle 7 Tage.
+
+|`snapshot-data-integrity-immediate-check-after-snapshot-creation`
+|`false`
+|Wenn aktiviert, werden die Prüfsummen sofort nach der Erstellung des Snapshots berechnet.
+
+|`replica-replenishment-wait-interval`
+|`600`
+|Zeit in Sekunden, die gewartet werden soll, bevor ein neues Replikat erstellt wird. Erlaubt die Wiederverwendung fehlgeschlagener Replikate.
+
+|`concurrent-replica-rebuild-per-node-limit`
+|`5`
+|Begrenzt die Anzahl gleichzeitiger Replikat-Wiederaufbauten pro Knoten.
+
+| `replica-rebuild-concurrent-sync-limit`
+| `1` 
+| Maximale Anzahl gesunder Replikate, die gleichzeitig mit einem wiederaufgebauten Replikat synchronisiert werden können. Bereich: 1-5. Die Einstellung auf 1 deaktiviert das Skalieren des Wiederaufbaus. 
+
+|`offline-replica-rebuilding`
+|`false`
+|Bestimmt, ob degradierte Replikate wieder aufgebaut werden, während das Volume abgetrennt ist.
+|===
+
+=== Einstellungen zur Analyse von Kompromissen
+
+* xref:longhorn-system/settings.adoc#_fast_replica_rebuild_enabled[fast-replica-rebuild-enabled]
++
+--
+* `enabled`:
+  Überspringt die Übertragung von Snapshot-Daten, wenn die Prüfsummen aktuell sind. Bietet schnellen Wiederaufbau, validiert die Daten jedoch nicht erneut.
+
+* `disabled`:
+  Führt einen Delta-Wiederaufbau unter Verwendung von Blockvergleichen durch. Langsam, gewährleistet jedoch die Integrität der Snapshot-Daten.
+--
+
+* xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[Snapshot-Datenintegrität]
++
+--
+* `enabled`:
+  Standardmäßig werden die Prüfsummen der Snapshots alle 7 Tage berechnet. Erhöht die CPU-, E/A- und Ressourcennutzung.
+--
+
+* xref:longhorn-system/settings.adoc#_snapshot_data_integrity_check_cronjob[snapshot-data-integrity-cronjob]
++
+--
+* Standard: `0 0 */7 * *`
++
+Wenn `snapshot-data-integrity` aktiviert ist, definiert dies, wann die Prüfsummen der Snapshots neu berechnet werden. Snapshots, die zwischen den Cron-Läufen erstellt werden, haben möglicherweise keine Prüfsummen.
+--
+
+* xref:longhorn-system/settings.adoc#_immediate_snapshot_data_integrity_check_after_creating_a_snapshot[snapshot-data-integrity-immediate-check-after-snapshot-creation]
++
+--
+* `true`:
+  Berechnet sofort die Prüfsummen der Snapshots nach der Erstellung. Erhöht die CPU- und E/A-Nutzung. Die Abschlusszeit ist unvorhersehbar.
+
+* `false`:
+  Snapshots haben möglicherweise keine Prüfsummen bis zum nächsten Cron-Lauf. Ein Delta-Wiederaufbau ist erforderlich, wenn Prüfsummen fehlen.
+--
+
+* xref:longhorn-system/settings.adoc#_replica_replenishment_wait_interval[replica-replenishment-wait-interval]
++
+--
+* Standard: `600` Sekunden
+
+** *Kurzintervall*:
+  Kann die Wiederverwendung fehlgeschlagener Replikate überspringen und einen vollständigen Wiederaufbau auslösen.
+
+** *Langzeitintervall*:
+  Warte länger, um fehlgeschlagene Replikate wiederzuverwenden, kann jedoch die Wiederherstellung verzögern.
+--
+
+* xref:longhorn-system/settings.adoc#_concurrent_replica_rebuild_per_node_limit[concurrent-replica-rebuild-per-node-limit]
++
+--
+* Standard: `5`
+
+** *Hohe Grenze*:
+  Kann die Ressourcen des Knotens überlasten und so den Wiederaufbau sowie die laufenden Arbeitslasten verlangsamen.
+
+** *Niedrige Grenze*:
+  Reduziert die Ressourcenkonkurrenz, erhöht jedoch die Wiederaufbauzeit aufgrund von Warteschlangen.
+--
+
+* xref:longhorn-system/settings.adoc#_replica_rebuild_concurrent_sync_limit[replica-rebuild-concurrent-sync-limit]
++
+--
+** Standard: `1`
+*** Wenn auf `1` gesetzt, wird der skalierte Wiederaufbau deaktiviert und nur der traditionelle Wiederaufbau von einer Quelle mit minimalem Ressourcenverbrauch verwendet. Wenn auf die Werte 2–5 gesetzt, wird der skalierte Wiederaufbau mit mehreren Quellreplikaten aktiviert, was eine signifikante Leistungsverbesserung für Volumes bietet. Höhere Werte erhöhen jedoch den CPU-Verbrauch auf Quell- und Zielreplikaten.
+*** Diese Einstellung kann pro Volume durch `volume.spec.RebuildConcurrentSyncLimit` überschrieben werden.
+--

@@ -1,0 +1,16 @@
+= Google Kubernetes Engine (GKE)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Um {longhorn-product-name} auf einem mit Google Kubernetes Engine bereitgestellten Cluster zu betreiben, ist zusätzliche Konfiguration erforderlich.
+
+. GKE-Cluster müssen das `Ubuntu`-Betriebssystem anstelle des `Container-Optimized`-Betriebssystems verwenden, um die {longhorn-product-name}-Abhängigkeit von `open-iscsi` zu erfüllen.
+. GKE erfordert, dass ein Benutzer sich manuell als Cluster-Administrator anmeldet, um die rollenbasierte Zugriffskontrolle zu aktivieren. Führen Sie vor der Installation von {longhorn-product-name} den folgenden Befehl aus:
++
+[subs="+attributes",shell]
+----
+ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=<name@example.com>
+----
++
+wobei `name@example.com` der Kontoname des Benutzers in GCE ist.  Es wird zwischen Groß- und Kleinschreibung unterschieden. Siehe https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control[dieses Dokument] für weitere Informationen.

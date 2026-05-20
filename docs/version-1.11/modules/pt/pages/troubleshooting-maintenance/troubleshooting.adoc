@@ -1,0 +1,116 @@
+= Resolvendo Problemas
+:revdate: 2025-09-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Guia de Solução de Problemas
+
+Existem alguns componentes em {longhorn-product-name}: Gerenciador, Motor, Driver e UI. Por padrão, todos esses componentes são executados como pods no `longhorn-system` namespace no cluster Kubernetes.
+
+A maioria dos logs está incluída no Pacote de Suporte. Você pode clicar no link *Gerar Pacote de Suporte* na parte inferior da UI para baixar um arquivo zip que contém configurações e logs relacionados a {longhorn-product-name}.
+
+Veja xref:troubleshooting-maintenance/support-bundle.adoc[Pacote de Suporte] para mais detalhes.
+
+Uma exceção é o `dmesg`, que precisa ser recuperado de cada nó pelo usuário.
+
+=== UI
+
+Utilizar a UI do {longhorn-product-name} é um bom começo para a resolução de problemas. Por exemplo, se o Kubernetes não conseguir montar um volume corretamente, após parar a carga de trabalho, tente anexar e montar esse volume manualmente em um nó e acessar o conteúdo para verificar se o volume está intacto.
+
+Além disso, os logs de eventos no painel da UI fornecem algumas informações sobre problemas prováveis. Verifique os logs de eventos no nível `Warning`.
+
+=== Gerenciador e Motores
+
+Você pode obter os logs do Longhorn Manager e dos Motores para ajudar na resolução de problemas. Os logs mais úteis são os do `longhorn-manager-xxx`, e os logs dentro dos gerenciadores de instância Longhorn, por exemplo, `instance-manager-xxxx`, `instance-manager-e-xxxx` e `instance-manager-r-xxxx`.
+
+Como normalmente há vários Longhorn Manager executando ao mesmo tempo, recomendamos usar https://github.com/johanhaleby/kubetail[kubetail,], que é uma ótima ferramenta para acompanhar os logs de vários pods. Para acompanhar os logs do Longhorn Manager em tempo real, você pode usar:
+
+----
+kubetail longhorn-manager -n longhorn-system
+----
+
+=== Driver CSI
+
+Para o driver CSI, verifique os logs de `csi-attacher-0` e `csi-provisioner-0`, bem como os contêineres em `longhorn-csi-plugin-xxx`.
+
+=== Driver Flexvolume
+
+O driver FlexVolume está descontinuado a partir da versão v0.8.0 do Longhorn e não deve mais ser utilizado.
+
+Primeiro, verifique onde o driver foi instalado no nó. Verifique o log de `longhorn-driver-deployer-xxxx` para essa informação.
+
+Em seguida, verifique os logs do kubelet. O próprio driver FlexVolume não é executado dentro do contêiner. Ele será executado junto com o processo do kubelet.
+
+Se o kubelet estiver sendo executado nativamente no nó, você pode usar o seguinte comando para obter os logs:
+
+----
+journalctl -u kubelet
+----
+
+Ou se o kubelet estiver sendo executado como um contêiner (por exemplo, no RKE), use o seguinte comando em vez disso:
+
+----
+docker logs kubelet
+----
+
+Para logs ainda mais detalhados do Longhorn FlexVolume, execute o seguinte comando no nó ou dentro do contêiner (se o kubelet estiver sendo executado como um contêiner, por exemplo, no RKE):
+
+----
+touch /var/log/longhorn_driver.log
+----
+
+== Problemas comuns
+
+=== O volume pode ser anexado ou desanexado pela UI, mas os Pods e StatefulSets do Kubernetes não podem utilizá-lo.
+
+==== Problema ao usar o plugin FlexVolume.
+
+Verifique se o diretório do plugin de volume foi configurado corretamente. Isso é detectado automaticamente, a menos que o usuário o defina explicitamente.
+
+Por padrão, o Kubernetes utiliza `/usr/libexec/kubernetes/kubelet-plugins/volume/exec/`, conforme declarado no https://github.com/kubernetes/community/blob/master/contributors/devel/sig-storage/flexvolume.md/#prerequisites[documento oficial].
+
+Alguns fornecedores optam por alterar o diretório por várias razões. Por exemplo, o GKE utiliza `/home/kubernetes/flexvolume` em vez disso.
+
+Você pode encontrar o diretório correto executando `ps aux|grep kubelet` no host e verificando o parâmetro `--volume-plugin-dir`. Se o parâmetro estiver vazio, {longhorn-product-name} utiliza o diretório padrão `/usr/libexec/kubernetes/kubelet-plugins/volume/exec/`.
+
+== Criação de perfis
+
+=== Runtime do motor, réplica e agente de sincronização.
+
+Você pode habilitar o servidor pprof dinamicamente para realizar o perfilamento de execução.
+
+Para habilitar o perfilamento, você pode:
+
+. Acessar o pod do gerenciador de instâncias via shell.
+. Use `ps` para identificar o processo runtime e sua porta.
++
+[,bash]
+----
+$ ps aux | more
+
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+...
+root        1996  0.0  0.6 1990080 20996 ?       Sl   Jul25   0:05 /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --volume-name     vol replica /host/var/lib/longhorn/replicas/vol-3004fc59 --size 1073741824 --disableRevCounter --replica-instance-name vol-r-ec7e35e4 --snapshot-max-count 250     --snapshot-max-size 0 --sync-agent-port-count 7 --listen 0.0.0.0:10000
+root        2004  0.0  0.6 1695152 22708 ?       Sl   Jul25   0:09 /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --volume-name     vol sync-agent --listen 0.0.0.0:10002 --replica 0.0.0.0:10000 --listen-port-range 10003-10009 --replica-instance-name vol-r-ec7e35e4
+root        2031  0.0  0.6 1916348 23760 ?       Sl   Jul25   0:46 /engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --engine-instance-name vol-e-0     controller vol --frontend tgt-blockdev --disableRevCounter --size 1073741824 --current-size 0 --engine-replica-timeout 8 --file-sync-http-client-timeout 30     --snapshot-max-count 250 --snapshot-max-size 0 --replica tcp://10.42.2.7:10000 --replica tcp://10.42.0.15:10000 --replica tcp://10.42.1.7:10000 --listen 0.0.0.0:10010
+----
+. Habilitar o servidor `pprof` para o runtime desejado (por exemplo, sync-agent):
++
+Neste exemplo, o processo sync-agent escuta na porta `10002`.
++
+[,bash]
+----
+$ /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --url http://localhost:10002 profiler enable --port 36060
+$ /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --url http://localhost:10002 profiler show
+
+Profiler enabled at Addr: *:36060
+----
+. Utilizar a interface pprof para inspeção em tempo de execução. Para mais detalhes, consulte a https://pkg.go.dev/net/http/pprof#hdr-Usage_examples[documentação oficial do pprof].
+. Desabilite o profiler após concluir sua análise:
++
+[,bash]
+----
+$ /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --url http://localhost:10002 profiler disable
+
+Profiler is disabled!
+----

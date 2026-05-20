@@ -1,0 +1,237 @@
+= 升级 Longhorn Manager
+:revdate: 2026-03-24
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+[WARNING]
+====
+建议在执行升级之前创建一个 xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn 系统备份]。这确保所有关键资源，如卷和备份镜像，都已备份，并且在出现任何问题时可以恢复。
+====
+
+== 从 v1.10.x 升级
+
+{longhorn-product-name} 仅支持从 v1.10.x 升级到 v{current-version}。对于其他版本，请先升级到 v1.10.x。
+
+对于在作为 Rancher 应用安装的 {longhorn-product-name} 进行隔离升级时，您需要修改镜像名称并删除注册表 URL 部分。
+
+对于在作为 Rancher 应用安装的 {longhorn-product-name} 进行隔离升级时，您需要修改镜像名称并删除注册表 URL 部分。例如，镜像 `registry.example.com/longhorn/longhorn-manager:v{patch-version}` 在 Longhorn 镜像部分更改为 `longhorn/longhorn-manager:v{patch-version}`。有关更多信息，请参见隔离安装步骤 xref:installation-setup/installation/airgapped-environment.adoc#_using_a_rancher_app[这里]。
+
+=== 准备升级
+
+当前默认的 StorageClass 具有以下参数：
+
+[,yaml]
+----
+parameters:
+  numberOfReplicas: <user specified replica count, 3 by default>
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  baseImage: ""
+----
+
+== 升级
+
+[IMPORTANT]
+====
+在升级之前始终备份卷。如果出现任何问题，您可以使用备份恢复卷。
+====
+
+=== 使用 {rancher-product-name} UI 升级
+
+对于由 {rancher-product-name} 管理的 Kubernetes 集群，您可以通过更新储存库以引用更新的 Helm 图表版本来升级 {longhorn-product-name} APP。
+
+以下过程描述了如何在 {rancher-product-name} 上升级 {longhorn-product-name} APP。
+
+. 转到 *APP > 储存库*。
+. 单击*创建*。
+. 选择 *OCI 储存库* 作为目标。
+. 为储存库提供一个名称，例如 `suse-storage`。
+. 在 *OCI 储存库主机 URL* 字段中输入：
++
+`oci://dp.apps.rancher.io/charts/suse-storage`
++
+image::screenshots/install/add-repo.png[添加储存库, width=100%]
+
+. 点击 *创建* 按钮。
+. 验证储存库是否已成功添加。
++
+image::screenshots/install/add-repo-success.png[储存库已添加, width=100%]
+
+. 前往 *APP > 图表* 并找到 `suse-storage` 图表。
++
+image::screenshots/install/find-chart.png[查找图表, width=100%]
+
+. 点击图表，然后点击 *安装*。
++
+image::screenshots/install/install-chart.png[安装图表, width=100%]
+
+. 在下一页，将 `global.imagePullSecrets` 设置为 `application-collection`，然后点击 *安装*。
++
+请参考 https://docs.apps.rancher.io/get-started/authentication/#kubernetes[身份验证文档] 进行凭证设置。
++
+[,yaml]
+----
+global:
+  cattle:
+    windowsCluster:
+      defaultSetting:
+        systemManagedComponentsNodeSelector: kubernetes.io/os:linux
+        taintToleration: cattle.io/os=linux:NoSchedule
+      enabled: false
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+        - effect: NoSchedule
+          key: cattle.io/os
+          operator: Equal
+          value: linux
+  imagePullSecrets: [application-collection]
+  imageRegistry: ''
+----
+
+. 这将升级 `suse-storage` `{current-version}`
++
+image::screenshots/install/update-repo.png[更新储存库, width=100%]
+
+. 升级后，前往 *APP > 储存库*。
++
+[NOTE]
+.对于早于 v2.13 的 {rancher-product-name} 版本，请按照以下步骤操作：
+====
+[lowerroman]
+. 选择 `suse-storage` 储存库，点击三点菜单，然后选择 *编辑配置*。
+. *解决方法：*将 URL 更新为 `oci://dp.apps.rancher.io/charts/suse-storage:{patch-version}` 以确保版本被检测。
+. 储存库应已成功更新。
++
+image::screenshots/install/updated-repo.png[更新储存库, width=100%]
+
+. 前往 *APP > 已安装 APP*。
+. 在 `longhorn-system` 名称空间中，查看 *可升级* 列，寻找一个黄色高亮的 `{patch-version}` 标签。
++
+image::screenshots/install/upgradable-column.png[可升级版本, width=100%]
+
+. 点击黄色的 `{patch-version}` 标签以打开升级页面。
++
+image::screenshots/install/upgrade-page.png[升级页面, width=100%]
+
+. 单击*下一步*。
+. 确保 `global.imagePullSecrets` 设置为 `application-collection`，然后点击 *升级*。
++
+image::screenshots/install/upgrade-progress.png[升级进度, width=100%]
+====
++
+. 前往 *APP > 图表* 并选择 `suse-storage` 图表。
+. 从 *图表版本* 面板中选择所需的升级版本。
++
+image::screenshots/install/current-version-rancher-2-13_and_above.png[在 Rancher 2.13+ 中更新储存库, width=100%]
+
+. 点击 *升级到此版本*。
+. 升级完成后，验证 `suse-storage` 图表版本是否更新为 `{patch-version}`。
++
+image::screenshots/install/upgrade-success.png[升级成功, width=100%]
+
+=== 使用 Helm 升级
+
+升级 {longhorn-product-name} Helm 图表涉及将您的部署更新到较新版本或在 Longhorn 社区镜像和 {longhorn-product-name} 镜像之间切换。
+
+升级的一般 Helm 命令是：
+
+[subs="+attributes",shell]
+----
+helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+  --namespace longhorn-system \
+  --version <version> \ # Replace with the version you would like to upgrade to
+  --set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
+  -f values.yaml
+----
+
+[NOTE]
+====
+要创建一个密钥，请遵循 https://docs.apps.rancher.io/get-started/authentication/#kubernetes[AppCo 文档]。
+====
+
+或者，如果在没有特定 `values.yaml` 文件的情况下升级并仅更改版本：
+
+[subs="+attributes",shell]
+----
+helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+  --namespace longhorn-system \
+  --version <version> \ # Replace with the version you would like to upgrade to
+  --set global.imagePullSecrets=<PULL_IMAGE_SECRET>
+----
+
+* *升级路径*：请参考官方 xref:upgrades/upgrades.adoc[{longhorn-product-name} 升级文档] 以获取特定版本到版本的升级路径、前提条件和升级后验证步骤。这对于确保顺利升级和数据完整性非常重要。
+* *配置更改*:如果您有自定义配置，请确保将其迁移到新图表版本，并与任何默认更改合并。
+
+=== 使用 Fleet 升级
+
+在您的 GitOps 储存库的 `helm.version` YAML 文件中更新 `fleet` 的值。
+
+[subs="+attributes",yaml]
+----
+helm:
+  repo: https://charts.longhorn.io
+  chart: longhorn
+  version: v{patch-version} # Replace with the {longhorn-product-name} version you would like to upgrade to
+  releaseName: longhorn
+----
+
+=== 使用 Flux 升级
+
+在您的 GitOps 储存库的 `spec.chart.spec.version` YAML 文件中更新 `HelmRelease` 的值。
+
+[subs="+attributes",yaml]
+----
+spec:
+  chart:
+    spec:
+      chart: longhorn
+      reconcileStrategy: ChartVersion
+      sourceRef:
+        kind: HelmRepository
+        name: longhorn
+      version: v{patch-version} # Replace with the {longhorn-product-name} version you would like to upgrade to
+----
+
+=== 使用 Argo CD 升级
+
+在您的 GitOps 储存库的 `targetRevision` YAML 文件中更新 `Application` 的值。
+
+[subs="+attributes",yaml]
+----
+spec:
+  project: default
+  sources:
+    - chart: longhorn
+      repoURL: https://charts.longhorn.io
+      targetRevision: v{patch-version} # Replace with the {longhorn-product-name} version you would like to upgrade to
+----
+
+然后等待所有的 pod 变为运行状态，并且 {longhorn-product-name} UI 正常工作。例如：
+
+[,shell]
+----
+$ kubectl -n longhorn-system get pod
+NAME                                                  READY   STATUS    RESTARTS      AGE
+engine-image-ei-4dbdb778-nw88l                        1/1     Running   0             4m29s
+longhorn-ui-b7c844b49-jn5g6                           1/1     Running   0             75s
+longhorn-manager-z2p8h                                1/1     Running   0             71s
+instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc     1/1     Running   0             65s
+longhorn-driver-deployer-6bd59c9f76-jp6pg             1/1     Running   0             75s
+engine-image-ei-df38d2e5-zccq5                        1/1     Running   0             65s
+csi-snapshotter-588457fcdf-h2lgc                      1/1     Running   0             30s
+csi-resizer-6d8cf5f99f-8v4sp                          1/1     Running   1 (30s ago)   37s
+csi-snapshotter-588457fcdf-6pgf4                      1/1     Running   0             30s
+csi-provisioner-869bdc4b79-7ddwd                      1/1     Running   1 (30s ago)   44s
+csi-snapshotter-588457fcdf-p4kkn                      1/1     Running   0             30s
+csi-attacher-7bf4b7f996-mfbdn                         1/1     Running   1 (30s ago)   50s
+csi-provisioner-869bdc4b79-4dc7n                      1/1     Running   1 (30s ago)   43s
+csi-resizer-6d8cf5f99f-vnspd                          1/1     Running   1 (30s ago)   37s
+csi-attacher-7bf4b7f996-hrs7w                         1/1     Running   1 (30s ago)   50s
+csi-attacher-7bf4b7f996-rt2s9                         1/1     Running   1 (30s ago)   50s
+csi-resizer-6d8cf5f99f-7vv89                          1/1     Running   1 (30s ago)   37s
+csi-provisioner-869bdc4b79-sn6zr                      1/1     Running   1 (30s ago)   43s
+longhorn-csi-plugin-b2zzj                             2/2     Running   0             24s
+----
+
+接下来，xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[升级 Longhorn Engine]。

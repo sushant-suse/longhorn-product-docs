@@ -1,0 +1,99 @@
+= 与SUSE® Storage快照关联的CSI卷快照
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn中的快照是一个对象，表示特定时刻Longhorn卷的内容。它存储在集群内部。
+
+要以编程方式创建Longhorn快照，您可以使用通用的Kubernetes CSI卷快照机制。要了解有关CSI卷快照机制的更多信息，请点击 https://kubernetes.io/docs/concepts/storage/volume-snapshots/[这里]。
+
+____
+*前提条件：*需要在您的集群上启用CSI快照支持。
+如果您的 Kubernetes 发行版未提供 Kubernetes 快照控制器以及与快照相关的自定义资源定义，您需要手动部署它们。
+有关更多信息，请参见xref:snapshots-backups/csi-snapshots/enable-csi-snapshot-creation.adoc[启用CSI快照支持]。
+____
+
+== 创建与Longhorn快照关联的CSI卷快照
+
+要创建与Longhorn快照关联的CSI卷快照，您首先需要创建一个`VolumeSnapshotClass`对象，并将参数`type`设置为`snap`，如下所示：
+
+[subs="+attributes",yaml]
+----
+kind: VolumeSnapshotClass
+apiVersion: snapshot.storage.k8s.io/v1
+metadata:
+  name: longhorn-snapshot-vsc
+driver: driver.longhorn.io
+deletionPolicy: Delete
+parameters:
+  type: snap
+----
+
+有关`VolumeSnapshotClass`的更多信息，请参见Kubernetes文档中的 https://kubernetes.io/docs/concepts/storage/volume-snapshot-classes/[卷快照类]。
+
+之后，创建一个Kubernetes `VolumeSnapshot`对象，其中`volumeSnapshotClassName`指向`VolumeSnapshotClass`的名称（`longhorn-snapshot-vsc`），而`source`指向应创建Longhorn快照的Longhorn卷的PVC。
+
+[subs="+attributes",yaml]
+----
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: test-csi-volume-snapshot-longhorn-snapshot
+spec:
+  volumeSnapshotClassName: longhorn-snapshot-vsc
+  source:
+    persistentVolumeClaimName: test-vol
+----
+
+*结果：*
+创建了一个Longhorn快照。`VolumeSnapshot`对象的创建导致创建一个`VolumeSnapshotContent` Kubernetes对象。
+`VolumeSnapshotContent`在其`VolumeSnapshotContent.snapshotHandle`字段中引用了名称为`snap://volume-name/snapshot-name`的Longhorn快照。
+
+=== 查看Longhorn快照
+
+要查看快照，请在顶部导航栏中点击*卷*，然后点击`VolumeSnapshotContent.snapshotHandle`中提到的卷。向下滚动以查看所有卷快照的列表。
+
+=== CSI机制在此场景中的工作原理
+
+当使用kubectl创建VolumeSnapshot对象时，`VolumeSnapshot.uuid`字段用于识别Longhorn快照及其关联的`VolumeSnapshotContent`对象。
+
+这创建了一个名为 `snapshot-uuid` 的新的 Longhorn 快照，并且 CSI 请求返回。
+
+随后创建了一个名为 `snapcontent-uuid` 的 `VolumeSnapshotContent` 对象，并将 `VolumeSnapshotContent.readyToUse` 标志设置为 *true*。
+
+== 从与 Longhorn 快照关联的 CSI卷快照 恢复 PVC
+
+创建一个 `PersistentVolumeClaim` 对象，其中 `dataSource` 字段指向与 Longhorn 快照关联的现有 `VolumeSnapshot` 对象。
+
+csi-provisioner 将接收此请求并指示 Longhorn CSI 驱动程序使用与关联的 Longhorn 快照中的数据来配置一个新卷。
+
+下面是一个示例 `PersistentVolumeClaim`。`dataSource` 字段需要指向一个现有的 `VolumeSnapshot` 对象。
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-restore-pvc
+spec:
+  storageClassName: longhorn
+  dataSource:
+    name: test-csi-volume-snapshot-longhorn-snapshot
+    kind: VolumeSnapshot
+    apiGroup: snapshot.storage.k8s.io
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+----
+
+[NOTE]
+====
+* `spec.resources.requests.storage` 值必须与 `VolumeSnapshot` 对象的大小匹配。
+* 从与 V2 数据引擎卷关联的 `VolumeSnapshot` 恢复卷时，可以使用 `StorageClass` 指定克隆模式。
+** 将 `cloneMode` 参数设置为 `full-copy` 或 `linked-clone`。
+** 如果您不指定 `cloneMode` 参数，默认值为 `full-copy`。
+
+有关更多信息，请参见 xref:longhorn-system/v2-data-engine/features/volume-clone.adoc[V2 卷克隆支持文档]。
+====

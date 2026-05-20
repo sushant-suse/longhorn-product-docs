@@ -1,0 +1,54 @@
+= Greifen Sie auf die Benutzeroberfläche zu
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Die Freigabe der {longhorn-product-name} UI ermöglicht externen Zugriff auf die Verwaltungskonsole. Die Wahl des Ingress-Controllers (zum Beispiel *Traefik*, *HAProxy* usw.) beeinflusst nur, wie auf die UI zugegriffen wird. Es hat *keinen Einfluss auf das {longhorn-product-name} Backend, Speicheroperationen oder die Datenintegrität*.
+
+[NOTE]
+====
+Ab November 2025 hat das Kubernetes-Projekt die Einstellung des ingress-nginx-Controllers angekündigt. Für Details https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement[sehen Sie die offizielle Ankündigung].
+====
+
+== Voraussetzungen für Zugriff und Authentifizierung
+
+Diese Anweisungen setzen voraus, dass {longhorn-product-name} bereits im Cluster installiert ist.
+
+Wenn Sie {longhorn-product-name} mit dem YAML-Manifest installiert haben, müssen Sie einen Ingress-Controller einrichten, um externen Verkehr in den Cluster zuzulassen. Die Authentifizierung ist *standardmäßig nicht aktiviert*. Dies gilt sowohl für Helm- als auch für `kubectl` Installationen.
+
+Für Informationen zur Erstellung eines Traefik Ingress-Controllers mit grundlegender Authentifizierung siehe xref:longhorn-system/system-access/longhorn-ingress-traefik.adoc[diesen Abschnitt]. Alternativ können Sie auch die xref:longhorn-system/system-access/longhorn-httproute.adoc[Gateway API HTTPRoute] als modernen Ansatz zur Freigabe der {longhorn-product-name} UI verwenden.
+
+Wenn {longhorn-product-name} als Rancher-Katalog-App installiert wurde, erstellt Rancher automatisch einen Ingress-Controller mit Zugriffskontrolle (die `rancher-proxy`).
+
+== Zugriff auf die {longhorn-product-name} UI
+
+Nachdem {longhorn-product-name} in Ihrem Kubernetes-Cluster installiert ist, können Sie auf das UI-Dashboard zugreifen, indem Sie diese Schritte befolgen.
+
+. Rufen Sie die {longhorn-product-name} Dienstinformationen ab:
++
+[,shell]
+----
+kubectl -n longhorn-system get svc
+----
++
+Für {longhorn-product-name} v0.8.0 und später ähnelt die Ausgabe dem Folgenden. Verwenden Sie die `CLUSTER-IP` des `longhorn-frontend` Dienstes, um auf die UI zuzugreifen:
++
+[,shell]
+----
+NAME                TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+longhorn-backend    ClusterIP   10.20.248.250   <none>        9500/TCP   58m
+longhorn-frontend   ClusterIP   10.20.245.110   <none>        80/TCP     58m
+----
++
+In diesem Beispiel ist die UI unter `10.20.245.110` zugänglich.
++
+[NOTE]
+====
+Beginnend mit {longhorn-product-name} v0.8.0 hat sich der UI-Diensttyp von `LoadBalancer` zu `ClusterIP` geändert.
+====
+
+. Öffnen Sie einen Browser und navigieren Sie zur IP-Adresse des `longhorn-frontend` Dienstes.
++
+Die {longhorn-product-name} Benutzeroberfläche sieht so aus:
++
+image::screenshots/getting-started/v1.10.0/longhorn-ui.png[Bild]

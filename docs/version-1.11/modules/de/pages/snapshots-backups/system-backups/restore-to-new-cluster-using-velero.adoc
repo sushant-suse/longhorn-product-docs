@@ -1,0 +1,67 @@
+= Stellen Sie das SUSE® Storage System in einem neuen Cluster mit Velero wieder her
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Sie können Workloads mit dem Longhorn-System über Velero in einen neuen Cluster wiederherstellen.
+
+[NOTE]
+====
+Es muss das https://github.com/vmware-tanzu/velero-plugin-for-csi[Velero CSI-Plugin] ≥ 0.4 verwendet werden, um die Wiederherstellung des PersistentVolumeClaim erfolgreich sicherzustellen. Besuchen Sie https://longhorn.io/kb/troubleshooting-restore-pvc-stuck-using-velero-csi-plugin-version-lower-than-0.4/[Fehlerbehebung: Velero stellt Longhorn PVC wieder her, das im Status "Ausstehend" feststeckt, wenn die Velero CSI-Plugin-Version vor v0.4.0 verwendet wird], um weitere Informationen zu erhalten.
+====
+
+== Annahmen:
+
+* Ein neuer Cluster bedeutet, dass *keine Longhorn-Volumendaten* darin vorhanden sind.
+* Es gibt ein entferntes Sicherungsziel, das alle Longhorn-Volumendaten enthält.
+* Es gibt einen entfernten Sicherungsserver, der die von Velero erstellten Clustersicherungen speichern kann.
+
+== Erwartung:
+
+* Alle Einstellungen werden wiederhergestellt. Aber die Konfigurationen von Knoten und Festplatten werden nicht angewendet.
+* Alle Workloads, die Longhorn-Volumen verwenden, werden gestartet, nachdem die Volumen vom entfernten Sicherungsziel wiederhergestellt wurden.
+
+== Workflow
+
+=== Erstellen Sie eine Sicherung des alten Clusters.
+
+. Installieren Sie Velero in einem Cluster, der Longhorn verwendet.
+. Erstellen Sie Sicherungen für alle Longhorn-Volumen.
+. Verwenden Sie Velero, um eine Clustersicherung zu erstellen. Hier sollten einige Longhorn-Ressourcen von der Clustersicherung ausgeschlossen werden:
++
+[subs="+attributes",bash]
+----
+ velero backup create lh-cluster --exclude-resources persistentvolumes,persistentvolumeclaims,backuptargets.longhorn.io,backupvolumes.longhorn.io,backups.longhorn.io,nodes.longhorn.io,volumes.longhorn.io,engines.longhorn.io,replicas.longhorn.io,backingimagedatasources.longhorn.io,backingimagemanagers.longhorn.io,backingimages.longhorn.io,sharemanagers.longhorn.io,instancemanagers.longhorn.io,engineimages.longhorn.io
+----
++
+=== Stellen Sie Longhorn und Workloads in einem neuen Cluster wieder her
+
+. Installieren Sie Velero mit demselben entfernten Sicherungsserver für den neuen Cluster.
+. Stellen Sie die Clustersicherung wieder her. z.B.,
++
+[subs="+attributes",bash]
+----
+ velero restore create --from-backup lh-cluster
+----
+
+. Entfernen Sie alle alten Instanz-Manager-Pods und die Pods des Backing-Image-Managers aus dem Namespace `longhorn-system`. Diese alten Pods sollten von Longhorn und nicht von Velero erstellt werden, und es sollten entsprechende CRs für sie vorhanden sein. Die Pods sind harmlos, aber sie würden zu endlosen Protokollen in den Longhorn-Manager-Pods führen. z.B.:
++
+[subs="+attributes",log]
+----
+ [longhorn-manager-q6n7x] time="2021-12-20T10:42:49Z" level=warning msg="Can't find instance manager for pod instance-manager-r-1f19ecb0, may be deleted"
+ [longhorn-manager-q6n7x] time="2021-12-20T10:42:49Z" level=warning msg="Can't find instance manager for pod instance-manager-e-6c3be222, may be deleted"
+ [longhorn-manager-ldlvw] time="2021-12-20T10:42:55Z" level=warning msg="Can't find instance manager for pod instance-manager-e-bbf80f76, may be deleted"
+ [longhorn-manager-ldlvw] time="2021-12-20T10:42:55Z" level=warning msg="Can't find instance manager for pod instance-manager-r-3818fdca, may be deleted"
+----
+
+. Konfigurieren Sie die Knoten und Festplatten für das wiederhergestellte Longhorn-System neu, falls erforderlich.
+. Erstellen Sie die Backing-Images bei Bedarf neu.
+. Stellen Sie alle Longhorn-Volumen aus dem entfernten Sicherungsziel wieder her.
+. Wenn es RWX-Sicherungsvolumen gibt, müssen die Benutzer den Zugriffsmodus manuell auf `ReadWriteMany` aktualisieren, da alle wiederhergestellten Volumen standardmäßig den Modus `ReadWriteOnce` haben.
+. Erstellen Sie PVCs und PVs mit den vorherigen Namen für die wiederhergestellten Volumen.
+
+NOTE: Wir werden das Longhorn-System verbessern, sodass die Benutzer in Zukunft Schritt 3 und Schritt 8 nicht mehr anwenden müssen.
+
+== Hinweise
+
+* Das zugehörige GitHub-Problem ist https://github.com/longhorn/longhorn/issues/3367

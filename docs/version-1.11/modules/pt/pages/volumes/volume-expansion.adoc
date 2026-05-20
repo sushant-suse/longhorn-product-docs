@@ -1,0 +1,179 @@
+= Expansão de Volume
+:revdate: 2025-07-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Os volumes são expandidos em duas etapas. Primeiro, o Longhorn redimensiona o dispositivo de bloco, depois expande o sistema de arquivos.
+
+O Longhorn suporta expansão online. Na maioria das vezes, o Longhorn pode expandir diretamente volumes anexados sem limitações, não importa se o volume está em R/W ou em reconstrução.
+
+Se o volume não foi expandido através da interface CSI (por exemplo, para Kubernetes anterior à v1.16), a capacidade do PVC e do PV correspondentes não mudará.
+
+== Pré-requisitos
+
+* Para expansão offline, a versão do Longhorn deve ser v0.8.0 ou posterior.
+* Para expansão online, a versão do Longhorn deve ser v1.4.0 ou posterior.
+
+== Expanda um volume do Longhorn
+
+Existem duas maneiras de expandir um volume do Longhorn: com um PersistentVolumeClaim (PVC) e com a interface do Longhorn.
+
+[discrete]
+==== Via PVC
+
+Este método é aplicado apenas se:
+
+* O PVC é provisionado dinamicamente pelo Kubernetes com o Longhorn StorageClass.
+* O campo `allowVolumeExpansion` deve ser `true` na StorageClass relacionada.
+
+Este método é recomendado se for aplicável, pois o PVC e o PV serão atualizados automaticamente e tudo será mantido consistente após a expansão.
+
+Uso: Encontre o PVC correspondente para o volume Longhorn, então modifique o `spec.resources.requests.storage` solicitado do PVC:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"PersistentVolumeClaim","metadata":{"annotations":{},"name":"longhorn-simple-pvc","namespace":"default"},"spec":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"1Gi"}},"storageClassName":"longhorn"}}
+    pv.kubernetes.io/bind-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-provisioner: driver.longhorn.io
+  creationTimestamp: "2019-12-21T01:36:16Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+  name: longhorn-simple-pvc
+  namespace: default
+  resourceVersion: "162431"
+  selfLink: /api/v1/namespaces/default/persistentvolumeclaims/longhorn-simple-pvc
+  uid: 0467ae73-22a5-4eba-803e-464cc0b9d975
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: longhorn
+  volumeMode: Filesystem
+  volumeName: pvc-0467ae73-22a5-4eba-803e-464cc0b9d975
+status:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 1Gi
+  phase: Bound
+----
+
+[discrete]
+==== Via interface do Longhorn
+
+Uso: Na página do volume da interface do Longhorn, clique em `Expand` para o volume.
+
+== Expansão do sistema de arquivos
+
+O Longhorn tentará expandir o sistema de arquivos apenas se:
+
+* O tamanho expandido deve ser maior do que o tamanho atual.
+* Há um sistema de arquivos Linux no volume Longhorn.
+* O sistema de arquivos utilizado no volume Longhorn é um dos seguintes:
+ ** ext4
+ ** xfs
+* O tamanho expandido deve ser menor do que o tamanho máximo de arquivo permitido pelo sistema de arquivos (por exemplo, 16TiB para `ext4`).
+* O volume Longhorn está utilizando a interface de dispositivo em bloco.
+
+== Casos extremos
+
+[discrete]
+==== Tratando a reversão do volume
+
+Se um volume for revertido para um instantâneo com tamanho menor, a interface do volume ainda manterá o tamanho expandido. Mas o tamanho do sistema de arquivos será o mesmo do instantâneo revertido. Neste caso, você precisará lidar com o sistema de arquivos manualmente:
+
+. Anexe o volume a um nó aleatório.
+. Faça login no nó correspondente e expanda o sistema de arquivos.
++
+Se o sistema de arquivos for `ext4`, o volume pode precisar ser https://linux.die.net/man/8/mount[montado] e https://linux.die.net/man/8/umount[desmontado] uma vez antes de redimensionar o sistema de arquivos manualmente. Caso contrário, executar `resize2fs` pode resultar em um erro:
++
+----
+ resize2fs: Superblock checksum does not match superblock while trying to open ......
+ Couldn't find valid filesystem superblock.
+----
++
+Siga os passos abaixo para redimensionar o sistema de arquivos:
++
+----
+ mount /dev/longhorn/<volume name> <arbitrary mount directory>
+ umount /dev/longhorn/<volume name>
+ mount /dev/longhorn/<volume name> <arbitrary mount directory>
+ resize2fs /dev/longhorn/<volume name>
+ umount /dev/longhorn/<volume name>
+----
+
+. Se o sistema de arquivos for `xfs`, você pode montar diretamente e, em seguida, expandir o sistema de arquivos.
++
+----
+ mount /dev/longhorn/<volume name> <arbitrary mount directory>
+ xfs_growfs <the mount directory>
+ umount /dev/longhorn/<volume name>
+----
+
+[discrete]
+==== Volume criptografado
+
+O suporte do Longhorn para expansão online depende do Kubernetes.
+
+* O Kubernetes suporta nativamente https://kubernetes.io/blog/2023/12/15/csi-node-expand-secret-support-ga/[redimensionamento de armazenamento CSI autenticado] a partir da versão v1.29.
+* Em https://kubernetes.io/blog/2022/09/21/kubernetes-1-25-use-secrets-while-expanding-csi-volumes-on-node-alpha/[Kubernetes v1.25 a v1.28], o recurso `CSINodeExpandSecret` é necessário.
+
+Você pode habilitar a expansão online para volumes criptografados especificando os seguintes xref:volumes/volume-encryption.adoc#_setting_up_kubernetes_secrets_and_storageclasses[parâmetros de criptografia na StorageClass]:
+
+* `csi.storage.k8s.io/node-expand-secret-name`
+* `csi.storage.k8s.io/node-expand-secret-namespace`
+
+Se você não puder habilitá-lo, mas ainda preferir fazer a expansão online, você pode:
+
+. Faça login no nó ao qual o volume criptografado está anexado.
+. Execute `cryptsetup resize <volume name>`. A senha que este comando requer é o campo `CRYPTO_KEY_VALUE` do segredo correspondente.
+. Expanda o sistema de arquivos.
+
+[discrete]
+==== RWX volume
+
+A partir da versão v1.8.0, o Longhorn suporta a expansão online totalmente automática do sistema de arquivos (NFS) para volumes RWX. Esse recurso requer que as versões v1.8.0 dos seguintes componentes estejam em execução:
+
+- Longhorn Manager
+- Plugin CSI
+- Share Manager (gerencia a exportação NFS)
+
+[NOTE]
+====
+Durante as atualizações, os pods do Share Manager (um para cada volume RWX) não são atualizados automaticamente para evitar interrupções.
+====
+
+Após aumentar o dispositivo de bloco, a camada CSI envia um comando de redimensionamento para o Share Manager para aumentar o sistema de arquivos dentro do dispositivo de bloco.  Com um Share Manager de versão anterior, o comando falha com um código de erro "não implementado" e, portanto, nenhuma expansão ocorre. Para obter a imagem correta antes da expansão, force uma reinicialização do pod. Identifique o pod do Share Manager do volume RWX (geralmente nomeado `share-manager-<volume name>`) e exclua-o.
+
+[,shell]
+----
+kubectl -n longhorn-system delete pod <the share manager pod>
+----
+
+O pod é automaticamente recriado usando a versão apropriada, e a expansão é concluída. Expansões adicionais não requererão mais intervenções.
+
+[discrete]
+===== Offline
+
+Realize os seguintes passos para permitir a expansão de volumes RWX enquanto estiver offline.
+
+. Desanexe o volume RWX reduzindo a carga de trabalho para `replicas=0`. Certifique-se de que o volume esteja totalmente desanexado.
+. Após o comando de escala retornar, execute o seguinte comando e verifique se o estado é `detached`.
++
+[subs="+attributes",shell]
+----
+ kubectl -n longhorn-system get volume <volume-name>
+----
+
+. Expanda o dispositivo de bloco usando o PVC ou a interface do Longhorn.
+. Aumente a carga de trabalho.
+
+O volume reanexado terá o tamanho expandido. Além disso, o pod do Share Manager será recriado com a versão atual.

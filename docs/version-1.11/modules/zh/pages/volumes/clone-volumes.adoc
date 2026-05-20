@@ -1,0 +1,101 @@
+= 克隆卷
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:description: 将新卷创建为现有卷的副本
+:current-version: {page-component-version}
+
+{longhorn-product-name} 支持 https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource/[CSI 卷克隆]。
+
+== 使用 YAML 克隆卷
+
+假设您有以下 `source-pvc`：
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: source-pvc
+spec:
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+----
+
+您可以通过应用以下 yaml 文件创建一个与 `source-pvc` 内容完全相同的新 PVC：
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloned-pvc
+spec:
+  storageClassName: longhorn
+  dataSource:
+    name: source-pvc
+    kind: PersistentVolumeClaim
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+----
+
+____
+注意：
+除了在 https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource/[CSI 卷克隆] 中列出的要求外，`cloned-pvc` 必须与 `resources.requests.storage` 具有相同的 `source-pvc`。
+____
+
+== 使用 {longhorn-product-name} UI 克隆卷
+
+=== 克隆一个卷
+
+. 转到 *卷* 页面。
+. 选择一个卷，然后在 *操作* 菜单中单击 *克隆卷*。
+. （可选）配置新卷的设置。
+. 单击 *确定*。
+
+=== 使用快照克隆卷
+
+. 转到 *卷* 页面。
+. 单击您想要克隆的卷的名称。
+. 在详细信息屏幕的 *快照和备份* 部分，找到您想要使用的快照，然后单击 *克隆卷*。
+. （可选）配置新卷的设置。
+. 单击 *确定*。
+
+image::screenshots/snapshots-and-backups/clone-volume-modal.png[映像]
+
+=== 克隆多个卷（批量克隆）
+
+. 转到 *卷* 页面。
+. 选择您想要克隆的卷。
+. 单击表格顶部的 *克隆卷* 按钮。
+. （可选）配置新卷的设置
+. 单击 *确定*
+
+[NOTE]
+====
+* {longhorn-product-name} 用户界面会预填某些字段，并防止您修改这些值，以确保它们与源卷的设置匹配。
+* {longhorn-product-name} 会自动附加新卷，克隆源卷，然后分离新卷。
+* 启用高效克隆后，新克隆并分离的卷处于降级状态，只有一个副本，其克隆状态设置为 `copy-completed-awaiting-healthy`。要使卷恢复到健康状态，请将克隆状态转换为`completed`，并通过启用离线副本重建或附加卷以触发副本重建来重建剩余副本。请参见 https://github.com/longhorn/longhorn/issues/12341[问题 #12341]和 https://github.com/longhorn/longhorn/issues/12328[问题 #12328]。
+====
+
+== 卷创建
+
+. 转到 *卷* 页面。
+. 单击*创建卷*。
+. 选择您要使用的数据源（*卷*或*卷快照*）。
+. 如果您选择*卷快照*，请选择一个快照。
+. 指定卷名称。
+. 单击 *确定*。
+
+image::screenshots/snapshots-and-backups/create-volume-choose-datasource.png[映像]
+
+== 历史记录
+
+* https://github.com/longhorn/longhorn/issues/1815[GitHub 问题]
+* https://github.com/longhorn/longhorn/pull/2864[Longhorn 增强提案]

@@ -1,0 +1,231 @@
+= Instantâneo de Volume CSI Associado a uma BackingImage do SUSE® Storage
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:experimental:
+:current-version: {page-component-version}
+
+A BackingImage no Longhorn é um objeto que representa uma imagem QCOW2 ou RAW que pode ser definida como a BackingImage de um volume Longhorn.
+
+Em vez de usar diretamente o recurso BackingImage do Longhorn para gerenciamento de BackingImage. Você também pode usar o mecanismo genérico de Instantâneo de Volume do Kubernetes CSI. Para saber mais sobre o mecanismo de Instantâneo de Volume do CSI, clique https://kubernetes.io/docs/concepts/storage/volume-snapshots/[aqui].
+
+____
+*Pré-requisitos:* O suporte a instantâneos CSI precisa ser habilitado em seu cluster.
+Se sua distribuição do Kubernetes não fornecer o controlador de instantâneo do Kubernetes, bem como as definições de recursos personalizados relacionadas a instantâneos, você precisará implantá-los manualmente.
+Para mais informações, veja xref:snapshots-backups/csi-snapshots/enable-csi-snapshot-creation.adoc[Habilitar Suporte a Instantâneos CSI].
+____
+
+== Criar um Instantâneo de Volume CSI Associado a uma BackingImage do Longhorn
+
+Para criar um Instantâneo de Volume CSI associado a uma BackingImage do Longhorn, você primeiro precisa criar um objeto `VolumeSnapshotClass` com o parâmetro `type` definido como `bi` da seguinte forma:
+
+[subs="+attributes",yaml]
+----
+kind: VolumeSnapshotClass
+apiVersion: snapshot.storage.k8s.io/v1
+metadata:
+  name: longhorn-snapshot-vsc
+driver: driver.longhorn.io
+deletionPolicy: Delete
+parameters:
+  type: bi
+  # export-type default to raw if it is not given
+  export-type: qcow2
+----
+
+Para mais informações sobre `VolumeSnapshotClass`, consulte a documentação do Kubernetes para https://kubernetes.io/docs/concepts/storage/volume-snapshot-classes/[VolumeSnapshotClasses].
+
+Depois disso, crie um objeto Kubernetes `VolumeSnapshot` com `volumeSnapshotClassName` apontando para o nome do `VolumeSnapshotClass` (`longhorn-snapshot-vsc`) e o `source` apontando para o PVC do volume Longhorn do qual uma BackingImage do Longhorn deve ser exportada.
+
+[subs="+attributes",yaml]
+----
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: test-csi-volume-snapshot-longhorn-backing-image
+spec:
+  volumeSnapshotClassName: longhorn-snapshot-vsc
+  source:
+    persistentVolumeClaimName: test-vol
+----
+
+*Resultado:*
+Uma BackingImage do Longhorn é criada. A criação do objeto `VolumeSnapshot` leva à criação de um objeto Kubernetes `VolumeSnapshotContent`.
+O `VolumeSnapshotContent` refere-se a uma BackingImage do Longhorn em seu campo `VolumeSnapshotContent.snapshotHandle` com o nome `bi://backing?backingImageDataSourceType=export-from-volume&backingImage=${GENERATED_SNAPSHOT_NAME}&volume-name=test-vol&export-type=qcow2`.
+
+=== Visualizando a BackingImage do Longhorn
+
+Para ver a BackingImage, clique menu:Avançado[BackingImage] na barra de navegação superior e clique na BackingImage mencionada no `VolumeSnapshotContent.snapshotHandle`.
+
+=== Como o Mecanismo CSI Funciona Neste Cenário
+
+Quando o objeto VolumeSnapshot é criado com kubectl, o campo `VolumeSnapshot.uuid` é usado para identificar uma BackingImage do Longhorn e o objeto `VolumeSnapshotContent` associado.
+
+Isso cria uma nova BackingImage do Longhorn chamada `snapshot-uuid` e a solicitação CSI retorna.
+
+Em seguida, um objeto `VolumeSnapshotContent` chamado `snapcontent-uuid` é criado com a flag `VolumeSnapshotContent.readyToUse` definida como *true*.
+
+== Restaurar PVC a partir do Instantâneo de Volume CSI associado à BackingImage do Longhorn
+
+Criar um objeto `PersistentVolumeClaim` onde o campo `dataSource` aponta para um objeto `VolumeSnapshot` existente que está associado à BackingImage do Longhorn.
+
+O csi-provisioner captará essa informação e instruirá o driver CSI do Longhorn a provisionar um novo volume usando a BackingImage do Longhorn associada.
+
+Um exemplo `PersistentVolumeClaim` está abaixo. O campo `dataSource` precisa apontar para um objeto `VolumeSnapshot` existente.
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-restore-pvc
+spec:
+  storageClassName: longhorn
+  dataSource:
+    name: test-csi-volume-snapshot-longhorn-backing-image
+    kind: VolumeSnapshot
+    apiGroup: snapshot.storage.k8s.io
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+----
+
+=== Restaurar uma BackingImage do Longhorn que não tem `VolumeSnapshot` associado (pré-provisionamento)
+
+Você pode usar o mecanismo CSI para restaurar a BackingImage do Longhorn que não foi criada através do mecanismo CSI.
+Para restaurar a BackingImage do Longhorn que não foi criada através do mecanismo CSI, você deve primeiro criar manualmente um `VolumeSnapshot` e um `VolumeSnapshotContent` objeto para a BackingImage.
+
+Criar um objeto `VolumeSnapshotContent` com o campo `snapshotHandle` definido como `bi://backing?backingImageDataSourceType=${TYPE}&backingImage=${BACKINGIMAGE_NAME}&backingImageChecksum=${backingImageChecksum}&${OTHER_PARAMETERS}` que aponta para uma BackingImage existente.
+
+* Os usuários precisam fornecer os seguintes parâmetros de consulta em `snapshotHandle` para fins de validação:
+ ** `backingImageDataSourceType`: `sourceType` da BackingImage existente, por exemplo, `export-from-volume`, `download`
+ ** `backingImage`: Nome da Imagem de Backup
+ ** `backingImageChecksum`: Opcional. Checksum da Imagem de Backup.
+ ** Você também deve fornecer o `sourceParameters` da BackingImage existente no `snapshotHandle` com base no `backingImageDataSourceType`
+  *** `export-from-volume`:
+   **** `volume-name`: volume a ser exportado.
+   **** `export-type`: qcow2 ou raw.
+  *** `download`:
+   **** `url`: url da Imagem de Backup.
+   **** `checksum`: opcional.
+
+Os parâmetros podem ser recuperados da página menu:Avançado[BackingImage] na interface Longhorn.
+
+[subs="+attributes",yaml]
+----
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotContent
+metadata:
+  name: test-existing-backing
+spec:
+  volumeSnapshotClassName: longhorn-snapshot-vsc
+  driver: driver.longhorn.io
+  deletionPolicy: Delete
+  source:
+    snapshotHandle: bi://backing?backingImageDataSourceType=download&backingImage=test-bi&url=https%3A%2F%2Flonghorn-backing-image.s3-us-west-1.amazonaws.com%2Fparrot.qcow2&backingImageChecksum=bd79ab9e6d45abf4f3f0adf552a868074dd235c4698ce7258d521160e0ad79ffe555b94e7d4007add6e1a25f4526885eb25c53ce38f7d344dd4925b9f2cb5d3b
+  volumeSnapshotRef:
+    name: test-snapshot-existing-backing
+    namespace: default
+----
+
+Crie o objeto `VolumeSnapshot` associado com o campo `name` definido como `test-snapshot-existing-backing`, onde o campo `source` refere-se a um objeto `VolumeSnapshotContent` através do campo `volumeSnapshotContentName`.
+
+Isso difere da criação de uma Imagem de Backup, na qual o campo `source` refere-se a um `PerstistentVolumeClaim` através do campo `persistentVolumeClaimName`.
+
+Apenas um tipo de referência pode ser definido para um objeto `VolumeSnapshot`.
+
+[subs="+attributes",yaml]
+----
+apiVersion: snapshot.storage.k8s.io/v1beta1
+kind: VolumeSnapshot
+metadata:
+  name: test-snapshot-existing-backing
+spec:
+  volumeSnapshotClassName: longhorn-snapshot-vsc
+  source:
+    volumeSnapshotContentName: test-existing-backing
+----
+
+Agora você pode criar um objeto `PerstistantVolumeClaim` que refere-se ao objeto `VolumeSnapshot` recém-criado.
+Para um exemplo, veja <<_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backingimage,Restaurar PVC a partir do VolumeSnapshot CSI associado à BackingImage do Longhorn>> acima.
+
+=== Restaure uma Imagem de Backup Longhorn que Não Foi Criada (provisionamento sob demanda)
+
+Você pode usar o mecanismo CSI para restaurar a Imagem de Backup Longhorn que ainda não foi criada. Esse mecanismo suporta apenas os seguintes 2 tipos de fontes de dados de BackingImage.
+
+. `download`: Baixe um arquivo de uma URL como uma Imagem de Backup.
+. `export-from-volume`: Exporte um volume existente no cluster como uma Imagem de Backup.
+
+Os usuários precisam criar o `VolumeSnapshotContent` com um `VolumeSnapshot` associado. O `snapshotHandle` do `VolumeSnapshotContent` precisa fornecer os parâmetros da fonte de dados. Exemplo abaixo para uma BackingImage não existente `test-bi` com duas fontes de dados diferentes.
+
+. `download`: Os usuários precisam fornecer os seguintes parâmetros
+ ** `backingImageDataSourceType`: `download` para download sob demanda.
+ ** `backingImage`: Nome da Imagem de Backup
+ ** `url`: Baixe o arquivo de uma URL como uma Imagem de Backup.
+ ** `backingImageChecksum`: Opcional. Usado para validar o arquivo.
+ ** Exemplo YAML:
++
+[subs="+attributes",yaml]
+----
+  apiVersion: snapshot.storage.k8s.io/v1
+  kind: VolumeSnapshotContent
+  metadata:
+      name: test-on-demand-backing
+  spec:
+      volumeSnapshotClassName: longhorn-snapshot-vsc
+      driver: driver.longhorn.io
+      deletionPolicy: Delete
+      source:
+        # NOTE: change this to provide the correct parameters
+        snapshotHandle: bi://backing?backingImageDataSourceType=download&backingImage=test-bi&url=https%3A%2F%2Flonghorn-backing-image.s3-us-west-1.amazonaws.com%2Fparrot.qcow2&backingImageChecksum=bd79ab9e6d45abf4f3f0adf552a868074dd235c4698ce7258d521160e0ad79ffe555b94e7d4007add6e1a25f4526885eb25c53ce38f7d344dd4925b9f2cb5d3b
+  volumeSnapshotRef:
+      name: test-snapshot-on-demand-backing
+      namespace: default
+----
+. `export-from-volume`: Os usuários precisam fornecer os seguintes parâmetros
+ ** `backingImageDataSourceType`: `export-form-volume` para exportação sob demanda.
+ ** `backingImage`: Nome da Imagem de Backup
+ ** `volume-name`: Volume a ser exportado para a Imagem de Backup
+ ** `export-type`: Atualmente, o Longhorn suporta `raw` ou `qcow2`
+ ** Exemplo YAML:
++
+[subs="+attributes",yaml]
+----
+  apiVersion: snapshot.storage.k8s.io/v1
+  kind: VolumeSnapshotContent
+  metadata:
+  name: test-on-demand-backing
+  spec:
+  volumeSnapshotClassName: longhorn-snapshot-vsc
+  driver: driver.longhorn.io
+  deletionPolicy: Delete
+  source:
+    # NOTE: change this to provide the correct parameters
+    snapshotHandle: bi://backing?backingImageDataSourceType=export-from-volume&backingImage=test-bi&volume-name=vol-export-src&export-type=qcow2
+  volumeSnapshotRef:
+      name: test-snapshot-on-demand-backing
+      namespace: default
+----
+
+Crie o objeto `VolumeSnapshot` associado com o campo `name` definido como `test-snapshot-on-demand-backing`, onde o campo `source` refere-se a um objeto `VolumeSnapshotContent` através do campo `volumeSnapshotContentName`.
+
+Isso difere da criação de um BackingImage, na qual o campo `source` refere-se a um `PerstistentVolumeClaim` através do campo `persistentVolumeClaimName`.
+
+Apenas um tipo de referência pode ser definido para um objeto `VolumeSnapshot`.
+
+[subs="+attributes",yaml]
+----
+apiVersion: snapshot.storage.k8s.io/v1beta1
+kind: VolumeSnapshot
+metadata:
+  name: test-snapshot-on-demand-backing
+spec:
+  volumeSnapshotClassName: longhorn-snapshot-vsc
+  source:
+    volumeSnapshotContentName: test-on-demand-backing
+----
+
+Agora você pode criar um objeto `PerstistantVolumeClaim` que refere-se ao objeto `VolumeSnapshot` recém-criado.
+O Longhorn criará o BackingImage com os parâmetros fornecidos no `snapshotHandle`.
+Para um exemplo, veja <<_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backingimage,Restaurar PVC a partir do VolumeSnapshot CSI associado à BackingImage do Longhorn>> acima.

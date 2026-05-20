@@ -1,0 +1,60 @@
+= Dépannage
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/troubleshooting.md"]
+:current-version: {page-component-version}
+
+== Installation
+
+=== Erreur « Le paquet 'linux-modules-extra-x.x.x-x-generic' n'a pas de candidat à l'installation » lors de l'installation sur les machines Debian{nbsp}:
+
+Pour les machines Debian, si vous rencontrez des erreurs similaires à celles ci-dessous lors de l'installation des modules supplémentaires du noyau Linux, vous devez trouver une version disponible sur les sites de collection de paquets comme https://pkgs.org/search/?q=linux-modules-extra[ce] plutôt que de vous fier directement à `uname -r`{nbsp}:
+
+[subs="+attributes",log]
+----
+apt install -y linux-modules-extra-`uname -r`
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+Package linux-modules-extra-5.15.0-67-generic is not available, but is referred to by another package.
+This may mean that the package is missing, has been obsoleted, or
+is only available from another source
+
+E: Package 'linux-modules-extra-5.15.0-67-generic' has no installation candidate
+----
+
+Par exemple, pour Ubuntu 22.04, une version valide est `linux-modules-extra-5.15.0-76-generic`{nbsp}:
+
+[subs="+attributes",shell]
+----
+apt update -y
+apt install -y linux-modules-extra-5.15.0-76-generic
+----
+
+== Disque
+
+=== Erreur « Argument invalide » dans l'état du disque après l'ajout d'un disque de type bloc{nbsp}:
+
+Après avoir ajouté un disque de type bloc, l'état du disque affiche des messages d'erreur{nbsp}:
+
+----
+Disk disk-1(/dev/nvme1n1) on node dereksu-ubuntu-pool1-bf77ed93-2d2p9 is not ready:
+failed to generate disk config: error: rpc error: code = Internal desc = rpc error: code = Internal
+desc = failed to add block device: failed to create AIO bdev: error sending message, id 10441,
+method bdev_aio_create, params {disk-1 /host/dev/nvme1n1 4096}: {"code": -22,"message": "Invalid argument"}
+----
+
+Ensuite, inspectez le message de journal du pod instance-manager sur le même nœud{nbsp}: Si le journal révèle ce qui suit{nbsp}:
+
+----
+[2023-06-29 08:51:53.762597] bdev_aio.c: 762:create_aio_bdev: *WARNING*: Specified block size 4096 does not match auto-detected block size 512
+[2023-06-29 08:51:53.762640] bdev_aio.c: 788:create_aio_bdev: *ERROR*: Disk size 100000000000 is not a multiple of block size 4096
+----
+
+Ces messages indiquent que la taille de votre disque n'est pas un multiple de la taille de bloc 4096 et n'est pas prise en charge par le système Longhorn.
+
+Pour résoudre ce problème, vous pouvez suivre les étapes
+
+. Supprimez le disque de type bloc nouvellement ajouté du nœud.
+. Partitionnez le disque de type bloc en utilisant l'utilitaire `fdisk` et assurez-vous que la taille de la partition est un multiple de la taille de bloc 4096.
+. Ajoutez le disque partitionné au nœud Longhorn.

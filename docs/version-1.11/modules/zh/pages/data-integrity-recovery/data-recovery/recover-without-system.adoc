@@ -1,0 +1,46 @@
+= 在未安装系统的情况下从SUSE® Storage备份中恢复
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+此命令使用户能够将备份恢复到`raw`映像或`qcow2`映像。如果备份基于备份文件，用户应提供备份文件作为`qcow2`映像，并使用`--backing file`参数。
+
+. 复制 https://github.com/longhorn/longhorn/blob/v{patch-version}/examples/restore_to_file.yaml.template[yaml模板]：将`examples/restore_to_file.yaml.template`复制为例如`restore.yaml`。
+. 通过替换`<NODE_NAME>`设置输出文件应放置的节点，例如`node1`。
+. 通过修改卷`disk-directory`的字段`hostpath`来指定输出文件的主机路径。默认目录为`/tmp/restore/`。
+. 通过替换`<BACKUP_URL>`设置第一个参数（备份URL），例如`s3://<your-bucket-name>@<your-aws-region>/backupstore?backup=<backup-name>&volume=<volume-name>`。
+ ** `<backup-name>`和`<volume-name>`可以从存储在备份目标文件夹中的backup.cfg中检索，例如`backup_backup-72bcbdad913546cf.cfg`。内容如下：
++
+[subs="+attributes",json]
+----
+  {"Name":"backup-72bcbdad913546cf","VolumeName":"volume_1","SnapshotName":"79758033-a670-4724-906f-41921f53c475"}
+----
+. 通过替换`<OUTPUT_FILE>`设置参数`output-file`，例如`volume.raw`或`volume.qcow2`。
+. 通过替换`<OUTPUT_FORMAT>`设置参数`output-format`。支持的选项为`raw`或`qcow2`。
+. 通过替换`<LONGHORN_VERSION>`设置参数`longhorn-version`，例如`v{patch-version}`。
+. 通过替换`<S3_SECRET_NAME>`设置S3凭证密钥，例如`minio-secret`。
+ ** 凭证密钥可以在xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_set_up_aws_s3_backupstore[这里]引用，并且必须在`longhorn-system`名称空间中创建。
+. 例如，执行yaml：
+
+  kubectl create -f restore.yaml
+
+. 使用以下命令查看结果：
+
+ kubectl -n longhorn-system get pod restore-to-file -w
+
+在pod状态更改为`Completed`后，您应该能够在`<NODE_NAME>`的`/tmp/restore`中找到`<OUTPUT_FILE>`。
+
+我们还提供一个脚本， https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/restore-backup-to-file.sh[restore-backup-to-file.sh]，用于恢复备份。以下参数应被指定：
+
+* `--backup-url`：指定备份的 S3/NFS URL。例如，`s3://backupbucket@us-east-1/backupstore?backup=backup-bd326da2c4414b02&volume=volumeexamplename"`
+* `--output-file`：设置输出文件名。例如，`volume.raw`
+* `--output-format`：设置输出文件格式。例如 `raw` 或 `qcow2`
+* `--version`：指定要使用的 Longhorn 版本。例如，`v{patch-version}`
+
+可以指定可选参数：
+
+* `--aws-access-key`：如果备份是 s3，则指定 AWS 凭证访问密钥。
+* `--aws-secret-access-key`：如果备份是 S3，则指定 AWS 凭证秘密访问密钥。
+* `--backing-file`：备份映像。例如，`/tmp/backingfile.qcow2`
+
+脚本运行完成后，输出的映像文件可以在 `/tmp/restore` 文件夹中找到。

@@ -1,0 +1,1111 @@
+= Helm 值
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 值
+
+`values.yaml` 包含用于调整此图表部署的项目。
+
+=== Cattle 设置
+
+|===
+| 键 | 类型 | 默认值 | 说明
+
+| `global.cattle.systemDefaultRegistry`
+| 字符串
+| `""`
+| 默认系统注册表。
+
+| `global.cattle.windowsCluster.defaultSetting.systemManagedComponentsNodeSelector`
+| 字符串
+| `"kubernetes.io/os:linux"`
+| 系统管理的 Longhorn 组件的节点选择器。
+
+| `global.cattle.windowsCluster.defaultSetting.taintToleration`
+| 字符串
+| `"cattle.io/os=linux:NoSchedule"`
+| 系统管理的 Longhorn 组件的容忍度。
+
+| `global.cattle.windowsCluster.enabled`
+| 布尔
+| `false`
+| 允许 {longhorn-product-name} UI 在 Rancher Windows 集群上运行的设置。
+
+| `global.cattle.windowsCluster.nodeSelector`
+| 对象
+| `{"kubernetes.io/os":"linux"}`
+| 可以运行用户部署的 Longhorn 组件的 Linux 节点的节点选择器。
+
+| `global.cattle.windowsCluster.tolerations`
+| list
+| `[{"effect":"NoSchedule","key":"cattle.io/os","operator":"Equal","value":"linux"}]`
+| 可以运行用户部署的 Longhorn 组件的 Linux 节点的容忍度。
+
+| `global.imagePullSecrets`
+| list
+| `[]`
+| 容器注册表的镜像拉取密钥的全局覆盖。
+
+| `global.imageRegistry`
+| 字符串
+| `"docker.io"`
+| 容器镜像注册表的全局覆盖。
+
+| `global.nodeSelector`
+| 对象
+| `{}`
+| 允许运行用户部署组件（如 Longhorn 管理器、Longhorn UI 和 Longhorn 驱动程序部署器）的节点的节点选择器。
+
+| `global.timezone`
+| 字符串
+| `""`
+| 为所有 Longhorn 工作负载设置容器时区（TZ 环境）。留空以使用容器默认值。
+
+| `global.tolerations`
+| list
+| `[]`
+| 允许运行用户部署组件（如 Longhorn 管理器、Longhorn UI 和 Longhorn 驱动程序部署器）的节点的容忍度。
+|===
+
+=== 网络策略
+
+|===
+| 键 | 类型 | 默认值 | 说明
+
+| `networkPolicies.enabled`
+| 布尔
+| `false`
+| 允许您启用控制对 Longhorn pod 访问的网络策略的设置。
+
+| `networkPolicies.type`
+| 字符串
+| `"k3s"`
+| 确定允许入口访问策略的分发方式。（选项："k3s", "rke2", "rke1"）
+|===
+
+=== 镜像设置
+
+|===
+| 键 | 类型 | 默认值 | 说明
+
+| `image.csi.attacher.registry`
+| 字符串
+| `""`
+| CSI 附加器镜像的注册表。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.attacher.repository`
+| 字符串
+| `"longhornio/csi-attacher"`
+| CSI 附加器镜像的储存库。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.attacher.tag`
+| 字符串
+| `"v4.10.0-20251226"`
+| CSI 附加器镜像的标签。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.livenessProbe.registry`
+| 字符串
+| `""`
+| CSI 存活探针镜像的注册表。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.livenessProbe.repository`
+| 字符串
+| `"longhornio/livenessprobe"`
+| CSI 存活探针镜像的储存库。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.livenessProbe.tag`
+| 字符串
+| `"v2.17.0-20251226"`
+| CSI 存活探针镜像的标签。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.nodeDriverRegistrar.registry`
+| 字符串
+| `""`
+| CSI 节点驱动注册器镜像的注册表。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.nodeDriverRegistrar.repository`
+| 字符串
+| `"longhornio/csi-node-driver-registrar"`
+| CSI 节点驱动注册器镜像的储存库。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.nodeDriverRegistrar.tag`
+| 字符串
+| `"v2.15.0-20251226"`
+| CSI 节点驱动注册器镜像的标签。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.provisioner.registry`
+| 字符串
+| `""`
+| CSI 提供者镜像的注册表。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.provisioner.repository`
+| 字符串
+| `"longhornio/csi-provisioner"`
+| CSI 提供者镜像的储存库。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.provisioner.tag`
+| 字符串
+| `"v5.3.0-20251226"`
+| CSI 提供者镜像的标签。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.resizer.registry`
+| 字符串
+| `""`
+| CSI 调整器镜像的注册表。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.resizer.repository`
+| 字符串
+| `"longhornio/csi-resizer"`
+| CSI 调整器镜像的储存库。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.resizer.tag`
+| 字符串
+| `"v2.0.0-20251226"`
+| CSI 调整器镜像的标签。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.snapshotter.registry`
+| 字符串
+| `""`
+| CSI 快照器镜像的注册表。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.snapshotter.repository`
+| 字符串
+| `"longhornio/csi-snapshotter"`
+| CSI 快照器镜像的储存库。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.csi.snapshotter.tag`
+| 字符串
+| `"v8.4.0-20251226"`
+| CSI 快照器镜像的标签。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.longhorn.backingImageManager.registry`
+| 字符串
+| `""`
+| 备份镜像管理器镜像的注册表。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.longhorn.backingImageManager.repository`
+| 字符串
+| `"longhornio/backing-image-manager"`
+| 备份镜像管理器镜像的储存库。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.longhorn.backingImageManager.tag`
+| 字符串
+| `"v1.11.0"`
+| 备份镜像管理器镜像的标签。未指定时，{longhorn-product-name} 使用默认值。
+
+| `image.longhorn.engine.registry`
+| 字符串
+| `""`
+| 用于 Longhorn Engine 镜像的注册表。
+
+| `image.longhorn.engine.repository`
+| 字符串
+| `"longhornio/longhorn-engine"`
+| 用于 Longhorn Engine 镜像的储存库。
+
+| `image.longhorn.engine.tag`
+| 字符串
+| `"v1.11.0"`
+| 用于 Longhorn Engine 镜像的标签。
+
+| `image.longhorn.instanceManager.registry`
+| 字符串
+| `""`
+| 用于 Longhorn Instance Manager 镜像的注册表。
+
+| `image.longhorn.instanceManager.repository`
+| 字符串
+| `"longhornio/longhorn-instance-manager"`
+| 用于 Longhorn Instance Manager 镜像的储存库。
+
+| `image.longhorn.instanceManager.tag`
+| 字符串
+| `"v1.11.0"`
+| 用于 Longhorn Instance Manager 镜像的标签。
+
+| `image.longhorn.manager.registry`
+| 字符串
+| `""`
+| 用于 Longhorn Manager 镜像的注册表。
+
+| `image.longhorn.manager.repository`
+| 字符串
+| `"longhornio/longhorn-manager"`
+| 用于 Longhorn Manager 镜像的储存库。
+
+| `image.longhorn.manager.tag`
+| 字符串
+| `"v1.11.0"`
+| 用于 Longhorn Manager 镜像的标签。
+
+| `image.longhorn.shareManager.registry`
+| 字符串
+| `""`
+| 用于 Longhorn Share Manager 镜像的注册表。
+
+| `image.longhorn.shareManager.repository`
+| 字符串
+| `"longhornio/longhorn-share-manager"`
+| 用于 Longhorn Share Manager 镜像的储存库。
+
+| `image.longhorn.shareManager.tag`
+| 字符串
+| `"v1.11.0"`
+| 用于 Longhorn Share Manager 镜像的标签。
+
+| `image.longhorn.supportBundleKit.registry`
+| 字符串
+| `""`
+| 用于 Longhorn Support Bundle Manager 镜像的注册表。
+
+| `image.longhorn.supportBundleKit.repository`
+| 字符串
+| `"longhornio/support-bundle-kit"`
+| 用于 Longhorn Support Bundle Manager 镜像的储存库。
+
+| `image.longhorn.supportBundleKit.tag`
+| 字符串
+| `"v0.0.79"`
+| 用于 Longhorn Support Bundle Manager 镜像的标签。
+
+| `image.longhorn.ui.registry`
+| 字符串
+| `""`
+| 用于 {longhorn-product-name} UI 镜像的注册表。
+
+| `image.longhorn.ui.repository`
+| 字符串
+| `"longhornio/longhorn-ui"`
+| 用于 {longhorn-product-name} UI 镜像的储存库。
+
+| `image.longhorn.ui.tag`
+| 字符串
+| `"v1.11.0"`
+| 用于 {longhorn-product-name} UI 镜像的标签。
+
+| `image.openshift.oauthProxy.registry`
+| 字符串
+| `""`
+| 用于 OAuth Proxy 镜像的注册表。指定上游镜像（例如，"quay.io/openshift/origin-oauth-proxy"）。此设置仅适用于 OpenShift 用户。
+
+| `image.openshift.oauthProxy.repository`
+| 字符串
+| `""`
+| 用于 OAuth Proxy 镜像的储存库。指定上游镜像（例如，"quay.io/openshift/origin-oauth-proxy"）。此设置仅适用于 OpenShift 用户。
+
+| `image.openshift.oauthProxy.tag`
+| 字符串
+| `""`
+| 用于 OAuth Proxy 镜像的标签。指定 OCP/OKD 版本 4.1 或更高版本（包括可在 quay.io/openshift/origin-oauth-proxy:4.18 获取的版本 4.18）。此设置仅适用于 OpenShift 用户。
+
+| `image.pullPolicy`
+| 字符串
+| `"IfNotPresent"`
+| 适用于所有用户部署的 Longhorn 组件（如 Longhorn Manager、Longhorn 驱动程序和 Longhorn UI）的镜像拉取策略。
+|===
+
+=== 服务设置
+
+|===
+| 键 | 说明
+
+| `service.manager.nodePort`
+| Longhorn Manager 的 NodePort 端口号。未指定时，{longhorn-product-name} 会选择 30000 到 32767 之间的空闲端口。
+
+| `service.manager.type`
+| Longhorn Manager 的服务类型。
+
+| `service.ui.annotations`
+| {longhorn-product-name} UI 服务的注释。
+
+| `service.ui.labels`
+|
+
+| `service.ui.loadBalancerClass`
+| 负载均衡器实现的类。
+
+| `service.ui.nodePort`
+| {longhorn-product-name} UI 的 NodePort 端口号。未指定时，{longhorn-product-name} 会选择 30000 到 32767 之间的空闲端口。
+
+| `service.ui.type`
+| {longhorn-product-name} UI 的服务类型。（选项："ClusterIP", "NodePort", "LoadBalancer", "Rancher-Proxy")
+|===
+
+=== StorageClass 设置
+
+|===
+| 键 | 类型 | 默认值 | 说明
+
+| `persistence.backingImage.dataSourceParameters`
+| 字符串
+| `nil`
+| 在 Longhorn StorageClass 中使用的备份镜像的数据源参数。您可以指定一个 JSON 字符串的映射。（示例：`'{\"url\":\"https://backing-image-example.s3-region.amazonaws.com/test-backing-image\"}'`）
+
+| `persistence.backingImage.dataSourceType`
+| 字符串
+| `nil`
+| 用于 Longhorn StorageClass 的备份镜像的数据源类型。如果备份镜像存在于集群中，{longhorn-product-name} 使用此设置来验证该镜像。如果备份镜像不存在，{longhorn-product-name} 将使用指定的数据源类型创建一个。
+
+| `persistence.backingImage.enable`
+| 布尔
+| `false`
+| 允许您在 Longhorn StorageClass 中使用备份镜像的设置。
+
+| `persistence.backingImage.expectedChecksum`
+| 字符串
+| `nil`
+| 用于 Longhorn StorageClass 的备份镜像的预期 SHA-512 校验和。
+
+| `persistence.backingImage.name`
+| 字符串
+| `nil`
+| 用于在 Longhorn StorageClass 中创建和恢复卷的备份镜像。当没有可用的备份镜像时，指定 {longhorn-product-name} 可以用来创建备份镜像的数据源类型和参数。
+
+| `persistence.backupTargetName`
+| 字符串
+| `"default"`
+| 允许您为默认 Longhorn StorageClass 指定备份目标的设置。
+
+| `persistence.dataEngine`
+| 字符串
+| `"v1"`
+| 允许您为默认 Longhorn StorageClass 指定数据引擎版本的设置。（选项：`"v1"`，`"v2"`）
+
+| `persistence.defaultClass`
+| 布尔
+| `true`
+| 允许您指定默认 Longhorn StorageClass 的设置。
+
+| `persistence.defaultClassReplicaCount`
+| 整数
+| `3`
+| 默认 Longhorn StorageClass 的副本数量。
+
+| `persistence.defaultDataLocality`
+| 字符串
+| `"disabled"`
+| 默认 Longhorn StorageClass 的数据本地性。（选项：`"disabled"`，`"best-effort"`）
+
+| `persistence.defaultDiskSelector.enable`
+| 布尔
+| `false`
+| 允许您为默认 Longhorn StorageClass 启用磁盘选择器的设置。
+
+| `persistence.defaultDiskSelector.selector`
+| 字符串
+| `""`
+| 默认 Longhorn StorageClass 的磁盘选择器。Longhorn 仅使用具有指定标签的磁盘来存储卷数据。（示例：`"nvme,sata"`）
+
+| `persistence.defaultFsType`
+| 字符串
+| `"ext4"`
+| 默认 Longhorn StorageClass 的文件系统类型。
+
+| `persistence.defaultMkfsParams`
+| 字符串
+| `""`
+| 默认 Longhorn StorageClass 的 mkfs 参数。
+
+| `persistence.defaultNodeSelector.enable`
+| 布尔
+| `false`
+| 允许您为默认 Longhorn StorageClass 启用节点选择器的设置。
+
+| `persistence.defaultNodeSelector.selector`
+| 字符串
+| `""`
+| 默认 Longhorn StorageClass 的节点选择器。{longhorn-product-name} 仅使用具有指定标签的节点来存储卷数据。（示例："storage,fast"）
+
+| `persistence.disableRevisionCounter`
+| 字符串
+| `"true"`
+| 禁用修订计数器的设置，从而防止 {longhorn-product-name} 跟踪对卷的所有写操作。在恢复卷时，{longhorn-product-name} 使用卷头文件 xxx.img 的属性（最后的文件大小和最后修改时间）来选择用于卷恢复的副本。
+
+| `persistence.migratable`
+| 布尔
+| `false`
+| 允许您启用 Longhorn 卷从一个节点到另一个节点的实时迁移的设置。
+
+| `persistence.nfsOptions`
+| 字符串
+| `""`
+| 为 RWX 卷设置 Longhorn StorageClass 的 NFS 挂载选项
+
+| `persistence.reclaimPolicy`
+| 字符串
+| `"Delete"`
+| 回收策略，提供在释放卷的声明后处理卷的指令。（选项："保留", "删除"）
+
+| `persistence.recurringJobSelector.enable`
+| 布尔
+| `false`
+| 允许您启用 Longhorn StorageClass 的定期作业选择器的设置。
+
+| `persistence.recurringJobSelector.jobList`
+| list
+| `[]`
+| Longhorn StorageClass 的定期作业选择器。确保在指定作业参数时正确使用引号。（示例：`[{"name":"backup", "isGroup":true}]`）
+
+| `persistence.unmapMarkSnapChainRemoved`
+| 字符串
+| `"ignored"`
+| 允许您在 Longhorn StorageClass 的文件系统修剪期间启用自动快照删除的设置。（选项：`"ignored"`, `"enabled"`, `"disabled"`）
+
+| `persistence.volumeBindingMode`
+| 字符串
+| `"Immediate"`
+| VolumeBindingMode 控制卷绑定和动态配置的发生时机。（选项：`"Immediate"`, `"WaitForFirstConsumer"`）（默认为 `"Immediate"`）
+|===
+
+=== CSI 设置
+
+|===
+| 键 | 说明
+
+| `csi.attacherReplicaCount`
+| CSI 附加器的副本数量。未指定时，{longhorn-product-name} 使用默认值（`"3"`）。
+
+| `csi.kubeletRootDir`
+| kubelet 根目录。未指定时，{longhorn-product-name} 使用默认值。
+
+| `csi.podAntiAffinityPreset`
+| 配置 Pod 反亲和性，以防止在同一节点上运行多个实例。使用软（尝试分离）或硬（必须分离）。未指定时，{longhorn-product-name} 使用默认值（`"soft"`）。
+
+| `csi.provisionerReplicaCount`
+| CSI Provisioner 的副本数量。未指定时，{longhorn-product-name} 使用默认值（`"3"`）。
+
+| `csi.resizerReplicaCount`
+| CSI Resizer 的副本数量。未指定时，{longhorn-product-name} 使用默认值（`"3"`）。
+
+| `csi.snapshotterReplicaCount`
+| CSI Snapshotter 的副本数量。未指定时，{longhorn-product-name} 使用默认值（`"3"`）。
+|===
+
+=== Longhorn Manager 设置
+
+{longhorn-product-name} 包含用户部署的组件（例如，Longhorn Manager、Longhorn Driver 和 {longhorn-product-name} UI）以及系统管理的组件（例如，实例管理器、基础镜像管理器、共享管理器、CSI 驱动程序和引擎镜像）。以下设置仅适用于 Longhorn Manager。
+
+|===
+| 键 | 类型 | 默认值 | 说明
+
+| `longhornManager.log.format`
+| 字符串
+| `"plain"`
+| Longhorn Manager 日志的格式。（选项："plain"，"json"）
+
+| `longhornManager.nodeSelector`
+| 对象
+| `{}`
+| Longhorn Manager 的节点选择器。指定允许运行 Longhorn Manager 的节点。
+
+| `longhornManager.priorityClass`
+| 字符串
+| `"longhorn-critical"`
+| Longhorn Manager 的优先级类。
+
+| `longhornManager.resources`
+| 字符串
+| `nil`
+| Longhorn Manager Pod 的资源请求和限制。
+
+| `longhornManager.serviceAnnotations`
+| 对象
+| `{}`
+| Longhorn Manager 服务的注释。
+
+| `longhornManager.serviceLabels`
+| 对象
+| `{}`
+| 
+
+| `longhornManager.tolerations`
+| list
+| `[]`
+| Longhorn Manager 在允许运行 Longhorn 组件的节点上的容忍设置。
+
+| `longhornManager.updateStrategy.rollingUpdate.maxUnavailable`
+| 字符串
+| `"100%"`
+|
+|===
+
+=== Longhorn Driver 设置
+
+{longhorn-product-name} 包含用户部署的组件（例如，Longhorn Manager、Longhorn Driver 和 {longhorn-product-name} UI）以及系统管理的组件（例如，实例管理器、基础镜像管理器、共享管理器、CSI 驱动程序和引擎镜像）。以下设置仅适用于 Longhorn Driver。
+
+|===
+| 键 | 类型 | 默认值 | 说明
+
+| `longhornDriver.log.format`
+| 字符串
+| `"plain"`
+| Longhorn Driver 日志的格式。（选项："plain"，"json"）
+
+| `longhornDriver.nodeSelector`
+| 对象
+| `{}`
+| Longhorn Driver 的节点选择器。指定允许运行 Longhorn Driver 的节点。
+
+| `longhornDriver.priorityClass`
+| 字符串
+| `"longhorn-critical"`
+| Longhorn Driver 的优先级类。
+
+| `longhornDriver.tolerations`
+| list
+| `[]`
+| Longhorn Driver 在允许运行 Longhorn 组件的节点上的容忍设置。
+|===
+
+=== {longhorn-product-name} 用户界面设置
+
+{longhorn-product-name} 包含用户部署的组件（例如，Longhorn Manager、Longhorn Driver 和 {longhorn-product-name} UI）以及系统管理的组件（例如，Instance Manager、Backing Image Manager、Share Manager、CSI Driver 和 Engine Image）。以下设置仅适用于 {longhorn-product-name} UI。
+
+|===
+| 键 | 类型 | 默认值 | 说明
+
+| `longhornUI.affinity`
+| 对象
+| `{"podAntiAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"labelSelector":{"matchExpressions":[{"key":"app","operator":"In","values":["longhorn-ui"]}]},"topologyKey":"kubernetes.io/hostname"},"weight":1}]}}`
+| {longhorn-product-name} UI pod 的亲和性。指定您希望为 {longhorn-product-name} UI 使用的亲和性。
+
+| `longhornUI.nodeSelector`
+| 对象
+| `{}`
+| {longhorn-product-name} UI 的节点选择器。指定允许运行 {longhorn-product-name} UI 的节点。
+
+| `longhornUI.priorityClass`
+| 字符串
+| `"longhorn-critical"`
+| {longhorn-product-name} UI 的优先级类。
+
+| `longhornUI.replicas`
+| 整数
+| `2`
+| {longhorn-product-name} UI 的副本数量。
+
+| `longhornUI.tolerations`
+| list
+| `[]`
+| 在允许运行 Longhorn 组件的节点上，{longhorn-product-name} UI 的容忍设置。
+|===
+
+=== 入口设置
+
+|===
+| 键 | 类型 | 默认值 | 说明
+
+| `ingress.annotations`
+| 字符串
+| `nil`
+| 以键值对形式的入口注释。
+
+| `ingress.enabled`
+| 布尔
+| `false`
+| 允许 {longhorn-product-name} 为 {longhorn-product-name} UI 服务生成入口记录的设置。
+
+| `ingress.extraHosts`
+| list
+| `[]`
+| TLS 的额外主机名（主题备用名称 - SAN）。当您需要为同一入口使用多个 FQDN 时使用。示例：extraHosts:   - longhorn.example.com   - longhorn-ui.internal.local
+
+| `ingress.host`
+| 字符串
+| `"sslip.io"`
+| 第 7 层负载均衡器的主机名。
+
+| `ingress.ingressClassName`
+| 字符串
+| `nil`
+| 包含入口配置的 IngressClass 资源，包括 Ingress 控制器的名称。ingressClassName 可以替代早期 Kubernetes 版本中使用的 `kubernetes.io/ingress.class` 注释。
+
+| `ingress.path`
+| 字符串
+| `"/"`
+| 默认入口路径。您可以通过以下完整的入口路径 {longhorn-product-name} 访问 `{\{host}}+{\{path}}` UI。
+
+| `ingress.pathType`
+| 字符串
+| `"ImplementationSpecific"`
+| 入口路径类型。为了保持向后兼容，默认值为 `"ImplementationSpecific"`。
+
+| `ingress.secrets`
+| 字符串
+| `nil`
+| 包含 TLS 私钥和证书的秘密。使用 Secret 来使用您自己的证书保护入口。
+
+| `ingress.secureBackends`
+| 布尔
+| `false`
+| 允许您通过 443 端口启用与 {longhorn-product-name} UI 服务的安全连接的设置。
+
+| `ingress.tls`
+| 布尔
+| `false`
+| 允许您在入口记录上启用 TLS 的设置。
+
+| `ingress.tlsSecret`
+| 字符串
+| `"longhorn.local-tls"`
+| 包含用于 TLS 的私钥和证书的 TLS Secret。此设置仅在入口记录上启用 TLS 时适用。
+|===
+
+=== HTTPRoute 设置
+
+|===
+| 键 | 类型 | 默认值 | 说明
+
+| `httproute.annotations`
+| 对象
+| `{}`
+| HTTPRoute 资源的注释，以键值对的形式表示。
+
+| `httproute.enabled`
+| 布尔
+| `false`
+| 允许 {longhorn-product-name} 使用网关 API 为 {longhorn-product-name} UI 服务生成 HTTPRoute 记录的设置。
+
+| `httproute.hostnames`
+| list
+| `[]`
+| HTTPRoute 的主机名列表。支持多个主机名。
+
+| `httproute.parentRefs`
+| list
+| `[]`
+| HTTPRoute 的网关引用。指定哪些网关应处理此路由。
+
+| `httproute.path`
+| 字符串
+| `"/"`
+| HTTPRoute 的默认路径。您可以通过以下完整路径访问 {longhorn-product-name} UI。
+
+| `httproute.pathType`
+| 字符串
+| `"PathPrefix"`
+| HTTPRoute 的路径匹配类型。（选项：`"Exact"`，`"PathPrefix"`）
+|===
+
+=== 私有注册表设置
+
+您可以在具有私有注册表的隔离的环境中安装{longhorn-product-name}。有关更多信息，请参阅*隔离安装*部分的xref:installation-setup/installation/airgapped-environment.adoc[文档]。
+
+|===
+| 键 | 说明
+
+| `privateRegistry.createSecret`
+| 设置为`true`以自动创建新的私有注册表 Secret。
+
+| `privateRegistry.registryPasswd`
+| 用于与私有注册表进行身份验证的密码。
+
+| `privateRegistry.registrySecret`
+| 如果创建新的私有注册表 Secret 为 true，则使用此名称创建 Kubernetes Secret；否则使用此名称的现有 Secret。使用它从您的私有注册表中拉取镜像。
+
+| `privateRegistry.registryUrl`
+| 私有注册表的URL。未指定时，{longhorn-product-name} 使用默认系统注册表。
+
+| `privateRegistry.registryUser`
+| 用于与私有注册表进行身份验证的用户帐户。
+|===
+
+=== 度量设置
+
+|===
+| 键 | 类型 | 默认值 | 说明
+
+| `metrics.serviceMonitor.additionalLabels`
+| 对象
+| `{}`
+| Prometheus ServiceMonitor资源的附加标签。
+
+| `metrics.serviceMonitor.annotations`
+| 对象
+| `{}`
+| Prometheus ServiceMonitor资源的注释。
+
+| `metrics.serviceMonitor.enabled`
+| 布尔
+| `false`
+| 允许为Longhorn Manager组件创建Prometheus ServiceMonitor资源的设置。
+
+| `metrics.serviceMonitor.interval`
+| 字符串
+| `""`
+| Prometheus从目标抓取度量的间隔。
+
+| `metrics.serviceMonitor.metricRelabelings`
+| list
+| `[]`
+| 配置在摄取之前应用于样本的重新标记规则。有关格式详细信息，请参阅 https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.Endpoint[Prometheus Operator文档]。
+
+| `metrics.serviceMonitor.relabelings`
+| list
+| `[]`
+| 配置应用于目标元数据标签的重新标记规则。有关格式详细信息，请参阅 https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.Endpoint[Prometheus Operator文档]。
+
+| `metrics.serviceMonitor.scrapeTimeout`
+| 字符串
+| `""`
+| 超时后，Prometheus将抓取视为失败。
+|===
+
+=== 操作系统/Kubernetes发行版设置
+
+==== OpenShift 设置
+
+有关更多详细信息，请参见 https://github.com/longhorn/longhorn/blob/master/chart/ocp-readme.md[ocp-readme]。
+
+|===
+| 键 | 类型 | 默认值 | 说明
+
+| `openshift.enabled`
+| 布尔
+| `false`
+| 允许 {longhorn-product-name} 与 OpenShift 集成的设置。
+
+| `openshift.ui.port`
+| 整数
+| `443`
+| 访问 OpenShift Web 控制台的端口。
+
+| `openshift.ui.proxy`
+| 整数
+| `8443`
+| 提供访问 OpenShift Web 控制台的代理端口。
+
+| `openshift.ui.route`
+| 字符串
+| `"longhorn-ui"`
+| 连接 {longhorn-product-name} 和 OpenShift Web 控制台的路由。
+|===
+
+=== 其它设置
+
+|===
+| 键 | 默认值 | 说明
+
+| `annotations`
+| `{}`
+| Longhorn Manager DaemonSet Pods 的注释。该设置是可选的。
+
+| `defaultBackupStore`
+| `{"backupTarget":null,"backupTargetCredentialSecret":null,"pollInterval":null}`
+| 允许您更新默认备份存储的设置。
+
+| `defaultBackupStore.backupTarget`
+| `nil`
+| 用于访问默认备份存储的端点。（选项："NFS", "CIFS", "AWS", "GCP", "AZURE")
+
+| `defaultBackupStore.backupTargetCredentialSecret`
+| `nil`
+| 与默认备份目标关联的 Kubernetes Secret 的名称。
+
+| `defaultBackupStore.pollInterval`
+| `nil`
+| {longhorn-product-name} 在检查默认备份存储的新备份之前等待的秒数。默认值为 "300"。当值为 "0" 时，禁用轮询。
+
+| `enableGoCoverDir`
+| `false`
+| 允许 {longhorn-product-name} 生成代码覆盖率配置文件的设置。
+
+| `enablePSP`
+| `false`
+| 允许您启用允许特权 {longhorn-product-name} pods 启动的 Pod 安全策略 (PSPs) 的设置。此设置仅适用于运行 Kubernetes 1.25 及更早版本的集群，并且启用了内置的 Pod 安全准入控制器。
+
+| `extraObjects`
+| `[]`
+| 添加额外的对象清单。
+
+| `namespaceOverride`
+| `""`
+| 指定覆盖名称空间，特别是在将 Longhorn 作为子图表使用时，这非常有用，因为其发布的名称空间不是 `longhorn-system`。
+
+| `preUpgradeChecker.jobEnabled`
+| `true`
+| 允许 {longhorn-product-name} 执行升级前检查的设置。在使用 Argo CD 或其他 GitOps 解决方案安装 {longhorn-product-name} 时禁用此设置。
+
+| `preUpgradeChecker.upgradeVersionCheck`
+| `true`
+| 允许 {longhorn-product-name} 在启动 Longhorn Manager DaemonSet Pods 后执行升级版本检查的设置。禁用此设置也会禁用 `preUpgradeChecker.jobEnabled`。{longhorn-product-name} 建议保持此设置启用。
+|===
+
+=== 系统默认设置
+
+在安装过程中，您可以选择允许 {longhorn-product-name} 使用默认系统设置，或使用特定标志修改默认值。安装后，您可以使用 {longhorn-product-name} UI 修改设置。有关更多信息，请参见*设置参考*部分的xref:longhorn-documentation.adoc[文档]。
+
+|===
+| 键 | 说明
+
+| `defaultSettings.allowCollectingLonghornUsageMetrics`
+| 设置允许{longhorn-product-name}定期收集匿名使用数据以用于产品改进。{longhorn-product-name}将收集的数据发送到 https://github.com/longhorn/upgrade-responder[升级响应器]服务器，这是Longhorn公共指标仪表板（ https://metrics.longhorn.io）的数据源。升级响应器服务器不存储可用于识别客户端的数据，包括IP地址。
+
+| `defaultSettings.allowEmptyDiskSelectorVolume`
+| 设置允许将空磁盘选择器卷调度到任何磁盘。
+
+| `defaultSettings.allowEmptyNodeSelectorVolume`
+| 设置允许将空节点选择器卷调度到任何节点。
+
+| `defaultSettings.allowRecurringJobWhileVolumeDetached`
+| 设置允许{longhorn-product-name}在运行定期作业时自动附加卷并创建快照或备份。
+
+| `defaultSettings.allowVolumeCreationWithDegradedAvailability`
+| 设置允许您在创建时不必调度所有副本即可创建和附加卷。
+
+| `defaultSettings.autoCleanupRecurringJobBackupSnapshot`
+| 设置允许{longhorn-product-name}在定期备份作业生成快照后自动清理快照。
+
+| `defaultSettings.autoCleanupSnapshotAfterOnDemandBackupCompleted`
+| 设置在按需备份完成后自动清理快照。
+
+| `defaultSettings.autoCleanupSnapshotWhenDeleteBackup`
+| 设置在备份被删除时自动清理快照。
+
+| `defaultSettings.autoCleanupSystemGeneratedSnapshot`
+| 设置允许{longhorn-product-name}在副本重建完成后自动清理系统生成的快照。
+
+| `defaultSettings.autoDeletePodWhenVolumeDetachedUnexpectedly`
+| 设置允许{longhorn-product-name}在Longhorn卷意外分离时（例如，在Kubernetes升级期间），自动删除由控制器（例如，daemonset）管理的工作负载Pod。删除后，控制器重新启动Pod，然后Kubernetes处理卷的重新附加和重新挂载。
+
+| `defaultSettings.autoSalvage`
+| 设置允许{longhorn-product-name}在所有副本出现故障时自动恢复卷（例如，当网络连接中断时）。{longhorn-product-name}确定哪些副本可用，然后使用这些副本进行卷操作。默认情况下启用此设置。
+
+| `defaultSettings.backingImageCleanupWaitInterval`
+| {longhorn-product-name}在磁盘中没有副本使用该文件时，会等待指定的分钟数后再清理后备映像文件。
+
+| `defaultSettings.backingImageRecoveryWaitInterval`
+| 当所有镜像磁盘文件的状态变为“失败”或“未知”时，{longhorn-product-name}会等待指定的秒数后再次下载后备映像文件。
+
+| `defaultSettings.backupCompressionMethod`
+| 允许您指定备份压缩方法的设置。
+
+| `defaultSettings.backupConcurrentLimit`
+| 每个备份可以同时运行的最大工作线程数。
+
+| `defaultSettings.backupExecutionTimeout`
+| Longhorn允许备份执行的分钟数。默认值为 `"1"`。
+
+| `defaultSettings.blacklistForAutoDeletePodWhenVolumeDetachedUnexpectedly`
+| 针对“意外分离卷时自动删除工作负载Pod”设置，指定了黑名单中的控制器api/kind值。如果工作负载Pod由黑名单中列出的控制器管理，Longhorn在其卷意外分离时将不会自动删除该Pod。可以指定多个控制器api/kind条目，用分号分隔。例如 `apps/StatefulSet;apps/DaemonSet`。*注意*控制器api/kind是区分大小写的，必须与工作负载Pod的拥有者引用中的api/kind完全匹配。
+
+| `defaultSettings.concurrentAutomaticEngineUpgradePerNodeLimit`
+| 在Longhorn Manager升级后，每个节点允许同时升级的最大引擎数量。当值为"0"时，{longhorn-product-name}不会自动将卷引擎升级到新的默认引擎镜像版本。
+
+| `defaultSettings.concurrentReplicaRebuildPerNodeLimit`
+| 每个节点上可以同时重建的最大副本数。
+
+| `defaultSettings.concurrentVolumeBackupRestorePerNodeLimit`
+| 每个节点上可以使用备份同时恢复的最大卷数。当值为"0"时，使用备份恢复卷的功能被禁用。
+
+| `defaultSettings.createDefaultDiskLabeledNodes`
+| 允许{longhorn-product-name}仅在带有标签"node.longhorn.io/create-default-disk=true"的节点上自动创建默认磁盘的设置（如果不存在其他磁盘）。当此设置被禁用时，{longhorn-product-name}会在添加到集群的每个节点上创建一个默认磁盘。
+
+| `defaultSettings.dataEngineCPUMask`
+| 仅适用于V2数据引擎。指定存储性能开发工具包（SPDK）目标守护程序运行的处理器核心。守护程序在每个实例管理器Pod中部署。确保分配的核心数不超过V2数据引擎为实例管理器保证的处理器数量。默认值为"{"v2":"0x1"}"。
+
+| `defaultSettings.dataEngineHugepageEnabled`
+| 仅适用于V2数据引擎。为存储性能开发工具包（SPDK）目标守护程序启用大页。如果禁用，将使用传统内存。分配大小由“数据引擎内存大小”设置指定。
+
+| `defaultSettings.dataEngineLogFlags`
+| 仅适用于V2数据引擎。指定存储性能开发工具包（SPDK）目标守护程序的日志标志。
+
+| `defaultSettings.dataEngineLogLevel`
+| 仅适用于V2数据引擎。指定存储性能开发工具包（SPDK）目标守护程序的日志级别。支持的值为：`Error`、`Warning`、`Notice`、`Info` 和 `Debug`。默认值为 `Notice`。
+
+| `defaultSettings.dataEngineMemorySize`
+| 仅适用于V2数据引擎。指定存储性能开发工具包（SPDK）目标守护程序的大页大小（以 MiB 为单位）。默认值为 "{"v2":"2048"}"。
+
+| `defaultSettings.defaultBackupBlockSize`
+| 指定创建新卷时使用的默认备份块大小（以 MiB 为单位）。支持的值为 2 或 16。
+
+| `defaultSettings.defaultDataLocality`
+| 默认数据本地性。如果在使用该卷的 pod 所在的同一节点上存在该卷的本地副本，则 Longhorn 卷具有数据本地性。
+
+| `defaultSettings.defaultDataPath`
+| 用于在主机上存储数据的默认路径。绝对目录路径表示 V1 数据引擎使用的文件系统类型磁盘，而指向块设备的路径表示 V2 数据引擎使用的块类型磁盘。默认值为 `"/var/lib/longhorn/"`。
+
+| `defaultSettings.defaultLonghornStaticStorageClass`
+| {longhorn-product-name} 静态 StorageClass 的默认名称。`"storageClassName"` 被分配给为现有 Longhorn 卷创建的 PV 和 PVC。`"storageClassName"` 也可以用作标签，因此可以使用 Longhorn StorageClass 将工作负载绑定到现有 PV，而无需创建 Kubernetes StorageClass 对象。`"storageClassName"` 需要是现有的 StorageClass。默认值为 "longhorn-static"。
+
+| `defaultSettings.defaultReplicaCount`
+| 使用 {longhorn-product-name} UI 创建的卷的默认副本数量。对于 Kubernetes 配置，请修改 StorageClass 中的 `numberOfReplicas` 字段。默认值为 `"{"v1":"3","v2":"3"}"`。
+
+| `defaultSettings.defaultUblkNumberOfQueue`
+| 此设置指定 ublk 前端的默认队列数量。此设置适用于使用 V2 数据引擎和 Ublk 前端的卷。单个卷可以通过指定自己的 ublk 队列数量来覆盖此设置。
+
+| `defaultSettings.defaultUblkQueueDepth`
+| 此设置指定 Ublk 前端每个队列的默认深度。此设置适用于使用 V2 数据引擎和 Ublk 前端的卷。单个卷可以通过指定自己的 Ublk 队列深度来覆盖此设置。
+
+| `defaultSettings.deletingConfirmationFlag`
+| 防止意外卸载 {longhorn-product-name} 的标志。
+
+| `defaultSettings.detachManuallyAttachedVolumesWhenCordoned`
+| 允许在节点被隔离时自动分离手动附加卷的设置。
+
+| `defaultSettings.disableRevisionCounter`
+| 禁用修订计数器的设置，从而防止 {longhorn-product-name} 跟踪对卷的所有写入操作。在修复卷时，{longhorn-product-name} 使用 `"volume-head-xxx.img"` 文件的属性（最后文件大小和最后修改时间）来选择用于卷恢复的副本。此设置仅适用于使用 {longhorn-product-name} UI 创建的卷。
+
+| `defaultSettings.disableSchedulingOnCordonedNode`
+| 防止 Longhorn Manager 在被隔离的 Kubernetes 节点上调度副本的设置。默认情况下启用此设置。
+
+| `defaultSettings.disableSnapshotPurge`
+| 设置暂时阻止所有清除卷快照的尝试。
+
+| `defaultSettings.endpointNetworkForRWXVolume`
+| 指定用于挂载 RWX（ReadWriteMany）卷的专用网络。将此留空以使用默认的 Kubernetes 集群网络。*注意*：在所有 RWX 卷分离后，此设置应进行更改，因为某些 Longhorn 组件 Pod 必须被重新创建以应用该设置。在 RWX 卷仍然附加时，您无法修改此设置。
+
+| `defaultSettings.engineReplicaTimeout`
+| Longhorn 引擎与副本之间的超时时间。指定介于 `"8"` 和 `"30"` 秒之间的值。默认值为 `"8"`。
+
+| `defaultSettings.failedBackupTTL`
+| {longhorn-product-name} 保留失败备份资源的分钟数。当值为 `"0"` 时，自动删除被禁用。
+
+| `defaultSettings.fastReplicaRebuildEnabled`
+| 允许使用快照磁盘文件的校验和快速重建副本的设置。在启用此设置之前，您必须将 snapshot-data-integrity 值设置为 `"enable"` 或 `"fast-check"`。
+
+| `defaultSettings.freezeFilesystemForSnapshot`
+| 在创建快照之前，冻结根分区上的文件系统的设置。
+
+| `defaultSettings.guaranteedInstanceManagerCPU`
+| 每个节点上可分配的处理器资源总量中，保留给每个实例管理器 Pod 的百分比。默认值为 {"v1":"12","v2":"12"}。
+
+| `defaultSettings.instanceManagerPodLivenessProbeTimeout`
+| 以秒为单位。该设置指定实例管理器 Pod 活跃性探针的超时时间。默认值为 10 秒。
+
+| `defaultSettings.kubernetesClusterAutoscalerEnabled`
+| 通知 {longhorn-product-name} 集群正在使用 Kubernetes 集群自动扩展器的设置。
+
+| `defaultSettings.logLevel`
+| 指示 Longhorn Manager 中日志类型和严重性的日志级别。默认值为 `"Info"`。（选项：`"Panic"`，`"Fatal"`，`"Error"`，`"Warn"`，`"Info"`，`"Debug"`，`"Trace"`）
+
+| `defaultSettings.logPath`
+| 指定主机上 Longhorn 为实例管理器 Pod 存储日志文件的目录。目前，仅用于 v2 数据引擎中的实例管理器 pod。
+
+| `defaultSettings.longGRPCTimeOut`
+| {longhorn-product-name} 允许完成副本重建和快照克隆操作的秒数。
+
+| `defaultSettings.managerUrl`
+| 用于访问 Longhorn 管理器 API 的外部 URL。设置后，此 URL 会在 API 响应中返回（操作和链接字段），而不是内部 pod IP。在通过 Ingress 或 Gateway API HTTPRoute 访问 API 时，这非常有用。格式：`scheme://host[:port]`（例如，`https://longhorn.example.com` 或 `https://longhorn.example.com:8443`）。保留为空以使用默认行为。
+
+| `defaultSettings.nodeDiskHealthMonitoring`
+| 控制 Longhorn 是否监控并记录节点磁盘的健康信息。禁用时，跳过磁盘健康检查和状态更新。
+
+| `defaultSettings.nodeDownPodDeletionPolicy`
+| 定义当卷与失败节点上的 StatefulSet 或 Deployment pod 卡住时 {longhorn-product-name} 采取的操作的策略。
+
+| `defaultSettings.nodeDrainPolicy`
+| 定义当最后一个健康副本的节点被排空时 {longhorn-product-name} 采取的操作的策略。
+
+| `defaultSettings.offlineReplicaRebuilding`
+| 在卷被分离时启用降级副本的自动重建。此设置仅在单个卷设置为 `"ignored"` 或 `"enabled"` 时生效。
+
+| `defaultSettings.orphanResourceAutoDeletion`
+| 启用 Longhorn 自动删除孤立资源及其相关数据或进程（例如，过时的副本）。在失败或未知节点上的孤立资源不会自动清理。您需要使用分号分隔的列表指定要删除的资源类型（例如，`replica-data;instance`）。可用项目包括：`replica-data`，`instance`。
+
+| `defaultSettings.orphanResourceAutoDeletionGracePeriod`
+| 指定 Longhorn 自动删除孤立自定义资源（CR）及其相关资源之前的等待时间（以秒为单位）。请注意，如果用户手动删除孤立的 CR，则删除会立即发生，并且不遵循此宽限期。
+
+| `defaultSettings.priorityClass`
+| 系统管理的 Longhorn 组件的优先级类。此设置可以帮助防止 Longhorn 组件在节点压力下被驱逐。请注意，如果尚未设置优先级类值（例如 `longhornManager.priorityClass`），则默认情况下将其应用于 {longhorn-product-name} 用户部署的组件。
+
+| `defaultSettings.rebuildConcurrentSyncLimit` 
+| 在单个副本重建期间，可以同时运行的文件同步操作的最大数量。现在，这仅适用于 v1 数据引擎。
+
+| `defaultSettings.recurringFailedJobsHistoryLimit`
+| 要保留的最大失败定期备份和快照作业数量。当值为 `"0"` 时，不保留失败定期作业的历史记录。
+
+| `defaultSettings.recurringJobMaxRetention`
+| 要保留的最大快照或备份数量。
+
+| `defaultSettings.recurringSuccessfulJobsHistoryLimit`
+| 要保留的最大成功定期备份和快照作业数量。当值为 `"0"` 时，不保留成功定期作业的历史记录。
+
+| `defaultSettings.removeSnapshotsDuringFilesystemTrim`
+| 允许 {longhorn-product-name} 在文件系统修剪期间自动标记最新快照及其父文件为已去除的设置。{longhorn-product-name} 不会去除包含多个子文件的快照。
+
+| `defaultSettings.replicaAutoBalance`
+| 在发现可用节点时，自动重新平衡副本的设置。
+
+| `defaultSettings.replicaDiskSoftAntiAffinity`
+| 允许在具有相同卷的健康副本的磁盘上进行调度的设置。默认情况下启用此设置。
+
+| `defaultSettings.replicaFileSyncHttpClientTimeout`
+| HTTP 客户端在认为连接故障之前等待来自文件同步服务器的响应的秒数。
+
+| `defaultSettings.replicaRebuildingBandwidthLimit`
+| 此设置指定使用 v2 数据引擎（SPDK）时，卷副本重建的默认写入带宽限制（以每秒兆字节为单位）。如果此值设置为 0，则不会有写入带宽限制。单个卷可以通过指定自己的重建带宽限制来覆盖此设置。
+
+| `defaultSettings.replicaReplenishmentWaitInterval`
+| {longhorn-product-name} 在重新使用故障副本上的现有数据之前等待的秒数，而不是创建降级卷的新副本。
+
+| `defaultSettings.replicaSoftAntiAffinity`
+| 允许在具有相同卷的健康副本的节点上进行调度的设置。在默认情况下会禁用该设置。
+
+| `defaultSettings.replicaZoneSoftAntiAffinity`
+| 允许 {longhorn-product-name} 将卷的新副本调度到与现有健康副本位于同一区域的节点的设置。不属于任何区域的节点被视为存在于包含健康副本的区域中。在识别区域时，{longhorn-product-name} 依赖于 Kubernetes 节点对象中的标签 "topology.kubernetes.io/zone=+++<Zone name="" of="" the="" node="">+++"。+++</Zone>+++
+
+| `defaultSettings.restoreConcurrentLimit`
+| 每个恢复操作可以并发运行的最大工作线程数。
+
+| `defaultSettings.restoreVolumeRecurringJobs`
+| 从备份卷恢复定期作业到备份目标的设置，如果在备份恢复期间不存在，则创建定期作业。
+
+| `defaultSettings.rwxVolumeFastFailover`
+| 允许 Longhorn 检测节点故障并立即迁移受影响的 RWX 卷的设置。
+
+| `defaultSettings.snapshotDataIntegrity`
+| 允许您启用和禁用快照哈希和数据完整性检查的设置。
+
+| `defaultSettings.snapshotDataIntegrityCronjob`
+| 定义 {longhorn-product-name} 何时检查快照磁盘文件中数据完整性的设置。您必须使用 Unix cron 表达式格式。
+
+| `defaultSettings.snapshotDataIntegrityImmediateCheckAfterSnapshotCreation`
+| 允许在快照创建后禁用快照哈希以最小化对系统性能影响的设置。
+
+| `defaultSettings.snapshotHeavyTaskConcurrentLimit`
+| 控制每个节点可以并发运行多少快照重任务操作（如清除和克隆）的设置。这是一种尽力而为的机制：由于系统的分布式特性，可能会发生临时超额订阅。限制器减少了最坏情况下的过载，但不保证完美的执行。
+
+| `defaultSettings.snapshotMaxCount`
+| 每个卷的最大快照数量。该值应在 2 到 250 之间。
+
+| `defaultSettings.storageMinimalAvailablePercentage`
+| 最小可用磁盘容量的百分比。当最小可用容量超过总可用容量时，磁盘将变得不可调度，直到提供更多可用空间为止。默认值为 `"25"`。
+
+| `defaultSettings.storageNetwork`
+| 集群内流量的存储网络。未指定时，{longhorn-product-name} 使用 Kubernetes 集群网络。
+
+| `defaultSettings.storageOverProvisioningPercentage`
+| 相对于硬盘容量可以分配的存储百分比。默认值为 `"100"`。
+
+| `defaultSettings.storageReservedPercentageForDefaultDisk`
+| 每个新 Longhorn 节点上未分配给默认磁盘的磁盘空间百分比。
+
+| `defaultSettings.supportBundleFailedHistoryLimit`
+| 集群中可以存在的失败支持包的最大数量。当值为 "0" 时，{longhorn-product-name} 会自动清除所有失败的支持包。
+
+| `defaultSettings.systemManagedCSIComponentsResourceLimits`
+| 系统管理的 CSI 组件的资源限制。此设置允许您为 CSI 附加器、供应器、调整器、快照器和插件组件配置 CPU 和内存请求/限制。支持的组件：`csi-attacher`、`csi-provisioner`、`csi-resizer`、`csi-snapshotter`、`longhorn-csi-plugin`、`node-driver-registrar`、`longhorn-liveness-probe`。请注意，改变资源限制会导致 CSI 组件重启，这可能会暂时影响卷的供应和附加/分离操作，直到组件准备就绪。该值应为一个 JSON 对象，组件名称作为键，ResourceRequirements 作为值。
+
+| `defaultSettings.systemManagedComponentsNodeSelector`
+| 系统管理的 Longhorn 组件的节点选择器。
+
+| `defaultSettings.systemManagedPodsImagePullPolicy`
+| 系统管理的 Pod 的镜像拉取策略，例如实例管理器、引擎镜像和 CSI 驱动程序。对镜像拉取策略的更改仅在系统管理的 Pod 重启后生效。
+
+| `defaultSettings.taintToleration`
+| 系统管理的 Longhorn 组件的污点或容忍。使用 `kubectl taint` 语法指定值，值之间用分号分隔（示例：key1=value1:effect; key2=value2:effect）。
+
+| `defaultSettings.upgradeChecker`
+| 升级检查器定期检查新的 {longhorn-product-name} 版本。当有新版本可用时，{longhorn-product-name} UI 上会出现通知。默认情况下启用此设置。
+
+| `defaultSettings.upgradeResponderURL`
+| 升级响应器在您可以升级到的新 Longhorn 版本可用时发送通知。默认值为 `https://longhorn-upgrade-responder.rancher.io/v1/checkupgrade`。
+
+| `defaultSettings.v1DataEngine`
+| 允许您启用 V1 数据引擎的设置。
+
+| `defaultSettings.v2DataEngine`
+| 允许您启用基于存储性能开发工具包（SPDK）的 V2 数据引擎的设置。V2 数据引擎是一个实验性功能，不应在生产环境中使用。
+|===
