@@ -347,6 +347,7 @@ The following analysis assumes that the volume creates a backup every hour, and 
 * If the backupstore poll interval is 30 minutes, then there will be at most one backup worth of data since the last restoration. The time for restoring one backup is five minutes, so the RTO would be five minutes.
 * If the backupstore poll interval is 12 hours, then there will be at most 12 backups worth of data since the last restoration. The time for restoring the backups is 5 * 12 = 60 minutes, so the RTO would be 60 minutes.
 
+[#_appendix_how_persistent_storage_works_in_kubernetes]
 == Appendix: How Persistent Storage Works in Kubernetes
 
 To understand persistent storage in Kubernetes, it is important to understand Volumes, PersistentVolumes, PersistentVolumeClaims, and StorageClasses, and how they work together.
