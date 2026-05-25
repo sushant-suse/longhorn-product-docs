@@ -1,8 +1,8 @@
 = Configurable CPU Cores
-:revdate: 2026-03-16
+:revdate: 2026-05-25
 :page-revdate: {revdate}
 
-{longhorn-product-name} now supports configurable CPU cores for the V2 data engine through the use of a *CPU Mask*. This mask allows you to define exactly which CPU cores are allocated to the engine, offering both global and per-node configuration options.
+{longhorn-product-name} now supports configurable CPU cores for the V2 Data Engine through the use of a *CPU Mask*. This mask allows you to define exactly which CPU cores are allocated to the engine, offering both global and per-node configuration options.
 
 == Understanding the CPU Mask
 
@@ -56,7 +56,7 @@ To set CPU cores globally across the cluster, update the xref:longhorn-system/se
 
 == Per-node Configuration
 
-For node-specific CPU core allocation, update the `spec.dataEngineSpec.v2.cpuMask` field of the instance manager with a hexadecimal encoded string. By default, this value is empty, and the v2 data engine will use the global setting specified by `data-engine-cpu-mask`. When a per-node configuration is set, the v2 data engine will prioritize this value over the global setting for that specific node.
+For node-specific CPU core allocation, update the `spec.dataEngineSpec.v2.cpuMask` field of the instance manager with a hexadecimal encoded string. By default, this value is empty, and the V2 Data Engine uses the global setting specified by `data-engine-cpu-mask`. When a per-node configuration is set, the V2 Data Engine prioritizes this value over the global setting for that specific node.
 
 == Calculation Tools
 

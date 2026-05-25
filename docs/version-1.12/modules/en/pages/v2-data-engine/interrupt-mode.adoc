@@ -1,11 +1,11 @@
 = Interrupt Mode
-:revdate: 2025-11-12
+:revdate: 2026-05-25
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
-Starting with v1.10.0, {longhorn-product-name} supports *SPDK interrupt mode* for V2 data engine volumes. Interrupt mode provides an alternative to the default *polling mode*, offering improved CPU efficiency in certain environments.
+Starting with v1.10.0, {longhorn-product-name} supports *SPDK interrupt mode* for V2 Data Engine volumes. Interrupt mode provides an alternative to the default *polling mode*, offering improved CPU efficiency in certain environments.
 
-Interrupt mode is particularly suitable for clusters with limited CPU resources and a relatively small number of volumes. While polling mode maximizes performance by keeping CPU utilization close to 100% on allocated cores, interrupt mode reduces CPU usage by allowing the SPDK reactor to adjust its usage dynamically instead of continuously polling.
+Interrupt mode is particularly suitable for clusters with limited CPU resources and a small number of volumes. While polling mode maximizes performance by keeping CPU utilization close to 100% on allocated cores, interrupt mode reduces CPU usage by allowing the SPDK reactor to adjust its usage dynamically instead of continuously polling.
 
 == Overview
 
@@ -24,7 +24,7 @@ Interrupt mode is particularly suitable for clusters with limited CPU resources 
 == Prerequisites
 
 * {longhorn-product-name} v1.10.0 or later
-* V2 data engine enabled
+* V2 Data Engine enabled
 * No attached v2 volumes when changing the setting
 * For NVMe disks, IOMMU must be enabled. To verify:
 +
@@ -46,7 +46,7 @@ If the command returns no output, IOMMU is not enabled.
 +
 [NOTE]
 ====
-IOMMU support may not be exposed on virtualized instances. If unsure, consider using a bare-metal instance, or consult your cloud provider’s documentation or support team.
+IOMMU support may not be exposed on virtualized instances. If unsure, consider using a bare metal instance, or consult documentation or support team of your cloud provider.
 ====
 +
 For more information, refer to the https://spdk.io/doc/system_configuration.html[SPDK official SPDK documentation].
@@ -78,7 +78,7 @@ Enable interrupt mode for these cases:
 
 === Hybrid implementation
 
-The current V2 volume interrupt mode uses a hybrid approach for NVMe/TCP transport:
+The current V2 volume interrupt mode uses a hybrid approach for NVMe or TCP transport:
 
 * *Admin Queue Operations*: It still relies on periodic polling for keepalive and controller recovery.
 * *I/O Queue Completion*: It uses polling for command completion.
