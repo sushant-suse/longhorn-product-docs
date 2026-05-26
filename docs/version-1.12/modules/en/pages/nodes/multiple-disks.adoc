@@ -94,7 +94,12 @@ Block-type disks are used for V2 volumes. The V2 Data Engine requires raw block 
 ==== Prerequisites
 
 * The V2 Data Engine must be enabled. See xref:longhorn-system/v2-data-engine/quick-start-guide.adoc[V2 Data Engine Quick Start].
-* The disk must not contain any existing file system. Use `wipefs -a /path/to/block/device` to clean the disk before adding it.
+* {longhorn-product-name} prevents adding block disks that contain an existing file system or partition table. Clean the disk first:
++
+[,shell]
+----
+wipefs -a /path/to/block/device
+----
 
 ==== Steps
 
@@ -165,7 +170,7 @@ aio-disk:
 [NOTE]
 ====
 . Block-type disks are exclusively used by the V2 Data Engine and cannot be used for V1 volumes.
-. The disk must be clean (no existing file system) before adding it. Use `wipefs -a /path/to/block/device` to wipe it.
+. The disk must be clean and must not contain an existing file system or partition table before it is added. Use `wipefs -a /path/to/block/device` to clean it.
 . For disk-specific configuration examples, see xref:_using_nvme_disks[Using NVMe Disks], xref:_using_virtio_disks[Using VirtIO Disks], and xref:_using_aio_disks[Using AIO Disks].
 ====
 

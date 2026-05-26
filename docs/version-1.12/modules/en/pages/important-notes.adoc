@@ -141,16 +141,22 @@ For more information, see https://github.com/longhorn/longhorn/issues/11442[Issu
 
 Live upgrades of V2 volumes are *not supported*. Ensure all V2 volumes are detached before upgrading.
 
-=== Fast Cloning
-
-{longhorn-product-name} v{patch-version} enhances V2 fast cloning (`linked-clone`) so the initial clone can be created with multiple replicas in parallel instead of being limited to a single replica. This keeps clone creation fast while allowing the cloned volume to become highly available after the initial clone operation completes.
-
-Fast cloning remains best suited for temporary or workflow-driven use cases such as backup pipelines. A `linked-clone` volume still depends on its source volume and source snapshot, so delete the clone before deleting the source volume or source snapshot. Replacement replicas created after the initial clone are rebuilt as full copies rather than preserved as thin clones.
-
-For more information, see https://github.com/longhorn/longhorn/issues/12552[Issue #12552] and xref:v2-data-engine/volume-clone.adoc[V2 Volume Clone Support].
-
 === IPv6 Support
 
 V2 volumes now support single-stack IPv6 Kubernetes clusters. For dual-stack cluster support and its limitations, see xref:_dualstack_cluster_support[Dual-Stack Cluster Support].
 
 For more information, see https://github.com/longhorn/longhorn/issues/10928[Issue #10928].
+
+=== V2 Features Planned for {longhorn-product-name} v1.12.1
+
+==== Fast Volume Cloning
+
+Fast volume cloning for the V2 data engine is planned for {longhorn-product-name} v1.12.1. This enhancement is intended to allow the initial `linked-clone` to be created with multiple replicas in parallel instead of being limited to a single replica.
+
+For more information, see https://github.com/longhorn/longhorn/issues/12552[Issue #12552].
+
+==== Storage Sharding
+
+Storage sharding for the V2 data engine is planned as an experimental feature for {longhorn-product-name} v1.12.1. This capability is intended to address the existing space efficiency limitations caused by replica-based storage overhead.
+
+For more information, see https://github.com/longhorn/longhorn/issues/1061[Issue #1061].
