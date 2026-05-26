@@ -7,7 +7,7 @@ The following setup is recommended for production environments.
 
 [IMPORTANT]
 ====
-We recommend enabling only one data engine (V1 or V2) per cluster. When both data engines are enabled simultaneously, each node runs separate instance-manager pods for V1 and V2, each with its own guaranteed CPU reservation. This increases CPU overhead per node (the V2 instance-manager pod alone consumes at least 1 dedicated CPU core, which is configurable, for the `spdk_tgt` process). If your workloads do not require both engines, disable the unused one to conserve resources. For more information about guaranteed CPU reservations and how CPU consumption differs between V1 and V2 upgrade flows, see xref:_guaranteed_instance_manager_cpu[Guaranteed Instance Manager CPU].
+It is recommended to enable only one data engine (V1 or V2) per cluster. When both data engines are enabled simultaneously, each node runs separate instance-manager pods for V1 and V2, each with its own guaranteed CPU reservation. This increases CPU overhead per node (the V2 instance-manager pod alone consumes at least 1 dedicated CPU core, which is configurable, for the `spdk_tgt` process). If your workloads do not require both engines, disable the unused one to conserve resources. For more information about guaranteed CPU reservations and how CPU consumption differs between V1 and V2 upgrade flows, see xref:_guaranteed_instance_manager_cpu[Guaranteed Instance Manager CPU].
 ====
 
 == Minimum Recommended Hardware
