@@ -67,6 +67,7 @@ This creates a new Longhorn BackingImage named `snapshot-uuid` and the CSI reque
 
 Afterwards a `VolumeSnapshotContent` object named `snapcontent-uuid` is created with the `VolumeSnapshotContent.readyToUse` flag is set to *true*.
 
+[#_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backup]
 == Restore PVC from CSI VolumeSnapshot Associated With Longhorn BackingImage
 
 Create a `PersistentVolumeClaim` object where the `dataSource` field points to an existing `VolumeSnapshot` object that is associated with Longhorn BackingImage.
@@ -151,7 +152,7 @@ spec:
 ----
 
 Now you can create a `PerstistantVolumeClaim` object that refers to the newly created `VolumeSnapshot` object.
-For an example see <<_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backingimage,Restore PVC from CSI VolumeSnapshot Associated With Longhorn BackingImage>> above.
+For an example see xref:_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backingimage[Restore PVC from CSI VolumeSnapshot Associated With Longhorn BackingImage] above.
 
 === Restore a Longhorn BackingImage that Has Not Created (on-demand provision)
 
@@ -231,4 +232,4 @@ spec:
 
 Now you can create a `PerstistantVolumeClaim` object that refers to the newly created `VolumeSnapshot` object.
 Longhorn will create the BackingImage with the parameters provide in the `snapshotHandle`.
-For an example see <<_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backingimage,Restore PVC from CSI VolumeSnapshot Associated With Longhorn BackingImage>> above.
+For an example see xref:_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backingimage[Restore PVC from CSI VolumeSnapshot Associated With Longhorn BackingImage] above.

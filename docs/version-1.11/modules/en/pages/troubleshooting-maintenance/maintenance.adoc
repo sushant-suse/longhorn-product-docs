@@ -5,6 +5,7 @@
 
 Follow the instructions for handling planned node maintenance and upgrading Kubernetes version for the cluster.
 
+[#_updating_the_node_os_or_container_runtime]
 == Updating the Node OS or Container Runtime
 
 . Cordon the node. Longhorn will automatically disable the node scheduling when a Kubernetes node is cordoned.
@@ -21,23 +22,23 @@ prevent the node from completing the drain operation. The user will need to deta
 unblock the draining.
 +
 While the drain proceeds, replica processes on the node will either continue to run or eventually be evicted and
-stopped based on the <<_node_drain_policy_recommendations,Node Drain Policy>>.
+stopped based on the xref:_node_drain_policy_recommendations[Node Drain Policy].
 +
 NOTE: By default, if there is one last healthy replica for a volume on the node, Longhorn will prevent the node
 from completing the drain operation, to protect the last replica and prevent the disruption of the workload. You
 can control this behavior with the setting xref:longhorn-system/settings.adoc#_node_drain_policy[Node Drain Policy], or
-xref:nodes/disks-or-nodes-eviction.adoc[evict the replica to other nodes before draining]. See <<_node_drain_policy_recommendations,Node Drain Policy
-Recommendations>> for considerations when selecting a policy.
+xref:nodes/disks-or-nodes-eviction.adoc[evict the replica to other nodes before draining]. See xref:_node_drain_policy_recommendations[Node Drain Policy
+Recommendations] for considerations when selecting a policy.
 +
 After the drain is completed, there should be no engine or replica processes running on the node, as the
-instance-manager pod that was running them will be stopped. Depending on the <<_node_drain_policy_recommendations,Node Drain
-Policy>>, replicas scheduled to the node will either appear as `Failed` or be
+instance-manager pod that was running them will be stopped. Depending on the xref:_node_drain_policy_recommendations[Node Drain
+Policy], replicas scheduled to the node will either appear as `Failed` or be
 removed in favor of replacements. Workloads using Longhorn volumes will function as expected and enough replicas will
 be running elsewhere to meet the requirements of the policy.
 +
 NOTE: Normally you don't need to evict the replicas before the drain operation, as long as you have healthy
-replicas on other nodes. The replicas can be reused later, once the node back online and uncordoned. See <<_node_drain_policy_recommendations,Node
-Drain Policy>> for further guidance.
+replicas on other nodes. The replicas can be reused later, once the node back online and uncordoned. See xref:_node_drain_policy_recommendations[Node
+Drain Policy] for further guidance.
 
 . Perform the necessary maintenance, including shutting down or rebooting the node.
 . Uncordon the node. Longhorn will automatically re-enable the node scheduling. If there are existing replicas on the
@@ -90,7 +91,7 @@ https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/[Kub
 With the assumption that node and disks are not being deleted/removed, the recommended upgrading guide is:
 
 . Cordon and drain a node before upgrading Kubernetes components. Draining instructions are similar to the ones at
-<<_updating_the_node_os_or_container_runtime,Updating the Node OS or Container Runtime>>.
+xref:_updating_the_node_os_or_container_runtime[Updating the Node OS or Container Runtime].
 . The drain `--timeout` should be big enough so that replica rebuildings on healthy nodes can finish between node
 upgrades. The more Longhorn replicas you have on the draining node, the more time it takes for the Longhorn replicas
 to be rebuilt on other healthy nodes. We recommending you to test and select a big enough value or set it to 0 (aka
@@ -99,7 +100,7 @@ never timeout).
 This is so that a running Longhorn volume has at least one healthy replica running at a time.
 . Consider setting the setting xref:longhorn-system/settings.adoc#_node_drain_policy[Node Drain Policy] to
 `allow-if-replica-is-stopped` so that the drain is not blocked by the last healthy replica of a detached volume. See
-<<_node_drain_policy_recommendations,Node Drain Policy Recommendations>> for considerations when selecting a policy.
+xref:_node_drain_policy_recommendations[Node Drain Policy Recommendations] for considerations when selecting a policy.
 
 === Managed Kubernetes
 
@@ -108,6 +109,7 @@ See the following topics:
 * xref:/upgrades/kubernetes/upgrade-k8s-on-eks.adoc[]
 * xref:/upgrades/kubernetes/upgrade-k8s-on-gke.adoc[]
 
+[#_node_drain_policy_recommendations]
 == Node Drain Policy Recommendations
 
 There are currently five Node Drain Policies available for selection. Each has its own benefits and drawbacks. This

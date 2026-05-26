@@ -16,7 +16,7 @@ You can configure,
 * The number of jobs to run concurrently
 * Any labels that should be applied to the backup or snapshot
 * Parameters that should be applied to the backup
- ** `full-backup-interval`: Number of incremental backups that must be completed before {longhorn-product-name} performs a full backup. This integer parameter is applied only to the backup. Notice that if the value is 0, {longhorn-product-name} performs a incremental backup every time. For more information, see <<_periodic_full_backup,Periodic Full Backup>> and xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[Create a Backup].
+ ** `full-backup-interval`: Number of incremental backups that must be completed before {longhorn-product-name} performs a full backup. This integer parameter is applied only to the backup. Notice that if the value is 0, {longhorn-product-name} performs a incremental backup every time. For more information, see xref:_periodic_full_backup[Periodic Full Backup] and xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[Create a Backup].
 
 Recurring jobs can be set up using the {longhorn-product-name} UI, `kubectl`, or by using a {longhorn-product-name} `RecurringJob`.
 
@@ -27,7 +27,7 @@ To add a recurring job to a volume, you will go to the volume detail view in {lo
 * Select from existing recurring job groups
 
 Then {longhorn-product-name} will automatically create snapshots or backups for the volume at the recurring job scheduled time, as long as the volume is attached to a node.
-If you want to set up recurring snapshots and backups even when the volumes are detached, see the section <<_allow_recurring_job_while_volume_is_detached,Allow Recurring Job While Volume Is Detached>>
+If you want to set up recurring snapshots and backups even when the volumes are detached, see the section xref:_allow_recurring_job_while_volume_is_detached[Allow Recurring Job While Volume Is Detached].
 
 You can set recurring jobs on a Longhorn Volume, Kubernetes Persistent Volume Claim (PVC), or Kubernetes StorageClass.
 
@@ -233,6 +233,7 @@ The following parameters should be specified for each recurring job selector:
 . `name`: Name of an existing recurring job or an existing recurring job group.
 . `isGroup`: is the name that belongs to a recurring job or recurring job group, either `true` or `false`.
 
+[#_allow_recurring_job_while_volume_is_detached]
 == Allow Recurring Job While Volume Is Detached
 
 {longhorn-product-name} provides the setting `allow-recurring-job-while-volume-detached` that allows you to do recurring backup even when a volume is detached.
@@ -242,6 +243,7 @@ When the setting is enabled, {longhorn-product-name} will automatically attach t
 
 Note that during the time the volume was attached automatically, the volume is not ready for the workload. Workload will have to wait until the recurring job finishes.
 
+[#_periodic_full_backup]
 == Periodic Full Backup
 
 {longhorn-product-name} performs delta backups by default, which means that only data that was changed since the last backup is uploaded. However, when a data block in the backupstore becomes corrupted, {longhorn-product-name} does not replace that data block with a healthy one during subsequent backup operations. Corrupted data blocks in the backupstore may cause restoration operations to fail.

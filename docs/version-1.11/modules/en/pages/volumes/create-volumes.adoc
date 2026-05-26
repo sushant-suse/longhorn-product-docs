@@ -3,7 +3,7 @@
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
-You can create Kubernetes persistent storage resources of persistent volumes (PVs) and persistent volume claims (PVCs) that correspond to Longhorn volumes. You will use kubectl to dynamically provision storage for workloads using a Longhorn StorageClass. For help creating volumes from the {longhorn-product-name} UI, refer to <<_creating_longhorn_volumes_with_the_longhorn_ui,this section>>.
+You can create Kubernetes persistent storage resources of persistent volumes (PVs) and persistent volume claims (PVCs) that correspond to Longhorn volumes. You will use kubectl to dynamically provision storage for workloads using a Longhorn StorageClass. For help creating volumes from the {longhorn-product-name} UI, refer to xref:_creating_longhorn_volumes_with_the_longhorn_ui[Creating Longhorn Volumes with the Longhorn UI].
 
 ____
 This section assumes that you understand how Kubernetes persistent storage works. For more information, see the https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetes documentation].
@@ -138,6 +138,7 @@ If the PVC names a StorageClass, Kubernetes will:
 . Look for an existing PV that has the label matching the StorageClass
 . Look for an existing StorageClass Kubernetes resource. If the StorageClass exists, it will be used to create a PV.
 
+[#_creating_longhorn_volumes_with_the_longhorn_ui]
 == Creating Longhorn Volumes with the Longhorn UI
 
 Since the Longhorn volume already exists while creating PV/PVC, a StorageClass is not needed for dynamically provisioning Longhorn volume. However, the field `storageClassName` should be set in PVC/PV, to be used for PVC binding purposes. It is not necessary for users to create the related StorageClass object.
