@@ -1,8 +1,13 @@
-= UBLK Frontend Support
+= UBLK Frontend Support (Experimental)
 :revdate: 2026-05-25
 :page-revdate: {revdate}
 :aliases: ["/spdk/ublk-frontend-support.md"]
 :current-version: {page-component-version}
+
+[NOTE]
+====
+This feature is an Experimental feature and is only functional on Linux kernels below v6.17. On kernel v6.17.0 and above, UBLK fails due to upstream UBLK API changes that cause `EINVAL` errors when starting UBLK devices. This issue is being tracked in the https://github.com/longhorn/longhorn/issues/11977[Issue #11977].
+====
 
 Starting with v1.9.0, {longhorn-product-name} supports the UBLK front-end for V2 Data Engine Volumes.
 

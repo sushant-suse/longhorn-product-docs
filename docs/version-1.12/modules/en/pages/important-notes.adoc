@@ -141,6 +141,12 @@ For more information, see https://github.com/longhorn/longhorn/issues/11442[Issu
 
 Live upgrades of V2 volumes are *not supported*. Ensure all V2 volumes are detached before upgrading.
 
+=== UBLK Front-end Kernel Limitation
+
+The UBLK front-end for V2 data engine volumes is experimental and only functional on Linux kernels below v6.17. On kernel v6.17.0 and above, UBLK fails due to upstream UBLK API changes that cause `EINVAL` errors when starting UBLK devices.
+
+For more information, see https://github.com/longhorn/longhorn/issues/11977[Issue #11977] and xref:v2-data-engine/ublk-frontend-support.adoc[UBLK Front-end Support].
+
 === IPv6 Support
 
 V2 volumes now support single-stack IPv6 Kubernetes clusters. For dual-stack cluster support and its limitations, see xref:_dualstack_cluster_support[Dual-Stack Cluster Support].
