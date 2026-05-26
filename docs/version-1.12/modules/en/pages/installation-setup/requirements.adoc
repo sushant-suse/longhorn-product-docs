@@ -1,37 +1,52 @@
 = Requirements
-:revdate: 2026-02-05
+:revdate: 2026-05-25
 :page-revdate: {revdate}
 :current-version: {page-component-version}
+
+== Installation Methods
+
+{longhorn-product-name} can be installed on a Kubernetes cluster in several ways:
+
+* xref:installation-setup/installation/install-using-rancher.adoc[Rancher Catalog App]
+* xref:installation-setup/installation/install-using-helm.adoc[Helm]
+* xref:installation-setup/installation/install-using-helm-controller.adoc[Helm Controller]
+* xref:installation-setup/installation/install-using-fleet.adoc[Fleet]
+* xref:installation-setup/installation/install-using-flux.adoc[Flux]
+* xref:installation-setup/installation/install-using-argocd.adoc[ArgoCD]
+
+For air gapped environments, refer to xref:installation-setup/installation/airgapped-environment.adoc[Air Gap Installation].
+
+For customizing {longhorn-product-name}'s default settings, refer to xref:longhorn-system/customize-default-settings.adoc[Customizing Default Settings].
+
+For deploying {longhorn-product-name} on specific nodes and rejecting general workloads for those nodes, refer to xref:nodes/taints-tolerations.adoc[Taints and Tolerations].
+
+== Installation Requirements
+
+Unless otherwise noted, the requirements in this section apply to both the V1 and V2 Data Engines. Engine-specific requirements are listed in xref:_v1_data_engine_requirements[V1 Data Engine Requirements] and xref:_v2_data_engine_requirements[V2 Data Engine Requirements].
 
 Each node in the Kubernetes cluster where {longhorn-product-name} is installed must fulfill the following requirements:
 
 * A container runtime compatible with Kubernetes (Docker v1.13+, containerd v1.3.7+, etc.)
-* Kubernetes v1.25 or later
-* `open-iscsi` is installed, and the `iscsid` daemon is running on all the nodes. This is necessary, since {longhorn-product-name} relies on `iscsiadm` on the host to provide persistent volumes to Kubernetes. For help installing `open-iscsi`, refer to <<_installing_open_iscsi,Installing open-iscsi>>.
-* RWX support requires that each node has a NFSv4 client installed.
- ** For installing a NFSv4 client, refer to <<_installing_nfsv4_client,Installing NFSv4 Client>>.
-* The host filesystem supports the `file extents` feature to store the data. Currently we support:
- ** ext4
- ** XFS
+* Kubernetes v1.25 or later.
+*  RWX support requires that each node has a NFSv4 client installed.
+ ** For installing a NFSv4 client, refer to xref:_install_nfsv4_client[Install NFSv4 client].
 * `bash`, `curl`, `findmnt`, `grep`, `awk`, `blkid`, `lsblk` must be installed.
 * https://kubernetes-csi.github.io/docs/deploying.html#enabling-mount-propagation[Mount propagation] must be enabled.
 
-The {longhorn-product-name} workloads must be able to run as root in order for {longhorn-product-name} to be deployed and operated properly.
+The {longhorn-product-name} workloads must be able to run as *root* for {longhorn-product-name} to be deployed and operated properly.
 
 The xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn Command Line Tool] can be used to check the Longhorn environment for potential issues.
 
 For the minimum recommended hardware, refer to the xref:installation-setup/best-practices.adoc#_minimum_recommended_hardware[best practices guide].
 
-[discrete]
-== OS/Distro Specific Configuration
+=== Platform Specific Configuration
 
 You must perform additional setups before using {longhorn-product-name} with certain operating systems and distributions.
 
-* Google Kubernetes Engine (GKE): See xref:installation-setup/os-distro/gke.adoc[GKE].
-* K3s clusters: See xref:installation-setup/os-distro/k3s.adoc[K3s].
+* Google Kubernetes Engine (GKE). See xref:installation-setup/os-distro/gke.adoc[GKE].
+* K3s clusters. See xref:installation-setup/os-distro/k3s.adoc[K3s].
 
-[discrete]
-== Checking the Kubernetes Version
+=== Kubernetes Version
 
 Use the following command to check your Kubernetes server version:
 
@@ -50,146 +65,82 @@ Server Version: version.Info{Major:"1", Minor:"26", GitVersion:"v1.26.10+k3s2", 
 
 The `Server Version` should be greater than or equal to v1.25.
 
-[discrete]
 === Pod Security Policy
 
-{longhorn-product-name} is shipped with a default Pod Security Policy that will give {longhorn-product-name} the necessary privileges to be able to run properly.
+{longhorn-product-name} is shipped with a default Pod Security Policy that gives {longhorn-product-name} the necessary privileges to be able to run properly.
 
 No special configuration is needed for {longhorn-product-name} to work properly on clusters with Pod Security Policy enabled.
 
-[discrete]
-=== Notes on Mount Propagation
+=== Mount Propagation
 
 If your Kubernetes cluster was provisioned by Rancher v2.0.7+ or later, the MountPropagation feature is enabled by default.
 
 If MountPropagation is disabled, Base Image feature will be disabled.
 
-[discrete]
 === Root and Privileged Permission
 
-{longhorn-product-name} components require root access with privileged permissions to achieve volume operations and management, because {longhorn-product-name} relies on system resources on the host across different namespaces. For example, {longhorn-product-name} uses `nsenter` to understand block devices' usage or encrypt/decrypt volumes on the host.
+{longhorn-product-name} components require root access with privileged permissions to achieve volume operations and management, because {longhorn-product-name} relies on system resources on the host across different namespaces. For example, {longhorn-product-name} uses `nsenter` to understand block devices' usage or encrypt or decrypt volumes on the host.
 
 Below are the directories {longhorn-product-name} components requiring access with root and privileged permissions :
 
 * Longhorn Manager
- ** /boot: Get information about required modules from `/boot/config-$(uname -r)` on the host.
- ** /dev: Block devices created by Longhorn are under the `/dev` path.
- ** /proc: Find the recognized host process like container runtime, then use `nsenter` to access the mounts on the host to understand disks usage.
- ** /var/lib/longhorn: The default path for storing volume data on a host.
+ ** `/boot`: Get information about required modules from `/boot/config-$(uname -r)` on the host.
+ ** `/dev`: Block devices created by Longhorn are under the `/dev` path.
+ ** `/proc`: Find the recognized host process like container runtime, then use `nsenter` to access the mounts on the host to understand disks usage.
+ ** `/var/lib/longhorn`: The default path for storing volume data on a host.
 * Longhorn Engine Image
- ** /var/lib/longhorn/engine-binaries: The default path for storing the Longhorn engine binaries.
+ ** `/var/lib/longhorn/engine-binaries`: The default path for storing the Longhorn engine binaries.
 * Longhorn Instance Manager
- ** /: Access any data path on this node and access Longhorn engine binaries.
- ** /dev: Block devices created by Longhorn are under the `/dev` path.
- ** /proc: Find the recognized host process like container runtime, then use `nsenter` to manage iSCSI targets and initiators, also some file system
+ ** `/`: Access any data path on this node and access Longhorn engine binaries.
+ ** `/dev`: Block devices created by Longhorn are under the `/dev` path.
+ ** `/proc`: Find the recognized host process like container runtime, then use `nsenter` to manage iSCSI targets and initiators, also some file system
 * Longhorn Share Manager
- ** /dev: Block devices created by Longhorn are under the `/dev` path.
- ** /lib/modules: Kernel modules required by `cryptsetup` for volume encryption.
- ** /proc: Find the recognized host process like container runtime, then use `nsenter` for volume encryption.
- ** /sys: Support volume encryption by `cryptsetup`.
-* Longhorn CSI Plugin
- ** /: For host checks via the NFS customer mounter (deprecated). Note that, this will be removed in the future release.
- ** /dev: Block devices created by Longhorn are under the `/dev` path.
- ** /lib/modules: Kernel modules required by Longhorn CSI plugin.
- ** /sys: Support volume encryption by `cryptsetup`.
- ** /var/lib/kubelet/plugins/kubernetes.io/csi: The path where the Longhorn CSI plugin creates the staging path (via `NodeStageVolume`) of a block device. The staging path will be bind-mounted to the target path `/var/lib/kubelet/pods` (via `NodePublishVolume`) for support single volume could be mounted to multiple Pods.
- ** /var/lib/kubelet/plugins_registry: The path where the node-driver-registrar registers the CSI plugin with kubelet.
- ** /var/lib/kubelet/plugins/driver.longhorn.io: The path where the socket for the communication between kubelet Longhorn CSI driver.
+ ** `/dev`: Block devices created by Longhorn are under the `/dev` path.
+ ** `/lib/modules`: Kernel modules required by `cryptsetup` for volume encryption.
+ ** `/proc`: Find the recognized host process like container runtime, then use `nsenter` for volume encryption.
+ ** `/sys`: Support volume encryption by `cryptsetup`.
+* Longhorn CSI Plug-in
+ ** `/`: For host checks via the NFS customer mounter (deprecated). *Note*: this is going be removed in the future release.
+ ** `/dev`: Block devices created by Longhorn are under the `/dev` path.
+ ** `/lib/modules`: Kernel modules required by Longhorn CSI plug-in.
+ ** `/sys`: Support volume encryption by `cryptsetup`.
+ ** `/var/lib/kubelet/plugins/kubernetes.io/csi`: The path where the Longhorn CSI plug-in creates the staging path (via `NodeStageVolume`) of a block device. The staging path is bind-mounted to the target path `/var/lib/kubelet/pods` (via `NodePublishVolume`) for support single volume could be mounted to multiple Pods.
+ ** `/var/lib/kubelet/plugins_registry`: The path where the node-driver-registrar registers the CSI plug-in with kubelet.
+ ** `/var/lib/kubelet/plugins/driver.longhorn.io`: The path where the socket for the communication between kubelet Longhorn CSI driver.
  ** /var/lib/kubelet/pods: The path where the Longhorn CSI driver mounts volume from the target path (via `NodePublishVolume`).
 * Longhorn CSI Attacher/Provisioner/Resizer/Snapshotter
- ** /var/lib/kubelet/plugins/driver.longhorn.io: The path where the socket for the communication between kubelet Longhorn CSI driver.
+ ** `/var/lib/kubelet/plugins/driver.longhorn.io`: The path where the socket for the communication between kubelet Longhorn CSI driver.
 * Longhorn Backing Image Manager
- ** /var/lib/longhorn: The default path for storing data on the host.
+ ** `/var/lib/longhorn`: The default path for storing data on the host.
 * Longhorn Backing Image Data Source
- ** /var/lib/longhorn: The default path for storing data on the host.
+ ** `/var/lib/longhorn`: The default path for storing data on the host.
 * Longhorn System Restore Rollout
- ** /var/lib/longhorn/engine-binaries: The default path for storing the Longhorn engine binaries.
+ ** `/var/lib/longhorn/engine-binaries`: The default path for storing the Longhorn engine binaries.
 
-[discrete]
-== Installing open-iscsi
+In rare cases, it may be required to modify the installed SELinux policy to get {longhorn-product-name} working. If you are running an up-to-date version of a Fedora downstream distribution (for example, Fedora, RHEL, Rocky, CentOS, etc.) and plan to leave
+SELinux enabled, see https://longhorn.io/kb/troubleshooting-volume-attachment-fails-due-to-selinux-denials/[Troubleshooting: Volume Attachment Fails Due to SELinux Denials] for details.
 
-The command used to install `open-iscsi` differs depending on the Linux distribution.
+=== Install NFSv4 client
 
-For GKE, we recommend using Ubuntu as the guest OS image since it contains``open-iscsi`` already.
+In Longhorn system, backup feature requires NFSv4, v4.1 or v4.2, and ReadWriteMany (RWX) volume feature requires NFSv4.1. Before installing NFSv4 client userspace daemon and utilities, make sure the client kernel support is enabled on each Longhorn node.
 
-You may need to edit the cluster security group to allow SSH access.
-
-* SUSE and openSUSE: Run the following command:
+* Check if `NFSv4` support is enabled in the kernel:
 +
+[,bash]
 ----
-zypper install open-iscsi
-systemctl enable iscsid
-systemctl start iscsid
+cat /boot/config-`uname -r`| grep CONFIG_NFS_V4
 ----
 
-* Debian and Ubuntu: Run the following command:
+* Check if `NFSv4.1` support is enabled in the kernel:
 +
-----
-apt-get install open-iscsi
-----
-
-* RHEL, CentOS, and EKS _(EKS Kubernetes Worker AMI with AmazonLinux2 image)_: Run the following commands:
-+
-----
-yum --setopt=tsflags=noscripts install iscsi-initiator-utils
-echo "InitiatorName=$(/sbin/iscsi-iname)" > /etc/iscsi/initiatorname.iscsi
-systemctl enable iscsid
-systemctl start iscsid
-----
-
-Please ensure iscsi_tcp module has been loaded before iscsid service starts. Generally, it should be automatically loaded along with the package installation.
-
-----
-modprobe iscsi_tcp
-----
-
-IMPORTANT: On SUSE and openSUSE, the `iscsi_tcp` module is included only in the `kernel-default` package. If the `kernel-default-base` package is installed on your system, you must replace it with `kernel-default`.
-
-We also provide an `iscsi` installer to make it easier for users to install `open-iscsi` automatically. You can use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI] to install the prerequisites.
-
-You can use the `longhornctl check preflight` command. This command verifies your Kubernetes cluster environment to ensure it meets the requirements of {longhorn-product-name}. It performs a series of checks that can help identify potential issues that may prevent {longhorn-product-name} from functioning correctly.
-
-Example:
-
-[,shell]
-----
-> longhornctl check preflight
-INFO[2025-08-22T12:58:40+08:00] Initializing preflight checker               
-INFO[2025-08-22T12:58:40+08:00] Cleaning up preflight checker                
-INFO[2025-08-22T12:58:42+08:00] Running preflight checker                    
-INFO[2025-08-22T12:58:49+08:00] Retrieved preflight checker result:
-ip-10-0-1-132:
-  info:
-  - Service iscsid is running
-  - NFS4 is supported
-  - Package nfs-client is installed
-  - Package open-iscsi is installed
-  - Package cryptsetup is installed
-  - Package device-mapper is installed
-  - Module dm_crypt is loaded
-  warn:
-  - Kube DNS "coredns" is set with fewer than 2 replicas; consider increasing replica count for high availability
-INFO[2025-08-22T12:58:49+08:00] Cleaning up preflight checker                
-INFO[2025-08-22T12:58:50+08:00] Completed preflight checker
-----
-
-In rare cases, it may be required to modify the installed SELinux policy to get {longhorn-product-name} working. If you are running
-an up-to-date version of a Fedora downstream distribution (e.g. Fedora, RHEL, Rocky, CentOS, etc.) and plan to leave
-SELinux enabled, see link:https://longhorn.io/kb/troubleshooting-volume-attachment-fails-due-to-selinux-denials[the KB] for details.
-
-[discrete]
-== Installing NFSv4 client
-
-The backup feature requires NFSv4, v4.1 or v4.2, and ReadWriteMany (RWX) volume feature requires NFSv4.1. Before installing NFSv4 client userspace daemon and utilities, make sure the client kernel support is enabled on each {longhorn-product-name} node.
-
-* Check `NFSv4.1` support is enabled in kernel
-+
+[,bash]
 ----
 cat /boot/config-`uname -r`| grep CONFIG_NFS_V4_1
 ----
 
-* Check `NFSv4.2` support is enabled in kernel
+* Check if `NFSv4.2` support is enabled in the kernel:
 +
+[,bash]
 ----
 cat /boot/config-`uname -r`| grep CONFIG_NFS_V4_2
 ----
@@ -198,18 +149,21 @@ The command used to install a NFSv4 client differs depending on the Linux distri
 
 * For Debian and Ubuntu, use this command:
 +
+[,bash]
 ----
 apt-get install nfs-common
 ----
 
 * For RHEL, CentOS, and EKS with `EKS Kubernetes Worker AMI with AmazonLinux2 image`, use this command:
 +
+[,bash]
 ----
 yum install nfs-utils
 ----
 
 * For SUSE/OpenSUSE you can install a NFSv4 client via:
 +
+[,bash]
 ----
 zypper install nfs-client
 ----
@@ -217,112 +171,325 @@ zypper install nfs-client
 * For Talos Linux, https://www.talos.dev/v1.6/kubernetes-guides/configuration/storage/#nfs[the NFS client is part of the `kubelet` image maintained by the Talos team].
 * For Container-Optimized OS, https://cloud.google.com/kubernetes-engine/docs/concepts/node-images#storage_driver_support[the NFS is supported with the node image].
 
-We also provide an `nfs` installer to make it easier for users to install `nfs-client` automatically. You can use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI] to install the prerequisites.
+You can also use the xref:_longhorn_command_line_tool[Longhorn Command Line Tool] to install `nfs-client` automatically.
 
-You can use the `longhornctl check preflight` command. This command verifies your Kubernetes cluster environment to ensure it meets {longhorn-product-name}. It performs a series of checks that can help identify potential issues that may prevent {longhorn-product-name} from functioning correctly.
+[NOTE]
+====
+These steps only verify that the kernel supports NFSv4, v4.1, or v4.2.  
+To verify the NFS version in use, run `mount | grep nfs` or `nfsstat -m` to confirm the mounted version. Using the correct NFS version is required for backup and RWX volume features in {longhorn-product-name}.
+====
 
-Example:
+=== Install Cryptsetup and LUKS
 
-[,shell]
-----
-> longhornctl check preflight
-INFO[2025-08-22T12:58:40+08:00] Initializing preflight checker               
-INFO[2025-08-22T12:58:40+08:00] Cleaning up preflight checker                
-INFO[2025-08-22T12:58:42+08:00] Running preflight checker                    
-INFO[2025-08-22T12:58:49+08:00] Retrieved preflight checker result:
-ip-10-0-1-132:
-  info:
-  - Service iscsid is running
-  - NFS4 is supported
-  - Package nfs-client is installed
-  - Package open-iscsi is installed
-  - Package cryptsetup is installed
-  - Package device-mapper is installed
-  - Module dm_crypt is loaded
-  warn:
-  - Kube DNS "coredns" is set with fewer than 2 replicas; consider increasing replica count for high availability
-INFO[2025-08-22T12:58:49+08:00] Cleaning up preflight checker                
-INFO[2025-08-22T12:58:50+08:00] Completed preflight checker
-----
-
-[discrete]
-== Installing Cryptsetup and LUKS
-
-https://gitlab.com/cryptsetup/cryptsetup[Cryptsetup] is an open-source utility used to conveniently set up `dm-crypt` based device-mapper targets and {longhorn-product-name} uses https://gitlab.com/cryptsetup/cryptsetup#luks-design[LUKS2] (Linux Unified Key Setup) format that is the standard for Linux disk encryption to support volume encryption.
+https://gitlab.com/cryptsetup/cryptsetup[Cryptsetup] is an open-source utility used to conveniently set up `dm-crypt` based device-mapper targets and Longhorn uses https://gitlab.com/cryptsetup/cryptsetup#luks-design[Linux Unified Key Setup] (LUKS2) format that is the standard for Linux disk encryption to support volume encryption.
 
 The command used to install the cryptsetup tool differs depending on the Linux distribution.
 
 * For Debian and Ubuntu, use this command:
 +
-[subs="+attributes",shell]
+[,shell]
 ----
 apt-get install cryptsetup
 ----
 
 * For RHEL, CentOS, Rocky Linux and EKS with `EKS Kubernetes Worker AMI with AmazonLinux2 image`, use this command:
 +
-[subs="+attributes",shell]
+[,shell]
 ----
 yum install cryptsetup
 ----
 
-* For SUSE/OpenSUSE, use this command:
+* For SUSE and OpenSUSE, use this command:
 +
-[subs="+attributes",shell]
+[,shell]
 ----
 zypper install cryptsetup
 ----
 
-[discrete]
-== Installing Device Mapper Userspace Tool
+=== Install Device Mapper Userspace Tool
 
-The device mapper is a framework provided by the Linux kernel for mapping physical block devices onto higher-level virtual block devices. It forms the foundation of the `dm-crypt` disk encryption and provides the linear dm device on the top of v2 volume. The device mapper is typically included by default in many Linux distributions. Some lightweight or highly customized distributions or a minimal installation of a distribution might exclude it to save space or reduce complexity
+The device mapper is a framework provided by the Linux kernel for mapping physical block devices onto higher-level virtual block devices. It forms the foundation of the `dm-crypt` disk encryption and provides the linear dm device on the top of V2 volume. The device mapper is typically included by default in many Linux distributions. Some lightweight or highly customized distributions or a minimal installation of a distribution might exclude it to save space or reduce complexity
 
 The command used to install the device mapper differs depending on the Linux distribution.
 
 * For Debian and Ubuntu, use this command:
 +
-[subs="+attributes",shell]
+[,shell]
 ----
 apt-get install dmsetup
 ----
 
 * For RHEL, CentOS, Rocky Linux and EKS with `EKS Kubernetes Worker AMI with AmazonLinux2 image`, use this command:
 +
-[subs="+attributes",shell]
+[,shell]
 ----
 yum install device-mapper
 ----
 
 * For SUSE/OpenSUSE, use this command:
 +
-[subs="+attributes",shell]
+[,shell]
 ----
 zypper install device-mapper
 ----
 
+=== V1 Data Engine Requirements
+
+This is the default installation path for {longhorn-product-name}. If you have completed the xref:_installation_requirements[Installation Requirements] and installed {longhorn-product-name} using the xref:_installation_methods[Installation Methods], {longhorn-product-name} runs with the V1 Data Engine by default.
+
+In this default mode:
+
+* Volumes use the V1 Data Engine.
+* Volume data is stored on file system-type disks.
+* {longhorn-product-name} uses the default file system-type disk at `/var/lib/longhorn` unless you configure additional file system-type disks.
+
+No additional data-engine-specific steps are required after installing {longhorn-product-name}.
+
+=== Installing `open-iscsi`
+
+The command used to install `open-iscsi` differs depending on the Linux distribution.
+
+For GKE, we recommend using Ubuntu as the guest OS image since it contains `open-iscsi` already.
+
+You may need to edit the cluster security group to allow SSH access.
+
+* SUSE and openSUSE:
++
+[,shell]
+----
+zypper install open-iscsi
+systemctl enable iscsid
+systemctl start iscsid
+----
+
+* Debian and Ubuntu:
++
+[,shell]
+----
+apt-get install open-iscsi
+----
+
+* RHEL, CentOS, and EKS _(EKS Kubernetes Worker AMI with AmazonLinux2 image)_:
++
+[,shell]
+----
+yum --setopt=tsflags=noscripts install iscsi-initiator-utils
+echo "InitiatorName=$(/sbin/iscsi-iname)" > /etc/iscsi/initiatorname.iscsi
+systemctl enable iscsid
+systemctl start iscsid
+----
+
+Please ensure that the `iscsi_tcp` module has been loaded before the `iscsid` service starts. Generally, it should be automatically loaded along with the package installation.
+
+[,shell]
+----
+modprobe iscsi_tcp
+----
+
+[IMPORTANT]
+====
+On SUSE and openSUSE, the `iscsi_tcp` module is included only in the `kernel-default` package. If the `kernel-default-base` package is installed on your system, you must replace it with `kernel-default`.
+====
+
+We also provide an `iscsi` installer to make it easier for users to install `open-iscsi` automatically. You can use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI] to install the prerequisites.
+
+=== V2 Data Engine Requirements
+
+This section is for clusters that uses the *V2 Data Engine*. Complete the shared xref:_installation_requirements[Installation Requirements]first, then prepare each V2 node and enable the V2 Data Engine.
+
+{longhorn-product-name}'s V2 Data Engine utilizes the Storage Performance Development Kit (SPDK) to deliver enhanced performance with lower I/O latency and higher IOPS and throughput.
+
+Before you enable the V2 Data Engine, ensure that each Longhorn node that is going to host V2 volumes meets the following requirements:
+
+* AMD64 or ARM64 CPU
+** AMD64 CPUs require SSE4.2 instruction support.
+* Linux kernel 6.7 or later for NVMe/TCP support and better stability.
+* Required kernel modules:
+** `vfio_pci`
+** `uio_pci_generic`
+** `nvme-tcp`
+* Huge page support:
+** 2 GiB of 2 MiB-sized pages on each Longhorn node
+* Raw block disks for V2 volumes
+** Local NVMe disks are strongly recommended for best performance.
+
+When the V2 Data Engine is enabled, each V2 instance-manager pod typically consumes one dedicated CPU core because the `spdk_tgt` process uses intensive polling.
+
+After confirming these prerequisites, configure the V2 environment on each node and then enable the V2 Data Engine in {longhorn-product-name}.
+
+==== IOMMU Group Isolation Requirement
+
+For the V2 Data Engine (SPDK) to claim a disk, the NVMe device must be isolatable. Because SPDK uses `vfio-pci`, the following hardware constraints apply:
+
+* VFIO must claim the entire IOMMU group.
+* If a group contains multiple devices, all devices in that group must be bound to VFIO.
+* The Linux kernel does not allow binding a PCIe bridge or switch port to `vfio-pci`.
+
+If your hardware topology places an NVMe device in the same IOMMU group as its parent PCIe bridge, SPDK cannot initialize the device. In such cases, the disk must be used in *AIO mode* instead of the SPDK NVMe path.
+
+==== Load Kernel Modules
+
+For Debian and Ubuntu, install Linux kernel extra modules before loading the required kernel modules:
+
+[,shell]
+----
+apt install -y linux-modules-extra-`uname -r`
+----
+
+To configure the necessary kernel modules and huge pages for SPDK, you can use the xref:longhorn-system/system-access/install-longhorn-cli.adoc[Longhorn CLI].
+
+Or, load the required modules manually on each Longhorn node:
+
+[,shell]
+----
+modprobe vfio_pci
+modprobe uio_pci_generic
+modprobe nvme-tcp
+----
+
+To avoid reloading these modules after every reboot, configure your operating system to load them automatically during boot.
+
+==== Enable HugePages
+
+SPDK uses huge pages for performance and memory efficiency. You must configure 2 MiB-sized huge pages on each Longhorn node. Specifically, 1024 pages must be available on each node, which is equivalent to 2 GiB in total.
+
+To allocate huge pages temporarily:
+
+[,shell]
+----
+echo 1024 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
+----
+
+===== Configure Huge Pages Persistently
+
+Huge page allocations made through `/sys/kernel/mm/hugepages/...` are not persistent across reboots. To make the allocation persistent, configure the kernel boot parameters.
+
+. Update `/etc/default/grub` and append the required huge page parameters:
++
+[,shell]
+----
+GRUB_CMDLINE_LINUX="hugepagesz=2M hugepages=1024"
+----
+
+. Apply the GRUB configuration:
++
+* BIOS systems:
++
+[,shell]
+----
+sudo update-grub
+----
++
+* RHEL or SUSE with GRUB2:
++
+[,shell]
+----
+sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+----
++
+* UEFI systems:
++
+[,shell]
+----
+sudo grub2-mkconfig -o /boot/efi/EFI/<distro>/grub.cfg
+----
+
+. Reboot the node:
++
+[,shell]
+----
+sudo reboot
+----
+
+. Verify the huge pages:
++
+[,shell]
+----
+grep Huge /proc/meminfo
+----
++
+Expected output:
++
+[,text]
+----
+HugePages_Total:    1024
+Hugepagesize:       2048 kB
+----
+
+. Verify the Kubernetes node resources:
++
+[,shell]
+----
+kubectl describe node <node-name>
+----
++
+Expected in *Capacity* and *Allocatable*:
++
+[,text]
+----
+hugepages-2Mi: 2Gi
+----
+
+==== Restart kubelet
+
+Restart `kubelet` on each node so Kubernetes can detect and use the configured huge pages.
+
+==== Enable V2 Data Engine
+
+After {longhorn-product-name} is installed, enable the V2 Data Engine by changing the `v2-data-engine` setting to `true`.
+
+You can do this in the {longhorn-product-name} UI under *Settings > V2 Data Engine*.
+
+After the setting is enabled, the instance-manager pods are automatically restarted.
+
+[NOTE]
+====
+When the V2 Data Engine is enabled, each instance-manager pod for the V2 Data Engine typically consumes one dedicated CPU core because the `spdk_tgt` process uses intensive polling.
+====
+
+==== Add `block-type` Disks in Longhorn Nodes
+
+Unlike `filesystem-type` disks that are designed for legacy volumes, volumes using the V2 Data Engine are persistent on `block-type` disks. Therefore, nodes that host V2 volumes must provide `block-type` disks. For more information about block-type disks, see xref:nodes/multiple-disks.adoc[Block-Type Disks].
+
 == Longhorn Command Line Tool
 
-=== Checking Prerequisites Using Longhorn Command Line Tool
+You can use `longhornctl` to check and install prerequisites for either the default V1 installation path or the V2 Data Engine installation path.
 
-The `longhornctl` tool is a command-line interface (CLI) for Longhorn operations. For more information, see xref:longhorn-system/system-access/install-longhorn-cli.adoc[Command Line Tool (longhornctl)].
+=== Download `longhornctl`
 
-To check prerequisites and configurations, download the `longhornctl` tool and then run the `check` sub-command:
+Download the `longhornctl` binary for your platform:
 
-[subs="+attributes",bash]
+The `longhornctl` tool is a CLI for Longhorn operations. For more information, see xref:longhorn-system/system-access/install-longhorn-cli.adoc[Command Line Tool (longhornctl)].
+
+[,shell]
 ----
 # For AMD64 platform
-curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-amd64
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{{< current-version >}}/longhornctl-linux-amd64
 # For ARM platform
-curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-arm64
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{{< current-version >}}/longhornctl-linux-arm64
 
 chmod +x longhornctl
+----
+
+=== Check Prerequisites
+
+Use the base preflight check for the default V1 installation path. If you plan to use the V2 Data Engine, run the same check with `--enable-spdk` to validate the additional V2 requirements.
+
+For V1 Data Engine:
+
+[,shell]
+----
 ./longhornctl check preflight
 ----
 
 Example of result:
 
-[,text]
+[,shell]
+----
+./longhornctl check preflight
+----
+
+[,shell]
 ----
 INFO[2024-01-01T00:00:01Z] Initializing preflight checker
 INFO[2024-01-01T00:00:01Z] Cleaning up preflight checker
@@ -344,29 +511,34 @@ worker2:
   - Package open-iscsi is installed
 ----
 
-=== Installing Prerequisites Using Longhorn Command Line Tool
+For V2 Data Engine:
 
-Use the `install` sub-command to install and set up the preflight dependencies before installing Longhorn. This involves operations that may require a system reboot on certain Linux distributions.
-
-Here are examples of how to use the `install` sub-command:
-
-. To run from a locally downloaded `longhornctl` binary:
-+
-[,bash]
+[,shell]
 ----
-./longhornctl install preflight
+./longhornctl check preflight --enable-spdk
 ----
 
-. To run with explicit `kube-config` and `image` parameters:
-+
-[subs="+attributes",bash]
+This command validates, among other things:
+
+* CPU instruction requirements.
+* HugePages availability.
+* SPDK-related kernel modules.
+* Base {longhorn-product-name} dependencies such as `open-iscsi` and NFS support.
+
+=== Install Prerequisites
+
+Use the base install command for the default V1 installation path. If you plan to use the V2 Data Engine, run the install command with `--enable-spdk` to install the additional V2 prerequisites.
+
+For V1 Data Engine:
+
+[,shell]
 ----
-longhornctl --kubeconfig ~/.kube/config --image longhornio/longhorn-cli:v{patch-version} install preflight
+longhornctl --kubeconfig ~/.kube/config --image longhornio/longhorn-cli:v{{< current-version >}} install preflight
 ----
 
-Example of result after running the install command:
+Example of result:
 
-[,text]
+[,shell]
 ----
 INFO[2025-03-11T08:17:57+08:00] Initializing preflight installer
 INFO[2025-03-11T08:17:57+08:00] Cleaning up preflight installer
@@ -379,7 +551,16 @@ INFO[2025-03-11T08:18:28+08:00] Completed preflight installer. Use 'longhornctl 
 
 [NOTE]
 ====
-On some immutable Linux distributions, such as SUSE Linux Enterprise Micro (SLE Micro), you might need to reboot worker nodes after running the `install` sub-command for changes to take effect. After the reboot, you must run the `install` sub-command again to complete the operation.
+Some immutable Linux distributions, such as SUSE Linux Enterprise Micro (SLE Micro), require you to reboot worker nodes after running the `install` sub-command. After the reboot, you must run the `install` sub-command again to complete the operation.
 
-The documentation of the Linux distribution you are using should outline such requirements. For example, the link:https://documentation.suse.com/sle-micro/6.0/html/Micro-transactional-updates/index.html#reference-transactional-update-usage[SLE Micro documentation] explains how all changes made by the `transactional-update` command become active only after the node is rebooted.
+The documentation of the Linux distribution you are using should outline such requirements. For example, the https://documentation.suse.com/sle-micro/6.0/html/Micro-transactional-updates/index.html#reference-transactional-update-usage[SLE Micro documentation] explains how all changes made by the `transactional-update` command become active only after the node is rebooted.
 ====
+
+For V2 Data Engine:
+
+[,shell]
+----
+longhornctl --kubeconfig ~/.kube/config --image longhornio/longhorn-cli:v{{< current-version >}} install preflight --enable-spdk
+----
+
+After installation, run the check command again to verify that all V2-related prerequisites are correctly configured.

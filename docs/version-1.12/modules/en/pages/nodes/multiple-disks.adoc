@@ -1,18 +1,34 @@
 = Multiple Disks
-:revdate: 2025-07-04
+:revdate: 2026-05-25
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 {longhorn-product-name} supports using more than one disk on the nodes to store the volume data.
 
-By default, {longhorn-product-name} stores volume data in the `/var/lib/longhorn` directory on the host. To use a different disk for storage, you can add a new disk and disable scheduling for the default directory. This approach provides the flexibility to manage storage based on your specific requirements.
+== Disk Types
+
+{longhorn-product-name} supports two types of disks:
+
+* *Filesystem-type disk (`diskType: filesystem`)*: It is used by the *V1 Data Engine*. The disk must be formatted with an extent-based file system (for example, Ext4 or xfs) and mounted to a directory on the host.
+* *Block-type disk (`diskType: block`)*: It is used by the *V2 Data Engine*. The disk is used as a raw block device without a file system.
+
+Each disk type is tied to its corresponding data engine:
+
+* V1 volumes are scheduled only to file system-type disks.
+* V2 volumes are scheduled only to block-type disks.
+
+== Default Disk Behavior
+
+When a node is first added to {longhorn-product-name}, the system creates a default *file system-type disk* at `/var/lib/longhorn`. This default disk is used for V1 volumes unless you disable scheduling for it or add other file system-type disks.
 
 == Add a Disk
 
-Before adding a disk to {longhorn-product-name}, mount it to a directory on the Longhorn node's host.
+=== Add a File System-Type Disk
 
-. **Choose a Disk**: Select the physical or virtual disk for Longhorn storage and format it with an extent-based filesystem (for example, ext4 or XFS).
-. **Mount the Disk**: Mount the disk to a directory on the host, such as `/mnt/example-disk`. Ensure the directory is accessible and correctly configured.
+File system-type disks are used for V1 volumes. Before adding one to {longhorn-product-name}, you must prepare and mount it on the host.
+
+. *Choose a Disk*: Select the physical or virtual disk for {longhorn-product-name} storage and format it with an extent-based file system (for example, Ext4 or XFS).
+. *Mount the Disk*: Mount the disk to a directory on the host, such as `/mnt/example-disk`. Ensure the directory is accessible and correctly configured.
 
 After the disk is mounted, you can add it to {longhorn-product-name} by using either the UI or the `kubectl` command-line tool.
 
@@ -54,28 +70,200 @@ Once a disk is added:
 [NOTE]
 ====
 . You cannot add a disk path that another {longhorn-product-name} disk already uses.
-. {longhorn-product-name} uses the filesystem ID to detect duplicate mounts. Therefore, you cannot add a disk with the *same filesystem ID* as another disk on the same node.
+. {longhorn-product-name} uses the file system ID to detect duplicate mounts. Therefore, you cannot add a disk with the *same file system ID* as another disk on the same node.
 +
 For more information, see issue https://github.com/longhorn/longhorn/issues/2477[#2477].
 ====
 
+==== Use an Alternative Path for a File System-Type Disk on the Node
+
+If you prefer to use a different path for a file system-type disk (rather than the original mount point), you can use `mount --bind` to create an alternative path. Do *not* use symbolic link (`lh -s`), as these are not properly resolved inside Longhorn pods.
+
+Make sure the alternative path is remounted after a node reboot, for example, by adding it to `/etc/fstab`.
+
+=== Add a Block-Type Disk
+
+Block-type disks are used for V2 volumes. The V2 Data Engine requires raw block devices for direct access.
+
+{longhorn-product-name} supports several ways to manage block-type disks on a node:
+
+* *NVMe disks*: It is managed with the `nvme` driver.
+* *VirtIO disks*: It is managed with the `virtio-blk` driver.
+* *Other block devices*: It is managed with the `aio` driver.
+
+==== Prerequisites
+
+* The V2 Data Engine must be enabled. See xref:longhorn-system/v2-data-engine/quick-start-guide.adoc[V2 Data Engine Quick Start].
+* {longhorn-product-name} prevents adding block disks that contain an existing file system or partition table. Clean the disk first:
++
+[,shell]
+----
+wipefs -a /path/to/block/device
+----
+
+==== Steps
+
+You can add a block-type disk using the {longhorn-product-name} UI or `kubectl`.
+
+* *Using the {longhorn-product-name} UI*:
++
+. Go to the *Nodes* tab, select a node, and choose *Edit Disks* from the dropdown menu.
+. Add the block device path and set the disk type to *Block*.
++
+* *Using `kubectl` Command*:
++
+. Run `kubectl edit node.longhorn.io <node-name>` to edit the Longhorn node resource.
+. Add the block disk to `spec.disks`. For example:
++
+[,yaml]
+----
+...
+spec:
+  ...
+  disks:
+    ...
+    block-disk:
+      allowScheduling: true
+      diskDriver: auto
+      diskType: block
+      evictionRequested: false
+      path: /dev/sdb
+      storageReserved: 0
+      tags: []
+...
+----
+
+. Save and exit the editor.
+
+==== Disk Driver
+
+The `diskDriver` field controls how {longhorn-product-name} accesses the block device. Setting it to `auto` allows {longhorn-product-name} to detect the appropriate driver automatically:
+
+* *NVMe disks*: It uses the `nvme` driver. The `path` can be a BDF (Bus Device Function) notation (for example, `0000:05:00.0`).
+* *VirtIO disks*: It uses the `virtio-blk` driver. The `path` can also be a BDF notation.
+* *Other disks*: It falls back to the `aio` (Linux AIO) driver. The `path` should be a standard device path (for example, `/dev/sdb`).
+
+After the disk is added, check `node.status.diskStatus` to confirm that {longhorn-product-name} detected the disk without errors and assigned the expected `diskDriver`.
+
+[NOTE]
+====
+When a disk is managed by the `nvme` or `virtio-blk` driver, it is no longer exposed through the original Linux kernel device node such as `/dev/nvmeXnY` or `/dev/vdX`.
+====
+
+[#_using_aio_disks]
+===== Using AIO Disks
+
+When a block device is neither NVMe nor VirtIO, or when you want to force Linux AIO, configure it with `diskDriver: aio` and use a standard device path.
+
+[,yaml]
+----
+aio-disk:
+  allowScheduling: true
+  diskDriver: aio
+  diskType: block
+  evictionRequested: false
+  path: /dev/sdb
+  storageReserved: 0
+  tags: []
+----
+
+[NOTE]
+====
+. Block-type disks are exclusively used by the V2 Data Engine and cannot be used for V1 volumes.
+. The disk must be clean and must not contain an existing file system or partition table before it is added. Use `wipefs -a /path/to/block/device` to clean it.
+. For disk-specific configuration examples, see xref:_using_nvme_disks[Using NVMe Disks], xref:_using_virtio_disks[Using VirtIO Disks], and xref:_using_aio_disks[Using AIO Disks].
+====
+
+[#_using_nvme_disks]
+===== Using NVMe Disks
+
+To let {longhorn-product-name} use the `nvme` driver, add the disk by its BDF instead of the Linux device path.
+
+. Identify the available disks on the node. For example:
++
+[,bash]
+----
+ls -al /sys/block/
+----
++
+Example output:
++
+[,bash]
+----
+lrwxrwxrwx  1 root root 0 Jul 30 12:20 loop0 -> ../devices/virtual/block/loop0
+lrwxrwxrwx  1 root root 0 Jul 30 12:20 nvme0n1 -> ../devices/pci0000:00/0000:00:01.2/0000:02:00.0/nvme/nvme0/nvme0n1
+lrwxrwxrwx  1 root root 0 Jul 30 12:20 nvme1n1 -> ../devices/pci0000:00/0000:00:01.2/0000:05:00.0/nvme/nvme1/nvme1n1
+----
+
+. Find the BDF of the target NVMe disk. In the example above, the BDF of `/dev/nvme1n1` is `0000:05:00.0`.
+
+. Add the disk to `spec.disks`. For example:
++
+[,yaml]
+----
+nvme-disk:
+  allowScheduling: true
+  diskType: block
+  diskDriver: auto
+  evictionRequested: false
+  path: 0000:05:00.0
+  storageReserved: 0
+  tags: []
+----
+
+If you instead add the same disk using `/dev/nvme1n1`, {longhorn-product-name} treats it as an `aio` disk instead of an `nvme` disk.
+
+[#_using_virtio_disks]
+===== Using VirtIO Disks
+
+VirtIO disks follow the same pattern. To let {longhorn-product-name} use the `virtio-blk` driver, add the disk by its BDF.
+
+. Identify the available disks on the node. For example:
++
+[,bash]
+----
+ls -al /sys/block/
+----
++
+Example output:
++
+[,bash]
+----
+lrwxrwxrwx  1 root root 0 Feb 22 14:04 vda -> ../devices/pci0000:00/0000:00:02.3/0000:04:00.0/virtio2/block/vda
+lrwxrwxrwx  1 root root 0 Feb 22 14:24 vdb -> ../devices/pci0000:00/0000:00:02.6/0000:07:00.0/virtio5/block/vdb
+----
+
+. Find the BDF of the target VirtIO disk. In the example above, the BDF of `/dev/vdb` is `0000:07:00.0`.
+
+. Add the disk to `spec.disks`. For example:
++
+[,yaml]
+----
+virtio-disk:
+  allowScheduling: true
+  diskType: block
+  diskDriver: auto
+  evictionRequested: false
+  path: 0000:07:00.0
+  storageReserved: 0
+  tags: []
+----
+
+If you instead add the same disk using `/dev/vdb`, {longhorn-product-name} treats it as an `aio` disk instead of a `virtio-blk` disk.
+
 === Root Disk Reservation
 
-Optionally, you can use the *Space Reserved* field in the UI or `spec.disks.<disk-name>.storageReserved` to reserve a portion of disk space (in bytes) for other purposes. {longhorn-product-name} will not use this reserved space for volume data.
+You can use the `Space Reserved` field in the UI or `spec.disks.<disk-name>.storageReserved` to reserve a portion of any disk's space (in bytes) for other purposes. This reserved space will not be used by {longhorn-product-name} for volume data.
 
-To maintain node stability when compute resources (for example, memory or disk) are under pressure, `kubelet` requires some space to remain free. If these critical resources are exhausted, it can lead to node instability.
+To maintain node stability when compute resources (for example, memory or disk) are under pressure, the `kubelet` requires some space to remain free. If these critical resources are exhausted, it can lead to node instability.
 
-By default, {longhorn-product-name} reserves 30% of the root disk space (`/var/lib/longhorn`) to prevent issues such as `DiskPressure` conditions from `kubelet`, especially after scheduling multiple volumes. The `storage-reserved-percentage-for-default-disk` setting controls this behavior.
+For the default file system-type disk at `/var/lib/longhorn`, {longhorn-product-name} *reserves 30% of the root disk space by default* to help prevent issues such as `DiskPressure` conditions from the `kubelet`, particularly after scheduling multiple volumes. This behavior is controlled by the `storage-reserved-percentage-for-default-disk` setting.
 
-=== Use an Alternative Path for a Disk on the Node
-
-If you prefer to use a different path for a disk (rather than the original mount point), you can use `mount --bind` to create an alternative path. Do *not* use a symbolic link (`ln -s`), as symbolic links are not properly resolved inside Longhorn pods.
-
-Ensure the alternative path is remounted after a node reboot, for example, by adding it to `/etc/fstab`.
+This automatic reservation applies only to the default file system-type disk created for V1 volumes. Block-type disks for V2 volumes must be configured explicitly, including any `storageReserved` value that you want to apply.
 
 == Remove a Disk
 
-Nodes and disks can be excluded from future scheduling. Note that any storage already scheduled on a node will not be automatically released when scheduling is disabled for that node.
+Nodes and disks can be excluded from future scheduling. Note that any storage already scheduled on a node would not be automatically released when scheduling is disabled for that node.
 
 To remove a disk:
 
@@ -84,9 +272,11 @@ To remove a disk:
 
 Once the disk is empty and scheduling is disabled, you can safely remove it from the node configuration.
 
-== Configuration
+== Disk-Scheduling Configuration
 
-Two global settings affect volume scheduling:
+There are two global settings that affect disk scheduling.
+
+These settings apply to both file system-type and block-type disks. However, the V1 Data Engine uses sparse files for thin provisioning, so over-provisioning behavior is commonly discussed in the context of file system-type disks.
 
 * `StorageOverProvisioningPercentage` defines the maximum total storage that can be *scheduled* on a disk, relative to its usable capacity. The formula is:
 
@@ -99,7 +289,7 @@ By default, this setting is `100`%.
 
 For example, on a 200 GiB disk with 50 GiB reserved, {longhorn-product-name} considers 150 GiB of usable space. With the default setting, {longhorn-product-name} can schedule up to 150 GiB of volume data.
 
-Because workloads typically do not consume the entire allocated volume size, and {longhorn-product-name} uses sparse files to store data, increasing this setting is generally safe and can help optimize disk utilization.
+Since workloads typically do not consume the entire allocated volume size, increasing this setting can help optimize disk utilization. For V1 volumes, higher values are commonly used because the V1 Data Engine uses sparse files for thin provisioning.
 
 * `StorageMinimalAvailablePercentage` specifies the minimum percentage of free space that must remain on a disk to schedule new replicas. The formula is:
 

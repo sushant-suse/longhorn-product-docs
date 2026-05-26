@@ -1,9 +1,11 @@
 = Create Volumes
-:revdate: 2025-12-09
+:revdate: 2026-05-25
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
-You can create Kubernetes persistent storage resources of persistent volumes (PVs) and persistent volume claims (PVCs) that correspond to Longhorn volumes. You will use kubectl to dynamically provision storage for workloads using a Longhorn StorageClass. For help creating volumes from the {longhorn-product-name} UI, refer to <<_creating_longhorn_volumes_with_the_longhorn_ui,this section>>.
+This page explains how to create Kubernetes persistent storage resources of PersistentVolumes (PVs) and PersistentVolumeClaims (PVCs) that correspond to Longhorn volumes. `kubectl` is used to dynamically provision V1 and V2 volumes for workloads using Longhorn storage classes.
+
+For help creating volumes from the {longhorn-product-name} UI, see the Creating Longhorn Volumes with the xref:_creating_longhorn_volumes_with_the_ui[{longhorn-product-name} UI section].
 
 ____
 This section assumes that you understand how Kubernetes persistent storage works. For more information, see the https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetes documentation].
@@ -22,13 +24,17 @@ ____
 ReadOnlyMany (ROX) is not supported. For read-only access from multiple pods, use ReadWriteMany with read-only mount options in the pod specification.
 ====
 
-== Creating Longhorn Volumes with kubectl
+== Create Longhorn Volumes
+
+=== Creating V1 Longhorn Volumes with kubectl
+
+Before creating a V1 volume, ensure that Longhorn has at least one available file system-type disk. V1 volumes are scheduled only to file system-type disks. For more information, see xref:nodes/multiple-disks.adoc#_add_a_filesystem-type_disk[Add a Filesystem-Type Disk].
 
 First, you need to create a Longhorn StorageClass. The Longhorn StorageClass contains the parameters to provision PVs.
 
 Next, a PersistentVolumeClaim is created that references the StorageClass. Finally, the PersistentVolumeClaim is mounted as a volume within a Pod.
 
-When the Pod is deployed, the Kubernetes master will check the PersistentVolumeClaim to make sure the resource request can be fulfilled. If storage is available, the Kubernetes master will create the Longhorn volume and bind it to the Pod.
+When the Pod is deployed, the Kubernetes master checks the PersistentVolumeClaim to make sure the resource request can be fulfilled. If storage is available, the Kubernetes master creates the Longhorn volume and bind it to the Pod.
 
 . Use following command to create a StorageClass called `longhorn`:
 +
@@ -72,7 +78,7 @@ The parameter `mkfsParams` can be used to specify file system format options for
 +
 The parameter `backupTargetName` can be used to specify the backup target. The name of the default backup target (`default`) is used if `backupTargetName` is not specified.
 +
-Parameters may be omitted from the StorageClass specification. When the StorageClass is used to create a PV and a volume, parameters that are not specified will generally be set using a default value taken from the global settings. For the full list of global settings, see xref:volumes/storageclass-parameters.adoc[StorageClass Parameters] and xref:longhorn-system/settings.adoc[Settings].
+Parameters may be omitted from the StorageClass specification. When the StorageClass is used to create a PV and a volume, parameters that are not specified are generally set using a default value taken from the global settings. For the full list of global settings, see xref:volumes/storageclass-parameters.adoc[StorageClass Parameters] and xref:longhorn-system/settings.adoc[Settings].
 
 . Create a Pod that uses Longhorn volumes by running this command:
 +
@@ -98,9 +104,91 @@ spec:
       storage: 2Gi
 ----
 +
-The persistentVolumeClaim is mounted in the Pod as a volume:
+The PersistentVolumeClaim is mounted in the Pod as a volume:
 +
 [subs="+attributes", yaml]
+----
+apiVersion: v1
+  kind: Pod
+  metadata:
+    name: volume-test
+    namespace: default
+  spec:
+    containers:
+    - name: volume-test
+      image: nginx:stable-alpine
+      imagePullPolicy: IfNotPresent
+      volumeMounts:
+      - name: volv
+        mountPath: /data
+      ports:
+      - containerPort: 80
+    volumes:
+    - name: volv
+      persistentVolumeClaim:
+        claimName: longhorn-volv-pvc
+----
+
+=== Creating V2 Longhorn Volumes with kubectl
+
+Before creating a V2 volume, ensure that the V2 Data Engine is enabled and Longhorn has available block-type disks. V2 volumes are scheduled only to block-type disks. For more information, see xref:v1-v2-volume-behavior-and-feature-parity.adoc[V2 Data Engine Guide] and xref:nodes/multiple-disks.adoc#_add_a_block-type-disk[Add a Block-Type Disk].
+
+. Use the following command to create a StorageClass called `longhorn-v2-data-engine`:
++
+[,shell]
+----
+kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/storageclass.yaml
+----
++
+The following example StorageClass is created:
++
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-v2-data-engine
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  fsType: "ext4"
+  dataEngine: "v2"
+----
++
+The `dataEngine` parameter must be set to `v2` so Longhorn provisions a V2 volume. See xref:volumes/storageclass-parameters.adoc[Storage Class Parameters] for the list of supported parameters.
+
+. Create a Pod that uses a V2 Longhorn volume by running this command:
++
+[,shell]
+----
+kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/pod_with_pvc.yaml
+----
++
+A Pod named `volume-test` is launched, along with a PersistentVolumeClaim named `longhorn-volv-pvc`. The PersistentVolumeClaim references the V2 StorageClass:
++
+[,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: longhorn-volv-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-v2-data-engine
+  resources:
+    requests:
+      storage: 2Gi
+----
++
+The PersistentVolumeClaim is mounted in the Pod as a volume:
++
+[,yaml]
 ----
 apiVersion: v1
 kind: Pod
@@ -108,22 +196,26 @@ metadata:
   name: volume-test
   namespace: default
 spec:
+  restartPolicy: Always
   containers:
   - name: volume-test
     image: nginx:stable-alpine
     imagePullPolicy: IfNotPresent
+    livenessProbe:
+      exec:
+        command:
+          - ls
+          - /data/lost+found
+      initialDelaySeconds: 5
+      periodSeconds: 5
     volumeMounts:
     - name: volv
       mountPath: /data
-    ports:
-    - containerPort: 80
-  volumes:
-  - name: volv
     persistentVolumeClaim:
       claimName: longhorn-volv-pvc
 ----
-+
-More examples are available xref:longhorn-system/examples-resources.adoc[here].
+
+More examples are available xref:longhorn-system/examples-resources.adoc[examples section].
 
 == Binding Workloads to PVs without a Kubernetes StorageClass
 
@@ -131,24 +223,25 @@ It is possible to use a Longhorn StorageClass to bind a workload to a PV without
 
 Since the StorageClass is also a field used to match a PVC with a PV, which does not have to be created by a Provisioner, you can create a PV manually with a custom StorageClass name, then create a PVC asking for the same StorageClass name.
 
-When a PVC requests a StorageClass that does not exist as a Kubernetes resource, Kubernetes will try to bind your PVC to a PV with the same StorageClass name. The StorageClass will be used like a label to find the matching PV, and only existing PVs labeled with the StorageClass name will be used.
+When a PVC requests a StorageClass that does not exist as a Kubernetes resource, Kubernetes tries to bind your PVC to a PV with the same StorageClass name. The StorageClass is used like a label to find the matching PV, and only existing PVs labeled with the StorageClass name are used.
 
-If the PVC names a StorageClass, Kubernetes will:
+If the PVC names a StorageClass, Kubernetes:
 
 . Look for an existing PV that has the label matching the StorageClass
-. Look for an existing StorageClass Kubernetes resource. If the StorageClass exists, it will be used to create a PV.
+. Look for an existing StorageClass Kubernetes resource. If the StorageClass exists, it is used to create a PV.
 
-== Creating Longhorn Volumes with the Longhorn UI
+== Creating Longhorn Volumes with the UI
 
-Since the Longhorn volume already exists while creating PV/PVC, a StorageClass is not needed for dynamically provisioning Longhorn volume. However, the field `storageClassName` should be set in PVC/PV, to be used for PVC binding purposes. It is not necessary for users to create the related StorageClass object.
+Since the Longhorn volume already exists while creating PV or PVC, a StorageClass is not needed for dynamically provisioning Longhorn volume. However, the field `storageClassName` should be set in PVC or PV, to be used for PVC binding purposes. It is not necessary for users to create the related StorageClass object.
 
-By default the StorageClass for Longhorn created PV/PVC is `longhorn-static`. Users can modify it in `Setting - General - Default Longhorn Static StorageClass Name` as they need.
+By default the StorageClass for Longhorn created PV or PVC is `longhorn-static`. Users can modify it in `Setting - General - Default Longhorn Static StorageClass Name` as they need.
 
 Users need to manually delete PVC and PV created by {longhorn-product-name}.
 
 == PV/PVC Creation for Existing Longhorn Volume
 
-Now users can create PV/PVC via our Longhorn UI for the existing Longhorn volumes.
+Now users can create PV or PVC via our Longhorn UI for the existing Longhorn volumes.
+
 Only detached volume can be used by a newly created pod.
 
 == The Failure of the Longhorn Volume Creation
