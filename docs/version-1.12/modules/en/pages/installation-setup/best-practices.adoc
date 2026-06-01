@@ -1,5 +1,5 @@
 = Best Practices
-:revdate: 2026-05-25
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -74,11 +74,11 @@ The following Linux OS distributions and versions have been verified during the 
 
 | 1.
 | Ubuntu
-| 24.04
+| 26.04
 
 | 2.
 | SUSE Linux Enterprise Server
-| 16
+| 16.0
 
 | 3.
 | SUSE Linux Enterprise Micro
@@ -87,10 +87,25 @@ The following Linux OS distributions and versions have been verified during the 
 | 4.
 | Red Hat Enterprise Linux
 | 10.1
+
+| 5.
+| Oracle Linux
+| 10.0
+
+| 6.
+| Rocky Linux
+| 10.1
+
+| 7.
+| Talos Linux
+| 1.11.5
+
+| 8.
+| Container-Optimized OS (GKE)
+| 125
 |===
 
-{longhorn-product-name} relies heavily on kernel functionality and performs better on certain kernel versions. The following activities,
-in particular, benefit from usage of specific kernel versions.
+{longhorn-product-name} relies heavily on kernel functionality and performs better on certain kernel versions. The following activities, in particular, benefit from usage of specific kernel versions.
 
 * Optimizing or improving the file system: Use a kernel with version `v5.8` or later. See https://github.com/longhorn/longhorn/issues/2507#issuecomment-857195496[Issue #2507] for details.
 * Enabling the xref:longhorn-system/settings.adoc#_freeze_filesystem_for_snapshot[Freeze Filesystem for Snapshot] setting: Use a kernel with version `5.17` or later to ensure that a volume crash during a file system freeze cannot lock up a node.
@@ -144,10 +159,6 @@ We recommend running your Kubernetes cluster on one of the following versions. T
 | 1.33
 | 23 Apr 2025
 | 28 Jun 2026
-
-| 1.32
-| 11 Dec 2024
-| 28 Feb 2026
 |===
 
 Referenced to https://endoflife.date/kubernetes.
@@ -158,7 +169,7 @@ Ensure that CoreDNS runs with at least two replicas to maintain high availabilit
 
 == Nodes and Disk Setup
 
-We recommend the following setup for nodes and disks.
+The following setup is recommended for nodes and disks.
 
 === Use a Dedicated Disk
 
