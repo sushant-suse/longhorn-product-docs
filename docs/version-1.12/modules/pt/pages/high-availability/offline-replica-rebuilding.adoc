@@ -1,0 +1,121 @@
+= Reconstrução de Réplicas Offline
+:revdate: 2025-09-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+A partir da versão v1.9.0, {longhorn-product-name} suporta a reconstrução de réplicas offline. Esse recurso permite que volumes degradados tenham as réplicas reconstruídas automaticamente enquanto os volumes estão desanexados.
+
+== Configuração Global `offline-replica-rebuilding`
+
+* Quando habilitado, {longhorn-product-name} inicia automaticamente a reconstrução offline para volumes elegíveis.
+* Para mais informações sobre esta configuração global, veja xref:longhorn-system/settings.adoc#_offline_replica_rebuilding[configurações].
+
+== Substituição por Volume
+
+* Você pode substituir a configuração global `offline-replica-rebuilding` para cada volume individualmente. Isso pode ser feito através da interface {longhorn-product-name} ou editando o Recurso Personalizado do Volume. Para usar `kubectl`, execute o seguinte comando e depois modifique o campo `spec.offlineRebuilding`:
++
+[,bash]
+----
+kubectl -n longhorn-system edit volume <volume-name>
+----
++
+Substitua `<volume-name>` pelo nome do seu volume específico.
+* Quando o campo `spec.offlineRebuilding` por volume está definido como `enabled` ou `disabled`, essa configuração tem precedência sobre a configuração global. O valor padrão para `spec.offlineRebuilding` é `ignored`.
+
+A tabela a seguir mostra como as configurações globais e por volume interagem:
+
+|===
+| Configuração Global (`offline-replica-rebuilding`)
+| Configuração por Volume (`spec.offlineRebuilding`)
+| Reconstrução Offline Habilitada
+
+| `true`
+| `ignored`
+| Sim
+
+| `false`
+| `ignored`
+| Não
+
+| `true`
+| `enabled`
+| Sim
+
+| `false`
+| `enabled`
+| Sim
+
+| `true`
+| `disabled`
+| Não
+
+| `false`
+| `disabled`
+| Não
+|===
+
+== Processo de Reconstrução
+
+* Quando a reconstrução de réplicas offline é acionada, {longhorn-product-name} conecta o volume sem ativar a interface, reconstrói quaisquer réplicas ausentes e, em seguida, desconecta o volume após o processo de reconstrução ser concluído.
+* Esse processo pode ser interrompido se a carga de trabalho associada aumentar e exigir o volume.
+
+== Reconstrução Não Iniciada ou Cancelada
+
+Quando a reconstrução offline começa, volumes degradados podem ficar presos no estado anexado se as condições de reconstrução não forem atendidas. Para evitar isso, se as condições necessárias não forem satisfeitas, a reconstrução offline não começará ou será cancelada.
+
+* *Benefícios*:
+** Isso garante que os volumes não permaneçam presos no estado anexado se a reconstrução nunca terminar.
+** Isso evita tentativas de reconstrução desnecessárias.
+** Isso reduz ciclos desnecessários de anexação e desanexação de volumes.
+** Isso fornece um comportamento de reconstrução previsível com base na disponibilidade de recursos.
+
+* *Condições necessárias*: A reconstrução offline começa automaticamente para volumes degradados assim que as condições necessárias são atendidas. Essas condições incluem:
+** Uma réplica falha reutilizável existe, ou
+** Um candidato a disco existe:
+*** O gerenciador de instâncias no nó que hospeda o disco deve estar pronto.
+*** O nó que contém o disco é agendável.
+*** O próprio disco é agendável.
+
+=== Antes que a reconstrução offline comece
+
+Quando a reconstrução offline está habilitada, {longhorn-product-name} determina se deve começar.
+
+. {longhorn-product-name} detecta um volume degradado e desanexado.
+. O sistema valida se as condições necessárias são atendidas antes de iniciar a reconstrução.
+. Se as condições forem atendidas, a reconstrução prossegue. Caso contrário, o volume permanece desanexado.
+. As condições necessárias são reavaliadas quando um nó é adicionado, se torna pronto ou se torna agendável.
+
+=== Durante a reconstrução offline
+
+{longhorn-product-name} determina se um processo de reconstrução deve ser cancelado enquanto está em andamento.
+
+. {longhorn-product-name} detecta o status do volume quando a reconstrução offline começa e o volume está anexado.
+. Se o status da condição `Scheduled` do volume se tornar `False`, a reconstrução offline é cancelada e o volume é desanexado.
+. Se as condições necessárias forem atendidas novamente, a reconstrução offline reinicia; caso contrário, o volume permanece desanexado.
+
+=== Exemplos
+
+* *Reconstrução offline bem-sucedida*:
+. Um volume é criado com 3 réplicas em um cluster de 3 nós de trabalho.
+. A reconstrução offline está habilitada.
+. O volume é desanexado e, em seguida, uma réplica do volume é excluída.
+. A reconstrução offline começa e o volume está anexado.
+. Após a conclusão da reconstrução, o volume é desanexado.
+* *A reconstrução offline não começa mesmo quando está habilitada*:
+. Um volume é criado com 3 réplicas em um cluster de 3 nós de trabalho (A, B e C).
+. A reconstrução offline está habilitada.
+. O nó de trabalho A não é agendável.
+. A réplica do volume no nó de trabalho A é excluída.
+. Como existem apenas dois nós de trabalho agendáveis, a reconstrução offline não começará.
+* *Um nó de trabalho é drenado durante a reconstrução offline*:
+. Um volume é criado com 3 réplicas em um cluster de 3 nós de trabalho (A, B e C).
+. A reconstrução offline está habilitada.
+. O volume é desanexado, e então a réplica do volume no nó de trabalho A é excluída.
+. A reconstrução offline começa, e o volume é anexado para reconstruir uma réplica no nó de trabalho A.
+. O nó de trabalho A é drenado, tornando-o não agendável, e a réplica do volume no nó de trabalho A é excluída.
+. O volume permanece anexado até que o status da condição do volume `Scheduled` se torne `False`.
+. O volume é desanexado até que o nó de trabalho A seja liberado ou um novo nó agendável seja adicionado.
+
+== Limitações
+
+A reconstrução offline não é suportada para volumes com falha.

@@ -1,0 +1,60 @@
+= 查错
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/troubleshooting.md"]
+:current-version: {page-component-version}
+
+== 安装
+
+=== 在 Debian 机器上安装时出现 "Package 'linux-modules-extra-x.x.x-x-generic' Has No Installation Candidate" 错误
+
+对于 Debian 机器，如果在安装 Linux 内核额外模块时遇到类似以下的错误，您需要在 pkg 集合网站如 https://pkgs.org/search/?q=linux-modules-extra[这个] 中查找可用版本，而不是直接依赖 `uname -r`：
+
+[subs="+attributes",log]
+----
+apt install -y linux-modules-extra-`uname -r`
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+Package linux-modules-extra-5.15.0-67-generic is not available, but is referred to by another package.
+This may mean that the package is missing, has been obsoleted, or
+is only available from another source
+
+E: Package 'linux-modules-extra-5.15.0-67-generic' has no installation candidate
+----
+
+例如，对于 Ubuntu 22.04，一个有效的版本是 `linux-modules-extra-5.15.0-76-generic`：
+
+[subs="+attributes",shell]
+----
+apt update -y
+apt install -y linux-modules-extra-5.15.0-76-generic
+----
+
+== 磁盘
+
+=== 在添加块类型磁盘后，磁盘状态显示 "Invalid argument" 错误
+
+添加块类型磁盘后，磁盘状态显示错误信息：
+
+----
+Disk disk-1(/dev/nvme1n1) on node dereksu-ubuntu-pool1-bf77ed93-2d2p9 is not ready:
+failed to generate disk config: error: rpc error: code = Internal desc = rpc error: code = Internal
+desc = failed to add block device: failed to create AIO bdev: error sending message, id 10441,
+method bdev_aio_create, params {disk-1 /host/dev/nvme1n1 4096}: {"code": -22,"message": "Invalid argument"}
+----
+
+接下来，检查同一节点上实例管理器 pod 的日志信息。如果日志显示以下内容：
+
+----
+[2023-06-29 08:51:53.762597] bdev_aio.c: 762:create_aio_bdev: *WARNING*: Specified block size 4096 does not match auto-detected block size 512
+[2023-06-29 08:51:53.762640] bdev_aio.c: 788:create_aio_bdev: *ERROR*: Disk size 100000000000 is not a multiple of block size 4096
+----
+
+这些信息表明您的磁盘大小不是块大小 4096 的倍数，并且不被 Longhorn 系统支持。
+
+要解决此问题，您可以按照以下步骤操作。
+
+. 从节点中去除新添加的块类型磁盘。
+. 使用 `fdisk` 工具对块类型磁盘进行分区，并确保分区大小是块大小 4096 的倍数。
+. 将分区后的磁盘添加到 Longhorn 节点。

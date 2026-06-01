@@ -1,0 +1,45 @@
+= Leistung
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/performance.md"]
+:doctype: book
+:current-version: {page-component-version}
+
+== Leistungsmesswerkzeuge
+
+* https://github.com/yasker/kbench[KBench]: Wird verwendet, um die Leistung von Cluster-Speicher zu benchmarken
+* https://github.com/rancher/local-path-provisioner[Local Path Provisioner]: Wird verwendet, um die Basisleistung des Datenträgers zu messen
+
+== Equinix (m3.small.x86)
+
+* Computer: Japan/m3.small.x86
+* CPU (Central Processing Unit, Prozessor): Intel(R) Xeon(R) E-2378G CPU @ 2,80GHz
+* RAM: 64 GiB
+* Kubernetes: v1.23.6+rke2r2
+* Knoten: 3 (jeder Knoten ist ein Master und auch ein Worker)
+* BS: Ubuntu 22.04 / 5.15.0-33-generic
+* Speicher: 1 SSD (Micron_5300_MTFD)
+* Netzwerkdurchsatz zwischen Knoten (getestet mit iperf über 60 Sekunden): 15,0 Gbits/s
+
+image::diagrams/v2-data-engine/equinix-iops.svg[Image]
+
+image::diagrams/v2-data-engine/equinix-bw.svg[Image]
+
+image::diagrams/v2-data-engine/equinix-latency.svg[Image]
+
+== AWS EC2 (c5d.xlarge)
+
+* Computer: Tokyo/c5d.xlarge
+* CPU (Central Processing Unit, Prozessor): Intel(R) Xeon(R) Platinum 8124M CPU @ 3,00GHz
+* RAM: 8 GiB
+* Kubernetes: v1.25.10+rke2r1
+* Knoten: 3 (jeder Knoten ist ein Master und auch ein Worker)
+* BS: Ubuntu 22.04.2 LTS / 5.19.0-1025-aws
+* Speicher: 1 SSD (Amazon EC2 NVMe-Instanzspeicher/lokaler NVMe-Speicher)
+* Netzwerkdurchsatz zwischen Knoten (getestet mit iperf über 60 Sekunden): 7,9 Gbits/s
+
+image::diagrams/v2-data-engine/aws-c5d-xlarge-iops.svg[Image]
+
+image::diagrams/v2-data-engine/aws-c5d-xlarge-bw.svg[Image]
+
+image::diagrams/v2-data-engine/aws-c5d-xlarge-latency.svg[Image]

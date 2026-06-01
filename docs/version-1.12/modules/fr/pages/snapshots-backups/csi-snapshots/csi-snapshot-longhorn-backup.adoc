@@ -1,0 +1,151 @@
+= Instantané de volume CSI associé à une sauvegarde SUSE® Storage
+:revdate: 2025-07-26
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Les sauvegardes dans Longhorn sont des objets dans un magasin de sauvegarde hors cluster, et le point de terminaison pour accéder au magasin de sauvegarde est la cible de sauvegarde. Pour plus d'informations, consultez xref:introduction/concepts.adoc#_3_1_how_backups_work[cette section.]
+
+Pour créer des sauvegardes de manière programmatique, vous pouvez utiliser le mécanisme générique de VolumeSnapshot CSI de Kubernetes. Pour en savoir plus sur le mécanisme de VolumeSnapshot CSI, cliquez https://kubernetes.io/docs/concepts/storage/volume-snapshots/[ici].
+
+____
+*Condition préalable :* Le support des instantanés CSI doit être activé sur votre cluster.
+Si votre distribution Kubernetes ne fournit pas le contrôleur d'instantanés Kubernetes ainsi que les définitions de ressources personnalisées liées aux instantanés, vous devez les déployer manuellement.
+Pour plus d'informations, consultez xref:snapshots-backups/csi-snapshots/enable-csi-snapshot-creation.adoc[Activer le support des instantanés CSI].
+____
+
+== Créer un instantané de volume CSI associé à une sauvegarde Longhorn
+
+Pour créer un instantané de volume CSI associé à une sauvegarde Longhorn, vous devez d'abord créer un objet `VolumeSnapshotClass` avec le paramètre `type` défini sur `bak` comme suit :
+
+[subs="+attributes",yaml]
+----
+kind: VolumeSnapshotClass
+apiVersion: snapshot.storage.k8s.io/v1
+metadata:
+  name: longhorn-backup-vsc
+driver: driver.longhorn.io
+deletionPolicy: Delete
+parameters:
+  type: bak
+  backupMode: full
+----
+
+Longhorn effectue des sauvegardes incrémentielles par défaut. Ajoutez le paramètre `backupMode: full` pour créer une sauvegarde complète. Pour plus d'informations sur `backupMode`, reportez-vous à xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[Créer une sauvegarde].
+
+Pour plus d'informations sur `VolumeSnapshotClass`, consultez la documentation Kubernetes pour https://kubernetes.io/docs/concepts/storage/volume-snapshot-classes/[VolumeSnapshotClasses].
+
+Après cela, créez un objet Kubernetes `VolumeSnapshot` avec `volumeSnapshotClassName` pointant vers le nom du `VolumeSnapshotClass` (`longhorn-backup-vsc`) et `source` pointant vers le PVC du volume Longhorn pour lequel une sauvegarde doit être créée.
+
+[subs="+attributes",yaml]
+----
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: test-csi-volume-snapshot-longhorn-backup
+spec:
+  volumeSnapshotClassName: longhorn-backup-vsc
+  source:
+    persistentVolumeClaimName: test-vol
+----
+
+*Résultat :*
+Une sauvegarde est créée. La création de l'objet `VolumeSnapshot` entraîne la création d'un objet Kubernetes `VolumeSnapshotContent`.
+Le `VolumeSnapshotContent` fait référence à une sauvegarde Longhorn dans son champ `VolumeSnapshotContent.snapshotHandle` avec le nom `bak://backup-volume/backup-name`.
+
+=== Visualiser la sauvegarde
+
+Pour voir la sauvegarde, cliquez sur *Backup* dans la barre de navigation supérieure et naviguez vers le volume de sauvegarde mentionné dans le `VolumeSnapshotContent.snapshotHandle`.
+
+Pour des informations sur la façon de restaurer un volume via un objet `VolumeSnapshot`, référez-vous aux sections ci-dessous.
+
+=== Comment fonctionne le mécanisme CSI dans ce scénario
+
+Lorsque l'objet VolumeSnapshot est créé avec kubectl, le champ `VolumeSnapshot.uuid` est utilisé pour identifier un instantané Longhorn et l'objet `VolumeSnapshotContent` associé.
+
+Cela crée un nouvel instantané Longhorn nommé `snapshot-uuid`.
+
+Ensuite, une sauvegarde de cet instantané est initiée, et la demande CSI retourne.
+
+Par la suite, un objet `VolumeSnapshotContent` nommé `snapcontent-uuid` est créé.
+
+Le sidecar CSI snapshotter interroge périodiquement le plugin CSI Longhorn pour évaluer l'état de la sauvegarde.
+
+Une fois la sauvegarde terminée, le drapeau `VolumeSnapshotContent.readyToUse` est défini sur *true*.
+
+== Restaurer PVC à partir de VolumeSnapshot CSI associé à la sauvegarde Longhorn
+
+Créez un objet `PersistentVolumeClaim` où le champ `dataSource` pointe vers un objet `VolumeSnapshot` existant qui est associé à la sauvegarde Longhorn.
+
+Le csi-provisioner le prendra en compte et instruira le pilote CSI Longhorn de provisionner un nouveau volume avec les données de la sauvegarde associée.
+
+Un exemple `PersistentVolumeClaim` est ci-dessous. Le champ `dataSource` doit pointer vers un objet `VolumeSnapshot` existant.
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-restore-pvc
+spec:
+  storageClassName: longhorn
+  dataSource:
+    name: test-csi-volume-snapshot-longhorn-backup
+    kind: VolumeSnapshot
+    apiGroup: snapshot.storage.k8s.io
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+----
+
+Notez que la valeur `spec.resources.requests.storage` doit être la même que la taille de l'objet `VolumeSnapshot`.
+
+[discrete]
+==== Restaurer une sauvegarde Longhorn sans `VolumeSnapshot` associé
+
+Vous pouvez utiliser le mécanisme CSI pour restaurer des sauvegardes Longhorn qui n'ont pas été créées via le mécanisme CSI.
+Pour restaurer des sauvegardes Longhorn qui n'ont pas été créées via le mécanisme CSI, vous devez d'abord créer manuellement un objet `VolumeSnapshot` et un objet `VolumeSnapshotContent` pour la sauvegarde.
+
+Créez un objet `VolumeSnapshotContent` avec le champ `snapshotHandle` défini sur `bak://backup-volume/backup-name`.
+
+Les valeurs `backup-volume` et `backup-name` peuvent être récupérées à partir de la page *Backup* dans l'interface Longhorn.
+
+[subs="+attributes",yaml]
+----
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotContent
+metadata:
+  name: test-existing-backup
+spec:
+  volumeSnapshotClassName: longhorn
+  driver: driver.longhorn.io
+  deletionPolicy: Delete
+  source:
+    # NOTE: change this to point to an existing backup on the backupstore
+    snapshotHandle: bak://test-vol/backup-625159fb469e492e
+  volumeSnapshotRef:
+    name: test-snapshot-existing-backup
+    namespace: default
+----
+
+Créez l'objet associé `VolumeSnapshot` avec le champ `name` défini sur `test-snapshot-existing-backup`, où le champ `source` fait référence à un objet `VolumeSnapshotContent` via le champ `volumeSnapshotContentName`.
+
+Cela diffère de la création d'une sauvegarde, dans ce cas, le champ `source` fait référence à un `PerstistentVolumeClaim` via le champ `persistentVolumeClaimName`.
+
+Un seul type de référence peut être défini pour un objet `VolumeSnapshot`.
+
+[subs="+attributes",yaml]
+----
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: test-snapshot-existing-backup
+spec:
+  volumeSnapshotClassName: longhorn
+  source:
+    volumeSnapshotContentName: test-existing-backup
+----
+
+Vous pouvez maintenant créer un objet `PerstistantVolumeClaim` qui fait référence à l'objet `VolumeSnapshot` nouvellement créé.
+Pour un exemple, voir <<_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backup,Restaurer PVC à partir de VolumeSnapshot CSI associé à la sauvegarde Longhorn>> ci-dessus.

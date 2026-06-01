@@ -1,0 +1,71 @@
+= バックアップのブロックサイズを設定する
+:revdate: 2025-08-28
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== {longhorn-product-name}のバックアップブロック
+
+{longhorn-product-name}のバックアップはスナップショットからのデータフラグメントで構成され、これらのフラグメントはそれぞれブロックと呼ばれます。これらのブロックは、バックアップ対象のデータを処理、転送、保存するための基本単位です。単一のバックアップ内のすべてのブロックは、同じ物理サイズを持っています。
+
+{longhorn-product-name} v1.10.0以前では、バックアップブロックサイズは2 MiBに固定されていました。{longhorn-product-name} v1.10.0以降では、ユーザーは新しいボリュームを作成する際にバックアップブロックサイズを設定できます。この値は永続的であり、ボリュームが作成された後に変更することはできません。特定のボリュームに使用されるブロックサイズは、{longhorn-product-name} UIの詳細ページに表示され、そのボリュームの将来のバックアップは同じサイズを使用します。
+
+=== バックアップブロックサイズの影響
+
+{longhorn-product-name}は2つのバックアップブロックサイズを提供します：*2 MiB*と*16 MiB*。選択したサイズは、バックアップの作成と保存の効率に影響を与えます。
+
+. 大きなブロックサイズは、合計ブロック数を減少させます。これにより、転送効率が向上し、バックアップ対象に送信されるAPIリクエストの数が減少し、バックアッププロセスが迅速化される可能性があります。
+. ただし、大きなブロックサイズはゼロパディングのために物理ストレージスペースを多く使用する可能性があり、バックアップ作成プロセス中により多くのメモリを必要とすることがあります。
+
+== グローバルデフォルトバックアップブロックサイズ
+
+{longhorn-product-name}は、新しいボリュームのデフォルトバックアップブロックサイズを定義するためのグローバル設定を提供します。ボリュームを作成する際にバックアップブロックサイズを明示的に指定しない場合、{longhorn-product-name}はこのデフォルト値を使用します。
+
+デフォルトのバックアップブロックサイズは、{longhorn-product-name} UIまたはkubectlを使用して変更できます。
+
+. {longhorn-product-name} UIを使用する：
++
+----
+Settings > General > Default Backup Block Size
+----
+
+. 使用 `kubectl`:
++
+[,bash]
+----
+kubectl -n longhorn-system edit settings.longhorn.io default-backup-block-size
+----
+
+== ボリュームを作成し、バックアップブロックサイズを指定します。
+
+新しいボリュームを作成する際にカスタムバックアップブロックサイズを設定するには、次の手順に従ってください：
+
+. *ボリューム*メニューに移動します。
+. *ボリュームを作成*を選択します。
+. 作成ダイアログの`Advanced Configurations`内で、希望する*バックアップブロックサイズ*を選択します。
+
+== ストレージクラスでバックアップブロックサイズを指定します。
+
+Persistent Volume Claim (PVC)を使用して作成されたボリュームの場合、`StorageClass`の`parameters`セクション内で`backupBlockSize`を指定できます。
+
+例:
+
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-example
+provisioner: driver.longhorn.io
+parameters:
+  backupBlockSize: 16Mi
+...
+----
+
+== バックアップからボリュームを復元する
+
+バックアップからボリュームを復元する際、元のボリュームとは異なるバックアップブロックサイズを新しいボリュームに設定できます。
+
+[CAUTION]
+====
+{longhorn-product-name} v1.10より古いバージョンは前方互換性がありません。{longhorn-product-name} v1.10以降で作成されたバックアップを復元することはできません。{longhorn-product-name} v1.9.x以前でデフォルト以外のブロックサイズ（2 MiB以外）でバックアップを復元しようとすると、ファイルシステムが破損したボリュームが作成されます。
+====

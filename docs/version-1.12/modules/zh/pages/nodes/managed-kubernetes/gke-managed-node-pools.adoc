@@ -1,0 +1,56 @@
+= 受管节点池（Managed Node Pools）在 Google Kubernetes Engine (GKE) 上
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+有关更多信息，请参见 https://cloud.google.com/kubernetes-engine/docs/tutorials/migrating-node-pool[将工作负载迁移到不同的机器类型]。
+
+以下是用新存储大小替换集群节点的示例。
+
+== 存储扩展
+
+GKE 支持使用 `local-ssd-count` 添加额外的磁盘。然而，每个本地 SSD 的固定大小为 375 GB。我们建议通过节点池替换来扩展节点大小。
+
+. 在 Longhorn 中，将 `replica-replenishment-wait-interval` 设置为 `0`。
+. 添加一个新的节点池。稍后，Longhorn 组件将自动部署在此池中的节点上。
++
+----
+ GKE_NODEPOOL_NAME_NEW=<new-nodepool-name>
+ GKE_REGION=<gke-region>
+ GKE_CLUSTER_NAME=<gke-cluster-name>
+ GKE_IMAGE_TYPE=Ubuntu
+ GKE_MACHINE_TYPE=<gcp-machine-type>
+ GKE_DISK_SIZE_NEW=<new-disk-size-in-gb>
+ GKE_NODE_NUM=<number-of-nodes>
+
+ gcloud container node-pools create ${GKE_NODEPOOL_NAME_NEW} \
+   --region ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME} \
+   --image-type ${GKE_IMAGE_TYPE} \
+   --machine-type ${GKE_MACHINE_TYPE} \
+   --disk-size ${GKE_DISK_SIZE_NEW} \
+   --num-nodes ${GKE_NODE_NUM}
+
+ gcloud container node-pools list \
+   --zone ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME}
+----
+
+. 使用 Longhorn UI 禁用旧节点池中节点的磁盘调度并请求驱逐。
+. 在旧节点池中对 Kubernetes 节点执行封锁和排空操作。
++
+----
+ GKE_NODEPOOL_NAME_OLD=<old-nodepool-name>
+ for n in `kubectl get nodes | grep ${GKE_CLUSTER_NAME}-${GKE_NODEPOOL_NAME_OLD}- | awk '{print $1}'`; do
+   kubectl cordon $n && \
+   kubectl drain $n --ignore-daemonsets --delete-emptydir-data
+ done
+----
+
+. 删除旧节点池。
++
+----
+ gcloud container node-pools delete ${GKE_NODEPOOL_NAME_OLD}\
+   --zone ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME}
+----

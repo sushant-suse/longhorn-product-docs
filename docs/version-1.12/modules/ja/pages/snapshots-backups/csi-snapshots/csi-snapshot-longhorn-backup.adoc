@@ -1,0 +1,151 @@
+= SUSE® Storageバックアップに関連付けられたCSIボリュームスナップショット
+:revdate: 2025-07-26
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhornのバックアップは、オフクラスターのバックアップストアにあるオブジェクトであり、バックアップストアにアクセスするためのエンドポイントはバックアップターゲットです。詳細については、xref:introduction/concepts.adoc#_3_1_how_backups_work[このセクション]を参照してください。
+
+プログラムでバックアップを作成するには、一般的なKubernetes CSIボリュームスナップショットメカニズムを使用できます。CSIボリュームスナップショットメカニズムの詳細については、 https://kubernetes.io/docs/concepts/storage/volume-snapshots/[こちら]をクリックしてください。
+
+____
+*前提条件:*CSIスナップショットサポートは、クラスターで有効にする必要があります。
+KubernetesディストリビューションがKubernetesスナップショットコントローラーおよびスナップショット関連のカスタムリソース定義を提供していない場合は、それらを手動でデプロイする必要があります。
+詳細については、xref:snapshots-backups/csi-snapshots/enable-csi-snapshot-creation.adoc[CSIスナップショットサポートを有効にする]を参照してください。
+____
+
+== Longhornバックアップに関連付けられたCSIボリュームスナップショットを作成する
+
+Longhornバックアップに関連付けられたCSIボリュームスナップショットを作成するには、まず`VolumeSnapshotClass`オブジェクトを作成し、パラメータ`type`を`bak`に設定する必要があります。
+
+[subs="+attributes",yaml]
+----
+kind: VolumeSnapshotClass
+apiVersion: snapshot.storage.k8s.io/v1
+metadata:
+  name: longhorn-backup-vsc
+driver: driver.longhorn.io
+deletionPolicy: Delete
+parameters:
+  type: bak
+  backupMode: full
+----
+
+Longhornはデフォルトで増分バックアップを実行します。フルバックアップを作成するには、`backupMode: full`パラメータを追加してください。`backupMode`に関する詳細は、xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[バックアップを作成する]を参照してください。
+
+`VolumeSnapshotClass`に関する詳細は、 https://kubernetes.io/docs/concepts/storage/volume-snapshot-classes/[VolumeSnapshotClasses]のKubernetesドキュメントのを参照してください。
+
+その後、Kubernetesの`VolumeSnapshot`オブジェクトを作成し、`volumeSnapshotClassName`が`VolumeSnapshotClass`の名前（`longhorn-backup-vsc`）を指し、`source`がバックアップを作成する必要があるLonghornボリュームのPVCを指すようにします。
+
+[subs="+attributes",yaml]
+----
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: test-csi-volume-snapshot-longhorn-backup
+spec:
+  volumeSnapshotClassName: longhorn-backup-vsc
+  source:
+    persistentVolumeClaimName: test-vol
+----
+
+*結果:*
+バックアップが作成されます。`VolumeSnapshot`オブジェクトの作成は、`VolumeSnapshotContent`Kubernetesオブジェクトの作成につながります。
+`VolumeSnapshotContent`は、名前`bak://backup-volume/backup-name`の`VolumeSnapshotContent.snapshotHandle`フィールドにあるLonghornバックアップを参照します。
+
+=== バックアップの表示
+
+バックアップを表示するには、上部のナビゲーションバーでバックアップをクリックし、`VolumeSnapshotContent.snapshotHandle`に記載されているバックアップボリュームに移動します。
+
+ボリュームを `VolumeSnapshot` オブジェクトを介して復元する方法については、以下のセクションを参照してください。
+
+=== このシナリオにおける CSI メカニズムの動作
+
+VolumeSnapshot オブジェクトが kubectl で作成されると、`VolumeSnapshot.uuid` フィールドは Longhorn スナップショットと関連する `VolumeSnapshotContent` オブジェクトを識別するために使用されます。
+
+これにより、`snapshot-uuid` という名前の新しい Longhorn スナップショットが作成されます。
+
+その後、そのスナップショットのバックアップが開始され、CSI リクエストが返されます。
+
+その後、`snapcontent-uuid` という名前の `VolumeSnapshotContent` オブジェクトが作成されます。
+
+CSI スナップショッターサイドカーは、定期的に Longhorn CSI プラグインにバックアップの状態を評価するためにクエリを送信します。
+
+バックアップが完了すると、`VolumeSnapshotContent.readyToUse` フラグが *true* に設定されます。
+
+== Longhorn バックアップに関連付けられた CSI VolumeSnapshot から PVC を復元する
+
+`dataSource` フィールドが Longhorn バックアップに関連付けられた既存の `VolumeSnapshot` オブジェクトを指す `PersistentVolumeClaim` オブジェクトを作成します。
+
+csi-provisioner はこれを取得し、Longhorn CSI ドライバーに関連付けられたバックアップのデータを使用して新しいボリュームをプロビジョニングするよう指示します。
+
+以下に例 `PersistentVolumeClaim` を示します。`dataSource` フィールドは、既存の `VolumeSnapshot` オブジェクトを指す必要があります。
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-restore-pvc
+spec:
+  storageClassName: longhorn
+  dataSource:
+    name: test-csi-volume-snapshot-longhorn-backup
+    kind: VolumeSnapshot
+    apiGroup: snapshot.storage.k8s.io
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+----
+
+`spec.resources.requests.storage` の値は `VolumeSnapshot` オブジェクトのサイズと同じである必要があります。
+
+[discrete]
+==== 関連する `VolumeSnapshot` がない Longhorn バックアップを復元する
+
+CSI メカニズムを使用して、CSI メカニズムを介して作成されていない Longhorn バックアップを復元できます。
+CSI メカニズムを介して作成されていない Longhorn バックアップを復元するには、最初に手動でバックアップ用の `VolumeSnapshot` および `VolumeSnapshotContent` オブジェクトを作成する必要があります。
+
+`snapshotHandle` フィールドを `bak://backup-volume/backup-name` に設定した `VolumeSnapshotContent` オブジェクトを作成します。
+
+`backup-volume` および `backup-name` の値は、Longhorn UI の *Backup* ページから取得できます。
+
+[subs="+attributes",yaml]
+----
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotContent
+metadata:
+  name: test-existing-backup
+spec:
+  volumeSnapshotClassName: longhorn
+  driver: driver.longhorn.io
+  deletionPolicy: Delete
+  source:
+    # NOTE: change this to point to an existing backup on the backupstore
+    snapshotHandle: bak://test-vol/backup-625159fb469e492e
+  volumeSnapshotRef:
+    name: test-snapshot-existing-backup
+    namespace: default
+----
+
+`name` フィールドを `test-snapshot-existing-backup` に設定し、`source` フィールドが `volumeSnapshotContentName` フィールドを介して `VolumeSnapshotContent` オブジェクトを参照する関連する `VolumeSnapshot` オブジェクトを作成します。
+
+これはバックアップの作成とは異なり、その場合、`source` フィールドは `persistentVolumeClaimName` フィールドを介して `PerstistentVolumeClaim` を参照します。
+
+`VolumeSnapshot`オブジェクトには、1種類の参照のみを設定できます。
+
+[subs="+attributes",yaml]
+----
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: test-snapshot-existing-backup
+spec:
+  volumeSnapshotClassName: longhorn
+  source:
+    volumeSnapshotContentName: test-existing-backup
+----
+
+これで、新しく作成された`VolumeSnapshot`オブジェクトを参照する`PerstistantVolumeClaim`オブジェクトを作成できます。
+例については、上記の<<_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backup,Longhorn バックアップに関連付けられた CSI VolumeSnapshot から PVC を復元する>>を参照してください。

@@ -1,0 +1,99 @@
+= SUSE® Storageスナップショットに関連付けられたCSIボリュームスナップショット
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhornのスナップショットは、特定の瞬間におけるLonghornボリュームの内容を表すオブジェクトです。それはクラスター内に保存されます。
+
+プログラムでLonghornスナップショットを作成するには、一般的なKubernetes CSIボリュームスナップショットメカニズムを使用できます。CSIボリュームスナップショットメカニズムの詳細については、 https://kubernetes.io/docs/concepts/storage/volume-snapshots/[こちら]をクリックしてください。
+
+____
+*前提条件:*CSIスナップショットサポートは、クラスターで有効にする必要があります。
+kubernetesディストリビューションがkubernetesスナップショットコントローラーおよびスナップショット関連のカスタムリソース定義を提供しない場合は、それらを手動でデプロイする必要があります。
+詳細については、xref:snapshots-backups/csi-snapshots/enable-csi-snapshot-creation.adoc[CSIスナップショットサポートを有効にする]を参照してください。
+____
+
+== Longhornスナップショットに関連付けられたCSIボリュームスナップショットを作成する
+
+Longhornスナップショットに関連付けられたCSIボリュームスナップショットを作成するには、まず`VolumeSnapshotClass`オブジェクトを作成し、パラメータ`type`を`snap`に設定する必要があります。
+
+[subs="+attributes",yaml]
+----
+kind: VolumeSnapshotClass
+apiVersion: snapshot.storage.k8s.io/v1
+metadata:
+  name: longhorn-snapshot-vsc
+driver: driver.longhorn.io
+deletionPolicy: Delete
+parameters:
+  type: snap
+----
+
+`VolumeSnapshotClass`に関する詳細は、 https://kubernetes.io/docs/concepts/storage/volume-snapshot-classes/[ボリュームスナップショットクラス]のKubernetesドキュメントを参照してください。
+
+その後、Kubernetesの`VolumeSnapshot`オブジェクトを作成し、`volumeSnapshotClassName`が`VolumeSnapshotClass`（`longhorn-snapshot-vsc`）の名前を指し、`source`がLonghornボリュームのPVCを指すようにします。
+
+[subs="+attributes",yaml]
+----
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: test-csi-volume-snapshot-longhorn-snapshot
+spec:
+  volumeSnapshotClassName: longhorn-snapshot-vsc
+  source:
+    persistentVolumeClaimName: test-vol
+----
+
+*結果:*
+Longhornスナップショットが作成されます。`VolumeSnapshot`オブジェクトの作成は、`VolumeSnapshotContent`Kubernetesオブジェクトの作成につながります。
+`VolumeSnapshotContent`は、名前`snap://volume-name/snapshot-name`の`VolumeSnapshotContent.snapshotHandle`フィールドにおけるLonghornスナップショットを参照します。
+
+=== Longhornスナップショットの表示
+
+スナップショットを見るには、上部のナビゲーションバーで*ボリューム*をクリックし、`VolumeSnapshotContent.snapshotHandle`に記載されているボリュームをクリックします。すべてのボリュームスナップショットのリストを見るには、下にスクロールします。
+
+=== このシナリオにおけるCSIメカニズムの動作
+
+VolumeSnapshotオブジェクトがkubectlで作成されると、`VolumeSnapshot.uuid`フィールドがLonghornスナップショットと関連する`VolumeSnapshotContent`オブジェクトを識別するために使用されます。
+
+これにより、`snapshot-uuid`という名前の新しいLonghornスナップショットが作成され、CSIリクエストが返されます。
+
+その後、`snapcontent-uuid`という名前の`VolumeSnapshotContent`オブジェクトが作成され、`VolumeSnapshotContent.readyToUse`フラグが*true*に設定されます。
+
+== Longhornスナップショットに関連付けられたCSIボリュームスナップショットからPVCを復元します。
+
+`PersistentVolumeClaim`オブジェクトを作成し、`dataSource`フィールドがLonghornスナップショットに関連付けられた既存の`VolumeSnapshot`オブジェクトを指すようにします。
+
+csi-provisionerはこれを受け取り、Longhorn CSIドライバーに、関連付けられたLonghornスナップショットのデータを使って新しいボリュームをプロビジョニングするよう指示します。
+
+以下は`PersistentVolumeClaim`の例です。`dataSource`フィールドは既存の`VolumeSnapshot`オブジェクトを指す必要があります。
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-restore-pvc
+spec:
+  storageClassName: longhorn
+  dataSource:
+    name: test-csi-volume-snapshot-longhorn-snapshot
+    kind: VolumeSnapshot
+    apiGroup: snapshot.storage.k8s.io
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+----
+
+[NOTE]
+====
+* `spec.resources.requests.storage`の値は`VolumeSnapshot`オブジェクトのサイズと一致する必要があります。
+* V2データエンジンボリュームに関連付けられた`VolumeSnapshot`からボリュームを復元する際に、`StorageClass`を使用してクローンモードを指定できます。
+** `cloneMode`パラメータを`full-copy`または`linked-clone`のいずれかに設定します。
+** `cloneMode`パラメータを指定しない場合、デフォルトは`full-copy`です。
+
+詳細については、xref:longhorn-system/v2-data-engine/features/volume-clone.adoc[V2ボリュームクローンサポートのドキュメント]を参照してください。
+====

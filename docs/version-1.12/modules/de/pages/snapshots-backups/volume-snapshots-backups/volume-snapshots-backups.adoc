@@ -1,0 +1,24 @@
+= Volume-Snapshots und Sicherungen
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+____
+In früheren Versionen verwendete Longhorn eine "blockierende Methode" zur Kommunikation mit dem entfernten Sicherungsziel. Folglich gibt es einige ungewollte Faktoren, die die Funktionen beeinträchtigen, die auf das entfernte Sicherungsziel angewiesen sind. Zum Beispiel Netzwerklatenz, das Auflisten von Sicherungen oder das Verursachen weiterer kaskadierender Probleme nach dem Vorgang am entfernten Sicherungsziel.
+____
+
+____
+In aktuellen Versionen hat Longhorn begonnen, asynchrone Sicherungsoperationen zu verwenden, um die oben genannten Probleme der vorherigen Version zu lösen.
+
+* Um dies zu tun, erstellen Sie zuerst die benutzerdefinierten Ressourcen des Sicherungsclusters und führen dann die folgenden Snapshot- und Sicherungsoperationen zum entfernten Sicherungsziel durch.
+* Sobald die Erstellung der Sicherung abgeschlossen ist, ziehen Sie asynchron den Status der Sicherungsvolumes und Sicherungen vom entfernten Sicherungsziel. Aktualisieren Sie dann den Status der entsprechenden benutzerdefinierten Ressourcen des Clusters.
+
+Diese Verbesserung ist skalierbar für die Sicherungsabfrage, um bei der Lösung der kostspieligen Ressourcen zu helfen, die durch die blockierende Methode verursacht werden. Dies lag daran, dass alle Sicherungen als benutzerdefinierte Ressourcen gespeichert werden, anstatt direkt vom entfernten Sicherungsziel abzufragen.
+
+NOTE: Nach dem Longhorn-Upgrade, wenn ein Volume nicht auf die neueste Longhorn-Engine (≥v1.2.0) aktualisiert wurde. Bei der Erstellung einer Sicherung nimmt der Name der erstellten Sicherung einen Zwischenübergangszustand ein (aufgrund der unterschiedlichen Handhabung von Sicherungsnamen in der neuesten Longhorn-Version ≥ v1.2.0). Longhorn wird dann sicherstellen, dass die Sicherung mit dem entfernten Sicherungsziel synchronisiert ist und auf den endgültigen korrekten Zustand aktualisiert wird, wobei das entfernte Sicherungsziel die einzige Quelle der Wahrheit ist. Um die Longhorn-Engine zu aktualisieren, beziehen Sie sich auf xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[] oder xref:upgrades/longhorn-components/auto-upgrade-engine.adoc[].
+____
+
+* xref:/snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[Ein Sicherungsziel festlegen]
+* xref:/snapshots-backups/volume-snapshots-backups/create-backup.adoc[Eine Sicherung erstellen]
+* xref:/snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[Von einer Sicherung wiederherstellen]
+* xref:/snapshots-backups/volume-snapshots-backups/restore-volume-statefulset.adoc[Volumes für Kubernetes StatefulSets wiederherstellen]

@@ -1,0 +1,102 @@
+= 升级
+:revdate: 2026-03-06
+:page-revdate: {revdate}
+:doctype: book
+:current-version: {page-component-version}
+
+== 弃用与不兼容性
+
+在 v{patch-version} 中没有引入弃用或不兼容的更改。
+
+== 升级路径强制执行与防止降级
+
+从 {longhorn-product-name} v1.5.0 开始，仅支持从一个小版本升级到下一个连续的小版本。例如，您可以从 1.5.x 升级到 1.6.x，但不支持跳过版本（例如从 1.4.x 升级到 1.6.x）。如果您尝试从不支持的版本进行升级或跳过小版本，则操作会自动失败。但是，您可以在不影响服务或停机时间的情况下恢复到先前安装的版本。
+
+此外，{longhorn-product-name} 不支持降级。此限制有助于防止与功能不兼容、弃用或去除相关的意外系统行为和问题。
+
+[CAUTION]
+====
+* 一旦您成功升级到 v{patch-version}，将不允许您恢复到先前安装的版本。
+* 降级不被支持，因此不推荐。
+====
+
+下表概述了支持的升级路径。
+
+[cols="^,^,^,^"]
+|===
+| 当前版本 | 目标版本 | 支持 | 示例
+
+| x.y.*
+| x.(y+1).*
+| ✓
+| v1.4.2 到 v1.5.1
+
+| x.y.*
+| x.y.(*+n)
+| ✓
+| v1.5.0 到 v1.5.1
+
+| x.y[^lastMinorVersion].*
+| (x+1).y.*
+| ✓
+| v1.30.0 到 v2.0.0
+
+| x.(y-1).*
+| x.(y+1).*
+| X
+| v1.3.3 到 v1.5.1
+
+| x.(y-2).*
+| x.(y+1).*
+| X
+| v1.2.6 到 v1.5.1
+|===
+
+== 升级前的手动检查
+
+自动检查仅在某些升级路径上执行，升级前检查器可能无法覆盖某些场景。建议在这些场景中使用 kubectl 或 UI 进行手动检查。您可以采取缓解措施或推迟升级，直到解决问题。
+
+* 确保所有 V2 数据引擎卷已分离，副本已停止。V2 数据引擎当前不支持在线升级。
+* 当卷处于 "故障" 状态时，请避免升级。如果所有副本被认为不可用，则可能会被删除，数据可能会永久丢失（如果没有可用的备份）。
+* 如果存在失败的 BackingImage，请避免升级。有关更多信息，请参见 xref:volumes/backing-images/backing-images.adoc[Backing Image]。
+* 在执行升级之前，请创建 Longhorn 系统备份。有关说明，请参阅 xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn System Backup]。系统备份确保所有关键资源（如卷和 Backing Image）都已备份，并且在发生任何问题时可以恢复。
+
+== 升级 {longhorn-product-name}
+
+升级过程通常分为两个步骤：首先将 Longhorn Manager 升级到最新版本，然后使用最新的 Longhorn Manager 手动升级 Longhorn Engine 到最新版本。
+
+=== 1.升级 Longhorn Manager
+
+* 要从 v{current-version}.x 升级，请 xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[升级 Longhorn Manager]。
+
+=== 2.手动升级 Longhorn Engine
+
+在升级 Longhorn 管理器后，Longhorn Engine 也需要升级 xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[使用 {longhorn-product-name} UI]。
+
+=== 3.自动升级 Longhorn Engine
+
+自 {longhorn-product-name} v1.1.1 起，我们提供了一个选项来帮助您 xref:upgrades/longhorn-components/auto-upgrade-engine.adoc[自动升级 Longhorn Engine]。
+
+=== 4.自动迁移定期作业
+
+随着新标签驱动的 `Recurring Job` 功能的引入，{longhorn-product-name} 已去除 Volume Spec 中的 `RecurringJobs` 字段，并计划在 StorageClass 中弃用 `RecurringJobs`。
+
+在升级过程中，{longhorn-product-name} 会自动：
+
+* 从 Volume Spec 中的 `recurringJobs` 字段创建新的定期作业 CR，并将其转换为卷标签。
+* 从 StorageClass 中的 `recurringJobs` 创建新的定期作业 CR，并将其转换为新的 `recurringJobSelector` 参数。
+
+访问 xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[定期快照和备份] 以获取有关新 `Recurring Job` 功能的更多信息。
+
+== 扩展阅读
+
+访问 https://longhorn.io/kb/troubleshooting-some-old-instance-manager-pods-are-still-running-after-upgrade[一些旧的实例管理器 Pod 在升级后仍在运行] 以获取有关实例管理器 Pod 在升级过程中的清理策略的更多信息。
+
+== 需要帮助？
+
+如果您遇到任何问题，请 https://github.com/longhorn/longhorn/issues[在这里] 报告，并附上您的备份 yaml 文件以及管理日志。
+
+[IMPORTANT]
+====
+{longhorn-product-name} 仅允许从新主要版本之前的最后一个次要版本的补丁版本进行升级。例如，如果 v1.8.0 是 v2.0 之前的最后一个次要版本，您可以从 v1.8.0 的任何补丁版本升级到 v2.0 的任何补丁版本。
+====

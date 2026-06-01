@@ -1,0 +1,121 @@
+= Offline-Replikat-Wiederaufbau
+:revdate: 2025-09-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Ab Version 1.9.0 unterstützt {longhorn-product-name} den Offline-Replikat-Wiederaufbau. Diese Funktion ermöglicht es, dass degradierte Volumes automatisch Replikate wiederaufbauen, während die Volumes getrennt sind.
+
+== Globale Einstellung `offline-replica-rebuilding`
+
+* Wenn aktiviert, initiiert {longhorn-product-name} automatisch den Offline-Replikat-Wiederaufbau für berechtigte Volumes.
+* Für weitere Informationen zu dieser globalen Einstellung siehe xref:longhorn-system/settings.adoc#_offline_replica_rebuilding[settings].
+
+== Pro-Volume-Überschreibung
+
+* Sie können die globale `offline-replica-rebuilding`-Einstellung für jedes Volume individuell überschreiben. Dies kann über die {longhorn-product-name}-Benutzeroberfläche oder durch Bearbeiten der benutzerdefinierten Volume-Ressource erfolgen. Um `kubectl` zu verwenden, führen Sie den folgenden Befehl aus und ändern Sie dann das `spec.offlineRebuilding`-Feld:
++
+[,bash]
+----
+kubectl -n longhorn-system edit volume <volume-name>
+----
++
+Ersetzen Sie `<volume-name>` durch den Namen Ihres spezifischen Volumes.
+* Wenn das pro-Volume `spec.offlineRebuilding`-Feld auf `enabled` oder `disabled` gesetzt ist, hat diese Einstellung Vorrang vor der globalen Konfiguration. Der Standardwert für `spec.offlineRebuilding` ist `ignored`.
+
+Die folgende Tabelle zeigt, wie die globalen und pro-Volume-Einstellungen interagieren:
+
+|===
+| Globale Einstellung (`offline-replica-rebuilding`)
+| Pro-Volume-Einstellung (`spec.offlineRebuilding`)
+| Offline-Replikat-Wiederaufbau aktiviert
+
+| `true`
+| `ignored`
+| Ja
+
+| `false`
+| `ignored`
+| Nein
+
+| `true`
+| `enabled`
+| Ja
+
+| `false`
+| `enabled`
+| Ja
+
+| `true`
+| `disabled`
+| Nein
+
+| `false`
+| `disabled`
+| Nein
+|===
+
+== Wiederaufbauprozess
+
+* Wenn der Offline-Replikat-Wiederaufbau ausgelöst wird, verbindet {longhorn-product-name} das Volume, ohne das Frontend zu aktivieren, baut fehlende Replikate wieder auf und trennt das Volume, nachdem der Wiederaufbauprozess abgeschlossen ist.
+* Dieser Prozess kann unterbrochen werden, wenn die zugehörige Arbeitslast ansteigt und das Volume benötigt.
+
+== Wiederaufbau nicht begonnen oder abgebrochen
+
+Wenn der Offline-Wiederaufbau beginnt, können degradierte Volumes im angehängten Zustand stecken bleiben, wenn die Bedingungen für den Wiederaufbau nicht erfüllt sind. Um dies zu verhindern, wird der Offline-Wiederaufbau nicht gestartet oder abgebrochen, wenn die erforderlichen Bedingungen nicht erfüllt sind.
+
+* *Vorteile*:
+** Es stellt sicher, dass Volumen nicht im angehängten Zustand bleiben, wenn der Wiederaufbau niemals abgeschlossen wird.
+** Es verhindert verschwenderische Wiederaufbauversuche.
+** Es reduziert unnötige Volumen-Anhängungs- und -Abhängungszyklen.
+** Es bietet ein vorhersehbares Wiederaufbauverhalten basierend auf der Verfügbarkeit von Ressourcen.
+
+* *Erforderliche Bedingungen*: Der Offline-Replikat-Wiederaufbau beginnt automatisch für degradierte Volumes, sobald die erforderlichen Bedingungen erfüllt sind. Diese Bedingungen umfassen:
+** Es existiert ein wiederverwendbares fehlgeschlagenes Replikat, oder
+** Eine geeignete Festplatte ist vorhanden:
+*** Der Instanzmanager auf dem Knoten, der die Festplatte hostet, muss bereit sein.
+*** Der Knoten, der die Festplatte enthält, ist planbar.
+*** Die Festplatte selbst ist planbar.
+
+=== Bevor der Offline-Wiederaufbau beginnt
+
+Wenn der Offline-Replikat-Wiederaufbau aktiviert ist, bestimmt {longhorn-product-name}, ob er starten soll.
+
+. {longhorn-product-name} erkennt ein degradiertes, abgetrenntes Volumen.
+. Das System überprüft, ob die erforderlichen Bedingungen erfüllt sind, bevor der Offline-Replikat-Wiederaufbau gestartet wird.
+. Wenn die Bedingungen erfüllt sind, wird der Offline-Replikat-Wiederaufbau fortgesetzt. Andernfalls bleibt das Volume getrennt.
+. Die erforderlichen Bedingungen werden neu bewertet, wenn ein Knoten hinzugefügt wird, bereit ist oder planbar wird.
+
+=== Während des Offline-Replikat-Wiederaufbaus
+
+{longhorn-product-name} bestimmt, ob ein Wiederaufbauprozess während des Fortschritts gestoppt werden soll.
+
+. {longhorn-product-name} erkennt den Status des Volumes, wenn der Offline-Replikat-Wiederaufbau beginnt und das Volume angeschlossen ist.
+. Wenn der Status der `Scheduled`-Bedingung des Volumes `False` wird, wird der Offline-Replikat-Wiederaufbau gestoppt und das Volume wird getrennt.
+. Wenn die erforderlichen Bedingungen erneut erfüllt sind, wird der Offline-Replikat-Wiederaufbau neu gestartet; andernfalls bleibt das Volume getrennt.
+
+=== Beispiele
+
+* *Erfolgreicher Offline-Replikat-Wiederaufbau*:
+. Ein Volume wird mit 3 Replikaten in einem Cluster mit 3 Arbeitsknoten erstellt.
+. Der Offline-Replikat-Wiederaufbau ist aktiviert.
+. Das Volume wird getrennt und dann wird ein Replikat des Volumes gelöscht.
+. Der Offline-Replikat-Wiederaufbau beginnt, und das Volume wird angehängt.
+. Nachdem der Offline-Replikat-Wiederaufbau abgeschlossen ist, wird das Volume getrennt.
+* *Der Offline-Replikat-Wiederaufbau beginnt nicht, selbst wenn er aktiviert ist*:
+. Ein Volume wird mit 3 Replikaten in einem Cluster mit 3 Arbeitsknoten (A, B und C) erstellt.
+. Der Offline-Replikat-Wiederaufbau ist aktiviert.
+. Der Arbeitsknoten A ist nicht planbar.
+. Das Volume-Replikat auf dem Arbeitsknoten A wird gelöscht.
+. Da nur zwei planbare Arbeitsknoten existieren, wird der Offline-Replikat-Wiederaufbau nicht starten.
+* *Ein Arbeitsknoten wird während des Offline-Replikat-Wiederaufbaus entleert*:
+. Ein Volume wird mit 3 Replikaten in einem Cluster mit 3 Arbeitsknoten (A, B und C) erstellt.
+. Der Offline-Replikat-Wiederaufbau ist aktiviert.
+. Das Volume wird getrennt, und dann wird das Volume-Replikat auf dem Arbeitsknoten A gelöscht.
+. Der Offline-Replikat-Wiederaufbau beginnt, und das Volume wird angehängt, um ein Replikat auf dem Arbeitsknoten A wiederaufzubauen.
+. Der Arbeitsknoten A wird entleert, wodurch er nicht mehr planbar ist, und das Volume-Replikat auf dem Arbeitsknoten A wird gelöscht.
+. Das Volume bleibt angehängt, bis der Zustand des Volumes `Scheduled` den Status `False` erreicht.
+. Das Volume wird getrennt, bis der Arbeitsknoten A wieder verfügbar ist oder ein neuer planbarer Knoten hinzugefügt wird.
+
+== Nutzungsbeschränkungen
+
+Der Offline-Replikat-Wiederaufbau wird für fehlerhafte Volumes nicht unterstützt.

@@ -1,0 +1,60 @@
+= トラブルシューティング
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/troubleshooting.md"]
+:current-version: {page-component-version}
+
+== インストール
+
+=== Debianマシンでのインストール中に「'linux-modules-extra-x.x.x-x-generic'にはインストール候補がありません」というエラーが発生します。
+
+Debianマシンで、Linuxカーネルの追加モジュールをインストールする際に以下のようなエラーが発生した場合は、 https://pkgs.org/search/?q=linux-modules-extra[この]ようなpkgコレクションのウェブサイトで利用可能なバージョンを見つける必要があり、直接`uname -r`に頼るのではありません。
+
+[subs="+attributes",log]
+----
+apt install -y linux-modules-extra-`uname -r`
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+Package linux-modules-extra-5.15.0-67-generic is not available, but is referred to by another package.
+This may mean that the package is missing, has been obsoleted, or
+is only available from another source
+
+E: Package 'linux-modules-extra-5.15.0-67-generic' has no installation candidate
+----
+
+例えば、Ubuntu 22.04の場合、有効なバージョンは`linux-modules-extra-5.15.0-76-generic`です。
+
+[subs="+attributes",shell]
+----
+apt update -y
+apt install -y linux-modules-extra-5.15.0-76-generic
+----
+
+== ディスク
+
+=== ブロックタイプのディスクを追加した後、ディスクの状態に「無効な引数」というエラーが表示されます。
+
+ブロックタイプのディスクを追加した後、ディスクの状態にエラーメッセージが表示されます。
+
+----
+Disk disk-1(/dev/nvme1n1) on node dereksu-ubuntu-pool1-bf77ed93-2d2p9 is not ready:
+failed to generate disk config: error: rpc error: code = Internal desc = rpc error: code = Internal
+desc = failed to add block device: failed to create AIO bdev: error sending message, id 10441,
+method bdev_aio_create, params {disk-1 /host/dev/nvme1n1 4096}: {"code": -22,"message": "Invalid argument"}
+----
+
+次に、同じノードのインスタンスマネージャーポッドのログメッセージを確認してください。ログに以下の内容が表示されている場合：
+
+----
+[2023-06-29 08:51:53.762597] bdev_aio.c: 762:create_aio_bdev: *WARNING*: Specified block size 4096 does not match auto-detected block size 512
+[2023-06-29 08:51:53.762640] bdev_aio.c: 788:create_aio_bdev: *ERROR*: Disk size 100000000000 is not a multiple of block size 4096
+----
+
+これらのメッセージは、ディスクのサイズがブロックサイズ4096の倍数ではなく、Longhornシステムでサポートされていないことを示しています。
+
+この問題を解決するには、以下の手順に従ってください。
+
+. ノードから新しく追加したブロックタイプのディスクを削除してください。
+. `fdisk`ユーティリティを使用してブロックタイプのディスクをパーティション分割し、パーティションサイズがブロックサイズ4096の倍数であることを確認してください。
+. パーティション分割したディスクをLonghornノードに追加してください。

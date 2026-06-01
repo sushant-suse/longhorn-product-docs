@@ -1,0 +1,71 @@
+= Configurer la taille du bloc de sauvegarde
+:revdate: 2025-08-28
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Blocs de sauvegarde dans {longhorn-product-name}
+
+Une sauvegarde {longhorn-product-name} est composée de fragments de données d'un instantané, et chacun de ces fragments est appelé un bloc. Ces blocs constituent les unités fondamentales pour traiter, transmettre et stocker les données dans la cible de sauvegarde. Chaque bloc au sein d'une sauvegarde unique a la même taille physique.
+
+Avant {longhorn-product-name} v1.10.0, la taille des blocs de sauvegarde était fixée à 2 MiB. Avec {longhorn-product-name} v1.10.0 et versions ultérieures, les utilisateurs peuvent définir la taille des blocs de sauvegarde lors de la création d'un nouveau volume. Cette valeur est permanente et ne peut pas être modifiée après la création du volume. La taille des blocs utilisée pour un volume spécifique est affichée sur sa page de détails dans l'interface {longhorn-product-name}, et toutes les sauvegardes futures pour ce volume utiliseront cette même taille.
+
+=== Impact de la taille du bloc de sauvegarde
+
+{longhorn-product-name} propose deux tailles de blocs de sauvegarde{nbsp}: *2 MiB* et *16 MiB*. La taille que vous choisissez affecte l'efficacité de la création et du stockage des sauvegardes.
+
+. Des tailles de blocs plus grandes signifient moins de blocs au total. Cela améliore l'efficacité de la transmission et réduit le nombre de requêtes API envoyées à la cible de sauvegarde, ce qui peut accélérer le processus de sauvegarde.
+. Cependant, des tailles de blocs plus grandes peuvent également utiliser plus d'espace de stockage physique en raison du remplissage de zéros et nécessiter plus de mémoire pendant le processus de création de sauvegarde.
+
+== Taille par défaut globale du bloc de sauvegarde
+
+{longhorn-product-name} fournit un paramètre global pour définir la taille par défaut du bloc de sauvegarde pour les nouveaux volumes. Si vous ne spécifiez pas explicitement une taille du bloc de sauvegarde lors de la création d'un volume, {longhorn-product-name} utilisera cette valeur par défaut.
+
+Vous pouvez changer la taille du bloc de sauvegarde par défaut en utilisant soit l'interface {longhorn-product-name} soit kubectl{nbsp}:
+
+. Utilisation de l'interface {longhorn-product-name}{nbsp}:
++
+----
+Settings > General > Default Backup Block Size
+----
+
+. Utilisation de `kubectl`{nbsp}:
++
+[,bash]
+----
+kubectl -n longhorn-system edit settings.longhorn.io default-backup-block-size
+----
+
+== Créer un volume et spécifier la taille du bloc de sauvegarde
+
+Pour définir une taille du bloc de sauvegarde personnalisée lors de la création d'un nouveau volume, suivez ces étapes{nbsp}:
+
+. Allez dans le menu *Volume*.
+. Sélectionnez *Créer Volume*.
+. Dans la boîte de dialogue de création, à l'intérieur de `Advanced Configurations`, choisissez votre *taille du bloc de sauvegarde* souhaitée.
+
+== Spécifiez la taille du bloc de sauvegarde dans la classe de stockage
+
+Pour les volumes créés à l'aide d'une demande de volume persistant (PVC), vous pouvez spécifier le `backupBlockSize` dans la section `parameters` du `StorageClass`.
+
+Exemple :
+
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-example
+provisioner: driver.longhorn.io
+parameters:
+  backupBlockSize: 16Mi
+...
+----
+
+== Restaurer un volume à partir d'une sauvegarde
+
+Lorsque vous restaurez un volume à partir d'une sauvegarde, vous pouvez définir le nouveau volume à une taille de bloc de sauvegarde différente de celle d'origine.
+
+[CAUTION]
+====
+Les versions {longhorn-product-name} antérieures à v1.10 ne sont pas compatibles avec les versions ultérieures. Elles ne peuvent pas restaurer des sauvegardes effectuées avec {longhorn-product-name} v1.10 ou plus récentes. Tenter de restaurer une sauvegarde avec une taille de bloc non par défaut (autre que 2 MiB) sur {longhorn-product-name} v1.9.x ou antérieures créera un volume avec une corruption du système de fichiers.
+====

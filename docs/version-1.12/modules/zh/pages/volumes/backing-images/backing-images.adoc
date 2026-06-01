@@ -1,0 +1,280 @@
+= 基础镜像
+:revdate: 2025-12-10
+:page-revdate: {revdate}
+:experimental:
+:current-version: {page-component-version}
+
+{longhorn-product-name} 原生支持基础镜像。
+
+可以将 QCOW2 或 RAW 镜像设置为 {longhorn-product-name} 卷的基础镜像，这允许 {longhorn-product-name} 与虚拟化方案如 https://www.suse.com/products/rancher/virtualization[{harvester-product-name}] 集成。
+
+[IMPORTANT]
+====
+镜像大小必须是 *a multiple of 512 bytes*。{longhorn-product-name} 使用直接 I/O，这要求文件大小与底层存储块大小对齐。
+====
+
+== 创建 V1 数据引擎基础镜像
+
+=== 参数
+
+==== 数据源
+
+您可以使用任何支持的数据源准备 V1 基础镜像。
+
+. 下载基础镜像文件（使用 URL）。
+. 从本地计算机上传文件。此选项对 {longhorn-product-name} UI 用户可用。
+. 将现有集群内卷导出为基础镜像。
+. 从备份库恢复基础镜像，更多信息请参见 xref:snapshots-backups/backing-image-backups.adoc[基础镜像备份]。
+. 克隆基础镜像。
+
+==== 卷导出
+
+基础镜像作为 {longhorn-product-name} 卷快照链中的初始快照。当您导出一个与基础镜像关联的卷时，{longhorn-product-name} 会将该镜像与增量更改合并，从而生成一个新的合并基础镜像。
+
+==== Checksum
+
+* 基础镜像的校验和是 *整个基础镜像的 SHA512 校验和*，而不是实际内容的校验和。
+有什么区别？当 {longhorn-product-name} 计算 qcow2 文件的校验和时，它会将文件作为原始文件读取，而不是使用 qcow 库读取正确的内容。换句话说，用户通过执行 `shasum -a 512 <the file path>` 始终可以获得正确的校验和，无论文件格式如何。
+* 建议在创建基础镜像时提供预期的校验和。
+否则，{longhorn-product-name} 将把第一个文件的校验和视为正确的校验和。一旦第一个文件准备出现问题，导致校验和与预期值不符，则该基础镜像可能不可用。
+
+==== 安排日程
+
+* {longhorn-product-name} 首先在随机节点和磁盘上准备并存储基础镜像文件，然后将该文件复制到存储副本的磁盘上。
+* 为了提高空间效率，您可以添加 `nodeSelector` 和 `diskSelector` 强制在特定节点和磁盘上存储基础镜像文件。
+* 副本不能调度到无法调度基础镜像的节点或磁盘上。
+
+==== 打印份数
+
+* 您可以添加 `minNumberOfCopies` 以确保集群中存在多个基础镜像文件。
+* 您可以在全局设置中调整 `minNumberOfCopies` 以将默认值应用于基础镜像。
+
+=== 创建基础镜像的方法
+
+==== 使用 {longhorn-product-name} UI 创建基础镜像
+
+在 menu:高级[基础镜像] 页面，用户可以使用任何类型的数据源创建基础镜像。
+
+==== 使用 YAML 创建 V1 基础镜像
+
+您可以通过 YAML 下载文件或导出现有卷作为基础镜像。
+最好不要通过 YAML "上传" 文件。否则，您需要通过 HTTP 请求手动处理数据上传。
+
+以下是一些示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: bi-download
+  namespace: longhorn-system
+spec:
+  dataEngine: v1
+  minNumberOfCopies: 2
+  nodeSelector:
+    - "node1"
+  diskSelector:
+    - "disk1"
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: bi-export
+  namespace: longhorn-system
+spec:
+  dataEngine: v1
+  minNumberOfCopies: 2
+  nodeSelector:
+    - "node1"
+  diskSelector:
+    - "disk1"
+  sourceType: export-from-volume
+  sourceParameters:
+    volume-name: vol-export-src
+    export-type: qcow2
+----
+
+==== 使用 StorageClass 和 PVC 创建基础镜像
+
+. 在 Longhorn StorageClass 中。
+. 设置参数 `backingImageName` 意味着要求 {longhorn-product-name} 在卷创建期间使用此基础镜像。
+. 如果您想创建基础镜像，只要在 CSI 卷创建期间不存在，则应设置参数 `backingImageDataSourceType` 和 `backingImageDataSourceParameters`。与 YAML 类似，最好不要通过 StorageClass 中的 "上传" 创建基础镜像。请注意，如果所有这些参数都已设置并且基础镜像已存在，{longhorn-product-name} 将在使用之前验证参数是否与现有参数匹配。
+
+ ** 对于`download`：
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-backing-image-example
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  backingImage: "bi-download"
+  backingImageDataSourceType: "download"
+  backingImageDataSourceParameters: '{"url": "https://backing-image-example.s3-region.amazonaws.com/test-backing-image"}'
+  backingImageChecksum: "SHA512 checksum of the backing image"
+  backingImageMinNumberOfCopies: "2"
+  backingImageNodeSelector: "node1"
+  backingImageDiskSelector: "disk1"
+  dataEngine: "v1"
+----
+
+ ** 对于`export-from-volume`：
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-backing-image-example
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  backingImage: "bi-export-from-volume"
+  backingImageDataSourceType: "export-from-volume"
+  backingImageDataSourceParameters: '{"volume-name": "vol-export-src", "export-type": "qcow2"}'
+  backingImageMinNumberOfCopies: "2"
+  backingImageNodeSelector: "node1"
+  backingImageDiskSelector: "disk1"
+  dataEngine: "v1"
+----
+. 创建一个带有 StorageClass 的 PVC。如果基础镜像不存在，则将创建基础镜像（带有 {longhorn-product-name} 卷）。
+. 当使用基础镜像的卷附加到节点时，{longhorn-product-name} 开始将基础镜像预备到磁盘上供副本使用。
+
+[NOTE]
+====
+* 在 StorageClass 中输入下载 URL 时，请注意转义字符 `\`。
+* 使用 StorageClass 创建的基础镜像与卷具有相同的数据引擎。
+====
+
+== 在卷中使用基础镜像
+
+用户可以 <<Create a Backing Image Using a StorageClass and PVC,直接创建然后立即通过 StorageClass 使用基础镜像>> 或利用下面提到的现有基础镜像。
+
+[discrete]
+==== 使用现有基础镜像
+
+[discrete]
+===== 在卷创建期间使用现有基础镜像
+
+. 在 {longhorn-product-name} UI 中点击 menu:高级[基础镜像]。
+. 点击 *创建基础镜像* 以创建一个具有唯一名称和有效 URL 的基础镜像。
+. 从列表中选择一个基础镜像。卷和基础镜像必须使用相同的数据引擎。
+. 当使用基础镜像的卷附加到节点时，{longhorn-product-name} 开始将基础镜像下载到副本的磁盘。
+
+[discrete]
+===== 在卷恢复期间使用现有基础镜像
+
+. 点击 `Backup` 并选择一个备份卷进行恢复。
+. 只要备份卷已经设置了基础镜像，{longhorn-product-name} 将在恢复期间自动选择基础镜像。
+. {longhorn-product-name} 允许您在恢复期间重新指定或覆盖基础镜像。
+
+[discrete]
+==== 下载基础镜像文件
+
+自 v1.3.0 起，用户可以通过用户界面将现有的基础镜像文件下载到本地机器。
+
+[NOTE]
+====
+* 用户在使用用户界面创建或恢复指定基础镜像的卷时，需要确保基础镜像的存在。
+* 在将现有基础镜像文件下载到本地之前，用户需要确保有一个准备好的文件。
+* 目前不支持下载 V2 数据引擎的基础镜像。
+====
+
+== 创建 V2 数据引擎基础镜像
+
+从 v1.8.0 开始，您可以通过在 YAML 中配置 `Data Engine`（通过用户界面或 StorageClass）来创建一个由 V2 数据引擎支持的基础镜像。
+
+=== 参数
+
+所有参数与 V1 数据引擎基础镜像的参数相同，除了 `Data Engine`。
+
+==== 数据源
+
+您可以使用任何受支持的数据源准备 V2 数据引擎基础镜像。
+
+* 下载基础镜像文件（使用 URL）。
+* 从本地计算机上传文件。此选项对 {longhorn-product-name} UI 用户可用。
+* 将现有的集群内 V1 数据引擎卷导出为基础镜像。
+* 从备份存储中恢复基础镜像。有关更多信息，请参见 xref:snapshots-backups/backing-image-backups.adoc[基础镜像备份]。
+* 克隆 V1 基础镜像。
+
+[NOTE]
+====
+* 当前不支持以下操作：
+ ** 从 V2 数据引擎卷导出
+ ** 克隆 V2 基础镜像。
+ ** 备份 V2 基础镜像。
+* 与基于文件的 V1 数据引擎不同，V2 数据引擎需要 {longhorn-product-name} 将基础镜像数据存储在 SPDK 逻辑卷中。因此，对于 qcow2 镜像，{longhorn-product-name} 必须先将 qcow2 镜像转换为原始格式，然后再将数据存储到 V2 数据引擎基础镜像中，以便能够读取正确的数据。
+====
+
+== 清理基础镜像
+
+[discrete]
+==== 清理磁盘中的基础镜像
+
+* {longhorn-product-name} 自动清理磁盘上未使用的基础镜像文件，依据 xref:longhorn-system/settings.adoc#_backing_image_cleanup_wait_interval[设置 `Backing Image Cleanup Wait Interval`]。但是 {longhorn-product-name} 会在每个基础镜像的磁盘上保留至少一个文件。
+* 您可以使用 {longhorn-product-name} UI 手动去除磁盘中的基础镜像。前往 *设置* > *基础镜像*，然后点击特定基础镜像的名称。在打开的窗口中，选择一个或多个磁盘，然后点击 *清理*。
+* 一旦磁盘中存在使用基础镜像的副本，无论副本当前状态如何，该磁盘中的基础镜像文件均无法清理。
+
+[discrete]
+==== 删除基础镜像
+
+* 只有在没有使用它的卷时，基础镜像才能被删除。
+
+== 基础镜像恢复
+
+* 如果某个磁盘上仍存在一个准备好的基础镜像文件，{longhorn-product-name} 将自动清理失败的基础镜像文件，然后从该准备好的文件重新启动。
+* 如果某种情况下，基础镜像的所有文件都变为失败，且第一个文件是：
+ ** 从 URL 下载的，{longhorn-product-name} 将重新启动下载。
+ ** 从现有卷导出的，{longhorn-product-name} 将（如有必要，附加卷然后）重新启动导出。
+ ** 从用户本地环境上传的，无法恢复。用户需要删除此基础镜像，然后通过重新上传文件创建一个新的。
+* 当节点宕机或节点上的备份镜像管理器 Pod 不可用时，节点上的所有基础镜像文件将变为 `unknown`。稍后，如果节点恢复且 Pod 正在运行，{longhorn-product-name} 将检测到这一点并自动重用现有文件。
+
+== 基础镜像驱逐
+
+* 您可以通过在 {longhorn-product-name} UI 上将 `Scheduling` 设置为 `Disabled`，并将 `Eviction Requested` 设置为 `True`，手动驱逐节点或磁盘上的所有基础镜像文件。
+* 如果集群中仅存在一个基础镜像文件，{longhorn-product-name} 将首先将该文件复制到另一磁盘，然后删除该文件。
+* 如果备份镜像文件无法复制到其他磁盘，{longhorn-product-name} 不会删除该文件。您可以更新设置以解决此问题。
+
+== 备份镜像工作流程
+
+. 为了管理磁盘上的所有备份镜像文件，{longhorn-product-name} 为每个磁盘创建一个单独的备份镜像管理器 Pod。一旦磁盘不再需要备份镜像文件，备份镜像管理器将自动被去除。
+. 一旦备份镜像管理器为磁盘准备好备份镜像文件，该文件将在此磁盘上的所有卷副本之间共享。
+. 当创建备份镜像时，{longhorn-product-name} 启动一个备份镜像数据源 Pod 来准备初始文件。文件数据来自用户指定的源，例如从远程位置下载、本地文件上传或从现有卷导出。一旦准备完成，同一磁盘上的备份镜像管理器 Pod 接管该文件，{longhorn-product-name} 停止数据源 Pod。
+. 一旦新备份镜像被卷使用，卷副本所在磁盘中的备份镜像管理器 Pods 将被要求从已经包含该文件的备份镜像管理器 Pods 同步该文件。
+. 如在章节 <<_clean_up_backing_images_in_disks,#clean_up_backing_images_in_disks>> 中提到的，如果一个磁盘中的所有副本都不使用一个备份镜像文件，该文件将自动被清理。
+
+== 备份镜像同步的并发限制
+
+* `Concurrent Backing Image Replenish Per Node Limit` 在全局设置中控制节点上可以同时补充多少个备份镜像副本。
+* 当设置为 0 时，{longhorn-product-name} 不会自动补充副本，即使它低于 minNumberOfCopies。
+
+== 警告
+
+* 备份镜像的下载 URL 应该是公开的。我们将在未来改进这一部分。
+* 如果在 <<_download_a_backing_image_file,文件下载>> 后一个备份镜像管理器 Pod 的内存使用率很高，这是由于系统缓存/缓冲区造成的。内存使用率将自动降低，因此您无需担心。有关更多详细信息，请参见 https://github.com/longhorn/longhorn/issues/4055[GitHub 工单]。
+
+== 历史记录
+
+* https://github.com/Longhorn/Longhorn/issues/2006[在 {longhorn-product-name} 中启用备份镜像功能]
+* 支持 https://github.com/longhorn/longhorn/issues/2404[上传]和 https://github.com/longhorn/longhorn/issues/2403[卷导出]
+* 支持 https://github.com/longhorn/longhorn/issues/2404[下载到本地]和 https://github.com/longhorn/longhorn/issues/3155[卷导出]

@@ -1,0 +1,54 @@
+= Acesse a interface do usuário
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Expor a {longhorn-product-name} interface do usuário permite acesso externo ao console de gerenciamento. A escolha do controlador de Ingress (por exemplo, *Traefik*, *HAProxy*, etc.) afeta apenas como a interface é acessada. Isso *não impacta o {longhorn-product-name} backend, operações de armazenamento ou integridade dos dados*.
+
+[NOTE]
+====
+A partir de novembro de 2025, o projeto Kubernetes anunciou a aposentadoria do controlador ingress-nginx. Para detalhes, https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement[veja o anúncio oficial].
+====
+
+== Pré-requisitos para Acesso e Autenticação
+
+Estas instruções assumem que {longhorn-product-name} já está instalado no cluster.
+
+Se você instalou {longhorn-product-name} usando o manifesto YAML, deve configurar um controlador de Ingress para permitir tráfego externo no cluster. A autenticação *não está habilitada por padrão*. Isso se aplica tanto a instalações do Helm quanto a `kubectl`.
+
+Para informações sobre como criar um controlador de Ingress Traefik com autenticação básica, veja xref:longhorn-system/system-access/longhorn-ingress-traefik.adoc[esta seção]. Alternativamente, você também pode usar o xref:longhorn-system/system-access/longhorn-httproute.adoc[Gateway API HTTPRoute] como uma abordagem moderna para expor a {longhorn-product-name} interface do usuário.
+
+Se {longhorn-product-name} foi instalado como um aplicativo do catálogo Rancher, o Rancher cria automaticamente um controlador de Ingress com controle de acesso (o `rancher-proxy`).
+
+== Acessando a {longhorn-product-name} interface do usuário
+
+Após {longhorn-product-name} ser instalado em seu cluster Kubernetes, você pode acessar o painel da interface do usuário seguindo estas etapas.
+
+. Recupere as informações do serviço {longhorn-product-name}:
++
+[,shell]
+----
+kubectl -n longhorn-system get svc
+----
++
+Para {longhorn-product-name} v0.8.0 e versões posteriores, a saída se assemelha ao seguinte. Use o `CLUSTER-IP` do serviço `longhorn-frontend` para acessar a interface do usuário:
++
+[,shell]
+----
+NAME                TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+longhorn-backend    ClusterIP   10.20.248.250   <none>        9500/TCP   58m
+longhorn-frontend   ClusterIP   10.20.245.110   <none>        80/TCP     58m
+----
++
+Neste exemplo, a interface do usuário está acessível em `10.20.245.110`.
++
+[NOTE]
+====
+A partir da versão {longhorn-product-name} v0.8.0, o tipo de serviço da interface do usuário mudou de `LoadBalancer` para `ClusterIP`.
+====
+
+. Abra um navegador e navegue até o endereço IP do serviço `longhorn-frontend`.
++
+A {longhorn-product-name} interface do usuário se parece com isto:
++
+image::screenshots/getting-started/v1.10.0/longhorn-ui.png[Imagem]

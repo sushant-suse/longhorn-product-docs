@@ -1,0 +1,25 @@
+= Schnelles Wiederherstellen von Replikaten
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn unterstützt das schnelle Wiederherstellen von Replikaten basierend auf den Prüfsummen der Snapshot-Disk-Dateien.
+
+== Einführung
+
+Der herkömmliche Prozess zum Wiederherstellen von Replikaten durchläuft alle Snapshot-Disk-Dateien. Für jeden Datenblock hasht der Client (gesundes Replikat) den lokalen Datenblock und fordert die Prüfsumme des entsprechenden Datenblocks auf der Remote-Seite (wiederhergestelltes Replikat) an. Anschließend vergleicht der Client die beiden Prüfsummen, um festzustellen, ob der Datenblock an die Remote-Seite gesendet und der Datenblock überschrieben werden muss. Somit ist es ein IO- und rechenintensiver Prozess, insbesondere wenn das Volumen groß ist oder eine große Anzahl von Snapshot-Dateien enthält.
+
+Wenn Benutzer die Funktion zur Überprüfung der Datenintegrität von Snapshots aktivieren, indem sie `snapshot-data-integrity` auf `enabled` oder `fast-check` konfigurieren, werden die Änderungszeitstempel und die Prüfsummen der Snapshot-Disk-Dateien aufgezeichnet. Solange die beiden unten genannten Bedingungen erfüllt sind, können wir die Synchronisierung der Snapshot-Disk-Datei überspringen.
+
+* Die Änderungszeitstempel der Snapshot-Disk-Datei und der aufgezeichnete Wert sind identisch.
+* Sowohl die lokalen als auch die Remote-Snapshot-Disk-Dateien haben die gleiche Prüfsumme.
+
+Eine Reduzierung der Anzahl unnötiger Berechnungen kann den gesamten Prozess beschleunigen und die Auswirkungen auf die Systemleistung verringern.
+
+== Einstellungen
+
+=== Globale Einstellungen
+
+* schnell-replikat-wiederherstellen-aktiviert +
++
+Die Einstellung aktiviert die Funktion zum schnellen Wiederherstellen von Replikaten. Es basiert auf den Prüfsummen der Snapshot-Disk-Dateien, daher ist es eine Voraussetzung, die Datenintegrität von Snapshots auf *aktivieren* oder *schnell-prüfen* zu setzen. Bitte beziehen Sie sich auf xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[Datenintegritätsprüfung von Snapshots].

@@ -1,0 +1,99 @@
+= CSI-Volume-Snapshot, das mit einem SUSE® Storage-Snapshot verknüpft ist
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Ein Snapshot in Longhorn ist ein Objekt, das den Inhalt eines Longhorn-Volumes zu einem bestimmten Zeitpunkt darstellt. Es wird im Cluster gespeichert.
+
+Um programmgesteuert Longhorn-Snapshots zu erstellen, können Sie den generischen Kubernetes-CSI-VolumeSnapshot-Mechanismus verwenden. Um mehr über den CSI-VolumeSnapshot-Mechanismus zu erfahren, klicken Sie https://kubernetes.io/docs/concepts/storage/volume-snapshots/[hier].
+
+____
+*Voraussetzung:* Die Unterstützung für CSI-Snapshots muss in Ihrem Cluster aktiviert sein.
+Wenn Ihre Kubernetes-Distribution den Kubernetes-Snapshot-Controller sowie die benutzerdefinierten Ressourcenbeschreibungen für Snapshots nicht bereitstellt, müssen Sie diese manuell bereitstellen.
+Für weitere Informationen siehe xref:snapshots-backups/csi-snapshots/enable-csi-snapshot-creation.adoc[Aktivieren Sie die CSI-Snapshot-Unterstützung].
+____
+
+== Erstellen Sie einen CSI-VolumeSnapshot, der mit einem Longhorn-Snapshot verbunden ist
+
+Um einen CSI-VolumeSnapshot zu erstellen, der mit einem Longhorn-Snapshot verbunden ist, müssen Sie zunächst ein `VolumeSnapshotClass`-Objekt erstellen, bei dem der Parameter `type` auf `snap` gesetzt ist, wie folgt:
+
+[subs="+attributes",yaml]
+----
+kind: VolumeSnapshotClass
+apiVersion: snapshot.storage.k8s.io/v1
+metadata:
+  name: longhorn-snapshot-vsc
+driver: driver.longhorn.io
+deletionPolicy: Delete
+parameters:
+  type: snap
+----
+
+Für weitere Informationen zu `VolumeSnapshotClass` siehe die Kubernetes-Dokumentation für https://kubernetes.io/docs/concepts/storage/volume-snapshot-classes/[VolumeSnapshotClasses].
+
+Erstellen Sie anschließend ein Kubernetes-`VolumeSnapshot`-Objekt, bei dem `volumeSnapshotClassName` auf den Namen des `VolumeSnapshotClass` (`longhorn-snapshot-vsc`) verweist und `source` auf das PVC des Longhorn-Volumes, für das ein Longhorn-Snapshot erstellt werden soll.
+
+[subs="+attributes",yaml]
+----
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: test-csi-volume-snapshot-longhorn-snapshot
+spec:
+  volumeSnapshotClassName: longhorn-snapshot-vsc
+  source:
+    persistentVolumeClaimName: test-vol
+----
+
+*Ergebnis:*
+Ein Longhorn-Snapshot wird erstellt. Die Erstellung des `VolumeSnapshot`-Objekts führt zur Erstellung eines `VolumeSnapshotContent`-Kubernetes-Objekts.
+Das `VolumeSnapshotContent` verweist in seinem `VolumeSnapshotContent.snapshotHandle`-Feld auf einen Longhorn-Snapshot mit dem Namen `snap://volume-name/snapshot-name`.
+
+=== Anzeigen des Longhorn-Snapshots
+
+Um den Snapshot anzuzeigen, klicken Sie in der oberen Navigationsleiste auf *Volume* und klicken Sie auf das im `VolumeSnapshotContent.snapshotHandle` erwähnte Volume. Scrollen Sie nach unten, um die Liste aller Volume-Snapshots zu sehen.
+
+=== Wie der CSI-Mechanismus in diesem Szenario funktioniert
+
+Wenn das VolumeSnapshot-Objekt mit kubectl erstellt wird, wird das `VolumeSnapshot.uuid`-Feld verwendet, um einen Longhorn-Snapshot und das zugehörige `VolumeSnapshotContent`-Objekt zu identifizieren.
+
+Dies erstellt einen neuen Longhorn-Snapshot mit dem Namen `snapshot-uuid` und die CSI-Anfrage wird zurückgegeben.
+
+Anschließend wird ein `VolumeSnapshotContent`-Objekt mit dem Namen `snapcontent-uuid` erstellt, wobei das `VolumeSnapshotContent.readyToUse`-Flag auf *true* gesetzt ist.
+
+== Wiederherstellung des PVC aus einem CSI-VolumeSnapshot, das mit einem Longhorn-Snapshot verbunden ist
+
+Erstellen Sie ein `PersistentVolumeClaim`-Objekt, bei dem das `dataSource`-Feld auf ein vorhandenes `VolumeSnapshot`-Objekt verweist, das mit dem Longhorn-Snapshot verbunden ist.
+
+Der csi-provisioner wird dies aufnehmen und den Longhorn CSI-Treiber anweisen, ein neues Volume mit den Daten aus dem zugehörigen Longhorn-Snapshot bereitzustellen.
+
+Ein Beispiel `PersistentVolumeClaim` ist unten. Das `dataSource`-Feld muss auf ein vorhandenes `VolumeSnapshot`-Objekt verweisen.
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-restore-pvc
+spec:
+  storageClassName: longhorn
+  dataSource:
+    name: test-csi-volume-snapshot-longhorn-snapshot
+    kind: VolumeSnapshot
+    apiGroup: snapshot.storage.k8s.io
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+----
+
+[NOTE]
+====
+* Der `spec.resources.requests.storage`-Wert muss der Größe des `VolumeSnapshot`-Objekts entsprechen.
+* Beim Wiederherstellen eines Volumes aus einem `VolumeSnapshot`, das mit einem V2-Daten-Engine-Volume verbunden ist, können Sie den Klonmodus mit einem `StorageClass` angeben.
+** Setzen Sie den `cloneMode`-Parameter auf entweder `full-copy` oder `linked-clone`.
+** Wenn Sie den `cloneMode`-Parameter nicht angeben, ist der Standardwert `full-copy`.
+
+Weitere Informationen finden Sie unter xref:longhorn-system/v2-data-engine/features/volume-clone.adoc[der Dokumentation für V2 Volume Clone Support].
+====

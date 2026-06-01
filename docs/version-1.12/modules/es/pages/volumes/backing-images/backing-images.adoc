@@ -1,0 +1,280 @@
+= Imágenes de respaldo
+:revdate: 2025-12-10
+:page-revdate: {revdate}
+:experimental:
+:current-version: {page-component-version}
+
+{longhorn-product-name} admite de forma nativa imágenes de respaldo.
+
+Una imagen QCOW2 o RAW puede establecerse como la imagen de respaldo/base de un volumen {longhorn-product-name}, lo que permite que {longhorn-product-name} se integre con una solución de virtualización como https://www.suse.com/products/rancher/virtualization[{harvester-product-name}].
+
+[IMPORTANT]
+====
+El tamaño de la imagen debe ser *a múltiplo de 512 bytes*. {longhorn-product-name} utiliza E/S directa, lo que requiere la alineación de los tamaños de archivo con el tamaño de bloque de almacenamiento subyacente.
+====
+
+== Crear una imagen de respaldo del motor de datos V1
+
+=== Parámetros
+
+==== Origen de datos
+
+Puedes preparar una imagen de respaldo V1 utilizando cualquiera de los orígenes de datos soportados.
+
+. Descargar un archivo de imagen de respaldo (usando una URL).
+. Subir un archivo desde tu máquina local. Esta opción está disponible para los usuarios de la interfaz de usuario de {longhorn-product-name}.
+. Exportar un volumen existente en el clúster como una imagen de respaldo.
+. Restaurar una imagen de respaldo desde el backupstore. Para más información, consulta xref:snapshots-backups/backing-image-backups.adoc[Copia de seguridad de imagen de respaldo].
+. Clonar una imagen de respaldo.
+
+==== Exportación de volumen
+
+Una imagen de respaldo sirve como la instantánea inicial en la cadena de instantáneas de un volumen {longhorn-product-name}. Cuando exportas un volumen con una imagen de respaldo asociada, {longhorn-product-name} fusiona esa imagen con los cambios delta, resultando en una nueva imagen de respaldo consolidada.
+
+==== Suma de comprobación
+
+* La suma de comprobación de una imagen de respaldo es *la suma de comprobación SHA512* de todo el *archivo de imagen de respaldo* en lugar de la del contenido real.
+¿Cuál es la diferencia? Cuando {longhorn-product-name} calcula la suma de comprobación de un archivo qcow2, leerá el archivo como un archivo sin procesar en lugar de utilizar la biblioteca qcow para leer el contenido correcto. En otras palabras, los usuarios siempre obtienen la suma de comprobación correcta al ejecutar `shasum -a 512 <the file path>` independientemente del formato del archivo.
+* Se recomienda proporcionar la suma de comprobación esperada durante la creación de la imagen de respaldo.
+De lo contrario, {longhorn-product-name} considerará la suma de comprobación del primer archivo como la correcta. Una vez que hay algo mal con la preparación del primer archivo, lo que lleva a una suma de comprobación incorrecta como el valor esperado, esta imagen de respaldo probablemente no estará disponible.
+
+==== Programación
+
+* {longhorn-product-name} primero prepara y almacena el archivo de imagen de respaldo en un nodo y disco aleatorios, y luego duplica el archivo en los discos que están almacenando las réplicas.
+* Para mejorar la eficiencia del espacio, puedes añadir `nodeSelector` y `diskSelector` para forzar el almacenamiento de archivos de imagen de respaldo en un conjunto específico de nodos y discos.
+* Las réplicas no pueden programarse en nodos o discos donde la imagen de respaldo no puede ser programada.
+
+==== Nº de copias
+
+* Puedes añadir `minNumberOfCopies` para asegurarte de que existan múltiples archivos de imagen de respaldo en el clúster.
+* Puedes ajustar el `minNumberOfCopies` en la configuración global para aplicar el valor predeterminado a la Imagen de Respaldo.
+
+=== Métodos para Crear una Imagen de Respaldo
+
+==== Crear una Imagen de Respaldo Usando la Interfaz de Usuario de {longhorn-product-name}
+
+En la página menu:Avanzadas[Imágenes de respaldo], los usuarios pueden crear imágenes de respaldo con cualquier tipo de origen de datos.
+
+==== Crear una imagen de respaldo V1 usando YAML
+
+Puedes descargar un archivo o exportar un volumen existente como una imagen de respaldo a través de YAML.
+Es mejor no "subir" un archivo a través de YAML. De lo contrario, necesitas manejar manualmente la carga de datos a través de solicitudes HTTP.
+
+A continuación, se dan algunos ejemplos:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: bi-download
+  namespace: longhorn-system
+spec:
+  dataEngine: v1
+  minNumberOfCopies: 2
+  nodeSelector:
+    - "node1"
+  diskSelector:
+    - "disk1"
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: bi-export
+  namespace: longhorn-system
+spec:
+  dataEngine: v1
+  minNumberOfCopies: 2
+  nodeSelector:
+    - "node1"
+  diskSelector:
+    - "disk1"
+  sourceType: export-from-volume
+  sourceParameters:
+    volume-name: vol-export-src
+    export-type: qcow2
+----
+
+==== Crear una imagen de respaldo usando una StorageClass y PVC
+
+. En un Longhorn StorageClass.
+. Establecer el parámetro `backingImageName` significa pedir a {longhorn-product-name} que utilice esta imagen de respaldo durante la creación del volumen.
+. Si deseas crear la imagen de respaldo, siempre que no exista durante la creación del volumen CSI, los parámetros `backingImageDataSourceType` y `backingImageDataSourceParameters` deben estar configurados. De manera similar a YAML, es mejor no crear una imagen de respaldo a través de "subir" en StorageClass. Ten en cuenta que si todos estos parámetros están configurados y la imagen de respaldo ya existe, {longhorn-product-name} validará si los parámetros coinciden con el existente antes de usarlo.
+
+ ** En el caso de la `download`,
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-backing-image-example
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  backingImage: "bi-download"
+  backingImageDataSourceType: "download"
+  backingImageDataSourceParameters: '{"url": "https://backing-image-example.s3-region.amazonaws.com/test-backing-image"}'
+  backingImageChecksum: "SHA512 checksum of the backing image"
+  backingImageMinNumberOfCopies: "2"
+  backingImageNodeSelector: "node1"
+  backingImageDiskSelector: "disk1"
+  dataEngine: "v1"
+----
+
+ ** En el caso de la `export-from-volume`,
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-backing-image-example
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  backingImage: "bi-export-from-volume"
+  backingImageDataSourceType: "export-from-volume"
+  backingImageDataSourceParameters: '{"volume-name": "vol-export-src", "export-type": "qcow2"}'
+  backingImageMinNumberOfCopies: "2"
+  backingImageNodeSelector: "node1"
+  backingImageDiskSelector: "disk1"
+  dataEngine: "v1"
+----
+. Crea un PVC con el StorageClass. Entonces, la imagen de respaldo se creará (con el volumen {longhorn-product-name}) si no existe.
+. {longhorn-product-name} comienza a preparar las imágenes de respaldo para los discos de las réplicas cuando un volumen que utiliza la imagen de respaldo está adjunto a un nodo.
+
+[NOTE]
+====
+* Por favor, ten cuidado con el carácter de escape `\` cuando ingreses una URL de descarga en un StorageClass.
+* Una imagen de respaldo que se crea utilizando un StorageClass tiene el mismo motor de datos que el volumen.
+====
+
+== Usa una imagen de respaldo en un volumen
+
+Los usuarios pueden <<Create a Backing Image Using a StorageClass and PVC, crear directamente y luego usar inmediatamente una imagen de respaldo a través de StorageClass>> o utilizar una imagen de respaldo existente como se menciona a continuación.
+
+[discrete]
+==== Usa una imagen de respaldo existente
+
+[discrete]
+===== Usa una imagen de respaldo existente durante la creación del volumen
+
+. Haz clic en menu:Avanzadas[Imágenes de respaldo] en la interfaz de usuario de {longhorn-product-name}.
+. Haz clic en *Crear imagen de respaldo* para crear una imagen de respaldo con un nombre único y una URL válida.
+. Selecciona una imagen de respaldo de la lista. El volumen y la imagen de respaldo deben utilizar el mismo motor de datos.
+. {longhorn-product-name} comienza a descargar la imagen de respaldo a los discos de las réplicas cuando un volumen que utiliza la imagen de respaldo está adjunto a un nodo.
+
+[discrete]
+===== Usa una imagen de respaldo existente durante la restauración del volumen
+
+. Haz clic en `Backup` y selecciona un volumen de copia de seguridad para la restauración.
+. Siempre que la imagen de respaldo ya esté configurada para la copia de seguridad, {longhorn-product-name} elegirá automáticamente la imagen de respaldo durante la restauración.
+. {longhorn-product-name} te permite volver a especificar o anular la imagen de respaldo durante la restauración.
+
+[discrete]
+==== Descargar un archivo de imagen de respaldo
+
+Desde la versión 1.3.0, los usuarios pueden descargar archivos de imagen de respaldo existentes a la máquina local a través de la interfaz de usuario.
+
+[NOTE]
+====
+* Los usuarios deben asegurarse de la existencia de la imagen de respaldo cuando utilicen la interfaz de usuario para crear o restaurar un volumen con una imagen de respaldo especificada.
+* Antes de descargar un archivo de imagen de respaldo existente a la máquina local, los usuarios deben garantizar que hay un archivo listo para ello.
+* La descarga de imágenes de respaldo del motor de datos V2 no es actualmente compatible.
+====
+
+== Crear una imagen de respaldo del motor de datos V2
+
+A partir de la versión 1.8.0, puedes crear una imagen de respaldo que sea compatible con el motor de datos V2 configurando `Data Engine` en el YAML (a través de la interfaz de usuario o una StorageClass).
+
+=== Parámetros
+
+Todos los parámetros son los mismos que los de la imagen de respaldo del motor de datos V1, excepto por `Data Engine`.
+
+==== Orígenes de datos
+
+Puedes preparar una imagen de respaldo del motor de datos V2 utilizando cualquiera de los orígenes de datos compatibles.
+
+* Descargar un archivo de imagen de respaldo (usando una URL).
+* Subir un archivo desde tu máquina local. Esta opción está disponible para los usuarios de la interfaz de usuario de {longhorn-product-name}.
+* Exportar un volumen V1 del motor de datos existente en el clúster como una imagen de respaldo.
+* Restaurar una imagen de respaldo desde el backupstore. Para más información, consulta xref:snapshots-backups/backing-image-backups.adoc[Copia de seguridad de imagen de respaldo].
+* Clonar una imagen de respaldo V1.
+
+[NOTE]
+====
+* Las siguientes operaciones no son actualmente compatibles:
+ ** Exportar desde un volumen del motor de datos V2
+ ** Clonar una imagen de respaldo V2.
+ ** Respaldar una imagen de respaldo V2.
+* A diferencia del motor de datos V1, que es basado en archivos, el motor de datos V2 requiere {longhorn-product-name} para almacenar los datos de la imagen de respaldo en un volumen lógico SPDK. Como resultado, para imágenes qcow2, {longhorn-product-name} debe primero convertir la imagen qcow2 a un formato raw antes de almacenar los datos en la imagen de respaldo del motor de datos V2, permitiendo que lea los datos correctos.
+====
+
+== Limpiar imágenes de respaldo.
+
+[discrete]
+==== Limpiar imágenes de respaldo en discos.
+
+* {longhorn-product-name} limpia automáticamente los archivos de imagen de respaldo no utilizados en los discos según xref:longhorn-system/settings.adoc#_backing_image_cleanup_wait_interval[la configuración `Backing Image Cleanup Wait Interval`]. Pero {longhorn-product-name} retendrá al menos un archivo en un disco para cada imagen de respaldo.
+* Puedes eliminar manualmente las imágenes de respaldo de los discos utilizando la interfaz de usuario {longhorn-product-name}. Ve a *Configuración* > *Imagen de respaldo*, y luego haz clic en el nombre de una imagen de respaldo específica. En la ventana que se abre, selecciona uno o más discos y luego haz clic en *Limpiar*.
+* Una vez que hay una réplica en un disco utilizando una imagen de respaldo, sin importar cuál sea el estado actual de la réplica, el archivo de imagen de respaldo en este disco no puede ser limpiado.
+
+[discrete]
+==== Eliminar imágenes de respaldo.
+
+* La imagen de copia de seguridad solo puede ser eliminada cuando no hay volumen utilizándola.
+
+== Recuperación de imagen de respaldo.
+
+* Si todavía hay un archivo de imagen de respaldo listo en un disco, {longhorn-product-name} limpiará automáticamente los archivos de imagen de respaldo que han fallado, y luego relanzará estos archivos a partir del archivo listo.
+* Si de alguna manera todos los archivos de una imagen de respaldo fallan, y el primer archivo es:
+ ** descargado de una URL, {longhorn-product-name} reiniciará la descarga.
+ ** exportado de un volumen existente, {longhorn-product-name} (adjuntará el volumen si es necesario y luego) reiniciará la exportación.
+ ** subido desde el entorno local del usuario, no hay forma de recuperarlo. Los usuarios necesitan eliminar esta imagen de respaldo y luego recrear una nueva volviendo a subir el archivo.
+* Cuando un nodo está caído o el pod del gestor de imágenes de respaldo en el nodo no está disponible, todos los archivos de imagen de respaldo en el nodo se volverán `unknown`. Más tarde, si el nodo vuelve y el pod está en funcionamiento, {longhorn-product-name} detectará eso y luego reutilizará automáticamente los archivos existentes.
+
+== Expulsión de imagen de respaldo
+
+* Puedes expulsar manualmente todos los archivos de imagen de respaldo de un nodo o disco configurando `Scheduling` a `Disabled` y `Eviction Requested` a `True` en la interfaz de usuario {longhorn-product-name}.
+* Si solo existe un archivo de imagen de respaldo en el clúster, {longhorn-product-name} primero duplica el archivo a otro disco y luego elimina el archivo.
+* Si el archivo de imagen de respaldo no puede ser duplicado a otros discos, {longhorn-product-name} no elimina el archivo. Puedes actualizar la configuración para resolver el problema.
+
+== Flujo de trabajo de imagen de respaldo
+
+. Para gestionar todos los archivos de imagen de respaldo en un disco, {longhorn-product-name} crea un único pod de gestor de imágenes de respaldo para cada disco. Una vez que el disco no tiene requisitos de archivo de imagen de respaldo, el gestor de imágenes de respaldo se elimina automáticamente.
+. Una vez que un archivo de imagen de respaldo es preparado por el gestor de imágenes de respaldo para un disco, el archivo será compartido entre todas las réplicas de volumen en este disco.
+. Cuando se crea una imagen de respaldo, {longhorn-product-name} lanza un pod de fuente de datos de imagen de respaldo para preparar el archivo inicial. Los datos del archivo provienen de una fuente especificada por el usuario, como una descarga desde una ubicación remota, una subida desde un archivo local o una exportación desde un volumen existente. Una vez que la preparación está completa, el pod del gestor de imágenes de respaldo en el mismo disco se hace cargo del archivo, y {longhorn-product-name} termina el pod de fuente de datos.
+. Una vez que una nueva imagen de respaldo es utilizada por un volumen, se pedirá a los pods del gestor de imágenes de respaldo en los discos donde residen las réplicas del volumen que sincronicen el archivo desde los pods del gestor de imágenes de respaldo que ya contienen el archivo.
+. Como se menciona en la sección <<_clean_up_backing_images_in_disks,#clean_up_backing_images_in_disks>>, el archivo se limpiará automáticamente si todas las réplicas en un disco no utilizan un archivo de imagen de respaldo.
+
+== Límite concurrente de sincronización de imágenes de respaldo
+
+* `Concurrent Backing Image Replenish Per Node Limit` en la configuración global controla cuántas copias de imágenes de respaldo en un nodo pueden ser reabastecidas simultáneamente.
+* Cuando se establece en 0, {longhorn-product-name} no reabastece automáticamente la copia, incluso si está por debajo del minNumberOfCopies.
+
+== Advertencia
+
+* La URL de descarga de la imagen de respaldo debe ser pública. Mejoraremos esta parte en el futuro.
+* Si hay un alto uso de memoria de un pod de gestor de imágenes de respaldo después de <<_download_a_backing_image_file,file download>>, esto es causado por la caché/búfer del sistema. El uso de memoria disminuirá automáticamente, por lo que no necesitas preocuparte por ello. Consulta https://github.com/longhorn/longhorn/issues/4055[el ticket de GitHub] para más detalles.
+
+== Historial
+
+* https://github.com/Longhorn/Longhorn/issues/2006[Habilitar la función de imagen de respaldo en {longhorn-product-name}]
+* Soporta https://github.com/longhorn/longhorn/issues/2404[subida] y https://github.com/longhorn/longhorn/issues/2403[exportación de volumen]
+* Soporta https://github.com/longhorn/longhorn/issues/2404[descarga local] y https://github.com/longhorn/longhorn/issues/3155[exportación de volumen]

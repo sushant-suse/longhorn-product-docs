@@ -1,0 +1,94 @@
+= バックアップを作成する
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== インクリメンタルバックアップ
+
+Longhornのバックアップは、オフクラスターのバックアップストア内のオブジェクトです。スナップショットのバックアップはバックアップストアにコピーされ、バックアップストアにアクセスするためのエンドポイントはバックアップターゲットです。詳細については、xref:introduction/concepts.adoc#_3_1_how_backups_work[このセクションを参照してください。]
+
+____
+*前提条件:*バックアップターゲットを設定する必要があります。詳細については、xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[バックアップターゲットの設定]を参照してください。バックアップターゲットが設定されていない場合、エラーが表示されます。
+____
+
+=== UIを使用してインクリメンタルバックアップを作成する
+
+バックアップを作成するには、
+
+. *ボリューム*メニューに移動します。
+. バックアップしたいボリュームを選択します。
+. *バックアップを作成する*をクリックします。
+. 適切なラベルを追加し、OKをクリックします。
+
+*結果:*バックアップが作成されました。それを見るには、上部のナビゲーションバーで*バックアップ*をクリックします。
+
+スナップショットからボリュームを復元する方法については、xref:snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[バックアップから復元するを参照してください。]
+
+=== YAMLコードを使用してインクリメンタルバックアップを作成する
+
+. バックアップしたいスナップショットの名前を取得します（Longhorn UIまたはCRから）。
+. YAMLを適用します。
+
+例:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Backup
+metadata:
+  name: backup-example
+  namespace: longhorn-system
+spec:
+  backupMode: incremental
+  snapshotName: snapshot-name-example
+  labels:
+    app: test
+----
+
+== フルバックアップ
+
+デフォルトでは、Longhornは前回のバックアップ以降に変更されたデータのみをバックアップします。このアプローチは、_デルタバックアップ_として知られ、時間効率を高め、ネットワークスループットを節約します。しかし、バックアップストア内のデータブロックが破損した場合、Longhornはそのデータブロックを次回のバックアップ操作中に健全なものと置き換えません。
+
+v1.7.0以降、Longhornはボリューム内のすべてのデータブロックをアップロードし、バックアップストア内の既存のデータブロックを上書きするフルバックアップを実行できます。
+
+=== Longhorn UIを使用してフルバックアップを作成する
+
+. *ボリューム*画面に移動します。
+. バックアップしたいボリュームを選択します。
+. *バックアップを作成する*をクリックします。
+. 適切なラベルを追加します。
+. フルバックアップを選択します。
+. [OK] をクリックします。
+
+=== YAMLコードを使用してフルバックアップを作成する
+
+. バックアップしたいスナップショットの名前を取得します（Longhorn UIまたはCRから）。
+. YAMLを適用します。
+
+例:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Backup
+metadata:
+  name: backup-example
+  namespace: longhorn-system
+spec:
+  backupMode: full
+  snapshotName: snapshot-name-example
+  labels:
+    app: test
+----
+
+== アップロードされたデータサイズ
+
+各バックアップのデータ転送情報の収集を容易にするために、LonghornはCRステータス内の2つのメトリックを使用して情報を記録します。
+
+=== 新しくアップロードされたデータサイズ
+
+`status.newlyUploadDataSize`は、最新のバックアップ中にバックアップストアに_初めて_アップロードされたデータのサイズを記録します。言い換えれば、バックアップストアに以前存在しなかったデータブロックのサイズを追跡します。
+
+=== 再アップロードされたデータサイズ
+
+`status.reUploadDataSize`は、最新のフルバックアップ中に上書きされたデータのサイズを記録します。言い換えれば、バックアップストアに以前存在していたデータブロックのサイズを追跡します。

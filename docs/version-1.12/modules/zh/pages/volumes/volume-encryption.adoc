@@ -1,0 +1,125 @@
+= 卷加密
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:doctype: book
+:current-version: {page-component-version}
+
+Longhorn 支持在 `Filesystem` 和 `Block` 模式下进行卷加密，提供对未授权访问、数据泄露和合规性违规的保护。从加密卷创建的备份也会被加密。
+
+卷加密得益于 Linux 内核模块 `dm_crypt`、命令行工具 `cryptsetup` 和 Kubernetes Secrets。`dm_crypt` 和 `cryptsetup` 处理加密设备的创建和管理，而 Secrets（及相关权限）则促进加密密钥的安全存储。
+
+== 要求
+
+要使用加密卷，请确保 `dm_crypt` 内核模块已加载，并且 `cryptsetup` 已在您的工作节点上安装。
+
+== 设置 Kubernetes Secrets 和 StorageClasses
+
+Longhorn 使用 Kubernetes Secrets 安全存储加密密钥。Kubernetes 允许在卷创建期间使用模板参数。要将 Secret 与加密卷一起使用，您必须将 Secret 配置为 StorageClass 参数。
+
+模板参数允许您将 Secrets 与单个卷或一组卷一起使用。有关模板参数的更多信息，请参见 Kubernetes CSI 开发文档中的 https://kubernetes-csi.github.io/docs/secrets-and-credentials-storage-class.html[StorageClass Secrets]。
+
+在以下示例中，加密密钥在 Secret 的 `CRYPTO_KEY_VALUE` 参数中指定为字符串数据。使用字符串数据消除了在通过 kubectl create 提交 Secret 之前进行 Base64 编码的需要。
+
+除了 `CRYPTO_KEY_VALUE`，参数 `CRYPTO_KEY_CIPHER`、`CRYPTO_KEY_HASH`、`CRYPTO_KEY_SIZE` 和 `CRYPTO_PBKDF` 提供了卷加密的自定义选项。
+
+* `CRYPTO_KEY_CIPHER`：设置密码规范算法字符串。默认值为 `aes-xts-plain64`，用于 LUKS。
+* `CRYPTO_KEY_HASH`：指定 `open` 的密码哈希。默认值为 `sha256`。
+* `CRYPTO_KEY_SIZE`：设置密钥大小（以位为单位），必须是 8 的倍数。默认值为 `256`。
+* `CRYPTO_PBKDF`：为 LUKS 密钥槽设置基于密码的密钥派生函数（PBKDF）算法。默认值为 `argon2i`。
+
+有关更多信息，请参见 Linux 手册页中的 https://man7.org/linux/man-pages/man8/cryptsetup.8.html[cryptsetup(8)]。
+
+* Secret 示例：
++
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+* 带有全局 Secret 的 StorageClass 示例：
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-crypto-global
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  encrypted: "true"
+  # global secret that contains the encryption key that will be used for all volumes
+  csi.storage.k8s.io/provisioner-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/provisioner-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-publish-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-publish-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-stage-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-stage-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-expand-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-expand-secret-namespace: "longhorn-system"
+----
+
+* 带有特定卷 Secret 的 StorageClass 示例：
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-crypto-per-volume
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  encrypted: "true"
+  # per volume secret which utilizes the `pvc.name` and `pvc.namespace` template parameters
+  csi.storage.k8s.io/provisioner-secret-name: ${pvc.name}
+  csi.storage.k8s.io/provisioner-secret-namespace: ${pvc.namespace}
+  csi.storage.k8s.io/node-publish-secret-name: ${pvc.name}
+  csi.storage.k8s.io/node-publish-secret-namespace: ${pvc.namespace}
+  csi.storage.k8s.io/node-stage-secret-name: ${pvc.name}
+  csi.storage.k8s.io/node-stage-secret-namespace: ${pvc.namespace}
+  csi.storage.k8s.io/node-expand-secret-name: ${pvc.name}
+  csi.storage.k8s.io/node-expand-secret-namespace: ${pvc.namespace}
+----
+
+== 使用加密卷
+
+要创建加密卷，您必须使用已配置为加密的 StorageClass 创建 PVC。上述 StorageClass 示例可以作为起点。
+
+PVC 创建后将保持在 `Pending` 状态，直到关联的 Secret 被创建并可被检索。新创建的 PVC 将保持在 `Pending` 状态，直到关联的 Secret 被创建并可被 csi `external-provisioner` 边车检索。之后，常规卷创建过程继续进行，加密生效。
+
+== 文件系统扩展
+
+Longhorn 支持 xref:volumes/volume-expansion.adoc#_encrypted_volume[在线和离线扩展] 加密卷。
+
+以下 StorageClass 参数是启用在线扩展所必需的：
+
+* `csi.storage.k8s.io/node-expand-secret-name`
+* `csi.storage.k8s.io/node-expand-secret-namespace`
+
+[NOTE]
+----
+Longhorn v1.8.0 不支持 V2 卷的扩展。
+----
+
+== 历史记录
+
+* 在 `Filesystem` 模式下的卷加密：（ https://github.com/longhorn/longhorn/issues/1859[#1859]）
+* 在 `Block` 模式下的卷加密： (https://github.com/longhorn/longhorn/issues/4883[#4883])

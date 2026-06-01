@@ -1,0 +1,453 @@
+= SUSE® Storageを監視するためにPrometheusとGrafanaを設定する
+:revdate: 2025-07-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhornは、 https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format[Prometheusテキスト形式]でメトリクスをRESTエンドポイント`http://LONGHORN_MANAGER_IP:PORT/metrics`でネイティブに公開します。
+
+これらのメトリクスをスクレイピングするために、 https://prometheus.io/[Prometheus]、 https://graphiteapp.org/[Graphite]、 https://www.influxdata.com/time-series-platform/telegraf/[Telegraf]などの収集ツールを使用し、収集したデータを https://grafana.com/[Grafana]などのツールで可視化できます。
+
+利用可能なメトリクスについては、xref:observability/longhorn-metrics.adoc[Longhornの監視用メトリクス]を参照してください。
+
+== 高レベルの概要
+
+監視システムは、データ収集とアラート発行に`Prometheus`を使用し、収集したデータの可視化/ダッシュボード作成に`Grafana`を使用します。
+
+* Prometheusサーバーは、Longhornメトリクスエンドポイントから時系列データをスクレイピングして保存します。このPrometheusは、設定されたルールと収集されたデータに基づいてアラートを生成する責任も負っています。Prometheusサーバーは、アラートをAlertmanagerに送信します。
+* AlertManagerは、アラートの管理を行い、サイレンシング、抑制、集約、メール、オンコール通知システム、チャットプラットフォームなどの方法で通知を送信します。
+* Grafanaは、Prometheusサーバーにクエリを送り、可視化のためのダッシュボードを作成します。
+
+この図は、監視システムの詳細なアーキテクチャを示しています。
+
+image::screenshots/monitoring/longhorn-monitoring-system.png[画像]
+
+上記の図には、言及されていない2つのコンポーネントがあります：
+
+* Longhornバックエンドサービスは、Longhornマネージャーポッドのセットを指すサービスです。Longhornのメトリクスは、エンドポイント`http://LONGHORN_MANAGER_IP:PORT/metrics`でLonghornマネージャーポッドに公開されています。
+* https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/user-guides/getting-started.md[Prometheusオペレーター]は、Kubernetes上でPrometheusを簡単に実行できるようにします。オペレーターは、3つのカスタムリソースを監視します：ServiceMonitor、Prometheus、AlertManager。
+これらのカスタムリソースを作成すると、Prometheusオペレーターは、ユーザー指定の設定でPrometheusサーバーとAlertManagerをデプロイおよび管理します。
+
+== インストール
+
+このドキュメントは、監視システムのために`default`ネームスペースを使用しています。別のネームスペースにインストールするには、マニフェストの`namespace: <OTHER_NAMESPACE>`フィールドを変更してください。
+
+=== Prometheus Operatorをインストールします。
+
+https://github.com/prometheus-operator/prometheus-operator#quickstart[Prometheus Operator - クイックスタート]の指示に従ってください。
+
+____
+*NOTE:*クラスターのKubernetesバージョンと互換性のあるリリースを選択する必要があるかもしれません。
+____
+
+=== Longhorn ServiceMonitorをインストールします。
+
+==== Kubectlを使用してLonghorn ServiceMonitorをインストールします。
+
+Longhorn ManagerのためのServiceMonitorを作成します。
+
+[,yaml]
+----
+ apiVersion: monitoring.coreos.com/v1
+ kind: ServiceMonitor
+ metadata:
+   name: longhorn-prometheus-servicemonitor
+   namespace: default
+   labels:
+     name: longhorn-prometheus-servicemonitor
+ spec:
+   selector:
+     matchLabels:
+       app: longhorn-manager
+   namespaceSelector:
+     matchNames:
+     - longhorn-system
+   endpoints:
+   - port: manager
+----
+
+==== Helmを使用してLonghorn ServiceMonitorをインストールします。
+
+. YAMLファイル`longhorn/chart/values.yaml`を修正します。
++
+[subs="+attributes",yaml]
+----
+ metrics:
+   serviceMonitor:
+     # -- Setting that allows the creation of a [Prometheus Operator](https://prometheus-operator.dev/) ServiceMonitor resource for Longhorn Manager components.
+     enabled: true
+----
+
+. Helmを使用してLonghorn ManagerのためのServiceMonitorを作成します。
++
+[subs="+attributes",bash]
+----
+helm upgrade longhorn longhorn/longhorn --namespace longhorn-system -f values.yaml
+----
+
+Longhorn ServiceMonitorは、 https://prometheus-operator.dev/[Prometheus Operator]のカスタムリソースである。このセットアップにより、PrometheusサーバーはすべてのLonghorn Managerポッドとそれぞれのエンドポイントを発見できます。
+
+ラベルセレクター`app: longhorn-manager`を使用して、Longhorn Managerポッドのセットを指すlonghorn-backendサービスを選択できます。
+
+=== Prometheus AlertManagerをインストールして構成します。
+
+. 3つのインスタンスを持つ高可用性のAlertmanagerデプロイメントを作成します。
++
+[subs="+attributes",yaml]
+----
+ apiVersion: monitoring.coreos.com/v1
+ kind: Alertmanager
+ metadata:
+   name: longhorn
+   namespace: default
+ spec:
+   replicas: 3
+----
+
+. 有効な構成が与えられない限り、Alertmanagerインスタンスは起動しません。
+詳細については、 https://prometheus.io/docs/alerting/latest/configuration/[Prometheus - 設定]を参照してください。
++
+[subs="+attributes",yaml]
+----
+ global:
+   resolve_timeout: 5m
+ route:
+   group_by: [alertname]
+   receiver: email_and_slack
+ receivers:
+ - name: email_and_slack
+   email_configs:
+   - to: <the email address to send notifications to>
+     from: <the sender address>
+     smarthost: <the SMTP host through which emails are sent>
+     # SMTP authentication information.
+     auth_username: <the username>
+     auth_identity: <the identity>
+     auth_password: <the password>
+     headers:
+       subject: 'Longhorn-Alert'
+     text: |-
+       {{ range .Alerts }}
+         *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
+         *Description:* {{ .Annotations.description }}
+         *Details:*
+         {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+         {{ end }}
+       {{ end }}
+   slack_configs:
+   - api_url: <the Slack webhook URL>
+     channel: <the channel or user to send notifications to>
+     text: |-
+       {{ range .Alerts }}
+         *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
+         *Description:* {{ .Annotations.description }}
+         *Details:*
+         {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+         {{ end }}
+       {{ end }}
+----
++
+上記のAlertmanager構成を`alertmanager.yaml`というファイルに保存し、kubectlを使用してそこからシークレットを作成してください。
++
+Alertmanagerインスタンスは、シークレットリソースの命名が`alertmanager-<ALERTMANAGER_NAME>`の形式に従う必要があります。前のステップでは、Alertmanagerの名前は`longhorn`であるため、シークレット名は`alertmanager-longhorn`である必要があります。
++
+[subs="+attributes",console]
+----
+ $ kubectl create secret generic alertmanager-longhorn --from-file=alertmanager.yaml -n default
+----
+
+. AlertmanagerのWeb UIを表示するには、Serviceを介して公開してください。これを行う簡単な方法は、NodePortタイプのServiceを使用することである。
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: Service
+ metadata:
+   name: alertmanager-longhorn
+   namespace: default
+ spec:
+   type: NodePort
+   ports:
+   - name: web
+     nodePort: 30903
+     port: 9093
+     protocol: TCP
+     targetPort: web
+   selector:
+     alertmanager: longhorn
+----
++
+上記のサービスを作成した後、NodeのIPとポート30903を介してAlertmanagerのWeb UIにアクセスできる。
++
+____
+上記の`NodePort`サービスは、TLS接続を介して通信しないため、迅速な検証のみに使用する。サービスのタイプを`ClusterIP`に変更し、AlertmanagerのWeb UIをTLS接続で公開するためにIngressコントローラーを設定することを推奨します。
+____
+
+=== Prometheusサーバーをインストールして構成します。
+
+. アラート条件を定義するためにPrometheusRuleカスタムリソースを作成します。xref:observability/alert-rule-examples.adoc[Longhornアラートルールの例]でLonghornアラートルールに関するさらなる例を参照してください。
++
+[subs="+attributes",yaml]
+----
+ apiVersion: monitoring.coreos.com/v1
+ kind: PrometheusRule
+ metadata:
+   labels:
+     prometheus: longhorn
+     role: alert-rules
+   name: prometheus-longhorn-rules
+   namespace: default
+ spec:
+   groups:
+   - name: longhorn.rules
+     rules:
+     - alert: LonghornVolumeUsageCritical
+       annotations:
+         description: Longhorn volume {{$labels.volume}} on {{$labels.node}} is at {{$value}}% used for
+           more than 5 minutes.
+         summary: Longhorn volume capacity is over 90% used.
+       expr: 100 * (longhorn_volume_usage_bytes / longhorn_volume_capacity_bytes) > 90
+       for: 5m
+       labels:
+         issue: Longhorn volume {{$labels.volume}} usage on {{$labels.node}} is critical.
+         severity: critical
+----
++
+詳細については、 https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/#alerting-rules[Prometheus - アラートルール]を参照してください。
+
+. https://kubernetes.io/docs/reference/access-authn-authz/authorization/[RBAC]認証が有効になっている場合、Prometheus PodsのためにClusterRoleとClusterRoleBindingを作成します。
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: ServiceAccount
+ metadata:
+   name: prometheus
+   namespace: default
+----
++
+[subs="+attributes",yaml]
+----
+ apiVersion: rbac.authorization.k8s.io/v1
+ kind: ClusterRole
+ metadata:
+   name: prometheus
+   namespace: default
+ rules:
+ - apiGroups: [""]
+   resources:
+   - nodes
+   - services
+   - endpoints
+   - pods
+   verbs: ["get", "list", "watch"]
+ - apiGroups: [""]
+   resources:
+   - configmaps
+   verbs: ["get"]
+ - nonResourceURLs: ["/metrics"]
+   verbs: ["get"]
+----
++
+[subs="+attributes",yaml]
+----
+ apiVersion: rbac.authorization.k8s.io/v1
+ kind: ClusterRoleBinding
+ metadata:
+   name: prometheus
+ roleRef:
+   apiGroup: rbac.authorization.k8s.io
+   kind: ClusterRole
+   name: prometheus
+ subjects:
+ - kind: ServiceAccount
+   name: prometheus
+   namespace: default
+----
+
+. Prometheusカスタムリソースを作成します。spec内でLonghornサービスモニターとLonghornルールを選択していることに注意してください。
++
+[subs="+attributes",yaml]
+----
+ apiVersion: monitoring.coreos.com/v1
+ kind: Prometheus
+ metadata:
+   name: longhorn
+   namespace: default
+ spec:
+   replicas: 2
+   serviceAccountName: prometheus
+   alerting:
+     alertmanagers:
+       - namespace: default
+         name: alertmanager-longhorn
+         port: web
+   serviceMonitorSelector:
+     matchLabels:
+       name: longhorn-prometheus-servicemonitor
+   ruleSelector:
+     matchLabels:
+       prometheus: longhorn
+       role: alert-rules
+----
+
+. PrometheusサーバーのWeb UIを表示するには、Serviceを介して公開してください。これを行う簡単な方法は、NodePortタイプのServiceを使用することである。
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: Service
+ metadata:
+   name: prometheus-longhorn
+   namespace: default
+ spec:
+   type: NodePort
+   ports:
+   - name: web
+     nodePort: 30904
+     port: 9090
+     protocol: TCP
+     targetPort: web
+   selector:
+     prometheus: longhorn
+----
++
+上記のサービスを作成した後、NodeのIPとポート30904を介してPrometheusサーバーのWeb UIにアクセスできます。
++
+____
+この時点で、PrometheusサーバーUIのターゲットおよびルールセクションにすべてのLonghorn ManagerターゲットとLonghornルールが表示されるはずです。
+____
++
+____
+上記のNodePortサービスは、TLS接続を介して通信しないため、迅速な検証のみに使用してください。サービスのタイプを`ClusterIP`に変更し、PrometheusサーバーのWeb UIをTLS接続で公開するためにIngressコントローラーを設定することをお勧めします。
+____
+
+=== Grafana をセットアップしてください。
+
+. GrafanaデータソースConfigMapを作成します。
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: ConfigMap
+ metadata:
+   name: grafana-datasources
+   namespace: default
+ data:
+   prometheus.yaml: |-
+     {
+         "apiVersion": 1,
+         "datasources": [
+             {
+                "access":"proxy",
+                 "editable": true,
+                 "name": "prometheus-longhorn",
+                 "orgId": 1,
+                 "type": "prometheus",
+                 "url": "http://prometheus-longhorn.default.svc:9090",
+                 "version": 1
+             }
+         ]
+     }
+----
++
+____
+*注意:* 監視スタックを別のネームスペースにインストールする場合は、フィールド `url` を変更してください。
+`+http://prometheus-longhorn.<NAMESPACE>.svc:9090"`
+____
+
+. Grafanaデプロイメントを作成します。
++
+[subs="+attributes",yaml]
+----
+ apiVersion: apps/v1
+ kind: Deployment
+ metadata:
+   name: grafana
+   namespace: default
+   labels:
+     app: grafana
+ spec:
+   replicas: 1
+   selector:
+     matchLabels:
+       app: grafana
+   template:
+     metadata:
+       name: grafana
+       labels:
+         app: grafana
+     spec:
+       containers:
+       - name: grafana
+         image: grafana/grafana:7.1.5
+         ports:
+         - name: grafana
+           containerPort: 3000
+         resources:
+           limits:
+             memory: "500Mi"
+             cpu: "300m"
+           requests:
+             memory: "500Mi"
+             cpu: "200m"
+         volumeMounts:
+           - mountPath: /var/lib/grafana
+             name: grafana-storage
+           - mountPath: /etc/grafana/provisioning/datasources
+             name: grafana-datasources
+             readOnly: false
+       volumes:
+         - name: grafana-storage
+           emptyDir: {}
+         - name: grafana-datasources
+           configMap:
+               defaultMode: 420
+               name: grafana-datasources
+----
+
+. Grafanaサービスを作成します。
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: Service
+ metadata:
+   name: grafana
+   namespace: default
+ spec:
+   selector:
+     app: grafana
+   type: ClusterIP
+   ports:
+     - port: 3000
+       targetPort: 3000
+----
+
+. NodePort `32000` で Grafana を公開します。
++
+[subs="+attributes",yaml]
+----
+ kubectl -n default patch svc grafana --type='json' -p '[{"op":"replace","path":"/spec/type","value":"NodePort"},{"op":"replace","path":"/spec/ports/0/nodePort","value":32000}]'
+----
++
+____
+上記のNodePortサービスは、TLS接続を介して通信しないため、迅速な検証のみに使用してください。サービスのタイプを ClusterIP に変更し、TLS 接続で Grafana を公開するために Ingress コントローラーを設定することをお勧めします。
+____
+
+. ポート `32000` で任意のノード IP を使用して Grafana ダッシュボードにアクセスします。
++
+[subs="+attributes",bash]
+----
+ # Default Credential
+ User: admin
+ Pass: admin
+----
+
+. Longhornダッシュボードを設定します。
++
+Grafana内に入ったら、事前構築された https://grafana.com/grafana/dashboards/17626[Longhorn example dashboard]をインポートしてください。
++
+Grafana ダッシュボードをインポートする方法については、 https://grafana.com/docs/grafana/latest/reference/export_import/[Grafana Lab - エクスポートとインポート] を参照してください。
++
+成功したセットアップでは、次のダッシュボードが表示されるはずです：
+ image:screenshots/monitoring/longhorn-example-grafana-dashboard.png[画像]

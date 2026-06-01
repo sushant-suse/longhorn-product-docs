@@ -1,0 +1,189 @@
+= 使用 Fleet 安装 {longhorn-product-name}
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 先决条件
+
+[NOTE]
+====
+{longhorn-product-name} 安装需要对 SUSE 应用程序集合的认证访问。有关更多详细信息，请查看 https://docs.apps.rancher.io/get-started/authentication[认证指南]。
+====
+
+* 您的工作站：安装 https://helm.sh/docs/[Helm] v3.0 或更高版本。
+* Kubernetes 集群：
+ ** 确保每个节点满足 xref:installation-setup/requirements.adoc[安装要求]。
+ ** 使用 Helm 安装 https://documentation.suse.com/cloudnative/continuous-delivery/v0.12/en/index.html[{fleet-product-name}]。
++
+[,bash]
+----
+helm repo add fleet https://rancher.github.io/fleet-helm-charts/
+helm -n cattle-fleet-system install --create-namespace --wait fleet-crd fleet/fleet-crd
+helm -n cattle-fleet-system install --create-namespace --wait fleet fleet/fleet
+----
++
+请稍候片刻，以便在 `cattle-fleet-system` 的名称空间中部署 Fleet 组件。
+
+____
+可以使用 xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn 命令行工具] 检查 Longhorn 环境中的潜在问题。
+____
+
+== 安装
+
+. 在您的 GitOps 储存库中，创建一个 https://documentation.suse.com/cloudnative/continuous-delivery/v0.12/en/reference/ref-fleet-yaml.html[`fleet.yaml`] 文件，其中包括以下内容：
+ ** 在 {longhorn-product-name} 的名称空间中安装 `longhorn-system` 的参数
+
++
+[,yaml]
+----
+ defaultNamespace: longhorn-system
+----
+ ** https://documentation.suse.com/cloudnative/continuous-delivery/v0.12/en/how-tos-for-users/bundle-diffs.html[忽略修改的 CRD 的参数]
+
++
+[,yaml]
+----
+ diff:
+   comparePatches:
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: engineimages.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: nodes.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: volumes.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: engines.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: instancemanagers.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: replicas.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: settings.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+----
+ ** 指定要安装的 Helm 图表版本的参数
+
++
+[subs="+attributes",yaml]
+----
+ helm:
+   repo: https://charts.longhorn.io
+   chart: longhorn
+   version: v{patch-version} # Replace with the version you would like to install or upgrade to
+   releaseName: longhorn
+----
++
+完整 `fleet.yaml` 文件的示例：
++
+[subs="+attributes",yaml]
+----
+ defaultNamespace: longhorn-system
+ helm:
+   repo: https://charts.longhorn.io
+   chart: longhorn
+   version: v{patch-version}
+   releaseName: longhorn
+ diff:
+   comparePatches:
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: engineimages.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: nodes.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: volumes.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+----
+. 创建一个指向您的 GitOps 储存库的 GitRepo 自定义资源 (CR)。
++
+[,bash]
+----
+ cat > longhorn-gitrepo.yaml << "EOF"
+ apiVersion: fleet.cattle.io/v1alpha1
+ kind: GitRepo
+ metadata:
+   name: longhorn
+   namespace: fleet-local
+ spec:
+   repo: https://github.com/your-username/your-gitops-repo.git
+   revision: main
+   paths:
+   - .
+ EOF
+----
+
+. 应用 GitRepo CR。
++
+[,bash]
+----
+ kubectl apply -f longhorn-gitrepo.yaml
+----
+
+. 验证 GitRepo CR 是否成功创建并同步。
++
+[,bash]
+----
+ kubectl -n fleet-local get gitrepo -w
+----
+
+. 验证 {longhorn-product-name} 是否成功安装。
++
+[,bash]
+----
+ kubectl -n longhorn-system get pod
+----
++
+成功安装的示例：
++
+[,bash]
+----
+ NAME                                                READY   STATUS    RESTARTS   AGE
+ longhorn-ui-b7c844b49-w25g5                         1/1     Running   0          2m41s
+ longhorn-manager-pzgsp                              1/1     Running   0          2m41s
+ longhorn-driver-deployer-6bd59c9f76-lqczw           1/1     Running   0          2m41s
+ longhorn-csi-plugin-mbwqz                           2/2     Running   0          100s
+ csi-snapshotter-588457fcdf-22bqp                    1/1     Running   0          100s
+ csi-snapshotter-588457fcdf-2wd6g                    1/1     Running   0          100s
+ csi-provisioner-869bdc4b79-mzrwf                    1/1     Running   0          101s
+ csi-provisioner-869bdc4b79-klgfm                    1/1     Running   0          101s
+ csi-resizer-6d8cf5f99f-fd2ck                        1/1     Running   0          101s
+ csi-provisioner-869bdc4b79-j46rx                    1/1     Running   0          101s
+ csi-snapshotter-588457fcdf-bvjdt                    1/1     Running   0          100s
+ csi-resizer-6d8cf5f99f-68cw7                        1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-df8v6                       1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-g9cwc                       1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-8l9sw                       1/1     Running   0          101s
+ csi-resizer-6d8cf5f99f-smdjw                        1/1     Running   0          101s
+ instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc   1/1     Running   0          114s
+ engine-image-ei-df38d2e5-cv6nc                      1/1     Running   0          114s
+----
+
+. xref:longhorn-system/system-access/create-ingress.adoc[创建一个带基本身份验证的NGINX Ingress控制器]以访问用户界面。默认情况下，用户界面的身份验证未启用。
+. xref:longhorn-system/system-access/system-access.adoc[访问用户界面]。

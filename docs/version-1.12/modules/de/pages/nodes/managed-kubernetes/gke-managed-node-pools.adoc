@@ -1,0 +1,56 @@
+= Verwaltete Knotenpools auf Google Kubernetes Engine (GKE)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Siehe https://cloud.google.com/kubernetes-engine/docs/tutorials/migrating-node-pool[Migration von Workloads auf andere Maschinentypen] für weitere Informationen.
+
+Das Folgende ist ein Beispiel, um Clusterknoten mit neuer Speicherkapazität zu ersetzen.
+
+== Speichererweiterung
+
+GKE unterstützt das Hinzufügen einer zusätzlichen Festplatte mit `local-ssd-count`. Jede lokale SSD hat jedoch eine feste Größe von 375 GB. Wir empfehlen, die Knotengröße durch Austausch des Knotenpools zu vergrößern.
+
+. In Longhorn setzen Sie `replica-replenishment-wait-interval` auf `0`.
+. Fügen Sie einen neuen Knotenpool hinzu. Später werden Longhorn-Komponenten automatisch auf den Knoten in diesem Pool bereitgestellt.
++
+----
+ GKE_NODEPOOL_NAME_NEW=<new-nodepool-name>
+ GKE_REGION=<gke-region>
+ GKE_CLUSTER_NAME=<gke-cluster-name>
+ GKE_IMAGE_TYPE=Ubuntu
+ GKE_MACHINE_TYPE=<gcp-machine-type>
+ GKE_DISK_SIZE_NEW=<new-disk-size-in-gb>
+ GKE_NODE_NUM=<number-of-nodes>
+
+ gcloud container node-pools create ${GKE_NODEPOOL_NAME_NEW} \
+   --region ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME} \
+   --image-type ${GKE_IMAGE_TYPE} \
+   --machine-type ${GKE_MACHINE_TYPE} \
+   --disk-size ${GKE_DISK_SIZE_NEW} \
+   --num-nodes ${GKE_NODE_NUM}
+
+ gcloud container node-pools list \
+   --zone ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME}
+----
+
+. Verwenden Sie die Longhorn-Benutzeroberfläche, um das Festplatten-Scheduling zu deaktivieren und die Evakuierung der Knoten im alten Knotenpool anzufordern.
+. Sperren und entleeren Sie die Kubernetes-Knoten im alten Knotenpool.
++
+----
+ GKE_NODEPOOL_NAME_OLD=<old-nodepool-name>
+ for n in `kubectl get nodes | grep ${GKE_CLUSTER_NAME}-${GKE_NODEPOOL_NAME_OLD}- | awk '{print $1}'`; do
+   kubectl cordon $n && \
+   kubectl drain $n --ignore-daemonsets --delete-emptydir-data
+ done
+----
+
+. Löschen Sie den alten Knotenpool.
++
+----
+ gcloud container node-pools delete ${GKE_NODEPOOL_NAME_OLD}\
+   --zone ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME}
+----

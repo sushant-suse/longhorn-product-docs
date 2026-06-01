@@ -1,0 +1,71 @@
+= Détacher les volumes
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Arrêtez tous les pods Kubernetes utilisant des volumes Longhorn afin de détacher les volumes. Le moyen le plus simple d'y parvenir est de supprimer tous les workloads et de les recréer plus tard après avoir mis à niveau. Si cela n'est pas souhaitable, certains workloads peuvent être suspendus.
+
+Chaque workload peut être modifié pour arrêter ses pods.
+
+== Déploiement
+
+Modifiez le déploiement avec `kubectl edit deploy/<name>`.
+
+Définissez `.spec.replicas` sur `0`.
+
+== StatefulSet
+
+Modifiez le statefulset avec `kubectl edit statefulset/<name>`.
+
+Définissez `.spec.replicas` sur `0`.
+
+== DaemonSet
+
+Modifiez le daemonset avec `kubectl edit ds/<name>`.
+
+Ajoutez un nodeSelector à la spécification du pod{nbsp}:
+
+[,yaml]
+----
+spec:
+  template:
+    spec:
+      nodeSelector:
+        no-schedule: "true"
+----
+
+== Pod
+
+Supprimez le pod avec `kubectl delete pod/<name>`.
+
+Il n'est pas possible de suspendre un pod non géré par un contrôleur de workload.
+
+== CronJob
+
+Modifiez le cronjob avec `kubectl edit cronjob/<name>`.
+
+Définissez `.spec.suspend` sur `true`.
+
+Attendez que tous les jobs en cours d'exécution se terminent, ou terminez-les en supprimant les pods concernés.
+
+== Travail
+
+Envisagez de laisser le job à exécution unique se terminer.
+
+Sinon, supprimez le job avec `kubectl delete job/<name>`.
+
+== ReplicaSet
+
+Modifiez le replicaset avec `kubectl edit replicaset/<name>`.
+
+Définissez `.spec.replicas` sur `0`.
+
+== ReplicationController
+
+Modifiez le replicationcontroller avec `kubectl edit rc/<name>`.
+
+Définissez `.spec.replicas` sur `0`.
+
+Attendez que les volumes utilisés par Kubernetes terminent leur détachement.
+
+Ensuite, détachez tous les volumes restants depuis l'interface Longhorn. Ces volumes ont très probablement été créés et attachés en dehors de Kubernetes via l'interface Longhorn ou l'API REST.

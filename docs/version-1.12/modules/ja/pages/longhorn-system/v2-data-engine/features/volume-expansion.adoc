@@ -1,0 +1,73 @@
+= ボリュームの拡張
+:revdate: 2025-09-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+v1.10.0以降、{longhorn-product-name}はNVMeフロントエンドを使用するv2データエンジンボリュームのオンライン拡張をサポートしています。この機能により、ワークロードを実行しながら、要求されたサイズにボリュームを拡張できます。
+
+拡張プロセス中、{longhorn-product-name}はユーザーが要求したサイズに合わせてすべてのレプリカを自動的にサイズ変更します。これにより、アプリケーションをボリュームから停止または切り離す必要がなくなり、ストレージのシームレスで中断のないスケーリングが保証されます。
+
+この機能により、ダウンタイムなしでボリュームをスケールできるため、ストレージ管理の柔軟性が大幅に向上します。
+
+== 使い方
+
+=== {longhorn-product-name} UIからV2ボリュームを作成する際
+
+. フロントエンドとして`Block Device`または`NVMf`を持つボリュームを選択します。
+. {longhorn-product-name} UIで、ボリュームページに移動します。
+. ボリューム操作メニューから*開く*をクリックします。
+. 新しい希望のサイズを入力し、確認します。拡張が自動的に開始されます。
+
+=== マニフェストからv2ボリュームを作成する際
+
+. v2データエンジン用のStorageClassを作成します。`allowVolumeExpansion`が`true`に設定されていることを確認します。次に例を示します。
++
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+    name: longhorn-v2-data-engine
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  fsType: "ext4"
+  dataEngine: "v2"
+----
+. このStorageClassを参照するPersistentVolumeClaim (PVC)を作成します：
++
+[,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: longhorn-volv-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-v2-data-engine
+  resources:
+    requests:
+      storage: 2Gi
+----
+. ボリュームを拡張するには、PVCマニフェストを編集してストレージリクエストを大きなサイズに増加させ（以下に示す）、更新されたマニフェストを適用します。
++
+[,yaml]
+----
+  resources:
+    requests:
+      storage: 3Gi
+----
+
+== 既知の制限事項
+
+`UBLK`フロントエンドはv1.10.0以降、オンライン拡張をサポートしていません。`UBLK`フロントエンドを使用するボリュームを拡張することは許可されていません。
+
+== リファレンス
+
+詳細については、 https://github.com/longhorn/longhorn/issues/8022[Issue #8022]を参照してください。

@@ -1,0 +1,66 @@
+= 修订计数器
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+修订计数器是一个机制，{longhorn-product-name} 用于跟踪每个副本的更新。
+
+在创建副本时，{longhorn-product-name} 将创建一个 `revision.counter` 文件，并将其初始计数器设置为0。每次对副本的写入，`revision.counter` 文件中的计数器将增加1。
+
+{longhorn-product-name} 引擎在启动时使用这些计数器，作为在副本之间实现最佳一致性的启发式方法。请注意，由于 {longhorn-product-name} 中的写入IO是并行的，启用修订计数器并不能保证数据一致性。{longhorn-product-name} 也会在自动恢复过程中使用这些计数器，以识别最新更新的副本。
+
+禁用修订计数器是一个选项，在该选项下，副本上的每次写入都不会被跟踪。使用此设置时，性能会有所提高。如果您更喜欢更高的性能，并且拥有稳定的网络基础设施（例如内部网络）和足够的处理器资源，则此选项可能会很有帮助。当修订计数器被禁用时，Longhorn Engine 在启动时跳过对所有副本的修订计数器检查。然而，自动恢复仍然可以正常工作，因为{longhorn-product-name}可以使用副本的头文件状态来识别用于恢复的副本。有关在未启用修订计数器情况下自动恢复如何工作的更多信息，请参见<<_auto_salvage_support_with_revision_counter_disabled,禁用修订计数器的自动恢复支持>>。
+
+默认情况下，修订计数器是禁用的。
+
+[NOTE]
+====
+“修复”是 {longhorn-product-name} 尝试恢复处于故障状态的卷。当 Longhorn Engine 与所有副本失去连接，并且所有副本都被标记为错误状态时，卷处于故障状态。
+====
+
+= 禁用修订计数器
+
+== 使用 {longhorn-product-name} 用户界面
+
+要从 {longhorn-product-name} 用户界面禁用或启用修订计数器，请单击 menu:设置[禁用修订计数器]。
+
+要创建具有针对一般设置自定义的单独卷，请转到 *卷* 页面并单击 *创建卷*。
+
+== 使用清单文件
+
+可以自定义 `StorageClass` 以添加 `disableRevisionCounter` 参数。
+
+默认情况下，`disableRevisionCounter` 为假，因此修订计数器已启用。
+
+将 `disableRevisionCounter` 设置为真以禁用修订计数器：
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: best-effort-longhorn
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "1"
+  disableRevisionCounter: "true"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+----
+
+== 禁用修订计数器的自动恢复支持
+
+当修订计数器被禁用时，自动恢复的逻辑是不同的。
+
+当修订计数器启用且卷中的所有副本处于 'ERR' 状态时，引擎控制器将处于故障状态，为了让引擎恢复卷，它将获取修订计数最大的副本作为 '真相来源' 来重建其余副本。
+
+在这种情况下，当修订计数器被禁用时，引擎控制器将获取 `volume-head-xxx.img` 的最后修改时间和所有副本的头文件大小。它还将执行以下步骤：
+
+. 根据 `volume-head-xxx.img` 的最后修改时间，识别具有最新最后修改时间戳的副本。
+. 选择所有最后修改时间戳在上述副本最后修改时间戳5秒内的副本。
+. 从上述步骤中的副本候选中，比较候选的主文件大小，并选择文件大小最大的副本。
+. 从上述步骤中的副本候选中，选择具有最新修改时间戳的最佳副本。
+. 将最佳副本更改为 'RW' 模式，其他副本标记为 'ERR' 模式。错误的副本将根据最佳副本进行重建。

@@ -1,0 +1,136 @@
+= Recuperar Dados de Volume de uma Única Réplica
+:revdate: 2025-10-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Cada réplica de um volume Longhorn contém todos os dados do volume.
+
+Se todo o cluster Kubernetes ou o sistema Longhorn ficar offline, os seguintes passos podem ser usados para recuperar os dados do volume.
+
+. Identifique o volume.
++
+O Longhorn utiliza os discos no nó para armazenar os dados da réplica.
++
+Por padrão, os dados são armazenados no diretório especificado pela configuração xref:longhorn-system/settings.adoc#_default_data_path[`Default Data Path`].
++
+Mais discos podem ser adicionados a um nó, seja usando a interface do Longhorn ou utilizando xref:nodes/default-disk-and-node-config.adoc[um rótulo e anotação do nó].
++
+Você pode manter uma cópia do caminho desses discos ou usar o seguinte comando para encontrar os discos que foram utilizados pelo Longhorn. Por exemplo:
++
+----
+ # find / -name longhorn-disk.cfg
+ /var/lib/longhorn/longhorn-disk.cfg
+----
++
+O resultado acima mostra que o caminho `/var/lib/longhorn` foi utilizado pelo Longhorn para armazenar dados.
+
+. Verifique o caminho encontrado no passo 1 para ver se ele contém os dados.
++
+Os dados serão armazenados no diretório `/replicas`, por exemplo:
++
+----
+ # ls /var/lib/longhorn/replicas/
+ pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2
+ pvc-71a266e0-5db5-44e5-a2a3-e5471b007cc9-fe160a2c
+----
++
+O padrão de nomenclatura do diretório é:
++
+----
+ <volume_name>-<8 bytes UUID>
+----
++
+Portanto, no exemplo acima, há dois volumes armazenados aqui, que são `pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc` e `pvc-71a266e0-5db5-44e5-a2a3-e5471b007cc9`.
++
+O nome do volume corresponde ao nome do PV do Kubernetes.
+
+. Use o comando `lsof` para garantir que ninguém esteja usando o volume atualmente, por exemplo.
++
+----
+# lsof pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2/
+COMMAND    PID USER   FD   TYPE DEVICE SIZE/OFF   NODE NAME
+longhorn 14464 root  cwd    DIR    8,0     4096 541456 pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2
+----
++
+O resultado acima mostra que o diretório de dados ainda está sendo utilizado, então não prossiga para o próximo passo. Se não estiver sendo utilizado, o comando `lsof` deve retornar um resultado vazio.
+
+. Verifique o tamanho do volume que você deseja restaurar usando o seguinte comando dentro do diretório:
++
+----
+# cat pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2/volume.meta
+ {"Size":1073741824,"Head":"volume-head-000.img","Dirty":true,"Rebuilding":false,"Parent":"","SectorSize":512,"BackingFileName":""}
+----
++
+A partir do resultado acima, você pode ver que o tamanho do volume é `1073741824` (1 GiB). Observe o tamanho.
+
+. Para exportar o conteúdo do volume, siga as instruções abaixo que correspondem ao seu ambiente.
+* *Docker (RKE1)*
++
+Para exportar o conteúdo do volume em um ambiente Docker, use o seguinte comando para criar um contêiner de volume Longhorn de réplica única:
++
+----
+docker run -v /dev:/host/dev -v /proc:/host/proc -v <data_path>:/volume --privileged longhornio/longhorn-engine:v{patch-version} launch-simple-longhorn <volume_name> <volume_size>
+----
++
+Por exemplo, com base nas informações acima, o comando deve ser:
++
+----
+docker run -v /dev:/host/dev -v /proc:/host/proc -v /var/lib/longhorn/replicas/pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2:/volume --privileged longhornio/longhorn-engine:v{patch-version} launch-simple-longhorn pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc 1073741824
+----
+* *Containerd (RKE2/K3s)*
++
+Para exportar o conteúdo do volume em ambientes RKE2 ou K3s, você precisa criar um manifesto de pod estático. Esse manifesto inicia o Longhorn Engine e expõe o volume.
++
+Crie um arquivo chamado `longhorn-recovery.yaml` no diretório `/var/lib/rancher/rke2/agent/pod-manifests/` com o seguinte conteúdo:
++
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: longhorn-recovery
+  namespace: longhorn-system
+spec:
+  nodeName: <node-where-the-replica-is-located>
+  hostPID: true
+  containers:
+  - name: engine
+    image: longhornio/longhorn-engine:v<current-version>
+    securityContext:
+      privileged: true
+    command: ["launch-simple-longhorn"]
+    args: ["<volume-name>", "<volume-size-in-bytes>"]
+    volumeMounts:
+    - name: dev
+      mountPath: /host/dev
+    - name: proc
+      mountPath: /host/proc
+    - name: data
+      mountPath: /volume
+  volumes:
+  - name: dev
+    hostPath:
+      path: /dev
+  - name: proc
+    hostPath:
+      path: /proc
+  - name: data
+    hostPath:
+      path: <host-path-to-replica>
+  restartPolicy: Never
+----
++
+Substitua os seguintes espaços reservados no manifesto:
++
+* `<current-version>`: A versão do {longhorn-product-name} que você está usando.
+* `<volume-name>`: O nome do volume que você deseja recuperar.
+* `<host-path-to-replica>`: O caminho para o diretório de réplica que você encontrou na Etapa 1.
+* `<volume-size-in-bytes>`: O tamanho do volume em bytes.
++
+*Resultado:* Agora você deve ter um dispositivo de bloco criado em `/dev/longhorn/<volume_name>` para este dispositivo, como `/dev/longhorn/pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc` para o exemplo acima. Agora você pode montar o dispositivo de bloco para acessar os dados.
+
+____
+Para evitar alterações acidentais no conteúdo do volume, é recomendado usar `mount -o ro` para montar o diretório como `readonly`.
+____
+
+Depois que você terminar de acessar o conteúdo do volume, use `docker stop` para parar o contêiner. Para RKE2, limpe os recursos removendo o arquivo de manifesto de pod estático `sudo rm /var/lib/rancher/rke2/agent/pod-manifests/longhorn-recovery.yaml`.

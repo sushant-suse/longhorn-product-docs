@@ -1,0 +1,57 @@
+= K3s
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+https://rancher.com/docs/k3s/latest/en/[K3s] 是一个完全合规的 Kubernetes 发行版，易于安装，内存使用量仅为一半，所有功能都集成在小于 50mb 的二进制文件中。
+
+== 要求
+
+* {longhorn-product-name} v0.7.0 或更高版本。
+* 在节点上安装了 `open-iscsi` 或 `iscsiadm`。
+
+== 指令
+
+默认情况下，{longhorn-product-name} 仅支持 K3s v0.10.0 及更高版本。
+
+如果您想在 K3s 版本低于 v0.10.0 上部署 {longhorn-product-name}，则需要将 `--kubelet-root-dir` 设置为 `<data-dir>/agent/kubelet`，以便在 `longhorn/deploy/longhorn.yaml` 中的部署 `longhorn-driver-deployer`。
+
+`data-dir` 是一个 `k3s` 参数，可以在启动 k3s 服务器时设置。默认为 `/var/lib/rancher/k3s`。
+
+== 查错
+
+=== 获取参数 root-dir 失败：无法获取 kubelet 根目录，未找到与根目录检测 ... 相关的进程。
+
+此错误是由于 {longhorn-product-name} 无法检测 Kubelet 的根目录设置，因此 CSI 插件安装失败。
+
+您可以通过在 https://github.com/longhorn/longhorn/blob/v{patch-version}/deploy/longhorn.yaml[`longhorn.yaml`] 中设置环境变量 `KUBELET_ROOT_DIR` 来覆盖根目录检测。
+
+=== 如何找到 `root-dir`？
+
+*对于 K3S 版本低于 v0.10.0*
+
+运行 `ps aux | grep k3s` 并在 k3s 节点上获取参数 `--data-dir` 或 `-d`。
+
+例如。
+
+ $ ps uax | grep k3s
+ root      4160  0.0  0.0  51420  3948 pts/0    S+   00:55   0:00 sudo /usr/local/bin/k3s server --data-dir /opt/test/kubelet
+ root      4161 49.0  4.0 259204 164292 pts/0   Sl+  00:55   0:04 /usr/local/bin/k3s server --data-dir /opt/test/kubelet
+
+您将在进程 `k3s` 的 cmdline 中找到 `data-dir`。默认为未设置，将使用 `/var/lib/rancher/k3s`。然后将 `data-dir` 与 `/agent/kubelet` 结合，您将获得 `root-dir`。因此，K3S 的默认 `root-dir` 是 `/var/lib/rancher/k3s/agent/kubelet`。
+
+如果 K3S 使用配置文件，您需要检查配置文件以找到 `data-dir` 参数。
+
+*对于 K3S v0.10.0+*
+
+它始终是 `/var/lib/kubelet`
+
+== 背景
+
+=== 早于 v0.7.0 的 {longhorn-product-name} 版本无法在 K3s v0.10.0 或更高版本上运行。
+
+K3s 现在将其 kubelet 目录设置为 `/var/lib/kubelet`。有关详细信息，请参见 https://github.com/rancher/k3s/releases/tag/v0.10.0[K3S 发布评论]。
+
+== 参考手册
+
+https://github.com/kubernetes-csi/driver-registrar

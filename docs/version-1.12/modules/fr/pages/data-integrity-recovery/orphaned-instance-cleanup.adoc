@@ -1,0 +1,276 @@
+= Nettoyage des instances orphelines
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} peut identifier et nettoyer les instances orphelines sur chaque nœud.
+
+== Instance de composant d'exécution orpheline
+
+Lorsqu'une panne réseau affecte un nœud {longhorn-product-name}, cela peut laisser des instances de composant d'exécution de moteur ou de réplique qui ne sont plus suivies par le système {longhorn-product-name}. Les ressources personnalisées (CR) de moteur et de réplique correspondantes peuvent être supprimées ou reprogrammées sur un autre nœud pendant la panne. Lorsque le nœud se rétablit, le système {longhorn-product-name} ne suit plus ces instances de composant d'exécution. Ces instances, telles que les processus de moteur et de réplique pour les volumes v1, sont appelées instances orphelines. Les instances orphelines continuent de consommer des ressources du nœud, telles que l'UC et la mémoire.
+
+{longhorn-product-name} prend en charge la détection et le nettoyage des instances orphelines. Il identifie ces instances et crée des ressources `orphan` qui les décrivent. Par défaut, {longhorn-product-name} ne supprime pas automatiquement les ressources `orphan`. Les utilisateurs peuvent déclencher manuellement la suppression des instances orphelines ou configurer {longhorn-product-name} pour les supprimer automatiquement.
+
+Lorsque la suppression automatique des orphelins est activée, {longhorn-product-name} supprime automatiquement les ressources personnalisées (CR) orphelines et leurs répertoires associés après la période bonus définie par le paramètre `orphan-resource-auto-deletion-grace-period`. Si un utilisateur supprime manuellement un CR orphelin, la suppression se produit immédiatement et ne respecte pas cette période bonus.
+
+=== Par exemple :
+
+L'exemple suivant démontre comment gérer les instances orphelines en utilisant `kubectl`.
+
+==== Gérer les instances orphelines via `kubectl`
+
+. Introduire des nœuds qui exécutent des processus d'instance orpheline 
++
+  * Instance de réplique orpheline sur le nœud `worker1`
++
+[,text]
+----
+Name:         instance-manager-8ff396d6d3744979b32abafc6346781c
+Namespace:    longhorn-system
+Kind:         InstanceManager
+...
+Status:
+  Instance Replicas:
+    pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-r-05660b73: # This instance might be an orphan
+      Spec:
+        Data Engine:  v1
+        Name:         pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-r-05660b73
+      Status:
+        Conditions:       <nil>
+        Endpoint:
+        Error Msg:
+        Listen:
+        Port End:         10020
+        Port Start:       10011
+        Resource Version: 0
+        State:            running
+        Target Port End:  0
+        Target Port Start:0
+        Type:             replica
+...
+----
++
+  * Instance de moteur orpheline sur le nœud `worker2`
++
+[,text]
+----
+Name:         instance-manager-b87f10b867cec1dca2b814f5e78bcc90
+Namespace:    longhorn-system
+Kind:         InstanceManager
+...
+Status:
+  Instance Engines:
+    pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-e-0: # This instance might be an orphan
+      Spec:
+        Data Engine:  v1
+        Name:         pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-e-0
+      Status:
+        Conditions:
+          Filesystem Read Only: false
+        Endpoint:
+        Error Msg:
+        Listen:
+        Port End:             10020
+        Port Start:           10020
+        Resource Version:     0
+        State:                running
+        Target Port End:      10020
+        Target Port Start:    10020
+        Type:                 engine
+...
+----
++
+. {longhorn-product-name} détecte les instances orphelines et crée des ressources `orphan` décrivant les instances.
++
+[,text]
+----
+NAME                                                              TYPE                NODE
+orphan-1807009489e50534c35c350e22680449c97deca4e5d3b72f4591976145f8bc41  engine-instance     worker2
+orphan-a91aa42ab5eda6b8b9fe1116d5b5f5673e5108d89be3db6fd18a275913463eef  replica-instance    worker1
+----
++
+. Vous pouvez consulter la liste des ressources `orphan` créées par le système {longhorn-product-name} en exécutant `kubectl -n longhorn-system get orphan`.
++
+[,bash]
+----
+# kubectl -n longhorn-system get orphan
+----
++
+. Obtenez les informations détaillées d'une des instances de réplique orpheline dans `spec.parameters` en `kubectl -n longhorn-system get orphan <name>`.
++
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Orphan
+metadata:
+  creationTimestamp: "2025-05-02T06:07:32Z"
+  finalizers:
+  - longhorn.io
+  generation: 1
+  labels:
+    longhorn.io/component: orphan
+    longhorn.io/managed-by: longhorn-manager
+    longhorn.io/orphan-type: replica-instance
+    longhornnode: worker1
+    longhornreplica: pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-r-05660b73
+  # ... (representing other omitted metadata fields)
+spec:
+  dataEngine: v1
+  nodeID: worker1
+  orphanType: replica-instance
+  parameters:
+    InstanceManager: instance-manager-8ff396d6d3744979b32abafc6346781c
+    InstanceName: pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-r-05660b73
+status:
+  conditions:
+  - lastProbeTime: ""
+    lastTransitionTime: "2025-05-02T06:06:39Z"
+    message: ""
+    reason: running
+    status: "True"
+    type: InstanceExist
+  - lastProbeTime: ""
+    lastTransitionTime: "2025-05-02T06:06:39Z"
+    message: ""
+    reason: ""
+    status: "False"
+    type: Error
+  ownerID: worker1
+----
++
+. Obtenez les informations détaillées d'une des instances de moteur orpheline dans `spec.parameters` en `kubectl -n longhorn-system get orphan <name>`.
++
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Orphan
+metadata:
+  creationTimestamp: "2025-05-02T06:47:25Z"
+  finalizers:
+  - longhorn.io
+  generation: 1
+  labels:
+    longhorn.io/component: orphan
+    longhorn.io/managed-by: longhorn-manager
+    longhorn.io/orphan-type: engine-instance
+    longhornengine: pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-e-0
+    longhornnode: worker2
+  # ... (representing other omitted metadata fields)
+spec:
+  dataEngine: v1
+  nodeID: worker2
+  orphanType: engine-instance
+  parameters:
+    InstanceManager: instance-manager-b87f10b867cec1dca2b814f5e78bcc90
+    InstanceName: pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-e-0
+status:
+  conditions:
+  - lastProbeTime: ""
+    lastTransitionTime: "2025-05-02T06:47:25Z"
+    message: ""
+    reason: running
+    status: "True"
+    type: InstanceExist
+  - lastProbeTime: ""
+    lastTransitionTime: "2025-05-02T06:47:25Z"
+    message: ""
+    reason: ""
+    status: "False"
+    type: Error
+  ownerID: worker2
+----
++
+. Vous pouvez supprimer une ressource `orphan` en exécutant `kubectl -n longhorn-system delete orphan <name>`. L'instance orpheline correspondante sera également supprimée.
++
+[,bash]
+----
+# kubectl -n longhorn-system delete orphan orphan-a91aa42ab5eda6b8b9fe1116d5b5f5673e5108d89be3db6fd18a275913463eef
+
+# kubectl -n longhorn-system get orphan -l "longhorn.io/orphan-type in (engine-instance,replica-instance)"
+NAME                                                                      TYPE               NODE
+orphan-1807009489e50534c35c350e22680449c97deca4e5d3b72f4591976145f8bc41   engine-instance    worker2
+----
++
+L'instance orpheline est supprimée.
++
+[,bash]
+----
+# kubectl -n longhorn-system describe instancemanager -l "longhorn.io/node=worker1"
+    Name:         instance-manager-8ff396d6d3744979b32abafc6346781c
+    Namespace:    longhorn-system
+    Kind:         InstanceManager
+    ...
+    Status:
+      Instance Replicas:
+    ...
+----
++
+. Par défaut, {longhorn-product-name} ne supprime pas automatiquement les instances orphelines. Vous pouvez activer la suppression automatique en configurant le paramètre `orphan-resource-auto-deletion`.
++
+[,bash]
+----
+# kubectl -n longhorn-system edit settings.longhorn.io orphan-resource-auto-deletion
+----
++
+Ensuite, ajoutez `instance` à la liste en l'incluant comme l'un des éléments séparés par des points-virgules.
++
+[,text]
+----
+NAME                            VALUE      APPLIED   AGE
+orphan-resource-auto-deletion   instance   true      45h
+----
++
+. Après avoir activé la suppression automatique et attendu un moment, les ressources et processus `orphan` sont supprimés automatiquement.
++
+
+[,bash]
+----
+# kubectl -n longhorn-system get orphan -l "longhorn.io/orphan-type in (engine-instance,replica-instance)"
+No resources found in longhorn-system namespace.
+----
++
+Les instances orphelines sont supprimées du gestionnaire d'instances.
++
+[,bash]
+----
+# kubectl -n longhorn-system describe instancemanager -l "longhorn.io/node=worker1"
+Name:         instance-manager-8ff396d6d3744979b32abafc6346781c
+Namespace:    longhorn-system
+Kind:         InstanceManager
+...
+Status:
+  Instance Replicas:
+...
+
+# kubectl -n longhorn-system describe instancemanager -l "longhorn.io/node=worker2"
+Name:         instance-manager-b87f10b867cec1dca2b814f5e78bcc90
+Namespace:    longhorn-system
+Kind:         InstanceManager
+...
+Status:
+  Instance Engines:
+    ...
+----
++
+De plus, vous pouvez supprimer toutes les instances orphelines sur le nœud spécifié en exécutant{nbsp}:
++
+[,bash]
+----
+# kubectl -n longhorn-system delete orphan -l "longhorn.io/orphan-type in (engine-instance,replica-instance),longhornnode=<node name>"
+----
+
+==== Gérer les instances orphelines via l'interface {longhorn-product-name}.
+
+. Dans la barre de navigation supérieure, sélectionnez *Avancé > Ressources orphelines > Instances*.
+. Examinez la liste des instances orphelines, qui affiche les informations pertinentes sur les instances.
+. Pour supprimer une instance orpheline spécifique, sélectionnez *Opération > Supprimer* pour cette instance.
+
+Par défaut, {longhorn-product-name} ne supprime pas automatiquement les instances orphelines uniquement par cette opération manuelle de l'interface utilisateur. Pour activer la suppression automatique des instances orphelines, ou pour configurer les paramètres liés aux données orphelines générales, accédez à *Paramètres > Orphelin* et configurez les options pertinentes. (Consultez la section `kubectl` pour des détails sur le paramètre `orphan-resource-auto-deletion` spécifique pour les CR d'instance si vous gérez via les paramètres backend).
+
+=== Exceptions
+
+{longhorn-product-name} ne crée pas de ressource `orphan` dans les scénarios suivants{nbsp}:
+
+* L'instance de moteur ou de réplique orpheline est reprogrammée sur son nœud d'origine et est à nouveau correctement suivie.
+* L'instance de moteur ou de réplique est dans un état transitoire tel que la migration, le démarrage ou l'arrêt.
+* Le nœud où l'instance était en cours d'exécution est évincé du cluster Kubernetes.

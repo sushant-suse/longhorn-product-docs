@@ -1,0 +1,40 @@
+= Gestión de fallos de nodo
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Qué esperar cuando un Nodo de Kubernetes falla
+
+Esta sección está destinada a informar a los usuarios sobre lo que sucede durante un fallo de nodo y lo que se espera durante la recuperación.
+
+Después de *un minuto*, `kubectl get nodes` informará `NotReady` sobre el nodo fallido.
+
+Después de aproximadamente *cinco minutos*, los estados de todos los pods en el nodo `NotReady` cambiarán a `Unknown` o `NodeLost`.
+
+StatefulSets tienen una identidad estable, por lo que Kubernetes no forzará la eliminación del pod para el usuario. Consulta la https://kubernetes.io/docs/tasks/run-application/force-delete-stateful-set-pod/[documentación oficial de Kubernetes sobre cómo forzar la eliminación de un StatefulSet].
+
+Las ampliaciones no tienen una identidad estable, pero para el tipo de almacenamiento de lectura-escritura-una vez (RWO), dado que no se puede adjuntar a dos nodos al mismo tiempo, el nuevo pod creado por Kubernetes no podrá iniciarse debido a que el volumen RWO sigue adjunto al pod antiguo, en el nodo perdido.
+
+En ambos casos, Kubernetes expulsará automáticamente el pod (establecerá la marca de tiempo de eliminación para el pod) en el nodo perdido, y luego intentará *recrear uno nuevo con los volúmenes antiguos*. Debido a que el pod expulsado queda atascado en estado `Terminating` y los volúmenes adjuntos no pueden ser liberados/reutilizados, el nuevo pod quedará atascado en estado `ContainerCreating`, si no hay intervención del administrador o del software de almacenamiento.
+
+== Directiva de eliminación de pods de Longhorn cuando el nodo está caído
+
+Longhorn ofrece una opción para ayudar a los usuarios a forzar automáticamente la eliminación de pods en terminación de StatefulSet/ampliación en el nodo que está caído. Después de forzar la eliminación, Kubernetes desacoplará el volumen de Longhorn y generará pods de reemplazo en un nuevo nodo.
+
+Puedes encontrar más detalles sobre las opciones de configuración en el `Pod Deletion Policy When Node is Down` en la pestaña *Configuración* en la interfaz de usuario de Longhorn o en la xref:longhorn-system/settings.adoc#_pod_deletion_policy_when_node_is_down[referencia de Configuración].
+
+== Qué esperar cuando un Nodo de Kubernetes fallido se recupera
+
+Si el nodo vuelve a estar en línea dentro de 5 - 6 minutos después del fallo, Kubernetes reiniciará los pods, desmontará y volverá a montar los volúmenes sin volver a acoplar los volúmenes y limpiar el VolumeAttachment.
+
+Debido a que los motores de volumen estarían caídos después de que el nodo esté caído, este remonte directo no funcionará ya que el dispositivo ya no existe en el nodo.
+
+En este caso, Longhorn desacoplará y volverá a acoplar los volúmenes para recuperar los motores de volumen, de modo que los pods puedan volver a montar/reutilizar los volúmenes de forma segura.
+
+Si el nodo no vuelve a estar en línea dentro de 5 - 6 minutos después del fallo, Kubernetes intentará eliminar todos los pods inalcanzables basándose en el mecanismo de expulsión de pods y estos pods estarán en un estado `Terminating`. Consulta https://kubernetes.io/docs/concepts/architecture/nodes/#condition[tiempo de espera para la expulsión de pods] para más detalles.
+
+Entonces, si el nodo fallido se recupera más tarde, Kubernetes reiniciará esos pods en terminación, desacoplará los volúmenes, esperará a la limpieza del antiguo VolumeAttachment y reutilizará (reacoplará y volverá a montar) los volúmenes. Normalmente, estos pasos pueden tardar entre 1 y 7 minutos.
+
+En este caso, las operaciones de desacoplamiento y reacoplamiento ya están incluidas en los procedimientos de recuperación de Kubernetes. Por lo tanto, no se necesita ninguna operación adicional y los volúmenes de Longhorn estarán disponibles después de los pasos anteriores.
+
+Para todos los escenarios de recuperación mencionados, Longhorn gestionará esos pasos automáticamente en asociación con Kubernetes.

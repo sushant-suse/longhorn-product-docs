@@ -1,0 +1,71 @@
+= Reconstrução de Réplica em Escala
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+A partir da versão v1.11.0, {longhorn-product-name} suporta *reconstrução de réplica em escala*, permitindo que uma réplica em reconstrução busque dados de snapshot de múltiplas réplicas saudáveis simultaneamente para melhorar o desempenho da reconstrução.
+
+== Introdução
+
+Tradicionalmente, {longhorn-product-name} reconstrói uma réplica falha buscando todos os dados de snapshot de uma única réplica saudável. Com a reconstrução de réplica em escala, a réplica em reconstrução pode buscar dados de snapshot de múltiplas réplicas de origem simultaneamente, potencialmente reduzindo o tempo de reconstrução.
+
+Esse recurso é particularmente benéfico quando os volumes contêm pequenos pedaços de dados espalhados e buracos em seus snapshots, pois permite uma melhor utilização da largura de banda de rede disponível e processamento paralelo.
+
+== Como funciona
+
+Quando a reconstrução de réplica em escala está habilitada:
+
+. Múltiplas réplicas saudáveis iniciam servidores de sincronização como fontes de dados de snapshot.
+. A réplica em reconstrução busca dados de snapshot de diferentes snapshots em diferentes réplicas de origem simultaneamente.
+. O número de réplicas de origem simultâneas é controlado pela configuração `replica-rebuild-concurrent-sync-limit`.
+
+== Categoria de
+
+=== Configuração Global: `replica-rebuild-concurrent-sync-limit`
+
+Essa configuração controla o número máximo de réplicas saudáveis que podem sincronizar dados de snapshot para uma única réplica em reconstrução simultaneamente.
+
+* *Padrão*: `1` (reconstrução em escala desabilitada)
+* *Intervalo*: `1` a `5`
+
+Quando definido como `1`, apenas uma réplica de origem sincroniza com a réplica em reconstrução por vez (comportamento tradicional). Valores maiores que `1` habilitam a reconstrução de réplica em escala, permitindo que múltiplas réplicas de origem (até o limite configurado) sincronizem dados de snapshot com a réplica em reconstrução simultaneamente.
+
+Para mais informações, veja xref:longhorn-system/settings.adoc#_replica_rebuild_concurrent_sync_limit[Referência de Configurações].
+
+=== Substituição por Volume
+
+Você pode substituir a configuração global `replica-rebuild-concurrent-sync-limit` para volumes individuais:
+
+* *Usando a interface {longhorn-product-name}*: Edite o volume e modifique o campo `Rebuild Concurrent Sync Limit`.
+* *Usando kubectl*: Execute `kubectl -n longhorn-system edit volume [volume-name]` e modifique o campo `spec.rebuildConcurrentSyncLimit`.
+
+Quando a configuração por volume está definida como `0`, o volume utiliza a configuração global. Caso contrário, a configuração por volume tem precedência.
+
+== Considerações sobre Performance
+
+=== Quando a reconstrução de réplica em escala ajuda
+
+A reconstrução de réplica em escala proporciona melhorias significativas de desempenho nos seguintes cenários:
+
+* *Volumes com pequenos pedaços de dados dispersos*: Quando os snapshots consistem em pequenos pedaços de dados intermitentes (por exemplo, blocos de 4K) com buracos, a reconstrução em escala pode reduzir significativamente o tempo de reconstrução ao utilizar várias réplicas de origem.
+* *Disponibilidade de largura de banda de rede*: Quando a largura de banda da rede está subutilizada durante a reconstrução tradicional, adicionar mais réplicas de origem pode utilizar melhor a largura de banda disponível.
+
+== Melhores práticas
+
+. *Comece com o padrão*: O valor padrão de `1` (reconstrução de réplica em escala desabilitada) é conservador e adequado para a maioria dos ambientes.
+. *Teste antes de aumentar*: Antes de aumentar o limite, teste em um ambiente não produtivo para entender o impacto dos recursos em sua carga de trabalho específica.
+. *Considere sua carga de trabalho*:
+* Para volumes com pequenos pedaços de dados dispersos: Considere habilitar a reconstrução de réplica em escala (definido como `2` ou superior).
+* Para volumes com grandes pedaços de dados contínuos: O benefício de desempenho pode ser mínimo.
+. *Monitorar o uso de recursos*: Quando a reconstrução de réplicas em escala está habilitada, monitore o uso da CPU nos nós que hospedam as réplicas de origem e destino para garantir que recursos suficientes estejam disponíveis.
+. *Equilibrar desempenho e recursos*: Limites de sincronização concorrentes mais altos podem melhorar a velocidade de reconstrução, mas consomem mais recursos de CPU. Considere o trade-off com base na disponibilidade de recursos do seu cluster e na urgência da reconstrução.
+
+== Limitações
+
+* O número máximo de réplicas de origem concorrentes é limitado a `5`.
+* A reconstrução de réplica em escala está desabilitada por padrão para evitar consumo inesperado de recursos elevados.
+* As melhorias reais de desempenho dependem de fatores, incluindo desempenho de E/S de disco, largura de banda de rede, padrões de distribuição de dados e recursos de CPU disponíveis.
+
+== Referências
+
+Para mais informações sobre recursos relacionados à reconstrução, veja https://github.com/longhorn/longhorn/issues/11331[Longhorn #11331].

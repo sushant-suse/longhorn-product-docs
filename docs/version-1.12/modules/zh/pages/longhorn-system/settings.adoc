@@ -1,0 +1,1261 @@
+= 设置
+:revdate: 2026-03-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 受支持数据引擎的值格式类型
+
+每个设置仅支持以下格式之一，具体取决于其定义。
+支持的格式决定了可以配置哪些数据引擎，以及它们的值是否可以不同。
+
+* *所有支持的数据引擎的单一值*
+** *格式*非JSON字符串（例如，`1024`）
+** 该值适用于所有受支持的数据引擎，并且必须保持一致。
+** 不允许使用特定于数据引擎的值。
+
+* *V1 和 V2 数据引擎特定的值*
+** *格式*JSON对象（例如，`{"v1": "value1", "v2": "value2"}`）
+** 允许为V1和V2数据引擎指定不同的值。
+
+* *仅适用于 V1 数据引擎的特定值*
+** *格式*仅包含`v1`键的JSON对象（例如，`{"v1": "value1"}`）
+** 仅可以配置V1数据引擎。V2数据引擎不受影响。
+
+* *仅适用于 V2 数据引擎的特定值*
+** *格式*仅包含`v2`键的JSON对象（例如，`{"v2": "value1"}`）
+** 仅可以配置V2数据引擎。V1数据引擎不受影响。
+
+== 自定义默认设置
+
+要在安装之前配置{longhorn-product-name}，请参见xref:longhorn-system/customize-default-settings.adoc[本节]以获取详细信息。
+
+== 系统信息
+
+=== 默认引擎映像
+
+默认引擎镜像是管理器使用的镜像，仅在管理器启动时可以更改。
+
+每个{longhorn-product-name}版本都包含一个新的引擎镜像。在未使用默认引擎的Longhorn卷上会出现绿色箭头，表示该卷需要升级。
+
+=== 默认实例管理器镜像
+
+默认实例管理器镜像是管理器使用的镜像，仅在管理器启动时可以更改。
+
+=== 默认备份镜像管理器镜像
+
+默认备份镜像管理器镜像是管理器使用的镜像，仅在管理器启动时可以更改。
+
+=== 支持包管理器镜像
+
+{longhorn-product-name}使用支持包管理器镜像生成支持包。
+
+安装和升级时提供默认镜像，您也可以在设置中更改此项。
+
+支持包管理器镜像的示例：
+
+*默认值*：`longhornio/support-bundle-kit:v0.0.14`
+
+=== 当前{longhorn-product-name}版本
+
+当前{longhorn-product-name}版本。
+
+=== 最新{longhorn-product-name}版本
+
+最新可用的{longhorn-product-name}版本。此项由`Upgrade Checker`自动更新。
+
+[NOTE]
+====
+仅在启用`Upgrade Checker`时可用。
+====
+
+=== 稳定的{longhorn-product-name}版本
+
+每个小版本线的最新稳定版本。它由`Upgrade Checker`自动更新。
+
+== 通用
+
+=== 节点排水策略
+
+*默认值*：`block-if-contains-last-replica`
+
+定义在节点排水时使用的策略，该节点具有卷的最后一个健康副本。可用的选项：
+
+* `block-if-contains-last-replica`: {longhorn-product-name}在节点包含卷的最后一个健康副本时阻止排水。
+* `allow-if-replica-is-stopped`: {longhorn-product-name}在节点包含卷的最后一个健康副本但副本已停止时允许排水。
++
+[WARNING]
+====
+如果在排水后移除节点，可能会导致数据丢失。
+====
++
+* `always-allow`: {longhorn-product-name}即使节点包含卷的最后一个健康副本，也会自动允许排水。
++
+[WARNING]
+====
+如果在排水后移除节点，可能会导致数据丢失。如果最后一个副本在排水期间正在运行，也可能会导致数据损坏。
+====
++
+* `block-for-eviction`: {longhorn-product-name}会自动驱逐所有副本，并在驱逐完成之前阻止排水。
++
+[WARNING]
+====
+可能导致排水缓慢和与副本重建相关的额外数据移动。
+====
++
+* `block-for-eviction-if-contains-last-replica`: {longhorn-product-name}会自动驱逐任何没有健康对应副本的副本，并在驱逐完成之前阻止排水。
++
+[WARNING]
+====
+可能导致排水缓慢和与副本重建相关的额外数据移动。
+====
+
+每个选项都有优缺点。请参见xref:troubleshooting-maintenance/maintenance.adoc#_node_drain_policy_recommendations[节点排水策略建议]以帮助决定在您的环境中哪个最合适。
+
+=== 在节点被隔离时手动分离附加卷
+
+*默认值*：`false`
+
+{longhorn-product-name}会自动分离手动附加到被隔离节点的卷。
+这防止了由于实例管理器的PDB导致的排水过程卡住，该管理器在节点上仍有正在运行的引擎。
+
+=== 自动清理系统生成的快照
+
+*默认值*：`true`
+
+{longhorn-product-name}在副本重建期间生成系统快照，如果用户没有设置定期快照计划，所有系统生成的快照将保留在副本中，用户必须手动删除它们，此设置允许{longhorn-product-name}在副本重建前后自动清理系统生成的快照。
+
+=== 自动清理过时的定期备份作业快照
+
+*默认值*：`true`
+
+如果启用，在运行定期备份作业时，{longhorn-product-name}会在创建备份之前拍摄新的快照。{longhorn-product-name}仅保留上一个备份作业使用的快照，即使保留参数的值不是1。
+
+如果禁用，此设置确保保留的快照与远程备份目标上的备份直接对应。
+
+=== 当卷意外分离时，自动删除工作负载 Pod。
+
+*默认值*：`true`
+
+如果启用，{longhorn-product-name} 会在 Longhorn 卷意外分离时（例如，在 Kubernetes 升级、Docker 重启或网络断开时）自动删除由控制器管理的工作负载 Pod（例如，部署、有状态集、守护程序集等）。
+通过删除 Pod，其控制器会重新启动 Pod，Kubernetes 处理卷的重新附加和重新挂载。
+
+如果禁用，{longhorn-product-name} 不会删除由控制器管理的工作负载 Pod。您需要手动重新启动 Pod 以重新附加和重新挂载卷。
+
+[NOTE]
+====
+* 此设置不适用于没有控制器的工作负载 Pod。{longhorn-product-name} 永远不会删除此类 Pod。
+* 具有 *集群网络* RWX 卷的工作负载 Pod。此设置不适用于此类 Pod，因为提供 RWX NFS 服务的 Longhorn Share Manager 具有自己的弹性机制。该机制确保在卷重新附加之前可用，而不依赖于 Pod 生命周期来触发卷的重新附加。然而，此设置适用于具有 *端点网络* RWX 卷的工作负载 Pod。有关更多信息，请参见 xref:volumes/rwx-volumes.adoc[可读写多（RWX）卷] 和 xref:longhorn-system/networking/storage-network.adoc#limitation[存储网络]。
+====
+
+=== 意外卷分离时自动删除工作负载 Pod 的黑名单。
+
+*默认值*：`""`
+
+设置 <<_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly,当卷意外分离时自动删除工作负载 Pod>> 的控制器 `api/kind` 值黑名单。如果工作负载 Pod 由其 `api/kind` 在此黑名单中列出的控制器管理，则 {longhorn-product-name} 在其卷意外分离时不会自动删除该 Pod。可以指定多个控制器 `api/kind` 条目，用分号分隔。例如 `apps/v1/StatefulSet;apps/v1/DaemonSet`。
+
+[NOTE]
+====
+控制器 `api/kind` 区分大小写，必须与工作负载 Pod 的拥有者引用中的 `api/kind` 完全匹配。
+====
+
+=== 自动抢救。
+
+*默认值*：`true`
+
+如果启用，当所有副本出现故障时（例如，由于网络断开），卷会自动被抢救。{longhorn-product-name} 会尝试找出哪些副本可用，然后将其用于卷。
+
+=== 每个节点的并发自动引擎升级限制。
+
+*默认值*：`0`
+
+此设置控制在升级 Longhorn 管理器后，{longhorn-product-name} 如何自动将卷的引擎升级到新的默认引擎镜像。
+
+此设置的值指定每个节点允许同时升级到默认引擎镜像的最大引擎数量。
+
+如果值为 `0`，则 {longhorn-product-name} 不会自动将卷引擎升级到默认版本。
+
+=== 每个节点的并发卷备份恢复限制
+
+*默认值*：`5`
+
+此设置控制节点上可以并发恢复备份的卷数量。
+
+一旦恢复的卷数量超过限制，{longhorn-product-name} 将阻止备份恢复。
+
+将值设置为 *0* 以禁用备份恢复。
+
+=== 在标记节点上创建默认磁盘
+
+*默认值*：`false`
+
+如果没有其他磁盘，{longhorn-product-name} 会自动创建一个默认磁盘，但仅在具有 Kubernetes 标签 `node.longhorn.io/create-default-disk=true` 的节点上。
+
+如果此设置被禁用，则在首次检测到节点时，默认磁盘将在所有新节点上创建。
+
+使用此选项可以在新节点上扩展集群而不使用存储，或为 Longhorn 节点自定义磁盘（xref:nodes/default-disk-and-node-config.adoc[请参阅文档]）。
+
+=== 自定义资源 API 版本
+
+*默认值*：`longhorn.io/v1beta2`
+
+当前自定义资源的 API 版本，例如 `longhorn.io/v1beta2`。由管理器自动设置。
+
+=== 默认数据本地性
+
+*默认值*：`disabled`
+
+当至少一个副本与使用该卷的 Pod 位于同一节点上时，{longhorn-product-name} 卷具有数据本地性。
+
+此设置定义通过 {longhorn-product-name} UI 创建的卷的默认数据本地性。
+对于 Kubernetes 部署，请在 StorageClass 中配置 `dataLocality`。
+
+可用模式为：
+
+* `disabled`（默认）：副本可以位于与附加卷或工作负载相同的节点上，也可以不在同一节点上。
+* `best-effort`: {longhorn-product-name} 尝试将副本保持在与附加卷或工作负载相同的节点上。即使环境限制阻止本地放置，例如磁盘空间不足或磁盘标签不兼容，卷仍然可以继续操作。
+* `strict-local`: {longhorn-product-name} 强制在与附加卷相同的节点上放置单个副本。此模式提供更高的 IOPS 和更低的延迟。
+
+=== 默认数据路径
+
+*默认值*：`/var/lib/longhorn/`
+
+用于在主机上存储数据的默认路径。
+
+可以与 `Create Default Disk on Labeled Nodes` 选项一起使用，从而使 {longhorn-product-name} 在扩展集群时仅使用挂载有特定存储的节点，例如 `/opt/longhorn`。
+
+=== 默认 {longhorn-product-name} 静态存储类名称
+
+*默认值*：`longhorn-static`
+
+`storageClassName` 用于引用现有 {longhorn-product-name} 卷的持久卷 (PVs) 和持久卷声明 (PVCs)。您不需要为此目的创建相应的存储类对象，因为它仅在 PVC 绑定期间用于标签匹配。该值必须与现有的存储类匹配。如果存储类 `longhorn-static` 尚不存在，{longhorn-product-name} 会自动创建它。默认值为 `longhorn-static`。
+
+=== 默认副本数量
+
+*默认值*：`{"v1":"3","v2":"3"}`
+
+从 {longhorn-product-name} UI 创建卷时的默认副本数量。对于 Kubernetes，更新存储类中的 `numberOfReplicas`。
+
+选择默认副本数量的推荐方法是：如果您有三个或更多存储节点，则使用 3；否则使用 2。在单节点集群上使用单个副本也是可以的，但高可用性功能将不可用。您仍然可以对卷进行快照或备份。
+
+=== 删除确认标志
+
+*默认值*：`false`
+
+此标志旨在防止{longhorn-product-name}被意外卸载，从而导致数据丢失。
+
+* 将此标志设置为*true*以允许{longhorn-product-name}卸载。
+* 如果此标志为*false*，则{longhorn-product-name}卸载作业失败。
+
+=== 禁用修订计数器
+
+*默认值*：`{"v1":"true"}`
+
+允许引擎控制器和引擎副本在每次数据写入时禁用修订计数器文件更新。这提高了数据路径性能。有关详细信息，请参见xref:high-availability/revision_counter.adoc[修订计数器]。
+
+=== 启用升级检查器
+
+*默认值*：`true`
+
+升级检查器会定期检查是否有新的{longhorn-product-name}版本。当有新版本可用时，它会在{longhorn-product-name}用户界面中通知用户。
+
+=== 升级响应者URL
+
+*默认值*：`pass:[https://longhorn-upgrade-responder.rancher.io/v1/checkupgrade]`
+
+每当有新的{longhorn-product-name}版本可供您升级时，升级响应者会发送通知。
+
+=== 允许收集{longhorn-product-name}使用指标
+
+*默认值*：`true`
+
+启用后，此设置允许{longhorn-product-name}将匿名使用指标发送到 https://metrics.longhorn.io/.。
+
+这些指标有助于提供有关{longhorn-product-name}使用情况的洞察，并支持未来的产品改进。
+
+*从所有集群节点收集的节点信息包括：*
+
+* 每种设备类型的磁盘数量（HDD、SSD、NVMe、未知）。
++
+此值对于虚拟机可能不准确。
+
+* 每种Longhorn磁盘类型的磁盘数量（块、文件系统）。
+* 主机系统架构。
+* 主机内核发行版。
+* 主机操作系统（OS）发行版。
+* Kubernetes 节点提供者。
+
+*从集群节点收集的集群信息包括：*
+
+* Longhorn 名称空间 UID。
+* Longhorn 节点数量。
+* 每种访问模式（RWO、RWX、未知）的卷数量。
+* 每种数据引擎（v1、v2）的卷数量。
+* 每种数据本地性类型（禁用、最佳努力、严格本地、未知）的卷数量。
+* 加密或未加密的卷数量。
+* 每种前端类型（blockdev、iscsi）的卷数量。
+* 副本数量。
+* 快照数量。
+* 备份镜像数量。
+* 孤儿数量。
+* 平均卷大小（字节）。
+* 平均卷实际大小（字节）。
+* 每卷的平均快照数量。
+* 每卷的平均副本数量。
+* 平均 {longhorn-product-name} 组件处理器使用率（实例管理器、管理器）以毫核为单位。
+* 平均 {longhorn-product-name} 组件内存使用量（实例管理器，管理器），以字节为单位。
+* Longhorn 设置：
+ ** 部分包含：
+  *** 备份目标类型或协议（azblob，cifs，nfs，s3，无，未知）。这来自备份目标设置。
+ ** 包含为真或假，以指示此设置是否已配置：
+  *** 优先级类别
+  *** 注册表密钥
+  *** 快照数据完整性 CronJob
+  *** 存储网络
+  *** RWX 卷的端点网络
+  *** 系统管理组件节点选择器
+  *** 污点容忍
+ ** 按原样包含：
+  *** 在卷被分离时允许定期作业
+  *** 允许在可用性降低的情况下创建卷
+  *** 自动清理系统生成的快照
+  *** 自动清理过时的定期备份作业快照
+  *** 当卷意外分离时，自动删除工作负载 Pod。
+  *** 自动抢救。
+  *** 备份镜像清理等待间隔
+  *** 备份镜像恢复等待间隔
+  *** 备份压缩方法
+  *** 备份存储轮询间隔
+  *** 备份并发限制
+  *** 每个节点的并发自动引擎升级限制。
+  *** 每个节点的并发备份恢复限制
+  *** 每个节点的并发副本重建限制
+  *** CRD API 版本
+  *** 创建默认磁盘标记的节点
+  *** 默认数据本地性
+  *** 默认副本数量
+  *** 禁用修订计数器
+  *** 禁用被标记节点的调度
+  *** 引擎副本超时
+  *** 备份失败的存活时间
+  *** 启用快速副本重建
+  *** 保证实例管理器处理器。
+  *** 启用 Kubernetes 集群自动扩缩容
+  *** 节点故障时的 Pod 删除策略
+  *** 节点排水策略
+  *** 孤儿自动删除
+  *** 定期失败作业历史限制
+  *** 定期成功作业历史限制
+  *** 在文件系统修整期间删除快照
+  *** 副本自动平衡
+  *** 副本文件同步 HTTP 客户端超时
+  *** 副本补充等待间隔
+  *** 副本软反亲和性
+  *** 副本区域软反亲和性
+  *** 副本磁盘软反亲和性
+  *** 恢复并发限制
+  *** 恢复卷定期作业
+  *** 快照数据完整性
+  *** 快照数据完整性在快照创建后立即检查
+  *** 存储最小可用百分比
+  *** 用于 RWX 卷的存储网络已启用。
+  *** 存储超额配置百分比
+  *** 默认磁盘的存储保留百分比
+  *** 支持包失败历史限制
+  *** 支持包节点收集超时
+  *** 系统管理的Pod镜像拉取策略
+
+需要启用`Upgrade Checker`以定期发送收集的数据。
+
+=== 节点故障时的 Pod 删除策略
+
+*默认值*：`do-nothing`
+
+定义当卷在故障节点上与有状态集或部署 Pod 卡住时的 {longhorn-product-name} 操作。
+
+* `do-nothing` 是 Kubernetes 的默认行为，永远不强制删除有状态集或部署 Pod。由于处于故障状态的节点上的Pod未被移除，Longhorn卷被卡在故障节点上。
+* `delete-statefulset-pod` {longhorn-product-name} 强制删除处于故障状态的节点上的有状态集终止 Pod，以释放 Longhorn 卷，从而使 Kubernetes 能够启动替换 Pod。
+* `delete-deployment-pod` {longhorn-product-name} 强制删除处于故障状态的节点上的部署终止 Pod，以释放 Longhorn 卷，从而使 Kubernetes 能够启动替换 Pod。
+* `delete-both-statefulset-and-deployment-pod` {longhorn-product-name} 强制删除处于终止状态的 StatefulSet 或 Deployment 的 Pod，以释放 Longhorn 卷，从而使 Kubernetes 能够启动替换 Pod。
+
+=== 注册表密钥
+
+Kubernetes Secret 名称。
+
+=== 副本补充等待间隔
+
+*默认值*：`600`
+
+当降级卷中至少有一个失败的副本卷时，此间隔（以秒为单位）决定了 {longhorn-product-name} 最多等待多长时间以重用失败副本的现有数据，而不是直接为该卷创建新的副本。
+
+WARNING: 此等待间隔仅在卷中至少有一个失败的副本时有效。而且此选项可能会阻止重建一段时间。
+
+=== 系统管理的 Pod 镜像拉取策略
+
+*默认值*：`if-not-present`
+
+此设置定义了 Longhorn 系统管理 Pod 的镜像拉取策略，例如实例管理器、引擎镜像、CSI 驱动程序等。
+
+请注意，新的镜像拉取策略仅在系统管理的 Pod 重启后应用。
+
+此设置定义与 Kubernetes 中的定义完全相同。可用的选项如下：
+
+* `always`”结尾。每次 `kubelet` 启动一个容器时，`kubelet` 会查询容器镜像注册表以将名称解析为镜像摘要。如果 `kubelet` 在本地缓存了具有该摘要的容器镜像，则 `kubelet` 使用其缓存的镜像；否则，`kubelet` 下载（拉取）带有解析后的摘要的镜像，并使用该镜像启动容器。
+* `if-not-present`”结尾。仅在本地不存在该镜像时才会拉取该镜像。
+* `never`”结尾。假定该镜像在本地存在。不会尝试拉取该镜像。
+
+=== 基础镜像清理等待间隔
+
+*默认值*：`60`
+
+此间隔（以分钟为单位）定义了 {longhorn-product-name} 在没有副本使用该基础镜像文件时，等待多长时间后清理基础镜像文件。
+
+=== 基础镜像恢复等待间隔
+
+*默认值*：`300`
+
+此间隔（以秒为单位）定义了 {longhorn-product-name} 在所有磁盘文件进入 `failed` 或 `unknown` 状态后，等待多长时间再重新下载基础镜像文件。
+
+[NOTE]
+====
+* 此恢复仅适用于创建类型为 `download` 的基础镜像。
+* 文件状态 `unknown` 表示相关的管理 Pod 未在运行，或节点本身已关闭或断开连接。
+====
+
+=== 默认基础镜像副本的最小数量
+
+*默认值*：`1`
+
+默认的最小基础镜像副本数量 {longhorn-product-name} 所维持。
+
+=== 引擎副本超时
+
+*默认值*：`{"v1":"8","v2":"8"}`
+
+V1 数据引擎等待副本响应的秒数，超时后将其标记为故障。允许的值在 8 到 30 之间。此设置仅在有未完成的输入或输出请求时生效。
+
+此设置仅适用于额外的副本。V1 引擎仅在经过配置的秒数的两倍（超时值 x 2）后，将最后一个活动副本标记为故障。此行为旨在平衡卷的响应性与卷的可用性。
+
+引擎可以快速（在配置的超时后）忽略变得无响应的个别副本，而优先考虑其他可用副本。这确保未来的输入或输出不会被阻塞。
+
+引擎在最后一个副本上等待（直到配置的超时的两倍），以防因没有可用后端而不必要地崩溃。
+
+=== 支持包故障历史限制
+
+*默认值*：`1`
+
+此设置指定集群中可以存在多少个故障的支持包。
+
+保留的故障支持包用于分析目的，需要手动清理。
+
+当达到限制的上限时，{longhorn-product-name} 阻止支持包的创建。您可以将此值设置为 *0*，以使 {longhorn-product-name} 自动清除所有故障的支持包。
+
+=== 支持包节点收集超时
+
+*默认值*：`30`
+
+{longhorn-product-name} 允许收集节点信息和节点日志以用于支持包的分钟数。
+
+如果收集过程未在规定时间内完成，{longhorn-product-name} 将继续生成支持包，而不包含未收集的节点数据。
+
+=== 启用快速副本重建
+
+*默认值*：`{"v1":"true","v2":"true"}`
+
+该设置启用快速副本重建功能。它依赖于快照磁盘文件的校验和，因此将快照数据完整性设置为 *enable* 或 *fast-check* 是先决条件。
+
+=== HTTP 客户端到副本文件同步服务器的超时。
+
+*默认值*：`30`
+
+以秒为单位的值指定 HTTP 客户端到副本文件同步服务器的超时，该服务器用于副本重建、卷克隆、快照克隆等。
+
+=== 离线副本重建
+
+*默认值*：`false`
+
+控制 {longhorn-product-name} 是否在卷被分离时自动重建降级副本。此设置仅在卷级设置为 `ignored` 或 `enabled` 时生效。
+
+可用的选项：
+
+* `true`：启用所有分离卷的离线副本重建（除非在卷级被覆盖）。
+* `false`：全局禁用离线副本重建（除非在卷级被覆盖）。
+
+[NOTE]
+====
+离线重建仅在卷被分离时发生。处于故障状态的卷不会触发离线重建。
+====
+
+此设置允许 {longhorn-product-name} 在需要时自动重建分离卷的副本。
+
+=== 长 gRPC 超时
+
+*默认值*：`86400`
+
+{longhorn-product-name} 允许副本重建和快照克隆操作完成的秒数。
+
+=== RWX 卷快速故障转移（实验性）
+
+*默认值*：`false`
+
+通过缩短从节点故障恢复所需的时间来启用改进的 ReadWriteMany 卷高可用性。
+
+=== Log Level（日志级别）
+
+*默认值*：`Log Level`
+
+Longhorn 管理器使用以下日志级别：`Panic`、`Fatal`、`Error`、`Warn`、`Info`、`Debug` 和 `Trace`。默认日志级别为 `Info`。
+
+=== 日志路径
+
+*默认值*：`/var/lib/longhorn/logs/`
+
+此设置指定主机上 {longhorn-product-name} 存储实例管理器 pod 日志文件的目录。目前，这仅用于 v2 数据引擎中的实例管理器 pod。
+
+=== 数据引擎日志级别
+
+*默认值*：`{"v2":"Notice"}`
+
+仅适用于 V2 数据引擎。指定存储性能开发工具包（SPDK）目标守护程序的日志级别。支持的值为：`Error`、`Warning`、`Notice`、`Info` 和 `Debug`。
+
+=== 数据引擎日志标志
+
+*默认值*：`{"v2":""}`
+
+仅适用于 V2 数据引擎。指定存储性能开发工具包（SPDK）目标守护程序的日志标志。
+
+=== 副本重建带宽限制
+
+*默认值*：`{"v2":"0"}`
+
+仅适用于 V2 数据引擎。指定卷副本重建的默认写入带宽限制，以每秒兆字节（MB/s）为单位。
+
+=== 管理器 URL
+
+*默认值*：`""`
+
+*示例*：`pass:[https://longhorn.example.com]` 或 `pass:[https://longhorn.example.com:8443]`
+
+用于访问 Longhorn Manager API 的外部 URL。配置后，此 URL 用于生成 API 响应中的 `actions` 和 `links` 字段，而不是从请求头中派生或使用内部 pod IP。
+
+此设置在通过 Ingress 或 Gateway API HTTPRoute 访问 Longhorn API 时非常有用，因为如果入口控制器未正确设置 `X-Forwarded-*` 头，API 可能会返回内部集群 IP。
+
+*格式*：`scheme://host[:port]`，其中：
+
+* `scheme`：必须为 `http` 或 `https`
+* `host`：外部主机名或 IP 地址
+* `port`：可选端口号（http 默认为 80，https 默认为 443）
+
+*要求*：
+
+* URL 不能包含路径、查询参数或片段
+* IPv6 地址必须括在方括号中（例如，`pass:[http://[2001:db8::1]:9500]`）
+
+*何时使用*：
+
+* 通过带有外部 URL 的 Ingress 访问 Longhorn UI 或 API
+* 使用 Gateway API HTTPRoute 进行外部访问
+* API 客户端在响应 URL 中接收内部 IP
+
+*当为空时*（默认）：URL 是从 HTTP 请求头（`X-Forwarded-*`）构建的，或者回退到请求主机。
+
+有关更多详细信息，请参见 xref:important-notes.adoc#_manager_url_for_external_api_access[Manager URL 用于外部 API 访问]。
+
+=== 默认 Ublk 队列深度
+
+*默认值*：`{"v2":"128"}`
+
+Ublk 前端每个队列的默认深度。此设置适用于使用 V2 数据引擎和 Ublk 前端的卷。
+
+=== 默认 Ublk 队列数量
+
+*默认值*：`{"v2":"1"}`
+
+Ublk 前端的默认队列数量。此设置适用于使用 V2 数据引擎和 Ublk 前端的卷。
+
+=== 节点磁盘健康监控
+
+*默认值*：`true`
+
+此设置控制 {longhorn-product-name} 是否监控和记录节点磁盘的健康信息。当此设置被禁用时，磁盘健康检查和状态更新将被跳过。
+
+== 快照
+
+=== 快照数据完整性
+
+*默认值*：`{"v1":"fast-check","v2":"fast-check"}`
+
+此设置允许用户启用或禁用快照哈希和数据完整性检查。可用选项如下：
+
+* *已禁用*：禁用快照磁盘文件哈希和数据完整性检查。
+* *已启用*：启用定期快照磁盘文件哈希和完整数据完整性检查。{longhorn-product-name} 系统定期对快照磁盘文件进行哈希，以检测文件系统无法察觉的损坏，例如位腐烂。这些检查可能会在每次扫描期间影响系统性能。
+* *快速检查*：启用快照磁盘文件哈希和快速数据完整性检查。在此模式下，系统仅在快照磁盘文件未被哈希过或其修改时间已更改时对其进行哈希。在此模式下，无法检测到与文件系统无关的损坏，但性能影响减小。
+
+=== 创建快照后立即进行数据完整性检查
+
+*默认值*：`{"v1":"false","v2":"false"}`
+
+对快照磁盘文件进行哈希会影响系统性能。可以禁用立即快照哈希和检查，以最小化创建快照后的影响。
+
+=== 快照数据完整性检查定时任务
+
+*默认值*：`{"v1":"0 0 */7 * *","v2":"0 0 */7 * *"}`
+
+Unix-cron字符串格式。该设置指定何时{longhorn-product-name}检查快照磁盘文件的数据完整性。
+
+[WARNING]
+====
+对快照磁盘文件进行哈希会影响系统性能。建议在非高峰时段运行数据完整性检查，并减少检查的频率。
+====
+
+=== 快照最大数量
+
+*默认值*：`250`
+
+一个卷的最大快照数量。该值应在2到250之间。
+
+=== 冻结文件系统以进行快照
+
+*默认值*：`{"v1":"false"}`
+
+此设置仅适用于使用Kubernetes卷模式`Filesystem`的卷。
+启用时，{longhorn-product-name}在创建用户发起的快照之前立即冻结卷的文件系统。
+禁用时，或当卷模式为`Block`时，{longhorn-product-name}在创建用户发起的快照之前执行系统同步。
+
+启用文件系统冻结的快照更有可能保持一致，因为在创建快照时文件系统处于稳定状态。然而，在高输入或输出的情况下，冻结文件系统可能需要显著时间，并可能短暂暂停工作负载活动。
+
+当此设置被禁用时，{longhorn-product-name} 在创建快照之前会将数据刷新到磁盘，但无法完全阻止在系统同步和快照创建之间的写入。
+工作负载通常不会注意到快照操作，因为在同步期间输入和输出仍在继续。
+
+默认值为 `false`。内核 `v5.17` 及更早版本在活动文件系统冻结期间如果卷崩溃，可能无法正确恢复。在这种情况下，内核可能会阻止卸载文件系统或停止正在使用它的进程，直到您重启节点。仅在使用内核版本 `5.17` 或更高版本以及 ext4 或 XFS 文件系统时启用此设置。
+
+您可以通过在 `freezeFilesystemForSnapshot` 用户界面中的 {longhorn-product-name} 字段、StorageClass 或编辑现有卷来覆盖此设置。 +
+`freezeFilesystemForSnapshot` 接受以下值：
+
+*默认值*：`ignored`
+
+* `ignored`：指示 {longhorn-product-name} 使用全局设置。这是默认选项。
+* `enabled`：在快照之前启用冻结，无论全局设置如何。
+* `disabled`：在快照之前禁用冻结，无论全局设置如何。
+
+== 孤立
+
+=== 孤立资源自动删除
+
+*示例*：`replica-data;instance`
+
+此设置允许 {longhorn-product-name} 自动删除 `orphan` 资源，这些资源通常是由 {longhorn-product-name} 创建的自定义资源（CR），用于表示检测到的孤立实体。删除一个 `orphan` CR 随后会触发清理它所代表的实际孤立数据或运行时实例。然而，与处于 `down` 或 `unknown` 状态的节点相关的 `orphan` 资源不会被此设置自动清理。
+
+您可以将要自动删除的资源类型列出为以分号分隔的字符串。可用类型包括：
+
+* `replica-data`：表示副本数据存储。
+* `instance`：表示引擎和副本运行时实例。
+
+=== 孤立资源自动删除宽限期
+
+*默认值*: `300` 秒
+
+在自动删除孤立自定义资源（CR）及其所代表的实际孤立数据或运行时实例之前，等待的秒数为 {longhorn-product-name}。
+
+[NOTE]
+====
+当您手动删除孤立的 CR 时，宽限期不生效。
+====
+
+== 备份
+
+=== 在卷被分离时允许定期作业
+
+*默认值*：`false`
+
+如果启用此设置，{longhorn-product-name} 会在进行定期快照或备份时自动附加卷并进行快照或备份。
+
+[NOTE]
+====
+在自动附加卷的期间，该卷尚未准备好进行工作负载。工作负载必须等待直到定期作业完成。
+====
+
+==== 备份执行超时
+
+*默认值*：`1`
+
+{longhorn-product-name} 允许备份执行的分钟数。
+
+=== 失败备份的生存时间
+
+*默认值*：`1440`
+
+保留失败的备份资源的时间间隔（以分钟为单位）。设置为 0 以禁用自动删除。
+
+失败的备份在备份存储轮询期间被检查和清理，该轮询由 *备份存储轮询间隔* 设置控制。因此，此值决定了清理的最小等待间隔。实际的清理间隔是 *备份存储轮询间隔* 的倍数。禁用 *备份存储轮询间隔* 也意味着禁用失败备份的自动删除。
+
+=== Cronjob 失败作业历史限制
+
+*默认值*：`1`
+
+此设置指定应保留多少个失败的备份或快照作业历史。
+
+如果值为 0，则不保留历史记录。
+
+=== Cronjob 作业成功历史限制
+
+*默认值*：`1`
+
+此设置指定应保留多少个成功的备份或快照作业历史。
+
+如果值为 0，则不保留历史记录。
+
+=== 恢复卷定期作业
+
+*默认值*：`false`
+
+此设置允许在卷恢复期间从备份目标恢复备份卷的定期作业，如果它们在集群中不存在的话。
+这也是一个特定于卷的设置，具有以下选项。用户可以为每个卷自定义此设置，以覆盖全局设置。
+
+*默认值*：`ignored`
+
+* `ignored`：这是默认选项，指示{longhorn-product-name}从全局设置继承。
+* `enabled`：此选项指示{longhorn-product-name}强制从备份目标恢复卷的定期作业或组。
+* `disabled`：此选项指示{longhorn-product-name}不应从备份目标恢复卷的定期作业或组。
+
+=== 备份压缩方法
+
+*默认值*：`lz4`
+
+此设置允许用户指定备份压缩方法。
+
+* `none`：禁用压缩方法。适用于多媒体数据，如编码的图像和视频。
+* `lz4`：快速压缩方法。适用于平面文件。
+* `gzip`：压缩比稍高，但速度较慢。
+
+=== 每个备份的并发限制
+
+*默认值*：`2`
+
+此设置控制每个备份可并发运行的工作线程数。
+
+=== 每个恢复的并发限制
+
+*默认值*：`2`
+
+此设置控制每个恢复可并发运行的工作线程数。
+
+=== 默认备份块大小
+
+*默认值*：`2`
+
+指定默认备份块大小（以MiB为单位），在创建新卷时使用。支持的值为 `2` 或 `16`。
+
+== 安排日程
+
+=== 允许以降级可用性创建卷
+
+*默认值*：`true`
+
+此设置允许用户创建和附加在创建时没有调度所有副本的卷。
+
+NOTE: 在生产环境中使用{longhorn-product-name}时，建议禁用此设置。有关详细信息，请参见xref:installation-setup/best-practices.adoc[最佳实践]。
+
+=== 禁用已隔离节点上的调度
+
+*默认值*：`true`
+
+当选中此设置时，Longhorn Manager 不允许在 Kubernetes 已隔离的节点上调度副本。
+
+当未选中此设置时，Longhorn Manager 允许在 Kubernetes 已隔离的节点上调度副本。
+
+=== 副本节点级软反亲和性
+
+*默认值*：`false`
+
+当选中此设置时，Longhorn 管理器允许在具有相同卷的现有健康副本的节点上调度。
+
+当未选中此设置时，Longhorn 管理器阻止在具有相同卷的现有健康副本的节点上调度。
+
+[NOTE]
+====
+* 如果副本被禁止共享区域，则此设置将被副本区域级反亲和性设置覆盖。
+====
+
+=== 副本区域级软反亲和性
+
+*默认值*：`true`
+
+当选中此设置时，Longhorn 管理器允许将卷的新副本调度到与现有健康副本位于同一区域的节点上。
+
+当未选中此设置时，Longhorn 管理器阻止将卷的新副本调度到与现有健康副本位于同一区域的节点上。
+
+[NOTE]
+====
+* 不属于任何区域的节点被视为属于同一区域。
+* {longhorn-product-name} 依赖于 Kubernetes 节点对象中的标签 `topology.kubernetes.io/zone=<Zone name of the node>` 来识别区域。
+====
+
+=== 副本磁盘级软反亲和性
+
+*默认值*：`true`
+
+当选中此设置时，Longhorn 管理器允许将卷的新副本调度到与现有健康副本相同的磁盘上。
+
+当未选中此设置时，Longhorn 管理器阻止将卷的新副本调度到与现有健康副本相同的磁盘上。
+
+[NOTE]
+====
+* 即使启用了磁盘共享，{longhorn-product-name} 也更倾向于在可用时使用不同的磁盘，包括同一节点上的磁盘。
+* 如果副本被禁止共享区域或节点，则此设置将被其他软反亲和性设置覆盖。
+====
+
+=== 副本自动平衡
+
+*默认值*：`disabled`
+
+启用此设置会在发现可用节点时自动重新平衡副本。
+
+可用的全局选项有：
+
+* `disabled`”结尾。这是默认选项。不会进行副本自动平衡。
+* `least-effort`”结尾。此选项指示{longhorn-product-name}为最小冗余平衡副本。
+* `best-effort`”结尾。此选项指示{longhorn-product-name}尝试平衡副本以实现均匀冗余。{longhorn-product-name}不会强制将副本重新调度到没有足够节点的区域，以支持均匀平衡。相反，{longhorn-product-name}将在节点级别重新调度以实现平衡。
+
+{longhorn-product-name}还支持为单个卷进行自定义。该设置可以在用户界面中指定，或通过Kubernetes清单volume.spec.replicaAutoBalance指定，此设置将覆盖全局设置。
+可用的卷规格选项有：
+
+*默认值*：`ignored`
+
+* `ignored`”结尾。这是默认选项，指示{longhorn-product-name}从全局设置中继承。
+* `disabled`”结尾。此选项指示{longhorn-product-name}不执行副本自动平衡。
+* `least-effort`”结尾。此选项指示{longhorn-product-name}为最小冗余平衡副本。
+* `best-effort`”结尾。此选项指示{longhorn-product-name}尝试平衡副本以实现均匀冗余。{longhorn-product-name}不会强制将副本重新调度到没有足够节点的区域，以支持均匀平衡。相反，{longhorn-product-name}将在节点级别重新调度以实现平衡。
+
+=== 副本自动平衡磁盘压力阈值（%）
+
+*默认值*：`90`
+
+触发自动副本重新平衡的当前使用存储的百分比。
+
+当达到阈值时，{longhorn-product-name}会自动在同一节点的另一个磁盘上重建处于磁盘压力下的副本。
+
+要禁用此设置，请将值设置为*0*。
+
+此设置仅在满足以下条件时生效：
+
+* <<_replica_auto_balance,副本自动平衡>>设置为*尽力而为*。要在副本自动平衡设置为尽力而为时禁用此设置（磁盘压力阈值），请将此设置的值设置为*0*。
+* 节点上至少有一个其他磁盘具有足够的可用空间。
+
+此设置不受<<_replica_node_level_soft_anti_affinity,副本节点级软反亲和性>>的影响，该设置可以防止{longhorn-product-name}在同一节点上重建副本。无论该设置的值如何，此设置仍允许{longhorn-product-name}尝试在同一节点的不同磁盘上进行副本重建，以便进行迁移。
+
+=== 存储最小可用百分比
+
+*默认值*：`25`
+
+此设置控制在磁盘上必须保留的最小空闲空间，基于其*存储最大值*，在{longhorn-product-name}可以调度新的副本之前。
+
+默认情况下，{longhorn-product-name}确保磁盘总容量至少保留*25%*的空闲空间。如果添加副本会使可用空间低于此限制，{longhorn-product-name}会暂时将磁盘标记为不可调度，直到释放出足够的空间。
+
+此保护措施有助于防止您的磁盘过满，这可能导致性能问题或存储故障。保持一定的空闲空间缓冲有助于保持系统稳定，并确保应对意外存储需求的空间。
+
+有关详细信息，请参见xref:nodes/multiple-disks#_configuration[多个磁盘支持]。
+
+=== 存储过度配置百分比
+
+*默认值*：`100`
+
+过度配置百分比定义了可以相对于硬盘容量分配的存储量。
+
+调整此设置允许Longhorn Manager在磁盘上调度新的副本，只要所有副本的总大小保持在可用磁盘空间的允许过度配置百分比内。可用磁盘空间计算为*存储最大值*减去*存储保留*。
+
+[NOTE]
+====
+由于快照数据，副本可能会消耗比卷的名义大小更多的空间。要回收磁盘空间，请删除不再需要的快照。
+====
+
+[Example]
+====
+假设一个磁盘的*存储最大值*为100 GiB，*存储保留*为10 GiB，结果是90 GiB的可用容量。
+
+如果存储过度配置百分比设置为200%，则最大允许的存储调度为180 GiB（90 GiB的200%）。
+
+这意味着Longhorn管理器可以继续在此磁盘上调度副本，直到总调度大小达到180 GiB，即使实际可用空间只有90 GiB。
+====
+
+=== 默认磁盘的存储保留百分比
+
+*默认值*：`30`
+
+保留百分比指定每个新Longhorn节点上不会分配给默认磁盘的磁盘空间百分比。
+
+此设置仅影响在安装{longhorn-product-name}时新添加的节点的默认磁盘。
+
+=== 允许空节点选择器卷
+
+*默认值*：`true`
+
+此设置允许在具有标签的节点上调度没有节点选择器的卷副本。
+
+=== 允许空磁盘选择器卷
+
+*默认值*：`true`
+
+此设置允许在具有标签的磁盘上调度没有磁盘选择器的卷副本。
+
+== 危险区域
+
+从 {longhorn-product-name} v1.6.0 开始，{longhorn-product-name} 允许您修改危险区域设置，而无需等待所有卷变为分离状态。您的首选设置将在以下场景中立即应用：
+
+* 没有附加卷：在设置配置之前没有附加卷时，设置更改会立即应用。
+* 引擎镜像升级（实时升级）：在实时升级期间，涉及创建新的实例管理器 pod，设置更改会立即应用于新的 pod。
+
+设置每小时同步一次。当所有卷分离时，以下表中的设置会立即应用，系统管理的组件（例如，实例管理器、CSI 驱动程序和引擎镜像）会重新启动。
+
+如果在设置同步之前未分离所有卷，则设置不会应用，您必须在分离剩余卷后重新配置相同的设置。您可以在 *危险区域* 部分的 {longhorn-product-name} 界面中查看未应用设置的列表，或运行以下 CLI 命令检查字段 `APPLIED` 的值。
+
+[subs="+attributes",shell]
+----
+  ~# kubectl -n longhorn-system get setting priority-class
+  NAME             VALUE               APPLIED   AGE
+  priority-class   longhorn-critical   true      3h26m
+----
+
+|===
+| 设置 | 附加信息 | 受影响的组件
+
+| <<_kubernetes_taint_toleration,Kubernetes 污点容忍>>
+| xref:nodes/taints-tolerations.adoc[污点和容忍]
+| 系统管理的组件
+
+| <<_priority_class,优先级类>>
+| xref:nodes/priority-class.adoc[优先级类]
+| 系统管理的组件
+
+| <<_system_managed_components_node_selector,系统管理组件节点选择器>>
+| xref:nodes/node-selector.adoc[节点选择器]
+| 系统管理的组件
+
+| <<_storage_network,存储网络>>
+| xref:longhorn-system/networking/storage-network.adoc[存储网络]
+| 实例管理器和基础镜像组件
+
+| <<_v1_data_engine,V1 Data Engine>>
+|
+| 实例管理器组件
+
+| <<_v2_data_engine,V2 数据引擎>>
+| xref:longhorn-system/v2-data-engine/quick-start-guide.adoc[V2 数据引擎（实验性）]
+| 实例管理器组件
+
+| <<_guaranteed_instance_manager_cpu,保证实例管理器 CPU>>
+|
+| 实例管理器组件
+|===
+
+对于 V1 和 V2 数据引擎设置，只有在所有相关卷已分离时，您才能禁用数据引擎。例如，您只能在所有 V2 卷已分离时禁用 V2 数据引擎（即使 V1 卷仍然附加）。
+
+=== V1 数据引擎
+
+*默认值*：`true`
+
+此设置允许您启用 V1 数据引擎。
+
+=== V2 数据引擎
+
+*默认值*：`false`
+
+此设置启用 V2 数据引擎，这是基于存储性能开发工具包（SPDK）的实验性功能。 V2 数据引擎是技术预览功能。有关更多信息，请参见 [V2 数据引擎（技术预览）]xref:longhorn-system/v2-data-engine/v2-data-engine.adoc[V2 数据引擎（实验性）]。
+
+[WARNING]
+====
+* 请勿在附加卷的情况下更改此设置。{longhorn-product-name} 在有附加卷时将阻止此设置更新。
+* 当启用 V2 数据引擎时，每个实例管理器 pod 使用 1 个 CPU 核心。这种高 CPU 使用率归因于每个实例管理器 pod 中运行的存储性能开发工具包（SPDK）目标守护程序。SPDK 目标守护程序处理输入/输出（IO）操作，并需要进行密集轮询。因此，它消耗 100% 的专用CPU核心来高效管理和处理 IO 请求，确保存储操作的最佳性能和响应能力。
+====
+
+=== 每个节点的并发副本重建限制
+
+*默认值*：`5`
+
+此设置控制节点上可以同时重建的副本数量。
+
+通常，当节点上的当前重建计数超过限制时，{longhorn-product-name}可以阻止副本的启动。但当值为0时，意味着禁用副本重建。
+
+[WARNING]
+====
+* 旧设置“禁用副本重建”被此设置替代。
+* 与依赖副本启动延迟来限制并发重建不同，如果重建被禁用，副本对象的补充将被直接跳过。
+* 当值为0时，驱逐和数据本地性功能将无法工作。但这不应对当前的副本重建和备份恢复产生任何影响。
+====
+
+=== Replica Rebuild Concurrent Sync Limit
+
+*默认值*：`{"v1":"1"}`
+
+此设置定义可以同时将快照同步到单个重建副本的健康副本的最大数量（从1到5），以实现规模化副本重建。
+
+当设置为`1`（默认）时，只有一个源副本在任何时候同步到重建副本，这就是传统的单源重建行为。当设置为更高的值（例如，从`2`到`5`）时，多个健康副本可以同时将不同的快照同步到重建副本，从而可能减少重建时间。
+
+*每卷覆盖*:此设置可以通过Longhorn UI或通过修改卷自定义资源中的`spec.rebuildConcurrentSyncLimit`字段来覆盖单个卷。
+
+有关更多详细信息，请参见xref:high-availability/scale-replica-rebuilding.adoc[规模化副本重建]。
+
+=== 每个节点的并发基础镜像补充限制
+
+*默认值*：`5`
+
+此设置控制节点上可以同时补充的基础镜像副本数量。
+
+通常，当节点上的当前补充计数超过限制时，{longhorn-product-name}可以阻止基础镜像副本的启动。但当值为0时，意味着禁用基础镜像补充。
+
+=== Kubernetes污点容忍
+
+*示例*: `nodetype=storage:NoSchedule`
+
+如果您想将节点专门用于存储{longhorn-product-name}副本并拒绝其他一般工作负载，您可以为*所有*{longhorn-product-name}组件设置容忍，并为专用于存储的节点添加污点。
+
+Longhorn系统包含用户部署的组件（例如，Longhorn管理器、Longhorn驱动程序、Longhorn UI）和系统管理的组件（例如，实例管理器、引擎镜像、CSI驱动程序等）。
+此设置仅为系统管理的组件设置污点容忍。
+根据您部署Longhorn的方式，您需要在Helm图表或部署YAML文件中为用户部署的组件设置污点容忍。
+
+要立即应用修改后的容忍设置，请确保所有Longhorn卷已分离。当卷正在使用时，{longhorn-product-name} 组件不会重启，您需要在分离剩余卷后重新配置设置。否则，您可以等待设置更改在一小时内得到协调。
+我们建议在{longhorn-product-name}部署期间设置容忍，因为在更新期间无法操作Longhorn系统。
+
+可以在此处设置多个容忍，这些容忍用分号分隔。例如：
+
+* `key1=value1:NoSchedule; key2:NoExecute`
+* `:`此容忍容忍所有内容，因为带有操作符`Exists`的空键匹配所有键、值和效果。
+* `key1=value1:`此容忍没有效果。它匹配所有带有键`key1`的效果。有关详细信息，请参见xref:nodes/taints-tolerations.adoc[污点容忍]。
+
+=== 优先级类
+
+*默认值*：`longhorn-critical`
+
+默认情况下，{longhorn-product-name}工作负载与集群中的其他Pod具有相同的优先级。
+当节点处于压力下，例如内存不足时，{longhorn-product-name}工作负载与其他Pod在驱逐时被视为相同。
+
+优先级类设置为{longhorn-product-name}系统工作负载分配优先级类。
+您可以使用此设置为这些工作负载赋予更高的优先级，以便在节点经历资源压力时不太可能被驱逐。
+
+{longhorn-product-name}系统包括用户部署的组件（例如Longhorn管理器、Longhorn驱动程序和Longhorn UI）和系统管理的组件（例如实例管理器、引擎镜像和CSI驱动程序）。
+
+此设置仅适用于系统管理的组件。根据您部署 {longhorn-product-name} 的方式，您必须在 Helm 图表或部署 YAML 中为用户部署的组件设置 PriorityClass。
+
+[WARNING]
+====
+仅在分离所有 Longhorn 卷后更改此设置。
+应用新的 PriorityClass 会重启 Longhorn 系统组件。
+在更新期间，系统不可用，无法运行任何 Longhorn 操作。
+为避免中断，请在初始 {longhorn-product-name} 部署期间配置 PriorityClass。
+====
+
+有关详细信息，请参见 xref:nodes/priority-class.adoc[优先级类]。
+
+=== 系统管理组件节点选择器
+
+*示例*: `label-key1:label-value1;label-key2:label-value2`
+
+要限制 {longhorn-product-name} 组件仅在特定节点集上运行，您可以为所有 {longhorn-product-name} 组件设置节点选择器。
+
+Longhorn系统包含用户部署的组件（例如，Longhorn管理器、Longhorn驱动程序、Longhorn UI）和系统管理的组件（例如，实例管理器、引擎镜像、CSI驱动程序等）。
+您需要为两者设置节点选择器。此设置仅为系统管理组件设置节点选择器。请按照 xref:nodes/node-selector.adoc[节点选择器] 的说明更改节点选择器。
+
+[WARNING]
+====
+由于所有 {longhorn-product-name} 组件将被重启，Longhorn 系统暂时不可用。
+====
+
+要立即应用设置，请确保所有 Longhorn 卷已分离。当卷正在使用时，{longhorn-product-name} 组件不会重启，您需要在分离剩余卷后重新配置设置。否则，您可以等待设置更改在一小时后同步。
+在更新节点选择器设置和重启 {longhorn-product-name} 组件时，请勿操作 Longhorn 系统。
+
+=== Kubernetes 集群自动扩展器已启用（实验性）
+
+*默认值*：`false`
+
+将 Kubernetes 集群自动扩展器启用设置为 `true` 后，{longhorn-product-name} 能解除 Kubernetes 集群自动扩展器扩容的限制。
+
+有关详细信息，请参见 xref:high-availability/kubernetes-cluster-autoscaler.adoc[Kubernetes 集群自动扩展器支持]。
+
+WARNING: 副本重建可能会很昂贵，因为可重用副本的节点可能会被 Kubernetes 集群自动扩展器移除。
+
+=== 存储网络
+
+*示例*: `kube-system/demo-192-168-0-0`
+
+存储网络使用 Multus NetworkAttachmentDefinition 将集群内的数据流量与默认的 Kubernetes 集群网络隔离。
+
+默认情况下，此设置仅适用于 Longhorn 的数据平面流量路径。有关 RWX（读写多副本）卷端点流量，请参见 <<_endpoint_network_for_rwx_volume,RWX 卷的端点网络>>。
+
+WARNING: 在所有 Longhorn 卷被分离后，此设置应进行更改，因为运行 Longhorn 系统组件的一些 Pod 会被重新创建以应用该设置。当所有卷被分离时，{longhorn-product-name} 会立即尝试重启所有实例管理器和备份镜像管理器 Pod。当卷正在使用时，{longhorn-product-name} 组件不会重启，您需要在分离剩余卷后重新配置设置；否则，您可以等待设置更改在一小时内得到协调。
+
+有关详细信息，请参见 xref:longhorn-system/networking/storage-network.adoc[存储网络]。
+
+=== RWX 卷的端点网络
+
+*默认值*：`kube-system/demo-172-16-0-0`
+
+指定一个 Multus NetworkAttachmentDefinition，以为挂载 RWX（读写多副本）卷提供专用网络。
+
+将此留空以使用默认的 Kubernetes 集群网络。
+
+[WARNING]
+====
+在所有 {longhorn-product-name} RWX 卷被分离后，此设置应进行更改，因为运行 {longhorn-product-name} 组件的一些 Pod 会被重新创建以应用该设置。当所有 RWX 卷被分离时，{longhorn-product-name} 会立即尝试重启所有 CSI 插件 Pod。当卷正在使用时，运行 {longhorn-product-name} 组件的 Pod 不会重启，因此必须在分离剩余卷后重新配置设置。如果您无法手动重新配置设置，您可以选择等待，因为设置每小时同步一次。
+
+RWX 卷在 CSI 插件 Pod 的容器网络名称空间内，通过端点网络进行挂载。因此，重启 CSI 插件 Pod 可能会导致 RWX 卷挂载无响应。当这种情况发生时，您必须重启工作负载 Pod 以重新建立挂载连接。或者，您可以启用 <<_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly,意外分离卷时自动删除工作负载 Pod>> 设置。
+====
+
+有关更多信息，请参见 xref:longhorn-system/networking/storage-network.adoc[存储网络]。
+
+=== 在文件系统修整期间删除快照。
+
+*示例*: `false`
+
+此设置允许 Longhorn 文件系统修整功能自动将最新快照及其祖先标记为已去除，并在包含多个子快照的快照处停止。
+
+由于 Longhorn 文件系统修整功能仅适用于卷头以及随后连续被去除或系统快照。
+
+请注意，尝试从有效快照中修整已去除文件将无效，文件系统将丢弃这种内存中的可修整文件信息。如果稍后将快照标记为已去除并想要重试修整，您可能需要卸载并重新挂载文件系统，以便文件系统可以重新收集可修整文件信息。
+
+有关详细信息，请参见 xref:volumes/trim-filesystem.adoc[修剪文件系统]。
+
+=== 保证实例管理器 CPU
+
+*默认值*：`{"v1":"12","v2":"12"}`
+
+每个节点上可分配的 CPU 资源总量的百分比，用于为每个实例管理器 Pod 保留。例如，值为 `10` 意味着节点上总 CPU 的 10% 将分配给该节点上的每个实例管理器 Pod。这有助于在节点工作负载高峰期间维护引擎和副本的稳定性。
+
+为了防止意外的卷实例（引擎/副本）崩溃，并保证相对可接受的 IO 性能，您可以使用以下公式计算此设置的值：
+
+ Guaranteed Instance Manager CPU = The estimated max Longhorn volume engine and replica count on a node * 0.1 / The total allocatable CPUs on the node * 100.
+
+上述计算的结果并不意味着这是 {longhorn-product-name} 工作负载所需的最大 CPU 资源。为了充分利用 Longhorn 卷的输入或输出性能，您可以通过此设置分配或保证更多的 CPU 资源。
+
+如果现在很难估计使用情况，您可以将其保留为默认值，即 12%。然后在没有运行 Longhorn 卷的工作负载时，您可以进行调整。
+
+[WARNING]
+====
+* 值 0 表示取消实例管理器 Pods 的 CPU 请求。
+* 考虑到在进一步的系统升级中可能出现新的实例管理器 Pods，此浮动值范围为 0 到 40。
+* 在 Longhorn 系统升级时，可能需要部署一组新的实例管理器 Pods。如果当前节点的可用 CPU 不足以支持新的实例管理器 Pods，您需要分离使用最旧实例管理器 Pods 的卷，以便 {longhorn-product-name} 可以自动清理旧 Pods 并释放 CPU 资源。然后将启动带有最新实例管理器镜像的新 Pods。
+* 如果节点上的 "InstanceManagerCPURequest" 字段已设置，则此全局设置将被忽略。
+* 对于 v2 数据引擎，每个实例管理器 pod 内的存储性能开发工具包 (SPDK) 目标守护进程使用一个或多个专用 CPU 核心。设置最低 CPU 使用率对于在高节点负载期间保持稳定性至关重要。
+====
+
+=== 禁用快照清除
+
+*默认值*：`false`
+
+当设置为 true 时，暂时阻止所有清除卷快照的尝试。
+
+{longhorn-product-name} 通常在副本重建和用户发起的快照删除期间清除快照。在清除期间，{longhorn-product-name} 将不必要的快照合并为其更新的对应快照，释放历史数据占用的空间。
+
+在正常操作期间允许快照清除是理想的，但此过程会暂时消耗额外的磁盘空间。如果磁盘空间不足导致该过程无法继续，请考虑在数据移动到其他磁盘时暂时禁用清除。
+
+=== 删除备份时自动清理快照
+
+*默认值*：`false`
+
+当设置为 true 时，备份使用的快照将在备份被删除时自动清理。
+
+=== 实例管理器 pod 存活探测超时
+
+*默认值*：`10`（以秒为单位）
+
+该设置指定实例管理器 pod 存活探测的超时时间。默认值为 10 秒。
+
+[WARNING]
+====
+应用该设置时，如果所有卷都已分离，{longhorn-product-name} 将尝试重启所有实例管理器 pod，并最终在实例管理器上重启没有运行实例的实例管理器 pod。
+====
+
+=== 数据引擎 CPU 掩码
+
+*默认值*：`{"v2":"true"}`
+
+该设置仅适用于 V2 数据引擎。它为存储性能开发工具包 (SPDK) 目标守护程序启用大页。如果禁用此设置，则使用传统内存。此内存的分配大小通过数据引擎内存大小设置进行设置。
+
+=== 数据引擎大页已启用
+
+*默认值*：`{"v2":"2048"}`
+
+此设置仅适用于 V2 数据引擎，并指定分配给存储性能开发工具包 (SPDK) 目标守护程序的内存大小（以 MiB 为单位）。
+
+* 当大页启用时，此值定义大页的大小。
+* 当大页禁用时，使用传统内存。
+
+=== 数据引擎中断模式已启用
+
+*默认值*：`{"v2":"false"}`
+
+它仅适用于 *V2 数据引擎*。它控制存储性能开发工具包 (SPDK) 目标守护程序是以 *中断模式* 还是默认的 *轮询模式* 运行。
+
+* `true`：它启用中断模式，通过中断处理 I/O 来减少 CPU 使用率。
+* `false`：它保持启用轮询模式，以实现最大性能和最低延迟。
+
+[WARNING]
+====
+请勿在附加卷的情况下更改此设置。{longhorn-product-name} 在有附加的 v2 卷时将阻止此设置更新。
+====
+
+=== 日志路径
+
+*默认值*：`/var/lib/longhorn/logs/`
+
+指定主机上 {longhorn-product-name} 存储实例管理器 pod 日志文件的目录。目前，它仅用于 v2 数据引擎中的实例管理器 pod。
+
+=== 快照重任务并发限制
+
+*默认值*：`5`
+
+* `< 1`: 无限制的并发重快照任务。
+
+此设置控制每个节点上可以并发运行的快照重任务（如清除和克隆操作）的数量。这是一种尽力而为的机制。由于系统是分布式的，可能会发生临时超额订阅。限制器减少了最坏情况下的过载，但不保证完美执行。
+
+=== 系统管理的 CSI 组件资源限制
+
+*默认值*：`""`
+
+此设置配置系统管理的CSI组件的处理器和内存请求及限制。
+支持的组件包括：`csi-attacher`、`csi-provisioner`、`csi-resizer`、`csi-snapshotter`、`longhorn-csi-plugin`、`node-driver-registrar`和`longhorn-liveness-probe`。
+
+该值必须是一个JSON对象，组件名称作为键，Kubernetes `ResourceRequirements`（`requests`和`limits`）作为值。只有在JSON对象中定义的组件的资源需求会被覆盖。所有其他组件继续使用{longhorn-product-name}的默认值。
+
+[NOTE]
+====
+更新资源限制会重启受影响的CSI组件。在重启期间，卷的配置、扩展、快照以及附加或分离操作可能会被延迟。现有的挂载卷仍然可用。
+====
+
+*示例*
+[source,json]
+----
+{
+  "csi-attacher": {
+    "requests": {"cpu": "100m", "memory": "128Mi"},
+    "limits": {"cpu": "200m", "memory": "256Mi"}
+  },
+  "csi-provisioner": {
+    "requests": {"cpu": "100m", "memory": "128Mi"},
+    "limits": {"cpu": "200m", "memory": "256Mi"}
+  },
+  "longhorn-csi-plugin": {
+    "requests": {"cpu": "100m", "memory": "128Mi"},
+    "limits": {"cpu": "200m", "memory": "256Mi"}
+  },
+  "node-driver-registrar": {
+    "requests": {"cpu": "50m", "memory": "64Mi"},
+    "limits": {"cpu": "100m", "memory": "128Mi"}
+  }
+}
+----
+
+=== CSI允许的拓扑键
+
+*默认值*：`""`
+
+*示例*：`topology.kubernetes.io/zone`
+
+一个以逗号分隔的拓扑键列表，Longhorn CSI驱动程序应在`NodeGetInfo`中报告并在构建PV `nodeAffinity`时使用。当为空（默认值）时，不会传递拓扑信息，PV将被创建而不包含`nodeAffinity`。
+
+将此设置为一个或多个 https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone[知名的Kubernetes拓扑标签]（例如，`topology.kubernetes.io/zone`），以便StorageClass `allowedTopologies`和`strictTopology`参数能够生效。
+
+[NOTE]
+====
+更改此设置会重启CSI组件。在重启期间，新的卷配置、扩展、快照或附加/分离操作可能会暂时被延迟。现有的挂载卷仍然可用。
+
+更多细节请参见xref:nodes/topology-aware-provisioning.adoc[拓扑感知配置]。
+====

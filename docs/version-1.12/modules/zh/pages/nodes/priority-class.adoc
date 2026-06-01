@@ -1,0 +1,52 @@
+= 优先级类
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+优先级类设置可用于在集群中为{longhorn-product-name}工作负载设置更高的优先级，防止它们在节点压力情况下被优先驱逐。
+
+有关Pod优先级如何工作的更多信息，请参阅 https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/[官方Kubernetes文档]。
+
+== 设置优先级类
+
+{longhorn-product-name}由用户部署的组件（例如，Longhorn Manager、Longhorn Driver和{longhorn-product-name} UI）和系统管理的组件（例如，Instance Manager、CSI Driver和引擎镜像）组成。
+您需要为这两种类型的组件设置优先级类。请参见下面的更多详细信息。
+
+[discrete]
+=== 在{longhorn-product-name}安装期间设置优先级类
+
+如果未采取以下操作，{longhorn-product-name}将创建一个优先级类`longhorn-critical`并将其设置为用户部署或系统管理组件的默认值。
+
+. 为系统管理组件设置污点优先级类：按照xref:longhorn-system/customize-default-settings.adoc[自定义默认设置]通过更改`priority-class`默认设置的值来设置优先级类。
+. 为用户部署的组件设置污点优先级类：根据您如何部署{longhorn-product-name}，修改Helm图表或部署YAML文件。
+
+WARNING: {longhorn-product-name}如果优先级类设置无效（例如，优先级类不存在），将无法启动。
+您可以通过使用 `kubectl -n longhorn-system describe daemonset.apps/longhorn-manager` 检查 Longhorn Manager DaemonSet 的状态来查看是否是这种情况。
+如果是这种情况，您需要卸载{longhorn-product-name}并重新启动安装。
+
+[discrete]
+=== 在{longhorn-product-name}安装后设置优先级类
+
+. 为系统管理组件设置污点优先级类：优先级类设置可以在{longhorn-product-name} UI中找到，点击menu:设置[优先级类]。
+. 为用户部署的组件设置污点优先级类：根据您如何部署{longhorn-product-name}，修改Helm图表或部署YAML文件。
+
+用户可以在此处更新或删除优先级类，但请注意，这将导致所有{longhorn-product-name}系统组件的重新创建。
+优先级类设置将拒绝看起来无效的优先级类值。
+
+== 用法
+
+为了确保您的首选优先级类设置立即生效，请在配置设置之前停止所有工作负载并分离所有Longhorn卷。
+
+{longhorn-product-name} 在所有组件重启时暂时不可用。
+在修改优先级类设置后，请勿操作 Longhorn 系统，因为 Longhorn 组件将会重启。
+
+当所有 Longhorn 卷被分离时，自定义设置会立即应用于系统管理的组件。
+当一个或多个 Longhorn 卷仍然附加时，只有在没有引擎和副本实例运行时，自定义设置才会应用于实例管理器。在分离剩余卷后，您需要重新配置该设置。或者，您可以等待下一个设置同步，这将在一小时内发生。
+
+请勿删除 {longhorn-product-name} 正在使用的优先级类，因为这可能导致新的 {longhorn-product-name} 工作负载无法上线。
+
+== 历史记录
+
+https://github.com/longhorn/longhorn/issues/1487[原始功能请求]

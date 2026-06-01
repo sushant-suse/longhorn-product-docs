@@ -1,0 +1,71 @@
+= 配置备份块大小
+:revdate: 2025-08-28
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 在 {longhorn-product-name} 中备份块
+
+{longhorn-product-name} 备份由快照中的数据片段组成，每个片段称为一个块。这些块是备份目标中用于处理、传输和存储数据的基本单元。单个备份中的每个块具有相同的物理大小。
+
+在 {longhorn-product-name} v1.10.0 之前，备份块大小固定为 2 MiB。在 {longhorn-product-name} v1.10.0 及更高版本中，用户可以在创建新卷时设置备份块大小。该值是永久性的，创建卷后无法更改。特定卷所使用的块大小会显示在 {longhorn-product-name} 用户界面的详细页面上，今后对此卷的所有备份均将采用相同的大小。
+
+=== 备份块大小的影响
+
+{longhorn-product-name} 提供两种备份块大小：*2 MiB* 和 *16 MiB*。您选择的大小会影响备份的创建和存储效率。
+
+. 较大的块大小意味着总块数较少。这提高了传输效率，并减少了发送到备份目标的 API 请求数量，从而加快备份过程。
+. 然而，较大的块大小也可能因为零填充而占用更多的物理存储空间，并在备份创建过程中需要更多的内存。
+
+== 全局默认备份块大小
+
+{longhorn-product-name} 提供全局设置以定义新卷的默认备份块大小。如果在创建卷时未明确指定备份块大小，{longhorn-product-name} 将使用此默认值。
+
+您可以使用 {longhorn-product-name} 用户界面或 kubectl 更改默认备份块大小：
+
+. 使用 {longhorn-product-name} 用户界面：
++
+----
+Settings > General > Default Backup Block Size
+----
+
+. 使用 `kubectl`:
++
+[,bash]
+----
+kubectl -n longhorn-system edit settings.longhorn.io default-backup-block-size
+----
+
+== 创建一个卷并指定备份块大小
+
+在创建新卷时设置自定义备份块大小，请按照以下步骤操作：
+
+. 前往 *卷* 菜单。
+. 选择 *创建卷*。
+. 在创建对话框中，在 `Advanced Configurations` 内选择您所需的 *备份块大小*。
+
+== 在存储类中指定备份块大小
+
+对于使用持久卷声明（PVC）创建的卷，您可以在 `backupBlockSize` 的 `parameters` 部分中指定 `StorageClass`。
+
+示例：
+
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-example
+provisioner: driver.longhorn.io
+parameters:
+  backupBlockSize: 16Mi
+...
+----
+
+== 从备份恢复卷
+
+当您从备份恢复卷时，可以将新卷设置为与原始卷不同的备份块大小。
+
+[CAUTION]
+====
+{longhorn-product-name} 版本低于 v1.10 的不向前兼容。它们无法恢复使用 {longhorn-product-name} v1.10 或更高版本制作的备份。尝试在 {longhorn-product-name} v1.9.x 或更早版本上使用非默认块大小（任何不是 2 MiB 的大小）恢复备份将导致文件系统损坏。
+====

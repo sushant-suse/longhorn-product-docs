@@ -1,0 +1,26 @@
+= ボリュームをiSCSIターゲットとして使用する
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+LonghornはiSCSIターゲットフロントエンドモードをサポートしています。Longhornシステムと同じネットワークにある限り、`open-iscsi`を含む任意のiSCSIクライアントやKVMのような仮想マシンハイパーバイザーを通じて接続できます。
+
+Longhorn CSIドライバーはiSCSIモードをサポートしていません。
+
+iSCSIターゲットフロントエンドモードでボリュームを開始するには、`iSCSI`をフロントエンドとして選択してxref:volumes/create-volumes.adoc[ボリュームを作成してください。]
+
+ボリュームが接続された後、`endpoint`フィールドに次のようなものが表示されます：
+
+[subs="+attributes",text]
+----
+iscsi://10.42.0.21:3260/iqn.2014-09.com.rancher:testvolume/1
+----
+
+この例では、
+
+* IPとポートは`10.42.0.21:3260`です。
+* ターゲット名は`iqn.2014-09.com.rancher:testvolume`です。
+* ボリューム名は`testvolume`です。
+* LUN番号は1です。Longhornは常にLUN 1を使用します。
+
+上記の情報は、iSCSIクライアントを使用してLonghornが提供するiSCSIターゲットに接続するために使用できます。

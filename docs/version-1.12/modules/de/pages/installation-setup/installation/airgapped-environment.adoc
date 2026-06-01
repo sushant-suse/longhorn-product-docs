@@ -1,0 +1,171 @@
+= Installieren Sie {longhorn-product-name} in einer Air-Gapped-Umgebung
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+:doctype: book
+
+{longhorn-product-name} kann in einer Air-Gapped-Umgebung mit einem Helm-Chart installiert werden.
+
+== Voraussetzungen
+
+* https://helm.sh/docs/[Helm] Version 3.0 oder neuer ist erforderlich.
+* Stellen Sie die {longhorn-product-name} Komponenten-Images in Ihrer eigenen Registry bereit.
+* Stellen Sie die Kubernetes-CSI-Treiber-Images in Ihrer eigenen Registry bereit.
+
+== Bildverwaltung für Air-Gapped-Umgebungen
+
+. **Erhalten Sie die Liste der erforderlichen Bilder** +
+Führen Sie das link:{attachmentsdir}/download-longhorn-image-list.sh[Skript] aus, um die vollständige Liste aller für {longhorn-product-name} erforderlichen Bilder herunterzuladen. Das Skript generiert eine `longhorn-images.txt` Datei, die die Liste der Bilder enthält.
++
+[NOTE]
+====
+Dieses Skript zieht das {longhorn-product-name} Chart aus dem SUSE Application Collection OCI-Registry, um die erforderliche Bildliste zu extrahieren. Helm muss mit Authentifizierungsdaten konfiguriert werden, um auf die Registry zuzugreifen. Für Installationsanweisungen siehe die https://docs.apps.rancher.io/get-started/authentication/#helm[Helm-Authentifizierungsdokumentation].
+====
++
+. **Ziehen und Speichern von {longhorn-product-name} Bildern** +
+{longhorn-product-name} stellt das https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/save-images.sh[`save-images.sh`] Skript zur Verfügung, um Bilder schnell zu ziehen, die in der `longhorn-images.txt` Datei aufgeführt sind.
++
+[NOTE]
+====
+Das Ausführen dieses Skripts erfordert eine Docker-Authentifizierung, um auf die SUSE Application Collection OCI-Registry zuzugreifen und Containerbilder zu ziehen. Stellen Sie sicher, dass Ihr Docker-Client ordnungsgemäß authentifiziert ist. Für Installationsanweisungen siehe die https://docs.apps.rancher.io/get-started/authentication/#docker[Docker-Authentifizierungsdokumentation].
+====
++
+Um Longhorn-Bilder in eine `tar.gz` Datei (zum Beispiel `longhorn-images.tar.gz`) zu ziehen und zu speichern, führen Sie die folgenden Befehle aus:
++
+[subs="+attributes",bash]
+----
+wget https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/save-images.sh
+chmod +x save-images.sh
+./save-images.sh --image-list longhorn-images.txt --images longhorn-images.tar.gz
+----
++
+Kopieren Sie dann die generierte `longhorn-images.tar.gz` Datei in Ihre Air-Gapped-Umgebung. Wenn Sie keinen Dateinamen mit dem `--images` Flag angeben, zieht das Skript nur die Bilder in Ihren lokalen Docker-Bildcache, ohne sie in einer Datei zu speichern.
+
+. **Laden und Pushen von {longhorn-product-name} Bildern in Ihre private Registry** +
+{longhorn-product-name} bietet ein weiteres Skript, https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/load-images.sh[`load-images.sh`] Skript, um Bilder in Ihre private Container-Registry zu pushen. Um Bilder aus einer `tar.gz` Datei (zum Beispiel `longhorn-images.tar.gz`) zu laden und in Ihre Registry zu pushen, führen Sie die folgenden Befehle aus. Ersetzen Sie `<YOUR-PRIVATE-REGISTRY>` durch die tatsächliche Adresse Ihrer privaten Registry.
++
+[subs="+attributes",bash]
+----
+wget https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/load-images.sh
+chmod +x load-images.sh
+./load-images.sh --image-list longhorn-images.txt --images longhorn-images.tar.gz --registry <YOUR-PRIVATE-REGISTRY>
+----
++
+Wenn Sie keine `tar.gz` Datei mit dem `--images` Flag angeben, findet das Skript Bilder in Ihrem lokalen Docker-Cache und pusht sie in Ihre Registry.
+
+== Installation über Helm-Chart
+
+. **Erhalten Sie {longhorn-product-name} Chart** +
+Erhalten Sie das {longhorn-product-name} Chart und entpacken Sie das heruntergeladene TAR-Archiv:
++
+[subs="+attributes",bash]
+----
+helm pull longhorn oci://dp.apps.rancher.io/charts/suse-storage:{patch-version}
+tar -zxf suse-storage-{patch-version}.tgz
+cd suse-storage
+----
+
+. **Konfigurieren Sie die Bildeinstellungen in `values.yaml`** +
+Nach dem Klonen konfigurieren Sie Ihre Bildeinstellungen in der `values.yaml` Datei basierend auf Ihrer gewählten Methode:
++
+[cols="1,2a",options="header",width="100%"]
+|===
+| Methode
+| Konfigurationsdetails
+
+| Verwendung von Standard-Bildnamen
+|
+In `values.yaml` geben Sie Ihr `Private registry URL` an. Wenn die Registry eine Authentifizierung erfordert, geben Sie auch `Private registry user`, `Private registry password` und `Private registry secret` an. {longhorn-product-name} wird automatisch ein Secret mit diesen Informationen generieren und verwenden, um Bilder aus Ihrer privaten Registry zu ziehen.
+
+[,yaml]
+----
+privateRegistry:
+  # -- Setting that allows you to create a private registry secret.
+  createSecret: true
+  # -- URL of a private registry. When unspecified, Longhorn uses the default system registry.
+  registryUrl: <REGISTRY_URL>
+  # -- User account used for authenticating with a private registry.
+  registryUser: <REGISTRY_USER>
+  # -- Password for authenticating with a private registry.
+  registryPasswd: <REGISTRY_PASSWORD>
+  # -- Kubernetes secret that allows you to pull images from a private registry. This setting applies only when creation of private registry secrets is enabled. You must include the private registry name in the secret name.
+  registrySecret: <REGISTRY_SECRET_NAME>
+----
+
+| Verwendung von benutzerdefinierten Bildnamen
+|
+In `values.yaml` konfigurieren Sie die Bildeinstellungen für jede Komponente.
+
+[NOTE]
+====
+Schließen Sie das Präfix der privaten Registry nicht ein (zum Beispiel `example.com/username/`); es wird automatisch hinzugefügt. Wenn Ihr Bild `example.com/username/longhorn-manager` ist, verwenden Sie `username/longhorn-manager` in den folgenden Charts.
+====
+
+Geben Sie die `repository` und `tag` für jedes {longhorn-product-name} Komponentenbild an:
+
+[,yaml]
+----
+  image:
+    longhorn:
+      engine:
+        repository: <USERNAME>/longhorn-engine
+        tag: <LONGHORN_ENGINE_IMAGE_TAG>
+      manager:
+        repository: <USERNAME>/longhorn-manager
+        tag: <LONGHORN_MANAGER_IMAGE_TAG>
+      ui:
+        repository: <USERNAME>/longhorn-ui
+        tag: <LONGHORN_UI_IMAGE_TAG>
+      instanceManager:
+        repository: <USERNAME>/longhorn-instance-manager
+        tag: <LONGHORN_INSTANCE_MANAGER_IMAGE_TAG>
+      shareManager:
+        repository: <USERNAME>/longhorn-share-manager
+        tag: <LONGHORN_SHARE_MANAGER_IMAGE_TAG>
+----
+Geben Sie die `repository` und `tag` für die Bilder der CSI-Treiberkomponenten an:
+
+[,yaml]
+----
+    csi:
+      attacher:
+        repository: <USERNAME>/csi-attacher
+        tag: <CSI_ATTACHER_IMAGE_TAG>
+      provisioner:
+        repository: <USERNAME>/csi-provisioner
+        tag: <CSI_PROVISIONER_IMAGE_TAG>
+      nodeDriverRegistrar:
+        repository: <USERNAME>/csi-node-driver-registrar
+        tag: <CSI_NODE_DRIVER_REGISTRAR_IMAGE_TAG>
+      resizer:
+        repository: <USERNAME>/csi-resizer
+        tag: <CSI_RESIZER_IMAGE_TAG>
+      snapshotter:
+        repository: <USERNAME>/csi-snapshotter
+        tag: <CSI_SNAPSHOTTER_IMAGE_TAG>
+----
+Geben Sie schließlich Ihr `Private registry URL` an. Wenn die Registry eine Authentifizierung erfordert, geben Sie `Private registry user`, `Private registry password` und `Private registry secret` an. {longhorn-product-name} generiert automatisch ein Secret mit diesen Informationen und verwendet es, um Bilder aus Ihrer privaten Registry abzurufen.
+
+[,yaml]
+----
+privateRegistry:
+  # -- Setting that allows you to create a private registry secret.
+  createSecret: true
+  # -- URL of a private registry. When unspecified, Longhorn uses the default system registry.
+  registryUrl: <REGISTRY_URL>
+  # -- User account used for authenticating with a private registry.
+  registryUser: <REGISTRY_USER>
+  # -- Password for authenticating with a private registry.
+  registryPasswd: <REGISTRY_PASSWORD>
+  # -- Kubernetes secret that allows you to pull images from a private registry. This setting applies only when creation of private registry secrets is enabled. You must include the private registry name in the secret name.
+  registrySecret: <REGISTRY_SECRET_NAME>
+----
+|===
+
+. **Installieren Sie {longhorn-product-name}** +
+Installieren Sie {longhorn-product-name}, indem Sie den folgenden Befehl im geklonten Verzeichnis ausführen:
++
+[,bash]
+----
+helm install longhorn --namespace longhorn-system --create-namespace ./
+----

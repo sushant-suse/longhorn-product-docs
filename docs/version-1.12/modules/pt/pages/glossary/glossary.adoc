@@ -1,0 +1,351 @@
+= Glossário/Terminologias
+:revdate: 2025-12-26
+:page-revdate: {revdate}
+
+* <<attachreattach,Anexar/Reanexar>>
+* <<backup,Backup>>
+* <<backupstore,Backupstore>>
+* <<backup-target,Destino de Backup>>
+* <<backup-volume,Volume de Backup>>
+* <<block-storage,Armazenamento em Blocos>>
+* <<block-type-disks,Discos do Tipo Bloco>>
+* <<crd,CRD>>
+* <<cross-cluster-disaster-recovery,Recuperação de Desastres entre Clusters>>
+* <<csi-driver,Driver CSI>>
+* <<disaster-recovery-volumes-dr-volume,Volumes de Recuperação de Desastres (volume DR)>>
+* <<ext4,Ext4>>
+* <<filesystem-type-disks,Discos do Tipo Sistema de Arquivos>>
+* <<frontend,Frontend>>
+* <<instance-manager,Gerenciador de Instâncias>>
+* <<longhorn-engine,Longhorn Engine>>
+* <<longhorn-manager,Longhorn Manager>>
+* <<longhorn-volume,Volume Longhorn>>
+* <<maintenance-mode,Modo de Manutenção>>
+* <<mount,Montar>>
+* <<nfs,NFS>>
+* <<object-storage,Armazenamento de Objetos>>
+* <<offline-expansion,Expansão Offline>>
+* <<overprovisioning,Superprovisionamento>>
+* <<persistentvolume,PersistentVolume>>
+* <<persistentvolumeclaim,PersistentVolumeClaim>>
+* <<primary-backups,Backups Primários>>
+* <<read-index,Índice de Leitura>>
+* <<recurring-snapshots,Instantâneos Recorrentes>>
+* <<remount,Remontar>>
+* <<replica,Réplica>>
+* <<s3,S3>>
+* <<salvage-a-volume,Recuperar um Volume>>
+* <<secondary-backups,Backups Secundários>>
+* <<smbcifs,SMB/CIFS>>
+* <<snapshot,Instantâneo>>
+* <<snapshot-data-integrity,Integridade dos Dados do Instantâneo>>
+* <<stable-identity,Identidade Estável>>
+* <<statefulset,StatefulSet>>
+* <<storageclass,StorageClass>>
+* <<system-backup,Backup do Sistema>>
+* <<thin-provisioning,Aprovisionamento dinâmico>>
+* <<umount,Desmontar>>
+* <<v1-data-engine,Motor de Dados V1>>
+* <<v2-data-engine,Motor de Dados V2>>
+* <<volumes-kubernetes-concept,Volumes (Kubernetes Concept)>>
+* <<xfs,XFS>>
+
+[[attachreattach]]
+== Anexar/Reanexar
+
+Anexar um dispositivo de bloco é fazê-lo aparecer no nó Linux (por exemplo, `/dev/longhorn/testvol`).
+Se o mecanismo de volume falhar inesperadamente, {longhorn-product-name} reanexa automaticamente o volume.
+
+[[backup]]
+== Backup
+
+Um backup é um objeto armazenado no backupstore. O backupstore pode conter tanto backups de volume quanto backups de sistema.
+
+[[backupstore]]
+== Backupstore
+
+O backupstore é o local de armazenamento externo onde os backups de {longhorn-product-name} são salvos.
+Pode ser um compartilhamento NFS, um compartilhamento CIFS ou um armazenamento de objetos compatível com S3. {longhorn-product-name} se conecta a um backupstore através de um destino de backup configurado.
+
+[[backup-target]]
+== Destino de Backup
+
+Um destino de backup é o ponto final usado para acessar um backupstore em {longhorn-product-name}.
+
+[[backup-volume]]
+== Volume de Backup
+
+Um volume de backup representa todos os backups associados a um único volume original do Longhorn.
+Ele é armazenado no backupstore e visível na página *Backup* da interface do usuário {longhorn-product-name}.
+
+Volumes de backup contêm múltiplos backups para o mesmo volume.
+Backups são criados a partir de instantâneos e capturam o estado do volume no momento em que o instantâneo foi tirado.
+Eles não incluem a cadeia de instantâneos ou o histórico de alterações.
+
+Backups são armazenados como blocos de 2 MiB em armazenamento de objetos por padrão.
+
+Para mais detalhes sobre como instantâneos e backups funcionam, consulte a documentação de conceitos - xref:introduction/concepts.adoc#_3_1_how_backups_work[Como os Backups Funcionam].
+
+[[block-storage]]
+== Armazenamento em Blocos
+
+Uma abordagem de armazenamento na qual os dados são armazenados em blocos de tamanho fixo, cada um identificado por um endereço de memória.
+
+[[block-type-disks]]
+== Discos do Tipo Bloco
+
+Um disco do tipo bloco é um dispositivo de bloco não formatado que {longhorn-product-name} utiliza diretamente para volumes do V2 Data Engine.
+
+[[crd]]
+== CRD
+
+Um https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/[definição de recurso personalizado] do Kubernetes.
+
+[[cross-cluster-disaster-recovery]]
+== Recuperação de Desastres entre Clusters
+
+A recuperação de desastres entre clusters permite que os dados de um cluster Kubernetes primário sejam recuperados em um cluster separado usando backups.
+
+[[csi-driver]]
+== Driver CSI
+
+O Driver CSI Longhorn é uma https://kubernetes-csi.github.io/docs/drivers.html[interface de armazenamento de contêiner] que pode ser usada com o Kubernetes.
+O driver CSI para volumes Longhorn é chamado `driver.longhorn.io`.
+
+[[disaster-recovery-volumes-dr-volume]]
+== Volumes de Recuperação de Desastres (volume DR)
+
+Um volume DR é um volume especial usado para manter uma cópia dos dados em um cluster de backup, para que a carga de trabalho possa se recuperar se o cluster primário se tornar indisponível.
+Os volumes DR são usados para aumentar a resiliência dos volumes Longhorn.
+
+Cada volume de backup no backupstore corresponde a um volume original, e cada volume DR corresponde a um volume de backup.
+
+Os volumes DR podem ser criados para refletir com precisão os backups de um volume Longhorn, mas não podem funcionar como volumes Longhorn normais até serem ativados.
+
+[[ext4]]
+== Ext4
+
+Um sistema de arquivos Linux suportado por {longhorn-product-name} para armazenamento.
+
+[[filesystem-type-disks]]
+== Discos do Tipo Sistema de Arquivos
+
+Um disco do tipo sistema de arquivos é um dispositivo de bloco formatado com um sistema de arquivos baseado em extensão (como `ext4` ou XFS). {longhorn-product-name} monta-o e armazena dados de réplica do V1 Data Engine.
+
+[[frontend]]
+== Frontend
+
+Frontend refere-se a um dispositivo de bloco exposto por um volume Longhorn.
+
+[[instance-manager]]
+== Gerenciador de Instâncias
+
+O componente {longhorn-product-name} responsável por gerenciar o ciclo de vida das instâncias de motor e réplica.
+
+[[longhorn-engine]]
+== Longhorn Engine
+
+Um Longhorn Engine é um componente do plano de dados de {longhorn-product-name}.
+É um controlador de armazenamento por volume responsável por replicar dados de forma síncrona para as réplicas do volume.
+
+[[longhorn-manager]]
+== Longhorn Manager
+
+O Longhorn Manager é o componente do plano de controle de {longhorn-product-name}.
+Ele é executado como um DaemonSet do Kubernetes e é responsável por gerenciar volumes, lidar com solicitações de API e orquestrar Motores Longhorn, Réplicas e outros recursos personalizados.
+
+[[longhorn-volume]]
+== Volume Longhorn
+
+Um volume Longhorn é um volume do Kubernetes gerenciado e replicado por {longhorn-product-name}.
+
+Para cada volume, o Longhorn Manager cria:
+
+* uma instância do Longhorn Engine
+* múltiplas réplicas, cada uma contendo uma cadeia de instantâneos representando o histórico do volume
+
+Por padrão, três réplicas são criadas e distribuídas entre diferentes nós para garantir alta disponibilidade.
+
+[[maintenance-mode]]
+== Modo de Manutenção
+
+Um modo de anexação de volume que anexa o volume sem habilitar o frontend, usado principalmente para reverter um volume de um instantâneo.
+
+[[mount]]
+== Montar
+
+Um comando Linux usado para anexar um dispositivo de bloco a um diretório no nó (por exemplo, `mount /dev/longhorn/testvol/mnt`).
+
+[[nfs]]
+== NFS
+
+Um protocolo de sistema de arquivos https://en.wikipedia.org/wiki/Network_File_System[distribuído] que fornece acesso a arquivos baseado em rede.
+
+{longhorn-product-name} suporta o uso de NFS nos seguintes casos:
+
+* Como um backupstore para armazenamento secundário.
+* Como o sistema de arquivos subjacente para volumes RWX.
+
+[[object-storage]]
+== Armazenamento de Objetos
+
+Uma arquitetura de armazenamento de dados que gerencia dados como objetos, cada um contendo os dados, uma quantidade variável de metadados e um identificador global exclusivo. {longhorn-product-name} suporta o backup de volumes em armazenamentos de objetos compatíveis com S3.
+
+[[offline-expansion]]
+== Expansão Offline
+
+Uma expansão de volume realizada enquanto o volume está desconectado.
+
+[[overprovisioning]]
+== Superprovisionamento
+
+O superprovisionamento permite que mais armazenamento lógico seja alocado do que a capacidade física disponível.
+
+Por exemplo, um nó com 200 GiB de espaço em disco (com 50 GiB reservados para o sistema operacional) poderia provisionar 750 GiB de volumes Longhorn.
+
+A *Porcentagem de Superprovisionamento de Armazenamento* é configurável nas configurações de {longhorn-product-name}. Veja xref:longhorn-system/settings.adoc[Configurações] para mais detalhes.
+
+[[persistentvolume]]
+== PersistentVolume
+
+Um PersistentVolume (PV) é um recurso do Kubernetes que representa um pedaço de armazenamento no cluster.
+Pode ser provisionado manualmente ou dinamicamente usando StorageClasses.
+
+É um recurso a nível de cluster e é necessário para que os pods utilizem armazenamento persistente que é independente do ciclo de vida do pod.
+
+Para mais informações, consulte a documentação do Kubernetes sobre https://kubernetes.io/docs/concepts/storage/persistent-volumes/[volumes persistentes].
+
+[[persistentvolumeclaim]]
+== PersistentVolumeClaim
+
+Um PersistentVolumeClaim (PVC) é um pedido de armazenamento do usuário.
+As solicitações especificam o tamanho desejado e os modos de acesso (por exemplo, ReadWriteOnce ou ReadOnlyMany).
+
+Os pods usam PVCs para obter armazenamento persistente.
+
+Veja a documentação oficial do Kubernetes em https://kubernetes.io/docs/concepts/storage/persistent-volumes/[volumes persistentes].
+
+[[primary-backups]]
+== Backups Primários
+
+As réplicas de um volume Longhorn dentro do cluster Kubernetes podem ser consideradas backups primários.
+
+[[read-index]]
+== Índice de Leitura
+
+O índice de leitura é uma estrutura de dados em memória usada por cada réplica para melhorar o desempenho de leitura.
+Ele registra qual disco de diferenciação (instantâneo) contém os dados válidos para cada bloco de 4K.
+
+[[recurring-snapshots]]
+== Instantâneos Recorrentes
+
+Instantâneos recorrentes permitem que {longhorn-product-name} crie e mantenha automaticamente instantâneos em uma frequência especificada (por exemplo, a cada hora ou diariamente).
+
+[[remount]]
+== Remontar
+
+Após a reanexação, {longhorn-product-name} detecta automaticamente e monta o sistema de arquivos do volume.
+
+[[replica]]
+== Réplica
+
+Uma réplica é um armazenamento de dados de volume Longhorn que consiste em um histórico das mudanças nos dados dentro de um volume.
+
+[[s3]]
+== S3
+
+https://aws.amazon.com/s3/[Amazon S3] é um serviço de armazenamento de objetos.
+
+[[salvage-a-volume]]
+== Recuperar um Volume
+
+Uma operação de recuperação é necessária quando todas as réplicas se tornam defeituosas (por exemplo, devido a desconexão de rede).
+Durante a recuperação, {longhorn-product-name} tenta identificar quaisquer réplicas utilizáveis e, em seguida, as utiliza para recuperar o volume.
+
+[[secondary-backups]]
+== Backups Secundários
+
+Backups armazenados fora do cluster Kubernetes, no S3, NFS ou CIFS.
+
+[[smbcifs]]
+== SMB/CIFS
+
+Um https://en.wikipedia.org/wiki/Server_Message_Block[protocolo de compartilhamento de arquivos em rede] que fornece acesso remoto a arquivos, semelhante ao armazenamento local.
+{longhorn-product-name} suporta o uso de SMB/CIFS como backupstore para armazenamento secundário.
+
+[[snapshot]]
+== Instantâneo
+
+Um instantâneo captura o estado de um volume no momento em que o instantâneo é criado.
+Cada instantâneo armazena apenas as mudanças que sobrescrevem dados anteriores, portanto, uma cadeia de instantâneos é necessária para representar o estado completo.
+
+Volumes podem ser restaurados a partir de instantâneos.
+
+Veja a documentação dos conceitos - xref:introduction/concepts.adoc#_2_4_1_how_snapshots_work[Como os Instantâneos Funcionam].
+
+[[snapshot-data-integrity]]
+== Integridade dos Dados do Instantâneo
+
+A Integridade dos Dados do Instantâneo é um recurso {longhorn-product-name} que faz hash dos arquivos de disco do instantâneo e verifica periodicamente sua integridade para detectar corrupção que não é percebida pelo sistema de arquivos, como bit rot.
+
+[[stable-identity]]
+== Identidade Estável
+
+https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[StatefulSets] têm uma identidade estável, o que significa que o Kubernetes não exclui forçadamente o Pod.
+
+[[statefulset]]
+== StatefulSet
+
+Um https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[recurso do Kubernetes] usado para gerenciar aplicativos com estado.
+
+[[storageclass]]
+== StorageClass
+
+Um https://kubernetes.io/docs/concepts/storage/storage-classes/#the-storageclass-resource[recurso do Kubernetes] usado para provisionar automaticamente PersistentVolumes para pods.
+
+[[system-backup]]
+== Backup do Sistema
+
+Um backup do sistema contém um conjunto de recursos do sistema Longhorn e é armazenado no backupstore.
+
+Veja a documentação do xref:snapshots-backups/system-backups/create-system-backup.adoc[Pacote de Backup do Sistema Longhorn] para mais detalhes sobre os recursos incluídos em um backup do sistema.
+
+[[thin-provisioning]]
+== Aprovisionamento dinâmico
+
+{longhorn-product-name} é um sistema de armazenamento com provisionamento fino. {longhorn-product-name} O volume utiliza apenas o espaço necessário em um dado momento.
+
+Por exemplo, um volume de 20 GiB que armazena 1 GiB de dados usa apenas 1 GiB de espaço em disco.
+
+[[umount]]
+== Umount
+
+Um https://linux.die.net/man/8/umount[comando do Linux] que desmonta um sistema de arquivos da hierarquia de arquivos.
+
+[[v1-data-engine]]
+== V1 Data Engine
+
+O V1 Data Engine é o componente original do plano de dados do {longhorn-product-name}.
+Ele usa arquivos esparsos do sistema de arquivos do host para provisionamento fino, com volumes compostos de réplicas, suportando snapshots e backups.
+
+[[v2-data-engine]]
+== V2 Data Engine
+
+O V2 Data Engine é o plano de dados Longhorn.
+Ele utiliza SPDK e páginas grandes, além de dispositivos de bloco para fornecer maior desempenho.
+
+[[volumes-kubernetes-concept]]
+== Volumes (Conceito do Kubernetes)
+
+Um volume do Kubernetes permite que um pod armazene arquivos durante sua vida útil.
+Esses arquivos persistem entre reinicializações de contêiner, mas não quando o pod é excluído.
+
+Para preservar o armazenamento além do ciclo de vida do pod, é necessário um https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes[PersistentVolume].
+
+Consulte a documentação do Kubernetes em https://kubernetes.io/docs/concepts/storage/volumes/[Volumes] para mais detalhes.
+
+[[xfs]]
+== XFS
+
+Um https://en.wikipedia.org/wiki/XFS[sistema de arquivos] suportado pela maioria das distribuições Linux.
+{longhorn-product-name} suporta XFS para armazenamento.

@@ -1,0 +1,30 @@
+= Pods do Gerenciador de Instâncias Durante o Fazer Upgrade
+:revdate: 2026-01-08
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Após fazer upgrade ao vivo, você pode notar que alguns *pods do gerenciador de instâncias antigos* ainda estão em execução. Isso é um comportamento esperado e *não é um bug*.
+
+== Por que isso acontece
+
+{longhorn-product-name} utiliza a seguinte estratégia para gerenciar os pods do gerenciador de instâncias durante fazer upgrade ao vivo:
+
+* Os pods do gerenciador de instâncias antigos são limpos imediatamente assim que nenhum processo de engine ou réplica está em execução neles.
+* Durante *fazer upgrade ao vivo da engine* de um volume:
+** Os processos de réplica são recriados em novos pods do gerenciador de instâncias usando a imagem da engine atualizada.
+** Para evitar interromper a E/S, {longhorn-product-name} não pode iniciar um novo processo de engine usando a imagem da engine atualizada em um novo pod do gerenciador de instâncias enquanto o volume estiver anexado. Em vez disso, o pod do gerenciador de instâncias antigo continua a gerenciar o ciclo de vida do novo processo de engine até que o volume seja desanexado. Como resultado, o novo processo de engine é executado no pod do gerenciador de instâncias antigo.
+
+Como resultado, um pod do gerenciador de instâncias antigo permanece em execução enquanto hospeda um processo de engine ativo. Uma vez que o volume é desanexado e nenhum processo de engine ou réplica permanece, {longhorn-product-name} limpará automaticamente o pod do gerenciador de instâncias antigo.
+
+== Como verificar quais volumes estão usando pods do gerenciador de instâncias antigos
+
+Você pode verificar quais volumes ainda estão usando os pods do gerenciador de instâncias antigos na interface do {longhorn-product-name}:
+
+* Navegue até *Volume* > *Nome* > *Detalhes do Volume* > *Gerenciador de Instâncias*.
+
+== Como limpar completamente os pods do gerenciador de instâncias antigos
+
+Para permitir que {longhorn-product-name} limpe todos os pods do gerenciador de instâncias antigos:
+
+. Desanexe todos os volumes que ainda estão usando pods do gerenciador de instâncias antigos.
+. Uma vez que nenhum processo de engine ou réplica permaneça, {longhorn-product-name} removerá automaticamente os pods do gerenciador de instâncias antigos.

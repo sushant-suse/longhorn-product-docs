@@ -1,0 +1,28 @@
+= 卷条件
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 卷条件
+
+卷条件描述了卷的当前状态和可能出现的问题。
+
+* `Scheduled`：所有副本已成功调度。
+  如果 Longhorn 无法调度任何副本，则条件设置为 `false` 并显示错误消息。当设置 xref:longhorn-system/settings.adoc#_allow_volume_creation_with_degraded_availability[允许以降级可用性创建卷] 被启用且至少一个副本被调度时，条件设置为 `true`。
+* `TooManySnapshots`：此特定卷有超过 100 个快照。
+  Longhorn 允许每个卷最多创建 250 个快照。有关配置最大快照数量的更多信息，请参见 xref:snapshots-backups/volume-snapshots-backups/snapshot-space-management.adoc[快照空间管理]。
+* `Restore`：Longhorn 正在从备份中恢复卷。
+* `WaitForBackingImage`：副本尚未启动，因为后备镜像必须先与其磁盘同步。
+* `OfflineRebuildingInProgress`：卷正在使用离线重建进行重建。
+
+== 引擎条件
+
+引擎条件描述了引擎的当前状态和可能出现的问题。`FilesystemReadOnly`:当前卷安装点的状态已更改为只读。
+此更改可能会阻止工作负载向卷写入数据。有关故障排除信息，请参见 xref:high-availability/volume-recovery.adoc[]。
+
+== 副本条件
+
+副本条件描述了副本的当前状态和可能出现的问题。
+
+* `RebuildFailed`：副本重建失败。
+* `WaitForBackingImage`：副本尚未启动，因为后备镜像必须先与其磁盘同步。

@@ -1,0 +1,60 @@
+= 在集群上启用CSI快照创建
+:revdate: 2026-03-16
+:page-revdate: {revdate}
+:description: 为程序化创建SUSE® Storage快照/备份启用CSI快照支持
+:current-version: {page-component-version}
+
+== 先决条件
+
+部署快照控制器及相关自定义资源定义是Kubernetes发行版的责任。
+
+有关更多信息，请参见 https://kubernetes.io/docs/concepts/storage/volume-snapshots/[CSI卷快照]。
+
+== 如果您的Kubernetes发行版未捆绑快照控制器
+
+您可以手动安装这些组件。
+
+=== 先决条件
+
+请安装相同版本的快照CRD和快照控制器，以确保CRD版本与快照控制器兼容。
+
+对于一般使用，在安装之前用适当的*名称空间*更新快照控制器YAML。
+
+例如，在一个标准的Kubernetes集群上，在发出`kubectl create`命令之前，将名称空间从`default`更新为`kube-system`。
+
+=== 安装快照CRD
+
+. 从 https://github.com/kubernetes-csi/external-snapshotter/tree/v8.5.0/client/config/crd下载文件，因为{longhorn-product-name} v{patch-version}使用 https://kubernetes-csi.github.io/docs/external-snapshotter.html[CSI外部快照器] v8.5.0
+. 运行 `kubectl create -k client/config/crd`。
+. 每个集群执行一次此操作。
+
+=== 安装通用快照控制器
+
+. 从 https://github.com/kubernetes-csi/external-snapshotter/tree/v8.5.0/deploy/kubernetes/snapshot-controller下载文件（您可以将v{patch-version}替换为所需的{longhorn-product-name}版本），因为{longhorn-product-name} v{patch-version}使用 https://kubernetes-csi.github.io/docs/external-snapshotter.html[CSI外部快照器] v8.5.0
+. 将名称空间更新为适合您环境的值（例如，`kube-system`）
+. 运行 `kubectl create -k deploy/kubernetes/snapshot-controller`。
+. 每个集群执行一次此操作。
++
+[NOTE]
+====
+之前，快照控制器YAML文件默认部署到`default`名称空间。
+更新后的YAML文件默认部署到`kube-system`名称空间。
+因此，我们建议删除`default`名称空间中的先前快照控制器，以避免有多个快照控制器。
+====
+
+有关更多信息，请参见Kubernetes外部快照器 Git 库中的 https://github.com/kubernetes-csi/external-snapshotter#usage[使用]部分。
+
+== 添加默认`VolumeSnapshotClass`
+
+确保快照CRD的可用性。然后创建一个默认的 `VolumeSnapshotClass`。
+
+[subs="+attributes",yaml]
+----
+# Use v1 as an example
+kind: VolumeSnapshotClass
+apiVersion: snapshot.storage.k8s.io/v1
+metadata:
+  name: longhorn
+driver: driver.longhorn.io
+deletionPolicy: Delete
+----

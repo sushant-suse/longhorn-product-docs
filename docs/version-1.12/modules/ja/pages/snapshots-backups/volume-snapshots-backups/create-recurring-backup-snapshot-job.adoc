@@ -1,0 +1,250 @@
+= 定期スナップショットまたはバックアップジョブを作成する
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name}のUIから、ボリュームは定期スナップショットとバックアップを独立したジョブまたは定期ジョブグループとして参照できます。
+
+定期ジョブを作成するには、{longhorn-product-name}の`Recurring Jobs`ページまたは{longhorn-product-name}のボリューム詳細ビューに行くことができます。
+
+設定できます。
+
+* ジョブが属すべきグループ
+* スケジュールのタイプ、`backup`、`backup-force-create`、`snapshot`、`snapshot-force-create`、`snapshot-cleanup`、`snapshot-delete`または`filesystem-trim`のいずれか
+* バックアップまたはスナップショットが作成される時間、 https://en.wikipedia.org/wiki/Cron#CRON_expression[CRON式]の形式で
+* 保持するバックアップまたはスナップショットの数
+* 同時に実行するジョブの数
+* バックアップまたはスナップショットに適用されるラベル
+* バックアップに適用されるパラメータ
+ ** `full-backup-interval`:{longhorn-product-name}がフルバックアップを実行する前に完了しなければならない増分バックアップの数。この整数パラメータはバックアップにのみ適用されます。値が0の場合、{longhorn-product-name}は毎回増分バックアップを実行することに注意してください。詳細については、<<_periodic_full_backup,定期的なフルバックアップ>>およびxref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[バックアップを作成する]を参照してください。
+
+定期ジョブは、{longhorn-product-name}のUI、`kubectl`を使用するか、{longhorn-product-name} `RecurringJob`を使用して設定できます。
+
+ボリュームに定期ジョブを追加するには、{longhorn-product-name}のボリューム詳細ビューに行きます。その後、`Recurring Jobs Schedule`を設定できます。
+
+* 新しい定期ジョブを作成する
+* 既存の定期ジョブから選択する
+* 既存の定期ジョブグループから選択します。
+
+その後、{longhorn-product-name}は、ボリュームがノードに接続されている限り、定期ジョブのスケジュールされた時間にスナップショットまたはバックアップを自動的に作成します。
+ボリュームが切り離されている場合でも定期スナップショットとバックアップを設定したい場合は、セクション<<_allow_recurring_job_while_volume_is_detached,ボリュームが切り離されている間の定期ジョブを許可する>>を参照してください。
+
+Longhornボリューム、Kubernetes永続ボリュームクレーム（PVC）、またはKubernetesストレージクラスに定期ジョブを設定できます。
+
+[NOTE]
+====
+PVCに定期ジョブラベルがある場合、それらは関連するボリュームのすべての定期ジョブラベルを上書きします。
+====
+
+スナップショットとバックアップの動作についての詳細は、xref:introduction/concepts.adoc[概念]セクションを参照してください。
+
+[NOTE]
+====
+定期ジョブが古いバックアップ/スナップショットを同一のバックアップと空のスナップショットで上書きする問題を回避するために、Longhornは次のようにします：
+
+. 定期バックアップジョブは、ボリュームに前回のバックアップ以降新しいデータがある場合にのみ新しいバックアップを作成します。
+. 定期スナップショットジョブは、ボリュームのヘッド（ライブデータ）に新しいデータがある場合にのみ新しいスナップショットを作成します。
+====
+
+== 定期ジョブを設定します
+
+=== {longhorn-product-name} UIを使用して
+
+定期スナップショットとバックアップは、`Recurring Job`ページまたはボリューム詳細ページから構成できます。
+
+=== マニフェストを使用して
+
+LonghornのRecurringJobカスタムリソースと直接対話することによって、定期ジョブを構成することもできます。
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: snapshot-1
+  namespace: longhorn-system
+spec:
+  cron: "* * * * *"
+  task: "snapshot"
+  groups:
+  - default
+  - group1
+  retain: 1
+  concurrency: 2
+  labels:
+    label/1: a
+    label/2: b
+----
+
+各定期ジョブセレクタに指定する必要があるパラメータは次のとおりです：
+
+* `name`:定期ジョブの名前。重複した名前は使用しないでください。また、`name`の長さは40文字を超えてはいけません。
+* `task`:ジョブのタイプ。{longhorn-product-name}は次のものをサポートしています：
+ ** `backup`: 定期的にスナップショットを作成し、古いスナップショットをクリーンアップした後にバックアップを行います。
+ ** `backup-force-create`: 定期的にスナップショットを作成し、その後バックアップを行います。
+ ** `snapshot`: 定期的にスナップショットを作成し、古いスナップショットをクリーンアップした後に行います。
+ ** `snapshot-force-create`: 定期的にスナップショットを作成します。
+ ** `snapshot-cleanup`: 定期的に削除可能なスナップショットとシステムスナップショットを整理します。
++
+NOTE: 保持値はこのタスクには影響を与えません。{longhorn-product-name}は`retain`の値を自動的に0に変更します。
+
+ ** `snapshot-delete`: 定期的に保持カウントを超えるすべての種類のスナップショットを削除し、整理します。
++
+[NOTE]
+====
+定期ジョブの値は各定期ジョブに依存しません。
+
+2つの定期ジョブを持つボリュームを例にします。
+
+* 保持値が5に設定された`snapshot`
+* 保持値が2に設定された`snapshot-delete`
+
+最終的に、完全な`snapshot-delete`タスクの実行後に保持されるスナップショットは2つになります。
+====
+
+ ** `filesystem-trim`: 定期的にファイルシステムをトリムしてディスクスペースを回収します。
+* `cron`:CRON式。ジョブの実行時間を示します。
+* `retain`:各ボリュームジョブに対して{longhorn-product-name}が保持するスナップショット/バックアップの数。1未満であってはなりません。
+* `concurrency`:同時に実行するジョブの数。1未満であってはなりません。
+
+オプションのパラメータを指定できます：
+
+* `groups`:ジョブが属すべきグループ。グループに`default`があると、この定期ジョブは定期ジョブのない任意のボリュームに自動的にスケジュールされます。
+* `labels`:バックアップまたはスナップショットに適用すべきラベル。
+
+== デフォルトグループに定期ジョブを追加する
+
+デフォルトの定期ジョブは、UIでチェックボックス `default` をオンにするか、定期ジョブに `default` を追加する`groups`ことで設定できます。
+
+{longhorn-product-name} は、ボリュームに定期ジョブがない場合に自動的に `default` グループにボリュームを追加します。
+
+== 定期ジョブを削除する
+
+{longhorn-product-name} は、対応する RecurringJob カスタムリソースが削除されると、ボリュームおよび PVC の定期ジョブラベルを自動的に削除します。ただし、既存の RecurringJob カスタムリソースなしで定期ジョブラベルが追加された場合、{longhorn-product-name} はそのラベルのクリーンアッププロセスを実行しません。
+
+== {longhorn-product-name} ボリュームに定期ジョブを適用する
+
+=== {longhorn-product-name} UIを使用して
+
+定期ジョブはボリュームの詳細ページで割り当てることができます。ボリュームの詳細ページに移動するには、*ボリューム* をクリックし、その後ボリュームの名前をクリックします。
+
+== kubectl を使用する
+
+定期ジョブグループを追加する：
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job-group.longhorn.io/<RECURRING-JOB-GROUP-NAME≥enabled
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job-group.longhorn.io/default=enabled
+----
+
+定期ジョブを追加する：
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job.longhorn.io/<RECURRING-JOB-NAME≥enabled
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job.longhorn.io/backup=enabled
+----
+
+定期ジョブを削除する：
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> <RECURRING-JOB-LABEL>-
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job.longhorn.io/backup-
+----
+
+== PersistentVolumeClaim を使用して kubectl で
+
+デフォルトでは、Persistent Volume Claim (PVC) に定期ジョブを適用しても効果はありません。定期ジョブソースラベルを使用して、この機能を有効または無効にできます。
+
+PVC がソースとしてラベル付けされると、PVC に追加または削除された定期ジョブラベルは、{longhorn-product-name} によって関連するボリュームに定期的に同期されます。
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job.longhorn.io/source=enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/source=enabled
+----
+
+定期ジョブグループを追加する：
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job-group.longhorn.io/<RECURRING-JOB-GROUP-NAME≥enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job-group.longhorn.io/default=enabled
+----
+
+定期ジョブを追加する：
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job.longhorn.io/<RECURRING-JOB-NAME≥enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/backup=enabled
+----
+
+定期ジョブを削除する：
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> <RECURRING-JOB-LABEL>-
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/backup-
+----
+
+== StorageClass パラメータを使用して
+
+定期ジョブの割り当ては、StorageClass の `recurringJobSelector` パラメータで構成できます。
+
+このストレージクラスを使用して作成された将来のボリュームには、これらの定期ジョブが自動的に割り当てられます。
+
+`recurringJobSelector`フィールドはJSON形式に従う必要があります：
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  recurringJobSelector: '[
+    {
+      "name":"snap",
+      "isGroup":true
+    },
+    {
+      "name":"backup",
+      "isGroup":false
+    }
+  ]'
+----
+
+各定期ジョブセレクタに指定する必要があるパラメータは次のとおりです：
+
+. `name`:既存の定期ジョブまたは既存の定期ジョブグループの名前。
+. `isGroup`：これは、定期ジョブまたは定期ジョブグループに属する名前であり、`true`または`false`のいずれかです。
+
+== ボリュームが切り離されている間に定期ジョブを許可する
+
+{longhorn-product-name}は、ボリュームが切り離されているときでも定期バックアップを行うことを可能にする設定`allow-recurring-job-while-volume-detached`を提供します。
+設定は{longhorn-product-name}のUIで見つけることができます。
+
+設定が有効になっていると、{longhorn-product-name}は自動的にボリュームを接続し、定期スナップショット/バックアップを行う時間になるとスナップショット/バックアップを取得します。
+
+自動的にボリュームが接続されている間は、ボリュームはワークロードの準備ができていないことに注意してください。ワークロードは、定期ジョブが終了するまで待機する必要があります。
+
+== 定期的なフルバックアップ
+
+{longhorn-product-name}はデフォルトでデルタバックアップを実行します。これは、最後のバックアップ以降に変更されたデータのみがアップロードされることを意味します。ただし、バックアップストア内のデータブロックが破損した場合、{longhorn-product-name}はそのデータブロックを次回のバックアップ操作中に健全なものに置き換えません。バックアップストア内の破損したデータブロックは、復元操作が失敗することがあります。
+非ゼロの`full-backup-interval`パラメータが設定されている場合、{longhorn-product-name}は`full-backup-interval`回の増分バックアップごとにフルバックアップを実行します。フルバックアップ中、{longhorn-product-name}はボリューム内のすべてのデータブロックをアップロードします。バックアップストアに存在するデータブロック（破損したものを含む）は上書きされます。
+
+IMPORTANT: フルバックアップを実行するには、デフォルトの増分バックアップよりも時間がかかり、ネットワークのスループットやコストが増加する可能性があります。

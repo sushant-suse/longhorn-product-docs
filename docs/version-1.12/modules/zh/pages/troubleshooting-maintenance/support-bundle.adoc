@@ -1,0 +1,22 @@
+= 支持包
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn 用一个通用的 https://github.com/rancher/support-bundle-kit[支持包套件] 替代了内部支持包生成工具。
+
+您可以点击 Longhorn UI 底部的 `Generate Support Bundle` 下载包含集群清单和日志的压缩文件。
+
+在支持包生成期间，Longhorn 将为支持包管理器创建一个部署。
+
+NOTE: 支持包管理器将使用一个专用的 `longhorn-support-bundle` 服务账户和 `longhorn-support-bundle` 集群角色绑定，具有 `cluster-admin` 访问权限以进行包收集。
+
+通过支持包，您可以模拟一个可与 `kubectl` 命令交互的虚拟 Kubernetes 集群。有关更多详细信息，请参见 https://github.com/rancher/support-bundle-kit#simulator-command[模拟器命令]。
+
+== 局限性
+
+Longhorn 目前不支持同时生成多个支持包。我们建议在启动新支持包之前，等待当前支持包的完成。如果在另一个支持包仍在进行时创建新的支持包，Longhorn 将覆盖旧的支持包。
+
+== 历史记录
+
+https://github.com/longhorn/longhorn/issues/2759[原始功能请求]

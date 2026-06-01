@@ -1,0 +1,42 @@
+= Manuelles Upgrade der Longhorn Engine
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Sie können die Longhorn Engine manuell über die Longhorn-Benutzeroberfläche upgraden.
+
+== Voraussetzungen
+
+Erstellen Sie immer Sicherungen, bevor Sie die Longhorn Engine-Images upgraden.
+
+Upgrade den Longhorn Manager, bevor Sie die Longhorn Engine upgraden.
+
+== Offline-Upgrade
+
+Befolgen Sie diese Schritte, wenn das Live-Upgrade nicht verfügbar ist oder wenn das Volume im degradierten Zustand feststeckt:
+
+. Befolgen Sie xref:data-integrity-recovery/disaster-recovery-volumes.adoc[das Trennverfahren für relevante Workloads].
+. Wählen Sie alle Volumes mit der Batch-Auswahl aus. Klicken Sie auf die Schaltfläche für Batch-Operation *Upgrade Engine* und wählen Sie das in der Liste verfügbare Engine-Image aus. Es ist die Standard-Engine, die mit dem Manager für diese Version geliefert wird.
+. Setzen Sie alle Workloads fort. Jedes Volume, das nicht Teil eines Kubernetes-Workloads ist, muss über die Longhorn-Benutzeroberfläche angeschlossen werden.
+
+== Live-Upgrade
+
+{longhorn-product-name} v1.8.x bis v{current-version} unterstützt Live-Engine-Upgrades.
+
+Das `iSCSI` Frontend unterstützt keine Live-Upgrades.
+
+Live-Upgrade sollte nur mit gesunden Volumes durchgeführt werden.
+
+. Wählen Sie das Volume aus, das Sie upgraden möchten.
+. Klicken Sie auf `Upgrade Engine` im Dropdown-Menü.
+. Wählen Sie das Engine-Image aus, auf das Sie upgraden möchten.
+ .. Normalerweise ist es das einzige Engine-Image in der Liste, da die Longhorn-Benutzeroberfläche das aktuelle Image aus der Liste ausschließt.
+. Klicken Sie auf „OK“.
+
+Während des Live-Upgrades wird der Benutzer vorübergehend die doppelte Anzahl der Replikate sehen. Nach Abschluss des Upgrades sollte der Benutzer die gleiche Anzahl der Replikate wie zuvor sehen, und das `Engine Image` Feld des Volumes sollte aktualisiert werden.
+
+Beachten Sie, dass nach dem Live-Upgrade Rancher oder Kubernetes weiterhin die alte Version des Images für die Engine und die neue Version für die Replikate anzeigen würden. Es wird erwartet. Das Upgrade ist erfolgreich, wenn Sie die neue Version des Images als Volume-Image auf der Seite "Volume-Details" aufgeführt sehen.
+
+== Bereinigen Sie das alte Image.
+
+Nachdem Sie das Upgrade für alle Images durchgeführt haben, wählen Sie `Settings/Engine Image` aus der Longhorn-Benutzeroberfläche aus. Jetzt sollten Sie in der Lage sein, das nicht standardmäßige Image zu entfernen.

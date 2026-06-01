@@ -1,0 +1,42 @@
+= Intégrer les métriques de stockage SUSE® dans le système de surveillance Rancher
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== À propos du système de surveillance Rancher
+
+En utilisant Rancher, vous pouvez surveiller l'état et les processus de vos nœuds de cluster, des composants Kubernetes et des déploiements logiciels grâce à l'intégration avec https://prometheus.io/[Prometheus], une solution de surveillance Open Source de premier plan.
+
+Voir https://rancher.com/docs/rancher/v2.x/en/monitoring-alerting/[ici] pour les instructions sur la façon de déployer/activer le système de surveillance Rancher.
+
+== Ajouter des métriques Longhorn au système de surveillance Rancher
+
+Si vous utilisez Rancher pour gérer votre Kubernetes et que vous avez déjà activé la surveillance Rancher, vous pouvez ajouter des métriques Longhorn à la surveillance Rancher en déployant simplement le ServiceMonitor{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: longhorn-prometheus-servicemonitor
+  namespace: longhorn-system
+  labels:
+    name: longhorn-prometheus-servicemonitor
+spec:
+  selector:
+    matchLabels:
+      app: longhorn-manager
+  namespaceSelector:
+    matchNames:
+    - longhorn-system
+  endpoints:
+  - port: manager
+----
+
+Une fois le ServiceMonitor créé, Rancher découvrira automatiquement toutes les métriques Longhorn.
+
+Vous pouvez ensuite configurer un tableau de bord Grafana pour la visualisation.
+
+Vous pouvez importer notre https://grafana.com/grafana/dashboards/13032[tableau de bord exemple Longhorn préconstruit] pour avoir une idée.
+
+Vous pouvez également configurer des alertes dans l'interface utilisateur de Rancher.

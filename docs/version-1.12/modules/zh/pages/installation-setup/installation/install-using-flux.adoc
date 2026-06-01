@@ -1,0 +1,116 @@
+= 使用 Flux 安装 SUSE® Storage
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 先决条件
+
+[NOTE]
+====
+{longhorn-product-name} 安装需要对 SUSE 应用程序集合的认证访问。有关更多详细信息，请查看 https://docs.apps.rancher.io/get-started/authentication[认证指南]。
+====
+
+* 您的工作站：安装 https://helm.sh/docs/[Helm] v3.0 或更高版本。
+* Kubernetes 集群：
+ ** 确保每个节点满足 xref:installation-setup/requirements.adoc[安装要求]。
+ ** https://fluxcd.io/flux/installation/#install-the-flux-cli[安装 Flux CLI 和控制器]。
+ ** https://fluxcd.io/flux/installation/bootstrap/github/[使用 Flux CLI 与 GitHub 启动 Flux]。
+运行以下命令将您的 GitHub 个人访问令牌 (PAT) 导出为环境变量，在您的集群上部署 Flux 控制器，并配置控制器以从指定的 GitHub 储存库同步集群状态。
++
+[,bash]
+----
+export GITHUB_TOKEN=<gh-token>
+flux bootstrap github \
+  --token-auth \
+  --owner=<github_username> \
+  --repository=<github_repo_name> \
+  --branch=<branch_name> \
+  --path=<folder_path_within_repo> \
+  --personal
+----
+
+____
+xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn 命令行工具] 可用于检查 Longhorn 环境中的潜在问题。
+____
+
+== 安装
+
+. 创建一个指向 {longhorn-product-name} Helm 图表 URL 的 HelmRepository 自定义资源 (CR)。
++
+[,bash]
+----
+ kubectl create ns longhorn-system
+ flux create source helm longhorn-repo \
+   --url=https://charts.longhorn.io \
+   --namespace=longhorn-system \
+   --export > helmrepo.yaml
+ kubectl apply -f helmrepo.yaml
+----
+
+. 创建一个引用 HelmRepository 的 HelmRelease CR，并指定要安装的 Helm 图表的版本。
++
+[subs="+attributes",bash]
+----
+ flux create helmrelease longhorn-release \
+   --chart=longhorn \
+   --source=HelmRepository/longhorn-repo \
+   --chart-version=v{patch-version} \
+   --namespace=longhorn-system \
+   --export > helmrelease.yaml
+ kubectl apply -f helmrelease.yaml
+----
+
+. 验证 HelmRelease CR 是否成功创建并同步。
++
+[,bash]
+----
+ flux get helmrelease longhorn-release -n longhorn-system
+----
+
+. 验证 {longhorn-product-name} 是否成功安装。
++
+[,bash]
+----
+ kubectl -n longhorn-system get pod
+----
++
+成功安装的示例：
++
+[,bash]
+----
+ NAME                                                READY   STATUS    RESTARTS   AGE
+ longhorn-ui-b7c844b49-w25g5                         1/1     Running   0          2m41s
+ longhorn-manager-pzgsp                              1/1     Running   0          2m41s
+ longhorn-driver-deployer-6bd59c9f76-lqczw           1/1     Running   0          2m41s
+ longhorn-csi-plugin-mbwqz                           2/2     Running   0          100s
+ csi-snapshotter-588457fcdf-22bqp                    1/1     Running   0          100s
+ csi-snapshotter-588457fcdf-2wd6g                    1/1     Running   0          100s
+ csi-provisioner-869bdc4b79-mzrwf                    1/1     Running   0          101s
+ csi-provisioner-869bdc4b79-klgfm                    1/1     Running   0          101s
+ csi-resizer-6d8cf5f99f-fd2ck                        1/1     Running   0          101s
+ csi-provisioner-869bdc4b79-j46rx                    1/1     Running   0          101s
+ csi-snapshotter-588457fcdf-bvjdt                    1/1     Running   0          100s
+ csi-resizer-6d8cf5f99f-68cw7                        1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-df8v6                       1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-g9cwc                       1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-8l9sw                       1/1     Running   0          101s
+ csi-resizer-6d8cf5f99f-smdjw                        1/1     Running   0          101s
+ instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc   1/1     Running   0          114s
+ engine-image-ei-df38d2e5-cv6nc                      1/1     Running   0          114s
+----
+
+. xref:longhorn-system/system-access/create-ingress.adoc[创建一个带有基本认证的 NGINX Ingress 控制器] 以访问 UI。默认情况下，UI 的认证未启用。
+. xref:longhorn-system/system-access/system-access.adoc[访问 UI]。
+
+== 通过 GitOps 实现持续操作
+
+您可以将导出的清单提交并推送到您的 GitOps 储存库。
+
+[subs="+attributes",bash]
+----
+ git add helmrepo.yaml helmrelease.yaml
+ git commit -m "Add HelmRepository and HelmRelease for {longhorn-product-name} installation"
+ git push origin <branch_name>
+----
+
+之后，您可以通过编辑 GitOps 储存库中的 YAML 清单来修改 HelmRelease 和 HelmRepository CR。Flux 会自动检测并应用更改，而无需直接访问您的 Kubernetes 集群。

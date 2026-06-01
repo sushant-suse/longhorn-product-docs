@@ -1,0 +1,24 @@
+= Instantáneas y copias de seguridad de volúmenes
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+____
+En versiones anteriores, Longhorn utilizaba un modo bloqueante para la comunicación con el objetivo de copia de seguridad remoto. En consecuencia, hay algunos factores involuntarios que impactan las funciones que dependen del objetivo de copia de seguridad remoto. Por ejemplo, la latencia más baja, listar copias de seguridad o causar más problemas en cascada después de la operación del objetivo de copia de seguridad.
+____
+
+____
+En las versiones actuales, Longhorn ha comenzado a utilizar operaciones de copia de seguridad asíncronas para resolver los problemas mencionados en la versión anterior.
+
+* Para hacer esto, primero crea los recursos personalizados del clúster de copia de seguridad, luego realiza las siguientes operaciones de instantánea y copia de seguridad al objetivo de copia de seguridad remoto.
+* Una vez que se complete la creación de la copia de seguridad, extrae asíncronamente el estado de los volúmenes de copia de seguridad y las copias de seguridad del objetivo de copia de seguridad remoto. Luego, actualiza el estado de los recursos personalizados del clúster correspondientes.
+
+Esta mejora es escalable para la consulta de copias de seguridad para ayudar a resolver los recursos costosos causados por la forma de bloqueo. Esto se debe a que todas las copias de seguridad se guardan como recursos personalizados en lugar de consultar directamente al objetivo remoto.
+
+NOTE: Después de actualizar versión de Longhorn, si un volumen no ha sido actualizado a la última Longhorn Engine (≥v1.2.0). Al crear una copia de seguridad, tendrá el estado de transición intermedio del nombre de la copia de seguridad creada (debido al manejo diferente del nombre de copia de seguridad en la última versión de Longhorn ≥ v1.2.0). Longhorn luego asegurará que la copia de seguridad esté sincronizada con el objetivo de copia de seguridad remoto y la copia de seguridad se actualizará al estado final correcto con el objetivo de copia de seguridad remoto como la única fuente de verdad. Para actualizar Longhorn Engine, consulta xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[] o xref:upgrades/longhorn-components/auto-upgrade-engine.adoc[].
+____
+
+* xref:/snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[Configurando un objetivo de copia de seguridad]
+* xref:/snapshots-backups/volume-snapshots-backups/create-backup.adoc[Crear una copia de seguridad]
+* xref:/snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[Restaurar desde una copia de seguridad]
+* xref:/snapshots-backups/volume-snapshots-backups/restore-volume-statefulset.adoc[Restaurando volúmenes para Kubernetes StatefulSets]

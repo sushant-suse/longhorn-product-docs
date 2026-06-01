@@ -1,0 +1,120 @@
+= Selector de nodo
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+Si deseas restringir los componentes de Longhorn para que solo se ejecuten en un conjunto particular de nodos, puedes establecer un selector de nodo para todos los componentes de Longhorn.
+Por ejemplo, quieres instalar Longhorn en un clúster que tiene nodos Linux y nodos Windows, pero Longhorn no puede ejecutarse en nodos Windows.
+En este caso, puedes establecer el selector de nodo para restringir Longhorn a que solo se ejecute en nodos Linux.
+
+Para más información sobre cómo funciona el selector de nodo, consulta la https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector[documentación oficial de Kubernetes.]
+
+== Configuración del selector de nodo para Longhorn
+
+Longhorn consiste en componentes desplegados por el usuario (por ejemplo, Longhorn Manager, Longhorn Driver y Longhorn UI) y componentes gestionados por el sistema (por ejemplo, Instance Manager, Backing Image Manager, Share Manager, CSI Driver y Engine Image).
+Necesitas establecer un selector de nodo para ambos tipos de componentes. Consulta más detalles a continuación.
+
+[discrete]
+=== Configuración del selector de nodo durante la instalación de Longhorn
+
+. Establece el selector de nodo para los componentes desplegados por el usuario (por ejemplo, Longhorn Manager, Longhorn Driver y Longhorn UI).
+ ** Si instalas Longhorn a través de Rancher, debes copiar y pegar los siguientes parámetros en el YAML en la interfaz de usuario de Rancher (haz clic en *Editar como YAML* durante la instalación) para aplicar el valor a todos los componentes desplegados por el usuario.
++
+[subs="+attributes",yaml]
+----
+   global:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** También puedes especificar el selector de nodo para cada componente desplegado por el usuario y este anulará la configuración global.
++
+[subs="+attributes",yaml]
+----
+   longhornManager:
+     nodeSelector:
+       label-key1: "label-value1"
+   longhornDriver:
+     nodeSelector:
+       label-key1: "label-value1"
+   longhornUI:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** Si instalas Longhorn utilizando `kubectl` para aplicar https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml[el YAML de ampliación], necesitas modificar la sección del selector de nodo para Longhorn Manager, Longhorn UI y Longhorn Driver Deployer.
+ Luego aplica los archivos YAML.
+ ** Si instalas Longhorn usando Helm, puedes cambiar los valores de Helm para `global.nodeSelector`, `longhornManager.nodeSelector`, `longhornUI.nodeSelector`, `longhornDriver.nodeSelector` en el archivo `values.yaml` antes de instalar el chart.
+. Establece el selector de nodo para los componentes gestionados por el sistema (por ejemplo, Instance Manager, Backing Image Manager, Share Manager, CSI Driver y Engine Image).
++
+Sigue el xref:longhorn-system/customize-default-settings.adoc[Personalizar la configuración predeterminada] para establecer el selector de nodo cambiando el valor de la configuración predeterminada `system-managed-components-node-selector`.
++
+[NOTE]
+====
+Debido a la limitación de Rancher 2.5.x, si estás utilizando la interfaz de usuario de Rancher para instalar Longhorn, necesitas hacer clic en `Edit As Yaml` y añadir la configuración `systemManagedComponentsNodeSelector` a `defaultSettings`.
+
+Por ejemplo:
+
+[subs="+attributes",yaml]
+----
+defaultSettings:
+  systemManagedComponentsNodeSelector: "label-key1:label-value1"
+----
+====
+
+[discrete]
+=== Configuración del selector de nodo después de que Longhorn ha sido instalado
+
+____
+*Advertencia*:
+
+* Dado que todos los componentes de Longhorn serán reiniciados, el sistema Longhorn no estará disponible temporalmente.
+* Cuando todos los volúmenes de Longhorn estén desmontados, la configuración personalizada se aplicará inmediatamente a los componentes gestionados por el sistema (por ejemplo, Instance Manager, CSI Driver y Engine Image).
+* Cuando uno o más volúmenes de Longhorn siguen adjuntos, la configuración personalizada se aplica al Instance Manager solo cuando no hay motores ni instancias de réplica en funcionamiento. Es necesario reconfigurar la configuración después de desconectar los volúmenes restantes. Alternativamente, puedes esperar a la próxima sincronización de la configuración, que ocurrirá en una hora.
+* No operes el sistema Longhorn mientras se actualiza la configuración del selector de nodos y se reinician los componentes de Longhorn.
+____
+
+. Preparación
+ ** Para asegurarte de que tu configuración preferida se aplique inmediatamente, detén todas las cargas de trabajo y desconecta todos los volúmenes de Longhorn antes de aplicarla.
+. Establece el selector de nodo para los componentes desplegados por el usuario (por ejemplo, Longhorn Manager, Longhorn Driver y Longhorn UI).
+ ** Si instalas Longhorn a través de Rancher, debes copiar y pegar los siguientes parámetros en el YAML en la interfaz de usuario de Rancher (haz clic en *Edit as YAML* durante la actualización de versión) para aplicar el valor a todos los componentes desplegados por el usuario.
++
+[subs="+attributes",yaml]
+----
+   global:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** También puedes especificar el selector de nodo para cada componente desplegado por el usuario y anulará la configuración global.
++
+[subs="+attributes",yaml]
+----
+  longhornManager:
+    nodeSelector:
+      label-key1: "label-value1"
+  longhornDriver:
+    nodeSelector:
+      label-key1: "label-value1"
+  longhornUI:
+    nodeSelector:
+      label-key1: "label-value1"
+----
+
+ ** Si instalas Longhorn utilizando `kubectl` para aplicar https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml[el YAML de ampliación], necesitas modificar la sección del selector de nodo para Longhorn Manager, Longhorn UI y Longhorn Driver Deployer.
+Luego reaplica los archivos YAML.
+ ** Si instalas Longhorn usando Helm, puedes cambiar los valores de Helm para `global.nodeSelector`, `longhornManager.nodeSelector`, `longhornUI.nodeSelector`, `longhornDriverDeployer.nodeSelector` en el archivo `values.yaml`, y luego ejecutar `helm upgrade` para actualizar a la nueva versión del chart.
+. Establece el selector de nodo para los componentes gestionados por el sistema (por ejemplo, Instance Manager, Backing Image Manager, Share Manager, CSI Driver y Engine Image).
++
+La configuración del selector de nodo se puede encontrar en la interfaz de usuario de Longhorn bajo menu:Configuración[Selector de Nodo de Componentes Gestionados por el Sistema].
+
+. Limpieza
++
+Si estás cambiando el selector de nodo de tal manera que Longhorn no pueda ejecutarse en algunos nodos en los que Longhorn está actualmente en funcionamiento, esos nodos quedarán en estado `down` después de este proceso. Verifica que no quede ninguna réplica en esos nodos.
+Desactiva la programación para esos nodos y elimínalos en la interfaz de usuario de Longhorn.
+
+== Historial
+
+* https://github.com/longhorn/longhorn/issues/2199[Solicitud de característica original]

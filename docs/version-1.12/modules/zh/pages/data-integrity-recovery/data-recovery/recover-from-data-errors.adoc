@@ -1,0 +1,38 @@
+= 识别并恢复数据错误
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+如果您遇到以下错误消息：
+
+ 'fsck' found errors on device /dev/longhorn/pvc-6288f5ea-5eea-4524-a84f-afa14b85780d but could not correct them.
+
+那么您遇到了数据损坏的情况。本节描述了如何解决此问题。
+
+== 底层磁盘故障
+
+要确定错误是否是由于底层磁盘故障引起的，请按照xref:data-integrity-recovery/data-recovery/identify-corrupted-replicas.adoc[这些步骤]识别损坏的副本。
+
+如果磁盘上的大多数副本都故障了，这意味着该磁盘现在不可靠，应予以更换。
+
+如果磁盘上只有一个副本故障，这种情况称为`bit rot`。在这种情况下，删除该副本就足够了。
+
+== 从快照中恢复
+
+如果所有副本都是相同的，则需要使用快照恢复卷。
+
+原因可能是坏位是从卷附加的工作负载中写入的。
+
+要恢复到先前的快照：
+
+. 在维护模式下，将卷附加到任何节点。
+. 恢复到一个快照。您应该从最新的快照开始。
+. 将卷从维护模式中分离到任何节点。
+. 将卷重新附加到您可以访问的节点。
+. 从`/dev/longhorn/<volume_name>`挂载卷并检查卷内容。
+. 如果卷内容仍然不正确，请从第1步重复。
+. 一旦找到可用的快照，从那里创建一个新的快照，并正常使用该卷。
+
+== 从备份中恢复
+
+如果上述所有方法都失败了，请使用备份来xref:snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[恢复卷。]

@@ -1,0 +1,44 @@
+= Introduction
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+
+{longhorn-product-name-tm} est un système de stockage de blocs distribué léger, fiable et facile à utiliser pour Kubernetes.
+
+Avec {longhorn-product-name}, vous pouvez{nbsp}:
+
+* Utilisez les volumes {longhorn-product-name} comme stockage persistant pour les applications à état distribuées dans votre cluster Kubernetes.
+* Partitionnez votre stockage de blocs en volumes {longhorn-product-name} afin de pouvoir utiliser des volumes Kubernetes avec ou sans fournisseur de cloud
+* Répliquez le stockage de blocs sur plusieurs nœuds et centres de données pour augmenter la disponibilité
+* Stockez les données de sauvegarde dans un stockage externe tel que NFS ou AWS S3
+* Créez des volumes de récupération après sinistre inter-clusters afin que les données d'un cluster Kubernetes principal puissent être rapidement récupérées à partir de la sauvegarde dans un second cluster Kubernetes
+* Planifiez des instantanés récurrents d'un volume et planifiez des sauvegardes récurrentes vers un stockage secondaire compatible NFS ou S3
+* Restaurez des volumes à partir de la sauvegarde.
+* Mettez à niveau {longhorn-product-name} sans perturber les volumes persistants
+
+{longhorn-product-name} est livré avec une interface utilisateur autonome et peut être installé à l'aide de Helm, kubectl ou du catalogue d'applications Rancher.
+
+== Simplifier le stockage de blocs distribué avec des microservices
+
+Parce que les environnements cloud modernes nécessitent des dizaines de milliers à des millions de volumes de stockage de blocs distribués, certains contrôleurs de stockage sont devenus des systèmes distribués très complexes. En revanche, {longhorn-product-name} peut simplifier le système de stockage en partitionnant un grand contrôleur de stockage de blocs en plusieurs contrôleurs de stockage plus petits, tant que ces volumes peuvent toujours être construits à partir d'un pool commun de disques. En utilisant un contrôleur de stockage par volume, {longhorn-product-name} transforme chaque volume en un microservice. Le contrôleur s'appelle le Longhorn Engine.
+
+Le composant Longhorn Manager orchestre les Longhorn Engines, afin qu'ils fonctionnent ensemble de manière cohérente.
+
+== Utilisez le stockage persistant dans Kubernetes sans dépendre d'un fournisseur de cloud
+
+Les Pods peuvent référencer le stockage directement, mais cela n'est pas recommandé car cela ne permet pas au Pod ou au conteneur d'être portable. Au lieu de cela, les exigences de stockage des charges de travail doivent être définies dans les volumes persistants Kubernetes (PVs) et les demandes de volumes persistants (PVCs). Avec {longhorn-product-name}, vous pouvez spécifier la taille du volume, le nombre de répliques synchrones et d'autres configurations spécifiques au volume que vous souhaitez sur les hôtes qui fournissent la ressource de stockage pour le volume. Ensuite, vos ressources Kubernetes peuvent utiliser le PVC et le PV correspondant pour chaque {longhorn-product-name} volume, ou utiliser une {longhorn-product-name} classe de stockage pour créer automatiquement un PV pour une charge de travail.
+
+Les répliques sont provisionnées de manière fine sur les disques sous-jacents ou le stockage réseau.
+
+== Planifiez plusieurs répliques sur plusieurs hôtes de calcul ou de stockage.
+
+Pour augmenter la disponibilité, {longhorn-product-name} crée des répliques de chaque volume. Les répliques contiennent une chaîne d'instantanés du volume, chaque instantané stockant la modification par rapport à un instantané précédent. Chaque réplique d'un volume s'exécute également dans un conteneur, donc un volume avec trois répliques donne lieu à quatre conteneurs.
+
+Le nombre de répliques pour chaque volume est configurable dans {longhorn-product-name}, ainsi que les nœuds où les répliques seront planifiées. {longhorn-product-name} surveille la santé de chaque réplique et effectue des réparations, reconstruisant la réplique si nécessaire.
+
+== Attribuez plusieurs front-ends de stockage pour chaque volume.
+
+Les front-ends courants incluent un périphérique du kernel Linux (cartographié sous /dev/longhorn) et une cible iSCSI.
+
+== Spécifiez des horaires pour les opérations récurrentes d'instantanés et de sauvegarde.
+
+Spécifiez la fréquence de ces opérations (horaire, quotidien, hebdomadaire, mensuel et annuel), l'heure exacte à laquelle ces opérations sont effectuées (par exemple, 3h00 chaque dimanche), et combien d'instantanés récurrents et de jeux de sauvegarde sont conservés.

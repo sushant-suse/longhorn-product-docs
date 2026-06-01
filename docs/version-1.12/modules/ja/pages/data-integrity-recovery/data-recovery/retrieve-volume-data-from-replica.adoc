@@ -1,0 +1,136 @@
+= 単一のレプリカからボリュームデータを取得する
+:revdate: 2025-10-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhornボリュームの各レプリカには、ボリュームの完全なデータが含まれています。
+
+Kubernetesクラスター全体またはLonghornシステムがオフラインになった場合、ボリュームのデータを取得するために以下の手順を使用できます。
+
+. ボリュームを特定します。
++
+Longhornは、ノード上のディスクを使用してレプリカデータを保存します。
++
+デフォルトでは、データは設定されたディレクトリxref:longhorn-system/settings.adoc#_default_data_path[`Default Data Path`]に保存されます。
++
+ノードにさらにディスクを追加するには、Longhorn UIを使用するか、xref:nodes/default-disk-and-node-config.adoc[a node label and annotation]を使用します。
++
+これらのディスクのパスのコピーを保持するか、次のコマンドを使用してLonghornによって使用されたディスクを見つけることができます。次に例を示します。
++
+----
+ # find / -name longhorn-disk.cfg
+ /var/lib/longhorn/longhorn-disk.cfg
+----
++
+上記の結果は、パス`/var/lib/longhorn`がLonghornによってデータを保存するために使用されたことを示しています。
+
+. ステップ1で見つけたパスにデータが含まれているか確認します。
++
+データは`/replicas`ディレクトリに保存されます。例えば：
++
+----
+ # ls /var/lib/longhorn/replicas/
+ pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2
+ pvc-71a266e0-5db5-44e5-a2a3-e5471b007cc9-fe160a2c
+----
++
+ディレクトリの命名パターンは次のとおりです：
++
+----
+ <volume_name>-<8 bytes UUID>
+----
++
+したがって、上記の例では、ここに`pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc`と`pvc-71a266e0-5db5-44e5-a2a3-e5471b007cc9`の2つのボリュームが保存されています。
++
+ボリューム名はKubernetes PV名と一致します。
+
+. `lsof`コマンドを使用して、現在ボリュームを使用している人がいないことを確認します。例：
++
+----
+# lsof pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2/
+COMMAND    PID USER   FD   TYPE DEVICE SIZE/OFF   NODE NAME
+longhorn 14464 root  cwd    DIR    8,0     4096 541456 pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2
+----
++
+上記の結果は、データディレクトリがまだ使用中であることを示しているので、次のステップに進まないでください。使用されていない場合、`lsof`コマンドは空の結果を返すはずです。
+
+. ディレクトリ内で次のコマンドを使用して、復元したいボリュームのボリュームサイズを確認します：
++
+----
+# cat pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2/volume.meta
+ {"Size":1073741824,"Head":"volume-head-000.img","Dirty":true,"Rebuilding":false,"Parent":"","SectorSize":512,"BackingFileName":""}
+----
++
+上記の結果から、ボリュームサイズは`1073741824`（1 GiB）であることがわかります。サイズに注意してください。
+
+. ボリュームの内容をエクスポートするには、環境に応じた以下の手順に従ってください。
+* *Docker (RKE1)*
++
+Docker環境でボリュームの内容をエクスポートするには、次のコマンドを使用して単一レプリカのLonghornボリュームコンテナを作成します：
++
+----
+docker run -v /dev:/host/dev -v /proc:/host/proc -v <data_path>:/volume --privileged longhornio/longhorn-engine:v{patch-version} launch-simple-longhorn <volume_name> <volume_size>
+----
++
+例えば、上記の情報に基づいて、コマンドは次のようになります：
++
+----
+docker run -v /dev:/host/dev -v /proc:/host/proc -v /var/lib/longhorn/replicas/pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2:/volume --privileged longhornio/longhorn-engine:v{patch-version} launch-simple-longhorn pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc 1073741824
+----
+* *Containerd (RKE2/K3s)*
++
+RKE2またはK3s環境でボリュームの内容をエクスポートするには、静的ポッドマニフェストを作成する必要があります。このマニフェストはLonghorn Engineを起動し、ボリュームを公開します。
++
+`longhorn-recovery.yaml`という名前のファイルを`/var/lib/rancher/rke2/agent/pod-manifests/`ディレクトリに、次の内容で作成してください：
++
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: longhorn-recovery
+  namespace: longhorn-system
+spec:
+  nodeName: <node-where-the-replica-is-located>
+  hostPID: true
+  containers:
+  - name: engine
+    image: longhornio/longhorn-engine:v<current-version>
+    securityContext:
+      privileged: true
+    command: ["launch-simple-longhorn"]
+    args: ["<volume-name>", "<volume-size-in-bytes>"]
+    volumeMounts:
+    - name: dev
+      mountPath: /host/dev
+    - name: proc
+      mountPath: /host/proc
+    - name: data
+      mountPath: /volume
+  volumes:
+  - name: dev
+    hostPath:
+      path: /dev
+  - name: proc
+    hostPath:
+      path: /proc
+  - name: data
+    hostPath:
+      path: <host-path-to-replica>
+  restartPolicy: Never
+----
++
+マニフェスト内の次のプレースホルダーを置き換えてください：
++
+* `<current-version>`:使用している{longhorn-product-name}のバージョン。
+* `<volume-name>`:復元したいボリュームの名前。
+* `<host-path-to-replica>`:ステップ1で見つけたレプリカディレクトリへのパス。
+* `<volume-size-in-bytes>`:バイト単位のボリュームのサイズ。
++
+*結果:*これで、上記の例のように、`/dev/longhorn/<volume_name>``/dev/longhorn/pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc`上にこのデバイス用のブロックデバイスが作成されているはずです。これで、データにアクセスするためにブロックデバイスをマウントできます。
+
+____
+ボリュームの内容が誤って変更されないように、`mount -o ro`を使用してディレクトリを`readonly`としてマウントすることをお勧めします。
+____
+
+ボリュームの内容へのアクセスが完了したら、`docker stop`を使用してコンテナを停止してください。RKE2の場合、静的ポッドマニフェストファイル`sudo rm /var/lib/rancher/rke2/agent/pod-manifests/longhorn-recovery.yaml`を削除してリソースをクリーンアップします。

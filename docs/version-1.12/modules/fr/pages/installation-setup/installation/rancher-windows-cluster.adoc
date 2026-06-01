@@ -1,0 +1,53 @@
+= Cluster Windows Rancher
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Rancher peut provisionner un cluster Windows avec une combinaison de nœuds de travail Linux et de nœuds de travail Windows.
+Pour plus d'informations sur le cluster Windows Rancher, consultez la documentation officielle https://documentation.suse.com/cloudnative/rancher-manager/latest/en/cluster-deployment/custom-clusters/windows/use-windows-clusters.html[Rancher].
+
+Dans un cluster Windows Rancher, tous les nœuds de travail Linux sont{nbsp}:
+
+* Marqués par le taint `cattle.io/os=linux:NoSchedule`
+* Étiquetés avec `kubernetes.io/os:linux`
+
+[NOTE]
+====
+Après le déploiement de {longhorn-product-name}, vous pouvez lancer des charges de travail qui utilisent uniquement des volumes {longhorn-product-name} sur les nœuds Linux.
+====
+
+== Déployer {longhorn-product-name} avec le Chart Helm pris en charge
+
+Vous pouvez mettre à jour la valeur Helm `global.cattle.windowsCluster.enabled` pour permettre l'installation de {longhorn-product-name} sur le cluster Windows Rancher.
+
+Lorsque cette valeur est définie sur `true`, {longhorn-product-name} reconnaîtra le cluster Windows Rancher puis déploiera les composants {longhorn-product-name} avec le sélecteur de nœuds et les tolérances corrects afin que toutes les charges de travail {longhorn-product-name} puissent être lancées uniquement sur les nœuds Linux.
+
+Sur le marché Rancher, le paramètre peut être personnalisé dans `customize Helm options` avant l'installation{nbsp}: +
+`Edit Options` > `Other Settings` > `Rancher Windows Cluster`
+
+Aussi dans{nbsp}: +
+`Edit YAML`
+
+----
+global:
+  cattle:
+    systemDefaultRegistry: ""
+    windowsCluster:
+      # Enable this to allow Longhorn to run on the Rancher deployed Windows cluster
+      enabled: true
+----
+
+== Configurer les composants {longhorn-product-name} pour le déploiement existant de {longhorn-product-name}
+
+Vous pouvez configurer le {longhorn-product-name} existant lorsqu'il n'est pas déployé avec le Chart Helm pris en charge.
+
+* Puisque les composants {longhorn-product-name} ne peuvent fonctionner que sur des nœuds Linux, vous devez définir le sélecteur de nœuds `kubernetes.io/os:linux` pour {longhorn-product-name} afin de sélectionner les nœuds Linux. Pour plus d'informations, voir xref:nodes/node-selector.adoc[Sélecteur de Nœuds].
++
+* Puisque tous les nœuds de travail Linux dans un cluster Windows Rancher ont la taint `cattle.io/os=linux:NoSchedule`, vous devez définir la tolérance `cattle.io/os=linux:NoSchedule` pour permettre à {longhorn-product-name} de s'exécuter sur ces nœuds. Pour plus d'informations, voir xref:nodes/taints-tolerations.adoc[Tolérance de Taint].
+
+
+
+[NOTE]
+====
+{longhorn-product-name} peut être déployé efficacement sur des clusters comprenant à la fois des nœuds Windows et Linux, offrant une solution polyvalente pour des besoins d'infrastructure divers. Pour faciliter l'installation depuis Rancher, les utilisateurs doivent d'abord ajouter le registre OCI AppCo en tant que dépôt d'appli Rancher. Des instructions détaillées pour ce processus peuvent être trouvées dans https://docs.apps.rancher.io/howto-guides/integrate-with-rancher-manager/[Documentation Rancher{nbsp}: Intégrer avec Rancher Manager]
+====

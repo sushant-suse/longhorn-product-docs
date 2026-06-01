@@ -1,0 +1,20 @@
+= Sincronizar manualmente los volúmenes de copia de seguridad
+:revdate: 27-06-2025
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Después de crear una copia de seguridad, Longhorn crea un volumen de copia de seguridad que corresponde al volumen original (en el que se basa la copia de seguridad). Un volumen de copia de seguridad es un objeto en el almacén de copias de seguridad que contiene múltiples copias de seguridad del mismo volumen.
+
+Las versiones anteriores de Longhorn consultan y actualizan todos los volúmenes de copia de seguridad a intervalos fijos. Longhorn proporciona una forma de sincronizar manualmente los volúmenes de copia de seguridad con el objetivo de copia de seguridad.
+
+IMPORTANT: Debes configurar un xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[objetivo de copia de seguridad] y verificar que se haya creado un volumen de copia de seguridad antes de intentar sincronizar. Longhorn devuelve un error cuando no existen un objetivo de copia de seguridad y un volumen de copia de seguridad.
+
+* Sincronizar todos los volúmenes de copia de seguridad:
+ .. En la interfaz de Longhorn, ve a *Copia de seguridad*.
+ .. Haz clic en *Sincronizar Todos los Volúmenes de Copia de Seguridad*.
+* Sincronizar un solo volumen de copia de seguridad:
+ .. En la interfaz de Longhorn, ve a *Copia de seguridad*.
+ .. Selecciona un volumen de copia de seguridad.
+ .. Haz clic en *Sincronizar Volumen de Copia de Seguridad*.
+
+Para comprobar si la sincronización fue exitosa, haz clic en el nombre del volumen de copia de seguridad en la pantalla de *Copia de seguridad*.

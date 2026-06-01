@@ -1,0 +1,136 @@
+= 从单个副本中检索卷数据
+:revdate: 2025-10-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+每个 Longhorn 卷的副本包含该卷的完整数据。
+
+如果整个 Kubernetes 集群或 Longhorn 系统离线，可以使用以下步骤检索卷的数据。
+
+. 识别卷。
++
+Longhorn 使用节点上的磁盘来存储副本数据。
++
+默认情况下，数据存储在设置指定的目录 xref:longhorn-system/settings.adoc#_default_data_path[`Default Data Path`] 中。
++
+可以通过使用 Longhorn UI 或使用 xref:nodes/default-disk-and-node-config.adoc[节点标签和注释] 来向节点添加更多磁盘。
++
+您可以保留这些磁盘路径的副本，或使用以下命令查找已被 Longhorn 使用的磁盘。例如：
++
+----
+ # find / -name longhorn-disk.cfg
+ /var/lib/longhorn/longhorn-disk.cfg
+----
++
+上述结果显示路径 `/var/lib/longhorn` 已被 Longhorn 用于存储数据。
+
+. 检查步骤 1 中找到的路径，以查看是否包含数据。
++
+数据将存储在 `/replicas` 目录中，例如：
++
+----
+ # ls /var/lib/longhorn/replicas/
+ pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2
+ pvc-71a266e0-5db5-44e5-a2a3-e5471b007cc9-fe160a2c
+----
++
+目录命名模式为：
++
+----
+ <volume_name>-<8 bytes UUID>
+----
++
+因此在上述示例中，这里存储了两个卷，分别是 `pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc` 和 `pvc-71a266e0-5db5-44e5-a2a3-e5471b007cc9`。
++
+卷名称与 Kubernetes PV 名称匹配。
+
+. 使用 `lsof` 命令确保当前没有人正在使用该卷，例如：
++
+----
+# lsof pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2/
+COMMAND    PID USER   FD   TYPE DEVICE SIZE/OFF   NODE NAME
+longhorn 14464 root  cwd    DIR    8,0     4096 541456 pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2
+----
++
+上述结果显示数据目录仍在使用中，因此请不要继续下一步。如果没有被使用，`lsof` 命令应返回空结果。
+
+. 在该目录中，使用以下命令检查您要恢复的卷的大小：
++
+----
+# cat pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2/volume.meta
+ {"Size":1073741824,"Head":"volume-head-000.img","Dirty":true,"Rebuilding":false,"Parent":"","SectorSize":512,"BackingFileName":""}
+----
++
+从上述结果中，您可以看到卷大小为 `1073741824` (1 GiB)。注意大小。
+
+. 要导出卷的内容，请按照以下与您的环境相对应的说明进行操作。
+* *Docker (RKE1)*
++
+要在 Docker 环境中导出卷的内容，请使用以下命令创建一个单副本的 Longhorn 卷容器：
++
+----
+docker run -v /dev:/host/dev -v /proc:/host/proc -v <data_path>:/volume --privileged longhornio/longhorn-engine:v{patch-version} launch-simple-longhorn <volume_name> <volume_size>
+----
++
+例如，根据上述信息，命令应为：
++
+----
+docker run -v /dev:/host/dev -v /proc:/host/proc -v /var/lib/longhorn/replicas/pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2:/volume --privileged longhornio/longhorn-engine:v{patch-version} launch-simple-longhorn pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc 1073741824
+----
+* *Containerd (RKE2/K3s)*
++
+要在 RKE2 或 K3s 环境中导出卷的内容，您需要创建一个静态 Pod 清单。该清单启动 Longhorn Engine 并暴露卷。
++
+在 `/var/lib/rancher/rke2/agent/pod-manifests/` 目录中创建一个文件名为 `longhorn-recovery.yaml` 的文件，内容如下：
++
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: longhorn-recovery
+  namespace: longhorn-system
+spec:
+  nodeName: <node-where-the-replica-is-located>
+  hostPID: true
+  containers:
+  - name: engine
+    image: longhornio/longhorn-engine:v<current-version>
+    securityContext:
+      privileged: true
+    command: ["launch-simple-longhorn"]
+    args: ["<volume-name>", "<volume-size-in-bytes>"]
+    volumeMounts:
+    - name: dev
+      mountPath: /host/dev
+    - name: proc
+      mountPath: /host/proc
+    - name: data
+      mountPath: /volume
+  volumes:
+  - name: dev
+    hostPath:
+      path: /dev
+  - name: proc
+    hostPath:
+      path: /proc
+  - name: data
+    hostPath:
+      path: <host-path-to-replica>
+  restartPolicy: Never
+----
++
+在清单中替换以下占位符：
++
+* `<current-version>`：您正在使用的 {longhorn-product-name} 的版本。
+* `<volume-name>`：您想要恢复的卷的名称。
+* `<host-path-to-replica>`：您在步骤 1 中找到的副本目录的路径。
+* `<volume-size-in-bytes>`：卷的大小（以字节为单位）。
++
+*结果：*现在，您应该在 `/dev/longhorn/<volume_name>` 上为该设备创建了一个块设备，例如上述示例中的 `/dev/longhorn/pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc`。现在，您可以挂载块设备以访问数据。
+
+____
+为了避免意外更改卷内容，建议使用 `mount -o ro` 将目录挂载为 `readonly`。
+____
+
+在您完成访问卷内容后，使用 `docker stop` 来停止容器。对于 RKE2，通过删除静态 Pod 清单文件 `sudo rm /var/lib/rancher/rke2/agent/pod-manifests/longhorn-recovery.yaml` 来清理资源。

@@ -1,0 +1,317 @@
+= Reconstruction de répliques
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Lorsque {longhorn-product-name} détecte une réplique échouée ou supprimée, il initie automatiquement un processus de reconstruction. Ce document décrit le flux de travail de reconstruction de répliques pour le moteur de données v1, y compris les méthodes de reconstruction *complètes*, *delta* et *rapides*. Il explique également les limitations associées à chaque méthode.
+
+*La reconstruction ne commencera pas dans les scénarios suivants*{nbsp}:
+
+* Le volume est en cours de migration vers un autre nœud.
+* Le volume est un ancien volume de restauration/DR.
+* Le volume s'agrandit.
+
+== Flux de travail de reconstruction de répliques
+
+La reconstruction de répliques peut se produire dans les scénarios suivants pour le moteur de données v1{nbsp}:
+
+* Un nœud est redémarré, vidé ou expulsé.
+* Une réplique devient non saine ou est supprimée.
+
+image::diagrams/architecture/replica-rebuilding-flow.png[Image]
+
+. Marquez la réplique cible avec le mode `WO` (écriture seule).
+. Créez un nouvel instantané pour servir de point de référence pour l'intégrité des données du volume.
+. Générez la liste des fichiers de synchronisation pour la tête du volume et les fichiers d'instantané.
+
+=== Pour le moteur de données V1
+
+[start=4]
+
+. Démarrez un serveur récepteur sur la réplique cible pour chaque instantané.
+. Instruisez la réplique source pour commencer la synchronisation des données.
+
+.. Pour chaque instantané{nbsp}:
+
+* Vérifiez si le fichier d'instantané existe dans le répertoire de données de la réplique cible.
+** Si _non_, transférez toutes les données de l'instantané de la réplique source vers la réplique cible.
+Reportez-vous à la page <<_full_replica_rebuilding>>.
+** Si _oui_, vérifiez si les fichiers de somme de contrôle de l'instantané existent, et si l'heure de modification et les sommes de contrôle sont identiques entre les répliques cible et source.
+*** Si _oui_, {longhorn-product-name} saute le transfert des données de l'instantané. Cette optimisation réduit l'utilisation de l'UC, les E/S disque, les E/S réseau et le temps total de reconstruction. Reportez-vous à la page <<_fast_replica_rebuilding>>.
+*** Si _non_, {longhorn-product-name} calcule et compare les sommes de contrôle au niveau des blocs en utilisant l'algorithme SHA-512. Si des incohérences sont trouvées, seuls les blocs différents sont synchronisés.
+Reportez-vous à la page <<_delta_replica_rebuilding>>.
+
+=== Pour le moteur de données V2
+
+[start=4]
+
+. Exposez les répliques source et cible et préparez une copie superficielle en utilisant le moteur SPDK.
+. Pour chaque instantané{nbsp}:
+
+* Vérifiez si l'horodatage de l'instantané, la taille réelle et la somme de contrôle correspondent entre la source et la cible.
+** Si _oui_, {longhorn-product-name} saute le transfert des données de cet instantané.
+** Si _non_, vérifiez si les instantanés source et cible contiennent des sommes de contrôle par plage.
+*** Si _oui_, récupérez et comparez les sommes de contrôle par plage. Si des incohérences existent, seules les plages non concordantes sont copiées.
+Reportez-vous à la page <<_fast_replica_rebuilding>>.
+*** Si _non_, supprimez l'instantané cible existant. Ensuite, copiez l'intégralité de l'instantané de la réplique source vers la réplique cible.
+Reportez-vous à la page <<_full_replica_rebuilding>>.
+
+=== Reconstruction complète de répliques
+
+Si la réplique est irrécupérable ou n'a pas de données existantes, {longhorn-product-name} synchronise toutes les données d'une réplique saine. Elle reconstruit la réplique en transférant l'intégralité de la chaîne d'instantanés.
+
+La reconstruction complète de la réplique consomme une bande passante réseau significative et entraîne de lourdes opérations d'écriture sur disque sur le nœud cible. Cependant, cela est nécessaire lorsque la réplique cible n'a pas de données utilisables.
+
+=== Reconstruction Delta de répliques
+
+La reconstruction Delta de répliques est réservée au moteur de données v1. Elle commence avec une réplique échouée réutilisable et vérifie l'intégrité des données pour tous les instantanés, bloc par bloc.
+
+* Ceci est disponible uniquement pour la réutilisation de répliques échouées, et il existe un fichier d'instantané (avec le même nom) dans le répertoire de données de la réplique échouée.
+* Lorsqu'un instantané n'a pas de somme de contrôle, {longhorn-product-name} effectue la reconstruction de réplique delta pour cet instantané à la place.
+
+* *Avantages*{nbsp}:
+** Réduire la consommation de bande passante réseau.
+* *Inconvénients*{nbsp}:
+** Augmentation de la surcharge de l'UC car {longhorn-product-name} va calculer la somme de contrôle des données de l'instantané bloc par bloc pour vérifier l'intégrité des données.
+** Le temps de reconstruction est influencé par les performances de l'UC.
+
+=== Reconstruction rapide de réplique
+
+La reconstruction rapide de réplique est activée lorsque les conditions suivantes sont remplies{nbsp}:
+
+* Le paramètre de reconstruction rapide de réplique est activé{nbsp}:
++
+--
+`fast-replica-rebuild-enabled: true`
+--
+
+* Des fichiers de somme de contrôle d'instantané sont créés (les sommes de contrôle sont pré-calculées) en utilisant l'une des méthodes suivantes{nbsp}:
++
+--
+* `snapshot-data-integrity` est défini sur `enabled`{nbsp}:
+  Un travail planifié calcule les sommes de contrôle pour tous les instantanés à un intervalle configuré (par défaut{nbsp}: 7 jours).
+* `snapshot-data-integrity-immediate-check-after-snapshot-creation` est défini sur `true`{nbsp}:
+  La somme de contrôle de l'instantané est calculée immédiatement après la création de l'instantané.
+--
+
+[NOTE]
+====
+Ces calculs de somme de contrôle consomment des ressources de stockage et de calcul.
+Le temps de calcul est imprévisible et peut avoir un impact négatif sur les performances de stockage.
+Pour plus d'informations, voir xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[Intégrité des données de l'instantané].
+====
+
+* *Avantages*{nbsp}:
+** Minimise la consommation de bande passante réseau.
+** Minimise les E/S disque.
+* *Inconvénients*{nbsp}:
+** Le calcul des sommes de contrôle des instantanés peut prendre du temps.
+** Le moment du calcul de la somme de contrôle est imprévisible. Cela peut être déclenché même sous une forte charge d'E/S.
+
+Pour plus d'informations, voir xref:high-availability/fast-replica-rebuilding.adoc[Reconstruction rapide des répliques].
+
+== Facteurs qui affectent les performances de reconstruction
+
+* *Tête de volume importante*
+** *Pourquoi c'est important*{nbsp}:
+La tête de volume est un fichier spécial qui n'a jamais de somme de contrôle précalculée.
+Si une réplique échoue, {longhorn-product-name} doit toujours synchroniser l'ensemble de la tête de volume.
+Une tête de volume plus grande augmente le temps de reconstruction.
+** *Comment prévenir*{nbsp}:
+Prenez des instantanés régulièrement pour réduire la taille de la tête de volume.
+Planifiez des instantanés avant une maintenance prévue pour minimiser le temps de reconstruction.
+
+* *Aucun instantané n'existe*
+** *Pourquoi c'est important*{nbsp}:
+Sans instantanés, {longhorn-product-name} ne peut pas sauter le transfert de données ni réutiliser les données existantes.
+Si un instantané de tête de volume est créé mais que sa somme de contrôle n'est pas prête, {longhorn-product-name} doit effectuer une reconstruction delta.
+Cela augmente l'utilisation de l'UC en raison des comparaisons de sommes de contrôle effectuées bloc par bloc.
+** *Comment prévenir*{nbsp}:
++
+--
+. Activez `snapshot-data-integrity-immediate-check-after-snapshot-creation` ou `snapshot-data-integrity` pour précalculer les sommes de contrôle.
+   *Compromis :* Augmente l'utilisation de l'UC, des E/S disque et du stockage pendant le calcul.
+. Utilisez un travail récurrent pour créer des instantanés régulièrement.
+--
+
+* *Instantané purgé*
+** *Pourquoi c'est important*{nbsp}:
+Lorsque la purge des instantanés commence, les instantanés générés par le système sont fusionnés dans le prochain instantané.
+Cela invalide la somme de contrôle du prochain instantané.
+** *Comment prévenir*{nbsp}:
++
+--
+. Activez `snapshot-data-integrity-immediate-check-after-snapshot-creation` pour garantir que les sommes de contrôle sont calculées après la purge.
+. Créez proactivement un instantané et laissez du temps pour la génération de la somme de contrôle avant d'effectuer des mises à niveau ou des reconstructions.
+--
+
+* *Reconstructions simultanées*
+** *Pourquoi c'est important*{nbsp}:
+Exécuter plusieurs reconstructions sur le même nœud peut surutiliser l'UC, l'entrée/sortie disque et l'entrée/sortie réseau, impactant les performances.
+** *Comment prévenir*{nbsp}:
+Ajustez le nombre de reconstructions simultanées en utilisant le paramètre `concurrent-replica-rebuild-per-node-limit`.
+
+* *Échecs de plusieurs répliques*
+** *Pourquoi c'est important*{nbsp}:
+Augmente le temps et la complexité de reconstruction.
+Si `auto-cleanup-system-generated-snapshot` est `true` et qu'aucun instantané créé par l'utilisateur n'existe, deux répliques échouées peuvent déclencher au moins un transfert de données complet.
++
+Pour plus de détails, voir https://github.com/longhorn/longhorn/issues/9335[Évitez "le transfert de données complet" lors de la reconstruction de deux répliques échouées].
++
+** *Comment prévenir*{nbsp}:
++
+--
+. Désactivez `auto-cleanup-system-generated-snapshot` avant d'effectuer la maintenance.
+. Créez des instantanés créés par l'utilisateur de tous les volumes avant de commencer la maintenance.
+. Utilisez un travail récurrent pour prendre des instantanés régulièrement.
+--
+
+* *Reconstruction de répliques à l'échelle*
+** *Pourquoi c'est important*{nbsp}:
++
+La reconstruction de répliques à l'échelle permet à une réplique de reconstruction de récupérer des instantanés de plusieurs répliques saines simultanément, améliorant ainsi considérablement les performances de reconstruction pour certains modèles de charge de travail.
+** *Comment activer*{nbsp}:
++
+Définissez `replica-rebuild-concurrent-sync-limit` > 1 pour permettre à plusieurs répliques saines de démarrer des serveurs de synchronisation. La réplique en cours de reconstruction récupère alors différents instantanés de différentes répliques sources simultanément. Cette fonctionnalité est particulièrement bénéfique pour les volumes contenant de petits morceaux de données dispersés ainsi que des trous dans leurs instantanés.
++
+Pour plus de détails, voir xref:high-availability/scale-replica-rebuilding.adoc[Reconstruction de répliques à l'échelle].
+
+== Cas d'utilisation
+
+=== Redémarrage de nœud pendant la mise à niveau
+
+Lorsqu'un nœud de travail avec des répliques est redémarré dans le cadre d'une mise à niveau planifiée{nbsp}:
+
+. La réplique sur ce nœud devient temporairement indisponible et échoue, mais les opérations de lecture et d'écriture continuent.
+. Si le nœud se rétablit dans le délai de `replica-replenishment-wait-interval`, {longhorn-product-name} initie une reconstruction en utilisant la réplique échouée réutilisable.
+
+Pendant le processus de reconstruction{nbsp}:
+
+. {longhorn-product-name} sélectionne la dernière réplique échouée réutilisable si plusieurs répliques échouées réutilisables sont disponibles.
+. En fonction du scénario de reconstruction{nbsp}:
++
+--
+* *Si la reconstruction rapide de répliques est activée et que toutes les sommes de contrôle des instantanés existent*{nbsp}: {longhorn-product-name} déclenche <<_fast_replica_rebuilding>>.
+  Seuls les blocs modifiés dans l'en-tête du volume sont synchronisés, évitant ainsi à la fois la reconstruction complète et la reconstruction delta.
+
+* *Si la reconstruction rapide de répliques est activée mais que certaines sommes de contrôle des instantanés sont manquantes*{nbsp}: {longhorn-product-name} déclenche <<_delta_replica_rebuilding>>.
+  Les blocs modifiés des instantanés sans sommes de contrôle sont synchronisés, évitant la reconstruction complète.
+
+* *Si la reconstruction rapide de répliques est désactivée*{nbsp}: {longhorn-product-name} effectue une reconstruction delta en synchronisant les blocs modifiés de *tous* les instantanés, évitant la reconstruction complète.
+--
+
+=== Drainage de nœud à court terme
+
+Si un nœud de travail est drainé pour une maintenance à court terme puis rapidement restauré{nbsp}:
+
+. La réplique sur le nœud drainé est immédiatement marquée comme échouée.
+. Si le nœud est déverrouillé avant l'expiration de `replica-replenishment-wait-interval`, {longhorn-product-name} tente de réutiliser la réplique échouée.
+. Le comportement de reconstruction suit la même logique que celle décrite dans le cas d'utilisation précédent.
+
+== Paramètres pertinents
+
+[cols="1,1,4", options="header"]
+|===
+|Paramètre |Par défaut |Description
+
+|`fast-replica-rebuild-enabled`
+|`true`
+|Active la reconstruction rapide des répliques. S'appuie sur des sommes de contrôle d'instantané pré-calculées.
+
+|xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[intégrité-des-données-d'instantané]
+|`fast-check`
+|Hache les fichiers de disque d'instantané uniquement s'ils ne sont pas hachés ou si leur date de modification a changé.
+
+|`snapshot-data-integrity-cronjob`
+|`0 0 */7 * *`
+|Planification cron pour calculer les sommes de contrôle pour tous les instantanés. Par défaut{nbsp}: tous les 7 jours.
+
+|`snapshot-data-integrity-immediate-check-after-snapshot-creation`
+|`false`
+|Si activé, calcule les sommes de contrôle immédiatement après la création de l'instantané.
+
+|`replica-replenishment-wait-interval`
+|`600`
+|Temps en secondes à attendre avant de créer une nouvelle réplique. Permet la réutilisation des répliques échouées.
+
+|`concurrent-replica-rebuild-per-node-limit`
+|`5`
+|Limite le nombre de reconstructions de répliques simultanées par nœud.
+
+| `replica-rebuild-concurrent-sync-limit`
+| `1` 
+| Nombre maximum de répliques saines pouvant se synchroniser avec une réplique en reconstruction simultanément. Plage : 1-5. Définir à 1 désactive la reconstruction à l'échelle. 
+
+|`offline-replica-rebuilding`
+|`false`
+|Détermine si les répliques dégradées sont reconstruites pendant que le volume est détaché.
+|===
+
+=== Analyse des compromis des paramètres
+
+* xref:longhorn-system/settings.adoc#_fast_replica_rebuild_enabled[reconstruction-rapide-des-répliques-activée]
++
+--
+* `enabled` :
+  Ignore le transfert de données des instantanés si les sommes de contrôle sont à jour. Fournit des reconstructions rapides mais ne revalide pas les données.
+
+* `disabled` :
+  Effectue une reconstruction delta en utilisant des comparaisons de blocs. Plus lent, mais garantit l'intégrité des données de l'instantané.
+--
+
+* xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[intégrité-des-données-instantané]
++
+--
+* `enabled` :
+  Par défaut, calcule les sommes de contrôle des instantanés tous les 7 jours. Augmente l'utilisation de l'UC, des E/S disque et des ressources.
+--
+
+* xref:longhorn-system/settings.adoc#_snapshot_data_integrity_check_cronjob[snapshot-data-integrity-cronjob]
++
+--
+* Par défaut{nbsp}: `0 0 */7 * *`
++
+Si `snapshot-data-integrity` est activé, cela définit quand les sommes de contrôle des instantanés sont recalculées. Les instantanés créés entre les exécutions de cron peuvent manquer de sommes de contrôle.
+--
+
+* xref:longhorn-system/settings.adoc#_immediate_snapshot_data_integrity_check_after_creating_a_snapshot[vérification-d'intégrité-des-données-d'instantané-immédiate-après-création]
++
+--
+* `true` :
+  Calcule immédiatement les sommes de contrôle des instantanés après leur création. Augmente l'utilisation de l'UC et des E/S disque. Le temps d'achèvement est imprévisible.
+
+* `false` :
+  Les instantanés peuvent ne pas avoir de sommes de contrôle jusqu'à la prochaine exécution de cron. Une reconstruction delta sera nécessaire si des sommes de contrôle sont manquantes.
+--
+
+* xref:longhorn-system/settings.adoc#_replica_replenishment_wait_interval[intervalle-d'attente-de-réapprovisionnement-des-répliques]
++
+--
+* Par défaut{nbsp}: `600` secondes
+
+** *Intervalle court*{nbsp}:
+  Peut ignorer la réutilisation des répliques échouées et déclencher des reconstructions complètes.
+
+** *Intervalle long*:
+  Attend plus longtemps pour réutiliser les répliques échouées, mais cela peut retarder la récupération.
+--
+
+* xref:longhorn-system/settings.adoc#_concurrent_replica_rebuild_per_node_limit[concurrent-replica-rebuild-per-node-limit]
++
+--
+* Par défaut{nbsp}: `5`
+
+** *Limite élevée*:
+  Peut surcharger les ressources du nœud, ralentissant les reconstructions et les charges de travail actives.
+
+** *Limite faible*:
+  Réduit la contention des ressources mais augmente le temps de reconstruction en raison de la mise en file d'attente.
+--
+
+* xref:longhorn-system/settings.adoc#_replica_rebuild_concurrent_sync_limit[replica-rebuild-concurrent-sync-limit]
++
+--
+** Par défaut{nbsp}: `1`
+*** Lorsqu'il est réglé sur `1`, la reconstruction à l'échelle est désactivée et seule la reconstruction traditionnelle à source unique est utilisée avec une consommation minimale de ressources. Lorsqu'il est réglé sur des valeurs de 2 à 5, cela active la reconstruction à l'échelle avec plusieurs répliques sources, offrant une amélioration significative des performances pour les volumes. Cependant, des valeurs plus élevées augmentent la consommation de CPU sur les répliques source et destination.
+*** Ce paramètre peut être remplacé par `volume.spec.RebuildConcurrentSyncLimit` sur une base par volume.
+--

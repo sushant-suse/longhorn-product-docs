@@ -1,0 +1,65 @@
+= バックアップから定期ジョブを復元する
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhornは、ボリュームのバックアップと復元に加えて、定期ジョブのバックアップと復元をサポートしています。バックアップボリュームを復元する際に、ユーザーが`Restore Volume Recurring Jobs`設定を有効にすると、ボリュームの元の定期ジョブがそれに応じて復元されます。
+
+設定`Restore Volume Recurring Jobs`の詳細については、xref:longhorn-system/settings.adoc#_restore_volume_recurring_jobs[設定]セクションを参照してください。
+
+ボリュームバックアップの仕組みについての詳細は、xref:introduction/concepts.adoc#_3_backups_and_secondary_storage[概念]セクションを参照してください。
+
+定期ジョブを持つボリュームを復元する際、Longhornはそれらを一緒に復元します。ボリューム名がすでに存在する場合、ボリュームと定期ジョブは復元されません。 定期ジョブ名がすでに存在するが、仕様が異なる場合、復元される定期ジョブは衝突を避けるためにランダムに生成された名前で作成されます。そうでない場合、Longhornはバックアップボリュームの復元される定期ジョブと同じであれば、既存の定期ジョブを再利用しようとします。
+
+デフォルトでは、Longhornはボリュームの定期ジョブを自動的に復元しません。ユーザーはLonghorn UIまたはkubectlを使用して自動復元を有効にできます。
+
+== Longhorn UIを介して
+
+. *設定*メニューに移動し、*一般*をクリックします。
+. `Restore Volume Recurring Jobs`を有効にします。
+. *バックアップ*メニューに移動します。
+. 復元したいバックアップを選択し、*最新のバックアップを復元する*をクリックします。
+. *Name*フィールドで、復元したいボリュームを選択します。
+. *OK*をクリックします。
+
+== コマンドラインを介して
+
+[subs="+attributes",bash]
+----
+# kubectl -n longhorn-system edit settings.longhorn.io restore-volume-recurring-jobs
+----
+
+次に、値を`true`に設定します。
+
+[subs="+attributes",text]
+----
+# kubectl -n longhorn-system get setting restore-volume-recurring-jobs
+NAME                            VALUE   AGE
+restore-volume-recurring-jobs   false   28m
+----
+
+=== ボリューム特有の設定の例
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  labels:
+    longhornvolume: vol-01
+  name: vol-01
+  namespace: longhorn-system
+spec:
+  restoreVolumeRecurringJob: ignored
+  engineImage: longhornio/longhorn-engine:v1.4.0
+  fromBackup: "s3://backupbucket@us-east-1?volume=minio-vol01&backup=backup-eeb2782d5b2f42bb"
+  frontend: blockdev
+----
+
+ユーザーはボリューム仕様プロパティ `spec.restoreVolumeRecurringJob` によって設定 `restore-volume-recurring-jobs` を上書きできます。
+
+* *無視*。Longhornは、グローバル設定から継承するよう指示するデフォルトオプションです。
+* *有効*。このオプションは、Longhornにバックアップターゲットからボリュームの定期ジョブを強制的に復元するよう指示します。
+* *無効*。このオプションは、Longhornにボリュームの定期ジョブを復元しないよう指示します。
+
+*結果:*復元されたボリュームの定期ジョブは、*RecurringJob* ページで利用可能です。

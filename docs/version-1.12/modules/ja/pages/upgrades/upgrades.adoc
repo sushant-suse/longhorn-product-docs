@@ -1,0 +1,102 @@
+= アップグレード
+:revdate: 2026-03-06
+:page-revdate: {revdate}
+:doctype: book
+:current-version: {page-component-version}
+
+== 廃止と非互換性
+
+v{patch-version} では廃止または非互換の変更は導入されていません。
+
+== アップグレードパスの強制とダウングレードの防止
+
+{longhorn-product-name} v1.5.0 以降、アップグレードすることは1つのマイナーバージョンから次の連続するマイナーバージョンへのみサポートされます。例えば、1.5.x から 1.6.x へアップグレードすることは可能ですが、バージョンをスキップすること（1.4.x から 1.6.x へアップグレードするなど）はサポートされていません。サポートされていないバージョンからアップグレードする、またはマイナーバージョンをスキップしようとすると、操作は自動的に失敗します。ただし、サービスのダウンタイムや中断なしで、以前にインストールされたバージョンに戻すことができます。
+
+さらに、{longhorn-product-name} ではダウングレードはサポートされていません。この制限は、予期しないシステムの動作や機能の非互換性、廃止または削除に関連する問題を防ぐのに役立ちます。
+
+[CAUTION]
+====
+* v{patch-version} へアップグレードすることに成功した場合、以前にインストールされたバージョンに戻すことは許可されません。
+* ダウングレードはサポートされておらず、したがって推奨されません。
+====
+
+以下の表は、サポートされているアップグレードパスを示しています。
+
+[cols="^,^,^,^"]
+|===
+| 現在のバージョン | ターゲットバージョン | サポートされます | 例
+
+| x.y.*
+| x.(y+1).*
+| ✓
+| v1.4.2 から v1.5.1 まで
+
+| x.y.*
+| x.y.(*+n)
+| ✓
+| v1.5.0 から v1.5.1 まで
+
+| x.y[^lastMinorVersion].*
+| (x+1).y.*
+| ✓
+| v1.30.0 から v2.0.0 まで
+
+| x.(y-1).*
+| x.(y+1).*
+| X
+| v1.3.3 から v1.5.1 まで
+
+| x.(y-2).*
+| x.(y+1).*
+| X
+| v1.2.6 から v1.5.1
+|===
+
+== アップグレード前の手動チェック
+
+自動チェックは一部のアップグレードパスでのみ実施され、アップグレード前のチェックが一部のシナリオをカバーしない場合があります。これらのシナリオには、kubectlまたはUIを使用した手動チェックを推奨します。問題が解決されるまで、緩和策を講じるか、アップグレードするのを延期することができます。
+
+* すべてのV2データエンジンボリュームが切り離され、レプリカが停止していることを確認してください。V2データエンジンは現在、ライブアップグレードをサポートしていません。
+* ボリュームが「障害」状態のときはアップグレードするのを避けてください。すべてのレプリカが使用不可能と見なされる場合、それらは削除され、データが永久に失われる可能性があります（使用可能なバックアップが存在しない場合）。
+* 失敗したBackingImageが存在する場合は、アップグレードを避けてください。詳細については、xref:volumes/backing-images/backing-images.adoc[Backing Image]を参照してください。
+* アップグレードを実行する前に、Longhornシステムバックアップを作成してください。手順については、xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn System Backup]を参照してください。システムバックアップは、ボリュームやバックアップイメージなどのすべての重要なリソースがバックアップされ、問題が発生した場合に復元できることを保証します。
+
+== アップグレード中 {longhorn-product-name}
+
+アップグレードプロセスには通常、2つのステップがあります：最初にLonghorn Managerを最新バージョンにアップグレードし、その後、最新のLonghorn Managerを使用してLonghorn Engineを手動で最新バージョンにアップグレードします。
+
+=== 1.Longhorn Managerをアップグレード
+
+* v{current-version}.xからアップグレードするには、xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Longhorn Managerをアップグレードしてください]。
+
+=== 2.Longhorn Engineを手動でアップグレードする
+
+Longhorn Managerがアップグレードされた後、Longhorn Engineもxref:upgrades/longhorn-components/manually-upgrade-engine.adoc[{longhorn-product-name} UI]を使用してアップグレードする必要があります。
+
+=== 3.Longhorn Engineを自動的にアップグレードする
+
+{longhorn-product-name} v1.1.1以降、エンジンをxref:upgrades/longhorn-components/auto-upgrade-engine.adoc[自動的にアップグレードする]ためのオプションを提供しています。
+
+=== 4.定期的なジョブを自動的に移行する
+
+新しいラベル駆動の`Recurring Job`機能の導入に伴い、{longhorn-product-name}はVolume Specの`RecurringJobs`フィールドを削除し、StorageClassの`RecurringJobs`を廃止する予定です。
+
+アップグレード中、{longhorn-product-name}は自動的に実行します。
+
+* Volume Specの`recurringJobs`フィールドから新しい定期ジョブCRを作成し、それらをボリュームラベルに変換します。
+* StorageClassの`recurringJobs`から新しい定期ジョブCRを作成し、それらを新しい`recurringJobSelector`パラメータに変換します。
+
+新しい`Recurring Job`機能に関する詳細情報は、xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[定期的なスナップショットとバックアップ]をご覧ください。
+
+== 詳細情報
+
+アップグレード後に https://longhorn.io/kb/troubleshooting-some-old-instance-manager-pods-are-still-running-after-upgrade[いくつかの古いインスタンスマネージャーポッドがまだ実行中です]の詳細については、アップグレード中のインスタンスマネージャーポッドのクリーンアップ戦略をご覧ください。
+
+== お問い合わせ
+
+問題が発生した場合は、 https://github.com/longhorn/longhorn/issues[こちら]に報告し、バックアップyamlファイルとマネージャーログを含めてください。
+
+[IMPORTANT]
+====
+{longhorn-product-name}は、新しいメジャーバージョンの前の最後のマイナーバージョンのパッチバージョンからのアップグレードのみを許可します。例えば、v1.8.0がv2.0の前の最後のマイナーバージョンである場合、v1.8.0の任意のパッチバージョンからv2.0の任意のパッチバージョンにアップグレードできます。
+====

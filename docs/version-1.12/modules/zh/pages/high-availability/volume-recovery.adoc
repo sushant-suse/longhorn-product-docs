@@ -1,0 +1,39 @@
+= 卷恢复
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn 提供两种机制，以在各种情况下维护卷的功能。
+
+== 自动工作负载 Pod 删除
+
+此恢复机制通过设置 xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[_当卷意外分离时自动删除工作负载 Pod_] 启用。
+
+当发生以下情况之一时，Longhorn 会自动尝试删除由控制器管理的工作负载 Pod（例如，Deployment、StatefulSet 或 DaemonSet）。删除后，控制器会重新启动工作负载 Pod，Kubernetes 处理卷的重新附加和重新挂载。
+
+. 卷意外分离，可能是由于 https://github.com/longhorn/longhorn/issues/703[Kubernetes 升级]、 https://github.com/longhorn/longhorn/issues/686[容器运行时重启]、网络连接问题或卷引擎崩溃。
+. 在所有副本出现故障后，卷会自动恢复，可能是由于网络连接问题。Longhorn 尝试识别可用的副本并将其用于卷。
+. 在使用 RWX 卷的共享管理器 Pod 上发生错误。
+
+如果您想防止 Longhorn 自动删除工作负载 Pod，请在 Longhorn UI 上禁用设置 xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[_当卷意外分离时自动删除工作负载 Pod_]。
+
+Longhorn 不会删除没有控制器的 Pod，因为这些 Pod 在删除后无法重新启动。要恢复意外分离的卷，您必须手动删除并重新启动没有控制器的 Pod。
+
+== 自动卷重新挂载
+
+此恢复机制不受任何特定设置的控制。
+
+当发生 IO 错误时，卷的状态可能会变为只读。IO 错误可能由多种问题引起，包括以下内容：
+
+* 网络断开：引擎与副本之间的连接中断。
+* 高磁盘延迟：在副本与相应磁盘之间的数据传输中出现显著延迟。
+
+Longhorn 每 10 秒检查一次卷的全局挂载点状态。当卷的文件系统变为只读时，Longhorn 会将状态更新到卷的数据引擎。然后，Longhorn 会自动尝试在主机上重新挂载全局挂载点，以将状态更改回读写。在成功重新挂载后，工作负载 Pod 将继续正常运行而不会中断。然而，如果挂载点变为写保护，并且 Longhorn 未能重新挂载挂载点，您可能仍需手动重新创建工作负载以强制其重新附加并重新挂载卷。
+
+NOTE: 在某些情况下，这种机制可能无法正常工作。例如，当卷的数据引擎崩溃时，Longhorn 会自动分离并重新附加卷。在这种情况下，文件系统变为只读。Longhorn 将检测到只读模式并更新状态，但 <<_automatic_volume_remounting,自动卷重新挂载>> 无法将其更改回读写，因为设备现在是写保护的。在这种情况下，您只能依赖 <<_automatic_workload_pod_deletion,自动工作负载 Pod 删除>> 机制，该机制在工作负载 Pod 被重新创建后启用卷重新挂载。
+
+== 总结
+
+当发生意外故障时，会触发 <<_automatic_workload_pod_deletion,自动工作负载 Pod 删除>>。控制器会删除并重新启动工作负载 Pod，Kubernetes 负责卷的重新附加和重新挂载。该过程可能会导致工作负载中断。如果您想防止 Longhorn 自动删除工作负载 Pod，请在 Longhorn UI 上禁用设置 xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[_当卷意外分离时自动删除工作负载 Pod_]。
+
+当卷的文件系统变为只读时，会触发<<_automatic_volume_remounting,自动卷重新挂载>>。Longhorn 在主机上重新挂载全局挂载点，以将状态更改回读写。

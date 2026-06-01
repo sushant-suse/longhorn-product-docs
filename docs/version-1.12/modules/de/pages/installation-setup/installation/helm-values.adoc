@@ -1,0 +1,1111 @@
+= Helm-Werte
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Werte
+
+Die `values.yaml` enthält Elemente, die verwendet werden, um eine Implementierung dieses Charts anzupassen.
+
+=== Cattle-Einstellungen
+
+|===
+| Tasten | Typ | Standard | Beschreibung
+
+| `global.cattle.systemDefaultRegistry`
+| Zeichenfolge
+| `""`
+| Standard-System-Registry.
+
+| `global.cattle.windowsCluster.defaultSetting.systemManagedComponentsNodeSelector`
+| Zeichenfolge
+| `"kubernetes.io/os:linux"`
+| Knotenauswahl für systemverwaltete Longhorn-Komponenten.
+
+| `global.cattle.windowsCluster.defaultSetting.taintToleration`
+| Zeichenfolge
+| `"cattle.io/os=linux:NoSchedule"`
+| Toleranz für systemverwaltete Longhorn-Komponenten.
+
+| `global.cattle.windowsCluster.enabled`
+| bool
+| `false`
+| Einstellung, die es ermöglicht, dass die {longhorn-product-name} UI in einem Rancher Windows-Cluster ausgeführt wird.
+
+| `global.cattle.windowsCluster.nodeSelector`
+| object
+| `{"kubernetes.io/os":"linux"}`
+| Knotenauswahl für Linux-Knoten, die benutzerbereitgestellte Longhorn-Komponenten ausführen können.
+
+| `global.cattle.windowsCluster.tolerations`
+| list
+| `[{"effect":"NoSchedule","key":"cattle.io/os","operator":"Equal","value":"linux"}]`
+| Toleranz für Linux-Knoten, die benutzerbereitgestellte Longhorn-Komponenten ausführen können.
+
+| `global.imagePullSecrets`
+| list
+| `[]`
+| Globale Überschreibung für Image-Pull-Geheimnisse für die Container-Registry.
+
+| `global.imageRegistry`
+| Zeichenfolge
+| `"docker.io"`
+| Globale Überschreibung für die Container-Image-Registry.
+
+| `global.nodeSelector`
+| object
+| `{}`
+| Knotenauswahl für Knoten, die berechtigt sind, benutzerbereitgestellte Komponenten wie Longhorn Manager, Longhorn UI und Longhorn Driver Deployer auszuführen.
+
+| `global.timezone`
+| Zeichenfolge
+| `""`
+| Setzen Sie die Zeitzone des Containers (TZ-Umgebungsvariable) für alle Longhorn-Arbeitslasten. Leer lassen, um die Standardwerte des Containers zu verwenden.
+
+| `global.tolerations`
+| list
+| `[]`
+| Toleranz für Knoten, die berechtigt sind, benutzerbereitgestellte Komponenten wie Longhorn Manager, Longhorn UI und Longhorn Driver Deployer auszuführen.
+|===
+
+=== Netzwerkrichtlinien
+
+|===
+| Tasten | Typ | Standard | Beschreibung
+
+| `networkPolicies.enabled`
+| bool
+| `false`
+| Einstellung, die es Ihnen ermöglicht, Netzwerk-Richtlinien zu aktivieren, die den Zugriff auf Longhorn-Pods steuern.
+
+| `networkPolicies.type`
+| Zeichenfolge
+| `"k3s"`
+| Verteilung, die die Richtlinie für den Zugriff auf einen Ingress bestimmt. (Optionen: "k3s", "rke2", "rke1")
+|===
+
+=== Image-Einstellungen
+
+|===
+| Tasten | Typ | Standard | Beschreibung
+
+| `image.csi.attacher.registry`
+| Zeichenfolge
+| `""`
+| Registry für das CSI-Attacher-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.attacher.repository`
+| Zeichenfolge
+| `"longhornio/csi-attacher"`
+| Repository für das CSI-Attacher-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.attacher.tag`
+| Zeichenfolge
+| `"v4.10.0-20251226"`
+| Tag für das CSI-Attacher-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.livenessProbe.registry`
+| Zeichenfolge
+| `""`
+| Registry für das CSI-Liveness-Probe-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.livenessProbe.repository`
+| Zeichenfolge
+| `"longhornio/livenessprobe"`
+| Repository für das CSI-Liveness-Probe-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.livenessProbe.tag`
+| Zeichenfolge
+| `"v2.17.0-20251226"`
+| Tag für das CSI-Liveness-Probe-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.nodeDriverRegistrar.registry`
+| Zeichenfolge
+| `""`
+| Registry für das CSI-Node-Driver-Registrar-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.nodeDriverRegistrar.repository`
+| Zeichenfolge
+| `"longhornio/csi-node-driver-registrar"`
+| Repository für das CSI-Node-Driver-Registrar-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.nodeDriverRegistrar.tag`
+| Zeichenfolge
+| `"v2.15.0-20251226"`
+| Tag für das CSI-Node-Driver-Registrar-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.provisioner.registry`
+| Zeichenfolge
+| `""`
+| Registry für das CSI-Provisioner-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.provisioner.repository`
+| Zeichenfolge
+| `"longhornio/csi-provisioner"`
+| Repository für das CSI-Provisioner-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.provisioner.tag`
+| Zeichenfolge
+| `"v5.3.0-20251226"`
+| Tag für das CSI-Provisioner-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.resizer.registry`
+| Zeichenfolge
+| `""`
+| Registry für das CSI-Resizer-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.resizer.repository`
+| Zeichenfolge
+| `"longhornio/csi-resizer"`
+| Repository für das CSI-Resizer-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.resizer.tag`
+| Zeichenfolge
+| `"v2.0.0-20251226"`
+| Tag für das CSI-Resizer-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.snapshotter.registry`
+| Zeichenfolge
+| `""`
+| Registry für das CSI-Snapshotter-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.snapshotter.repository`
+| Zeichenfolge
+| `"longhornio/csi-snapshotter"`
+| Repository für das CSI-Snapshotter-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.csi.snapshotter.tag`
+| Zeichenfolge
+| `"v8.4.0-20251226"`
+| Tag für das CSI-Snapshotter-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.longhorn.backingImageManager.registry`
+| Zeichenfolge
+| `""`
+| Registry für das Backing-Image-Manager-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.longhorn.backingImageManager.repository`
+| Zeichenfolge
+| `"longhornio/backing-image-manager"`
+| Repository für das Backing-Image-Manager-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.longhorn.backingImageManager.tag`
+| Zeichenfolge
+| `"v1.11.0"`
+| Tag für das Backing Image Manager-Image. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `image.longhorn.engine.registry`
+| Zeichenfolge
+| `""`
+| Registry für das Longhorn Engine-Image.
+
+| `image.longhorn.engine.repository`
+| Zeichenfolge
+| `"longhornio/longhorn-engine"`
+| Repository für das Longhorn Engine-Image.
+
+| `image.longhorn.engine.tag`
+| Zeichenfolge
+| `"v1.11.0"`
+| Tag für das Longhorn Engine-Image.
+
+| `image.longhorn.instanceManager.registry`
+| Zeichenfolge
+| `""`
+| Registry für das Longhorn Instance Manager-Image.
+
+| `image.longhorn.instanceManager.repository`
+| Zeichenfolge
+| `"longhornio/longhorn-instance-manager"`
+| Repository für das Longhorn Instance Manager-Image.
+
+| `image.longhorn.instanceManager.tag`
+| Zeichenfolge
+| `"v1.11.0"`
+| Tag für das Longhorn Instance Manager-Image.
+
+| `image.longhorn.manager.registry`
+| Zeichenfolge
+| `""`
+| Registry für das Longhorn Manager-Image.
+
+| `image.longhorn.manager.repository`
+| Zeichenfolge
+| `"longhornio/longhorn-manager"`
+| Repository für das Longhorn Manager-Image.
+
+| `image.longhorn.manager.tag`
+| Zeichenfolge
+| `"v1.11.0"`
+| Tag für das Longhorn Manager-Image.
+
+| `image.longhorn.shareManager.registry`
+| Zeichenfolge
+| `""`
+| Registry für das Longhorn Share Manager-Image.
+
+| `image.longhorn.shareManager.repository`
+| Zeichenfolge
+| `"longhornio/longhorn-share-manager"`
+| Repository für das Longhorn Share Manager-Image.
+
+| `image.longhorn.shareManager.tag`
+| Zeichenfolge
+| `"v1.11.0"`
+| Tag für das Longhorn Share Manager-Image.
+
+| `image.longhorn.supportBundleKit.registry`
+| Zeichenfolge
+| `""`
+| Registry für das Longhorn Support Bundle Manager-Image.
+
+| `image.longhorn.supportBundleKit.repository`
+| Zeichenfolge
+| `"longhornio/support-bundle-kit"`
+| Repository für das Longhorn Support Bundle Manager-Image.
+
+| `image.longhorn.supportBundleKit.tag`
+| Zeichenfolge
+| `"v0.0.79"`
+| Tag für das Longhorn Support Bundle Manager-Image.
+
+| `image.longhorn.ui.registry`
+| Zeichenfolge
+| `""`
+| Registry für das {longhorn-product-name} UI-Image.
+
+| `image.longhorn.ui.repository`
+| Zeichenfolge
+| `"longhornio/longhorn-ui"`
+| Repository für das {longhorn-product-name} UI-Image.
+
+| `image.longhorn.ui.tag`
+| Zeichenfolge
+| `"v1.11.0"`
+| Tag für das {longhorn-product-name} UI-Image.
+
+| `image.openshift.oauthProxy.registry`
+| Zeichenfolge
+| `""`
+| Registry für das OAuth Proxy-Image. Geben Sie das Upstream-Image an (zum Beispiel "quay.io/openshift/origin-oauth-proxy"). Diese Einstellung gilt nur für OpenShift-Benutzer.
+
+| `image.openshift.oauthProxy.repository`
+| Zeichenfolge
+| `""`
+| Repository für das OAuth-Proxy-Image. Geben Sie das Upstream-Image an (zum Beispiel "quay.io/openshift/origin-oauth-proxy"). Diese Einstellung gilt nur für OpenShift-Benutzer.
+
+| `image.openshift.oauthProxy.tag`
+| Zeichenfolge
+| `""`
+| Tag für das OAuth-Proxy-Image. Geben Sie die OCP/OKD-Version 4.1 oder höher an (einschließlich Version 4.18, die unter quay.io/openshift/origin-oauth-proxy:4.18 verfügbar ist). Diese Einstellung gilt nur für OpenShift-Benutzer.
+
+| `image.pullPolicy`
+| Zeichenfolge
+| `"IfNotPresent"`
+| Image-Pull-Richtlinie, die für alle vom Benutzer bereitgestellten Longhorn-Komponenten gilt, wie Longhorn Manager, Longhorn-Treiber und Longhorn UI.
+|===
+
+=== Service-Einstellungen
+
+|===
+| Tasten | Beschreibung
+
+| `service.manager.nodePort`
+| NodePort-Portnummer für den Longhorn Manager. Wenn nicht angegeben, wählt {longhorn-product-name} einen freien Port zwischen 30000 und 32767.
+
+| `service.manager.type`
+| Diensttyp für den Longhorn Manager.
+
+| `service.ui.annotations`
+| Annotation für den {longhorn-product-name} UI-Dienst.
+
+| `service.ui.labels`
+|
+
+| `service.ui.loadBalancerClass`
+| Klasse einer Load-Balancer-Implementierung
+
+| `service.ui.nodePort`
+| NodePort-Portnummer für {longhorn-product-name} UI. Wenn nicht angegeben, wählt {longhorn-product-name} einen freien Port zwischen 30000 und 32767.
+
+| `service.ui.type`
+| Diensttyp für {longhorn-product-name} UI. (Optionen: "ClusterIP", "NodePort", "LoadBalancer", "Rancher-Proxy")
+|===
+
+=== StorageClass-Einstellungen
+
+|===
+| Tasten | Typ | Standard | Beschreibung
+
+| `persistence.backingImage.dataSourceParameters`
+| Zeichenfolge
+| `nil`
+| Datenquellenparameter eines Backing-Images, das in einer Longhorn StorageClass verwendet wird. Sie können einen JSON-String einer Map angeben. (Beispiel: `'{\"url\":\"https://backing-image-example.s3-region.amazonaws.com/test-backing-image\"}'`)
+
+| `persistence.backingImage.dataSourceType`
+| Zeichenfolge
+| `nil`
+| Datentyp der Quelle eines Backing-Images, das in einer Longhorn StorageClass verwendet wird. Wenn das Backing-Image im Cluster vorhanden ist, verwendet {longhorn-product-name} diese Einstellung zur Überprüfung des Images. Wenn das Backing-Image nicht vorhanden ist, erstellt {longhorn-product-name} eines mit dem angegebenen Datentyp.
+
+| `persistence.backingImage.enable`
+| bool
+| `false`
+| Einstellung, die es Ihnen ermöglicht, ein Backing-Image in einer Longhorn StorageClass zu verwenden.
+
+| `persistence.backingImage.expectedChecksum`
+| Zeichenfolge
+| `nil`
+| Erwartete SHA-512-Prüfsumme eines Backing-Images, das in einer Longhorn StorageClass verwendet wird.
+
+| `persistence.backingImage.name`
+| Zeichenfolge
+| `nil`
+| Backing-Image, das zum Erstellen und Wiederherstellen von Volumes in einer Longhorn StorageClass verwendet werden soll. Wenn keine Backing-Images verfügbar sind, geben Sie den Datentyp und die Parameter an, die {longhorn-product-name} verwenden kann, um ein Backing-Image zu erstellen.
+
+| `persistence.backupTargetName`
+| Zeichenfolge
+| `"default"`
+| Einstellung, die es Ihnen ermöglicht, das Sicherungsziel für die Standard-Longhorn StorageClass anzugeben.
+
+| `persistence.dataEngine`
+| Zeichenfolge
+| `"v1"`
+| Einstellung, die es Ihnen ermöglicht, die Version der Daten-Engine für die Standard-Longhorn StorageClass anzugeben. (Optionen: `"v1"`, `"v2"`)
+
+| `persistence.defaultClass`
+| bool
+| `true`
+| Einstellung, die es Ihnen ermöglicht, die Standard-Longhorn StorageClass anzugeben.
+
+| `persistence.defaultClassReplicaCount`
+| int
+| `3`
+| Replikazahl der Standard-Longhorn StorageClass.
+
+| `persistence.defaultDataLocality`
+| Zeichenfolge
+| `"disabled"`
+| Datenlokalität der Standard-Longhorn StorageClass. (Optionen: `"disabled"`, `"best-effort"`)
+
+| `persistence.defaultDiskSelector.enable`
+| bool
+| `false`
+| Einstellung, die es Ihnen ermöglicht, den Festplatteselektor für die Standard-Longhorn StorageClass zu aktivieren.
+
+| `persistence.defaultDiskSelector.selector`
+| Zeichenfolge
+| `""`
+| Festplatteselektor für die Standard-Longhorn StorageClass. Longhorn verwendet nur Festplatten mit den angegebenen Tags zum Speichern von Volumendaten. (Beispiele: `"nvme,sata"`)
+
+| `persistence.defaultFsType`
+| Zeichenfolge
+| `"ext4"`
+| Dateisystemtyp der Standard-Longhorn StorageClass.
+
+| `persistence.defaultMkfsParams`
+| Zeichenfolge
+| `""`
+| mkfs-Parameter der Standard-Longhorn StorageClass.
+
+| `persistence.defaultNodeSelector.enable`
+| bool
+| `false`
+| Einstellung, die es Ihnen ermöglicht, den Knotenselektor für die Standard-Longhorn StorageClass zu aktivieren.
+
+| `persistence.defaultNodeSelector.selector`
+| Zeichenfolge
+| `""`
+| Knotenauswahl für die Standard-Longhorn-StorageClass. {longhorn-product-name} verwendet nur Knoten mit den angegebenen Tags zum Speichern von Volumendaten. (Beispiele: "storage,fast")
+
+| `persistence.disableRevisionCounter`
+| Zeichenfolge
+| `"true"`
+| Einstellung, die den Versionszähler deaktiviert und somit verhindert, dass {longhorn-product-name} alle Schreibvorgänge auf ein Volume verfolgt. Beim Wiederherstellen eines Volumes verwendet {longhorn-product-name} Eigenschaften der Datei volume-head-xxx.img (die letzte Dateigröße und die letzte Änderungszeit der Datei), um das Replica auszuwählen, das für die Volumenwiederherstellung verwendet werden soll.
+
+| `persistence.migratable`
+| bool
+| `false`
+| Einstellung, die es Ihnen ermöglicht, die Live-Migration eines Longhorn-Volumes von einem Knoten zu einem anderen zu aktivieren.
+
+| `persistence.nfsOptions`
+| Zeichenfolge
+| `""`
+| NFS-Mount-Optionen für die Longhorn-StorageClass für RWX-Volumes festlegen
+
+| `persistence.reclaimPolicy`
+| Zeichenfolge
+| `"Delete"`
+| Rückgewinnungsrichtlinie, die Anweisungen zur Handhabung eines Volumes nach der Freigabe seines Anspruchs bereitstellt. (Optionen: "Behalten", "Löschen")
+
+| `persistence.recurringJobSelector.enable`
+| bool
+| `false`
+| Einstellung, die es Ihnen ermöglicht, den wiederkehrenden Jobauswähler für eine Longhorn-StorageClass zu aktivieren.
+
+| `persistence.recurringJobSelector.jobList`
+| list
+| `[]`
+| Wiederkehrender Jobauswähler für eine Longhorn-StorageClass. Stellen Sie sicher, dass Anführungszeichen korrekt verwendet werden, wenn Sie Jobparameter angeben. (Beispiel: `[{"name":"backup", "isGroup":true}]`)
+
+| `persistence.unmapMarkSnapChainRemoved`
+| Zeichenfolge
+| `"ignored"`
+| Einstellung, die es Ihnen ermöglicht, die automatische Snapshot-Entfernung während des Dateisystem-Trimmens für eine Longhorn-StorageClass zu aktivieren. (Optionen: `"ignored"`, `"enabled"`, `"disabled"`)
+
+| `persistence.volumeBindingMode`
+| Zeichenfolge
+| `"Immediate"`
+| VolumeBindingMode steuert, wann die Volumenbindung und die dynamische Bereitstellung erfolgen sollen. (Optionen: `"Immediate"`, `"WaitForFirstConsumer"`) (Standardmäßig `"Immediate"`)
+|===
+
+=== CSI-Einstellungen
+
+|===
+| Tasten | Beschreibung
+
+| `csi.attacherReplicaCount`
+| Replica-Anzahl des CSI Attachers. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert (`"3"`).
+
+| `csi.kubeletRootDir`
+| Kubelet-Stammverzeichnis. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert.
+
+| `csi.podAntiAffinityPreset`
+| Konfiguriert Pod-Anti-Affinität, um mehrere Instanzen auf demselben Knoten zu verhindern. Verwenden Sie weich (versucht zu trennen) oder hart (muss trennen). Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert (`"soft"`).
+
+| `csi.provisionerReplicaCount`
+| Replikazahl des CSI-Provisioners. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert (`"3"`).
+
+| `csi.resizerReplicaCount`
+| Replikazahl des CSI-Resizers. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert (`"3"`).
+
+| `csi.snapshotterReplicaCount`
+| Replikazahl des CSI-Snapshotters. Wenn nicht angegeben, verwendet {longhorn-product-name} den Standardwert (`"3"`).
+|===
+
+=== Einstellungen für den Longhorn-Manager
+
+{longhorn-product-name} besteht aus vom Benutzer bereitgestellten Komponenten (zum Beispiel Longhorn Manager, Longhorn Driver und {longhorn-product-name} UI) und systemverwalteten Komponenten (zum Beispiel Instance Manager, Backing Image Manager, Share Manager, CSI Driver und Engine Image). Die folgenden Einstellungen gelten nur für den Longhorn-Manager.
+
+|===
+| Tasten | Typ | Standard | Beschreibung
+
+| `longhornManager.log.format`
+| Zeichenfolge
+| `"plain"`
+| Format der Longhorn-Manager-Protokolle. (Optionen: "plain", "json")
+
+| `longhornManager.nodeSelector`
+| object
+| `{}`
+| Knotenauswahl für den Longhorn-Manager. Geben Sie die Knoten an, die den Longhorn-Manager ausführen dürfen.
+
+| `longhornManager.priorityClass`
+| Zeichenfolge
+| `"longhorn-critical"`
+| PriorityClass für den Longhorn-Manager.
+
+| `longhornManager.resources`
+| Zeichenfolge
+| `nil`
+| Ressourcenanforderungen und -grenzen für Longhorn-Manager-Pods.
+
+| `longhornManager.serviceAnnotations`
+| object
+| `{}`
+| Annotation für den Longhorn-Manager-Dienst.
+
+| `longhornManager.serviceLabels`
+| object
+| `{}`
+| 
+
+| `longhornManager.tolerations`
+| list
+| `[]`
+| Tolerierung für den Longhorn-Manager auf Knoten, die Longhorn-Komponenten ausführen dürfen.
+
+| `longhornManager.updateStrategy.rollingUpdate.maxUnavailable`
+| Zeichenfolge
+| `"100%"`
+|
+|===
+
+=== Einstellungen für den Longhorn-Treiber
+
+{longhorn-product-name} besteht aus vom Benutzer bereitgestellten Komponenten (zum Beispiel Longhorn Manager, Longhorn Driver und {longhorn-product-name} UI) und systemverwalteten Komponenten (zum Beispiel Instance Manager, Backing Image Manager, Share Manager, CSI Driver und Engine Image). Die folgenden Einstellungen gelten nur für den Longhorn-Treiber.
+
+|===
+| Tasten | Typ | Standard | Beschreibung
+
+| `longhornDriver.log.format`
+| Zeichenfolge
+| `"plain"`
+| Format der Longhorn-Treiber-Protokolle. (Optionen: "plain", "json")
+
+| `longhornDriver.nodeSelector`
+| object
+| `{}`
+| Knotenauswahl für den Longhorn-Treiber. Geben Sie die Knoten an, die den Longhorn-Treiber ausführen dürfen.
+
+| `longhornDriver.priorityClass`
+| Zeichenfolge
+| `"longhorn-critical"`
+| Prioritätsklasse für den Longhorn-Treiber.
+
+| `longhornDriver.tolerations`
+| list
+| `[]`
+| Tolerierung für den Longhorn-Treiber auf Knoten, die Longhorn-Komponenten ausführen dürfen.
+|===
+
+=== {longhorn-product-name} Benutzeroberflächeneinstellungen
+
+{longhorn-product-name} besteht aus vom Benutzer bereitgestellten Komponenten (zum Beispiel Longhorn Manager, Longhorn Driver und {longhorn-product-name} UI) und systemverwalteten Komponenten (zum Beispiel Instance Manager, Backing Image Manager, Share Manager, CSI Driver und Engine Image). Die folgenden Einstellungen gelten nur für {longhorn-product-name} UI.
+
+|===
+| Tasten | Typ | Standard | Beschreibung
+
+| `longhornUI.affinity`
+| object
+| `{"podAntiAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"labelSelector":{"matchExpressions":[{"key":"app","operator":"In","values":["longhorn-ui"]}]},"topologyKey":"kubernetes.io/hostname"},"weight":1}]}}`
+| Affinität für {longhorn-product-name} UI-Pods. Geben Sie die Affinität an, die Sie für {longhorn-product-name} UI verwenden möchten.
+
+| `longhornUI.nodeSelector`
+| object
+| `{}`
+| Knotenauswahl für {longhorn-product-name} UI. Geben Sie die Knoten an, die {longhorn-product-name} UI ausführen dürfen.
+
+| `longhornUI.priorityClass`
+| Zeichenfolge
+| `"longhorn-critical"`
+| Prioritätsklasse für {longhorn-product-name} UI.
+
+| `longhornUI.replicas`
+| int
+| `2`
+| Replikazahl für {longhorn-product-name} UI.
+
+| `longhornUI.tolerations`
+| list
+| `[]`
+| Tolerierung für {longhorn-product-name} UI auf Knoten, die Longhorn-Komponenten ausführen dürfen.
+|===
+
+=== Ingress-Einstellungen
+
+|===
+| Tasten | Typ | Standard | Beschreibung
+
+| `ingress.annotations`
+| Zeichenfolge
+| `nil`
+| Ingress-Anmerkungen in Form von Schlüssel-Wert-Paaren.
+
+| `ingress.enabled`
+| bool
+| `false`
+| Einstellung, die es {longhorn-product-name} ermöglicht, Ingress-Datensätze für den {longhorn-product-name} UI-Service zu generieren.
+
+| `ingress.extraHosts`
+| list
+| `[]`
+| Zusätzliche Hostnamen für TLS (Subject Alternative Names - SAN). Wird verwendet, wenn Sie mehrere FQDNs für dasselbe Ingress benötigen. Beispiel: extraHosts:   - longhorn.example.com   - longhorn-ui.internal.local
+
+| `ingress.host`
+| Zeichenfolge
+| `"sslip.io"`
+| Hostname des Layer 7 Load Balancers.
+
+| `ingress.ingressClassName`
+| Zeichenfolge
+| `nil`
+| IngressClass-Ressource, die die Ingress-Konfiguration enthält, einschließlich des Namens des Ingress-Controllers. ingressClassName kann die `kubernetes.io/ingress.class` Anmerkung ersetzen, die in früheren Kubernetes-Versionen verwendet wurde.
+
+| `ingress.path`
+| Zeichenfolge
+| `"/"`
+| Standard-Ingress-Pfad. Sie können auf die {longhorn-product-name} UI zugreifen, indem Sie dem vollständigen Ingress-Pfad `{\{host}}+{\{path}}` folgen.
+
+| `ingress.pathType`
+| Zeichenfolge
+| `"ImplementationSpecific"`
+| Ingress-Pfadtyp. Um die Abwärtskompatibilität zu gewährleisten, ist der Standardwert `"ImplementationSpecific"`.
+
+| `ingress.secrets`
+| Zeichenfolge
+| `nil`
+| Geheimnis, das einen TLS-Privatschlüssel und ein Zertifikat enthält. Verwenden Sie Secrets, um Ihre eigenen Zertifikate zur Sicherung von Ingress-Ressourcen zu verwenden.
+
+| `ingress.secureBackends`
+| bool
+| `false`
+| Einstellung, die es Ihnen ermöglicht, sichere Verbindungen zum {longhorn-product-name} UI-Dienst über Port 443 zu aktivieren.
+
+| `ingress.tls`
+| bool
+| `false`
+| Einstellung, die es Ihnen ermöglicht, TLS für Ingress-Datensätze zu aktivieren.
+
+| `ingress.tlsSecret`
+| Zeichenfolge
+| `"longhorn.local-tls"`
+| TLS-Geheimnis, das den privaten Schlüssel und das Zertifikat enthält, die für TLS verwendet werden sollen. Diese Einstellung gilt nur, wenn TLS für Ingress-Datensätze aktiviert ist.
+|===
+
+=== HTTPRoute-Einstellungen
+
+|===
+| Tasten | Typ | Standard | Beschreibung
+
+| `httproute.annotations`
+| object
+| `{}`
+| Annotationen für die HTTPRoute-Ressource in Form von Schlüssel-Wert-Paaren.
+
+| `httproute.enabled`
+| bool
+| `false`
+| Einstellung, die es {longhorn-product-name} ermöglicht, HTTPRoute-Datensätze für den {longhorn-product-name} UI-Dienst unter Verwendung der Gateway-API zu generieren.
+
+| `httproute.hostnames`
+| list
+| `[]`
+| Liste der Hostnamen für die HTTPRoute. Mehrere Hostnamen werden unterstützt.
+
+| `httproute.parentRefs`
+| list
+| `[]`
+| Gateway-Referenzen für HTTPRoute. Geben Sie an, welche Gateway(s) diese Route bearbeiten sollen.
+
+| `httproute.path`
+| Zeichenfolge
+| `"/"`
+| Standardpfad für HTTPRoute. Sie können auf die {longhorn-product-name} UI zugreifen, indem Sie dem vollständigen Pfad folgen.
+
+| `httproute.pathType`
+| Zeichenfolge
+| `"PathPrefix"`
+| Pfadübereinstimmungstyp für HTTPRoute. (Optionen: `"Exact"`, `"PathPrefix"`)
+|===
+
+=== Einstellungen für private Registry.
+
+Sie können {longhorn-product-name} in einer Air-Gapped-Umgebung mit einer privaten Registry installieren. Für weitere Informationen siehe den Abschnitt *Air Gap Installation* der xref:installation-setup/installation/airgapped-environment.adoc[Dokumentation].
+
+|===
+| Tasten | Beschreibung
+
+| `privateRegistry.createSecret`
+| Setzen Sie `true`, um automatisch ein neues Registry-Secret zu erstellen.
+
+| `privateRegistry.registryPasswd`
+| Passwort zur Authentifizierung bei einer privaten Registry.
+
+| `privateRegistry.registrySecret`
+| Wenn das Erstellen eines neuen Registry-Secrets wahr ist, erstellen Sie ein Kubernetes-Secret mit diesem Namen; andernfalls verwenden Sie das vorhandene Secret dieses Namens. Verwenden Sie es, um Bilder von Ihrer privaten Registry abzurufen.
+
+| `privateRegistry.registryUrl`
+| URL einer privaten Registry. Wenn nicht angegeben, verwendet {longhorn-product-name} die Standard-System-Registry.
+
+| `privateRegistry.registryUser`
+| Benutzerkonto zur Authentifizierung bei einer privaten Registry.
+|===
+
+=== Metrik-Einstellungen
+
+|===
+| Tasten | Typ | Standard | Beschreibung
+
+| `metrics.serviceMonitor.additionalLabels`
+| object
+| `{}`
+| Zusätzliche Labels für die Prometheus ServiceMonitor-Ressource.
+
+| `metrics.serviceMonitor.annotations`
+| object
+| `{}`
+| Annotationen für die Prometheus ServiceMonitor-Ressource.
+
+| `metrics.serviceMonitor.enabled`
+| bool
+| `false`
+| Einstellung, die die Erstellung einer Prometheus ServiceMonitor-Ressource für Longhorn-Manager-Komponenten ermöglicht.
+
+| `metrics.serviceMonitor.interval`
+| Zeichenfolge
+| `""`
+| Intervall, in dem Prometheus die Metriken vom Ziel abruft.
+
+| `metrics.serviceMonitor.metricRelabelings`
+| list
+| `[]`
+| Konfiguriert die Umbenennungsregeln, die auf die Proben vor der Eingabe angewendet werden sollen. Siehe die https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.Endpoint[Prometheus Operator-Dokumentation] für Formatierungsdetails.
+
+| `metrics.serviceMonitor.relabelings`
+| list
+| `[]`
+| Konfiguriert die Umbenennungsregeln, die auf die Metadaten-Labels des Ziels angewendet werden sollen. Siehe die https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.Endpoint[Prometheus Operator-Dokumentation] für Formatierungsdetails.
+
+| `metrics.serviceMonitor.scrapeTimeout`
+| Zeichenfolge
+| `""`
+| Zeitüberschreitung, nach der Prometheus den Abruf als fehlgeschlagen betrachtet.
+|===
+
+=== Einstellungen für OS/Kubernetes-Distributionen
+
+==== OpenShift-Einstellungen
+
+Für weitere Details siehe das https://github.com/longhorn/longhorn/blob/master/chart/ocp-readme.md[ocp-readme].
+
+|===
+| Tasten | Typ | Standard | Beschreibung
+
+| `openshift.enabled`
+| bool
+| `false`
+| Einstellung, die es {longhorn-product-name} ermöglicht, sich mit OpenShift zu integrieren.
+
+| `openshift.ui.port`
+| int
+| `443`
+| Port zum Zugriff auf die OpenShift-Webkonsole.
+
+| `openshift.ui.proxy`
+| int
+| `8443`
+| Port für den Proxy, der den Zugriff auf die OpenShift-Webkonsole bereitstellt.
+
+| `openshift.ui.route`
+| Zeichenfolge
+| `"longhorn-ui"`
+| Route für Verbindungen zwischen {longhorn-product-name} und der OpenShift-Webkonsole.
+|===
+
+=== Andere Einstellungen
+
+|===
+| Tasten | Standard | Beschreibung
+
+| `annotations`
+| `{}`
+| Annotation für die Longhorn Manager DaemonSet-Pods. Die Einstellung ist optional.
+
+| `defaultBackupStore`
+| `{"backupTarget":null,"backupTargetCredentialSecret":null,"pollInterval":null}`
+| Einstellung, die es Ihnen ermöglicht, den Standard-Sicherungsspeicher zu aktualisieren.
+
+| `defaultBackupStore.backupTarget`
+| `nil`
+| Endpunkt, der zum Zugriff auf den Standard-Sicherungsspeicher verwendet wird. (Optionen: "NFS", "CIFS", "AWS", "GCP", "AZURE")
+
+| `defaultBackupStore.backupTargetCredentialSecret`
+| `nil`
+| Name des Kubernetes-Secrets, das mit dem Standard-Sicherungsziel verbunden ist.
+
+| `defaultBackupStore.pollInterval`
+| `nil`
+| Anzahl der Sekunden, die {longhorn-product-name} wartet, bevor der Standard-Sicherungsspeicher auf neue Sicherungen überprüft wird. Der Standardwert ist "300". Wenn der Wert "0" ist, ist das Abfragen deaktiviert.
+
+| `enableGoCoverDir`
+| `false`
+| Einstellung, die es {longhorn-product-name} ermöglicht, Codeabdeckungsprofile zu generieren.
+
+| `enablePSP`
+| `false`
+| Einstellung, die es Ihnen ermöglicht, Pod-Sicherheitsrichtlinien (PSPs) zu aktivieren, die privilegierten {longhorn-product-name}-Pods das Starten erlauben. Diese Einstellung gilt nur für Cluster, die Kubernetes 1.25 und früher ausführen und bei denen der integrierte Pod-Sicherheits-Zugangscontroller aktiviert ist.
+
+| `extraObjects`
+| `[]`
+| Fügen Sie zusätzliche Objekt-Manifestdateien hinzu.
+
+| `namespaceOverride`
+| `""`
+| Geben Sie den Namespace für die Überschreibung an, dies ist insbesondere nützlich, wenn Longhorn als Sub-Chart verwendet wird und sein Release-Namespace nicht der `longhorn-system` ist.
+
+| `preUpgradeChecker.jobEnabled`
+| `true`
+| Einstellung, die es {longhorn-product-name} ermöglicht, Vorab-Upgrade-Prüfungen durchzuführen. Deaktivieren Sie diese Einstellung, wenn Sie {longhorn-product-name} mit Argo CD oder anderen GitOps-Lösungen installieren.
+
+| `preUpgradeChecker.upgradeVersionCheck`
+| `true`
+| Einstellung, die es {longhorn-product-name} ermöglicht, Upgrade-Prüfungen durchzuführen, nachdem die Longhorn Manager DaemonSet Pods gestartet wurden. Das Deaktivieren dieser Einstellung deaktiviert auch `preUpgradeChecker.jobEnabled`. {longhorn-product-name} empfiehlt, diese Einstellung aktiviert zu lassen.
+|===
+
+=== Systemstandardeinstellungen
+
+Während der Installation können Sie entweder {longhorn-product-name} erlauben, die standardmäßigen Systemeinstellungen zu verwenden, oder spezifische Flags verwenden, um die Standardwerte zu ändern. Nach der Installation können Sie die Einstellungen über die {longhorn-product-name} Benutzeroberfläche ändern. Für weitere Informationen siehe den Abschnitt *Settings Reference* der xref:longhorn-documentation.adoc[Dokumentation].
+
+|===
+| Tasten | Beschreibung
+
+| `defaultSettings.allowCollectingLonghornUsageMetrics`
+| Einstellung, die es {longhorn-product-name} ermöglicht, anonymisierte Nutzungsdaten zu sammeln, um das Produkt zu verbessern. {longhorn-product-name} sendet die gesammelten Daten an den https://github.com/longhorn/upgrade-responder[Upgrade Responder] Server, der die Datenquelle des Longhorn Public Metrics Dashboards (https://metrics.longhorn.io) ist. Der Upgrade Responder-Server speichert keine Daten, die zur Identifizierung von Clients verwendet werden können, einschließlich IP-Adressen.
+
+| `defaultSettings.allowEmptyDiskSelectorVolume`
+| Einstellung, die die Planung von leeren Festplattenselektoren auf beliebige Festplatten ermöglicht.
+
+| `defaultSettings.allowEmptyNodeSelectorVolume`
+| Einstellung, die die Planung von leeren Knotenselektoren auf beliebige Knoten ermöglicht.
+
+| `defaultSettings.allowRecurringJobWhileVolumeDetached`
+| Einstellung, die es {longhorn-product-name} ermöglicht, automatisch ein Volume anzuhängen und Snapshots oder Sicherungen zu erstellen, wenn wiederkehrende Aufgaben ausgeführt werden.
+
+| `defaultSettings.allowVolumeCreationWithDegradedAvailability`
+| Einstellung, die es Ihnen ermöglicht, ein Volume zu erstellen und anzuhängen, ohne dass alle Replikate zum Zeitpunkt der Erstellung geplant sind.
+
+| `defaultSettings.autoCleanupRecurringJobBackupSnapshot`
+| Einstellung, die es {longhorn-product-name} ermöglicht, automatisch den Snapshot zu bereinigen, der von einem wiederkehrenden Backup-Job erstellt wurde.
+
+| `defaultSettings.autoCleanupSnapshotAfterOnDemandBackupCompleted`
+| Einstellung, die den Snapshot automatisch bereinigt, nachdem das On-Demand-Backup abgeschlossen ist.
+
+| `defaultSettings.autoCleanupSnapshotWhenDeleteBackup`
+| Einstellung, die den Snapshot automatisch bereinigt, wenn das Backup gelöscht wird.
+
+| `defaultSettings.autoCleanupSystemGeneratedSnapshot`
+| Einstellung, die es {longhorn-product-name} ermöglicht, automatisch den systemgenerierten Snapshot zu bereinigen, nachdem der Replikataufbau abgeschlossen ist.
+
+| `defaultSettings.autoDeletePodWhenVolumeDetachedUnexpectedly`
+| Einstellung, die es {longhorn-product-name} ermöglicht, automatisch ein Arbeitslast-Pod zu löschen, das von einem Controller (zum Beispiel DaemonSet) verwaltet wird, wann immer ein Longhorn-Volume unerwartet getrennt wird (zum Beispiel während Kubernetes-Upgrades). Nach der Löschung startet der Controller das Pod neu und dann kümmert sich Kubernetes um die Wiederanbindung und das Remounting des Volumes.
+
+| `defaultSettings.autoSalvage`
+| Einstellung, die es {longhorn-product-name} ermöglicht, automatisch Volumes zu retten, wenn alle Replikate fehlerhaft werden (zum Beispiel, wenn die Netzwerkverbindung unterbrochen wird). {longhorn-product-name} bestimmt, welche Replikate verwendbar sind, und verwendet dann diese Replikate für das Volume. Diese Einstellung ist standardmäßig aktiviert.
+
+| `defaultSettings.backingImageCleanupWaitInterval`
+| Anzahl der Minuten, die {longhorn-product-name} wartet, bevor die Backing Image-Datei bereinigt wird, wenn keine Replikate auf der Festplatte sie nutzen.
+
+| `defaultSettings.backingImageRecoveryWaitInterval`
+| Anzahl der Sekunden, die {longhorn-product-name} wartet, bevor eine Backing Image-Datei erneut heruntergeladen wird, wenn der Status aller Image-Diskdateien auf „fehlgeschlagen“ oder „unbekannt“ wechselt.
+
+| `defaultSettings.backupCompressionMethod`
+| Einstellung, die es Ihnen ermöglicht, eine Sicherungskomprimierungsmethode anzugeben.
+
+| `defaultSettings.backupConcurrentLimit`
+| Maximale Anzahl von Arbeitsthreads, die gleichzeitig für jede Sicherung ausgeführt werden können.
+
+| `defaultSettings.backupExecutionTimeout`
+| Anzahl der Minuten, die Longhorn für die Ausführung der Sicherung zulässt. Der Standardwert ist `"1"`.
+
+| `defaultSettings.blacklistForAutoDeletePodWhenVolumeDetachedUnexpectedly`
+| Blacklist von Controller-API/Kind-Werten für die Einstellung "Automatisch Arbeitslast-Pod löschen, wenn das Volume unerwartet getrennt wird." Wenn ein Arbeitslast-Pod von einem Controller verwaltet wird, dessen API/Kind in dieser Blacklist aufgeführt ist, wird der Pod von Longhorn nicht automatisch gelöscht, wenn sein Volume unerwartet getrennt wird. Mehrere Controller-API/Kind-Einträge können angegeben werden, getrennt durch Semikolons. Beispiel: `apps/StatefulSet;apps/DaemonSet`. *Hinweis*: Die Controller-API/Kind ist case sensitive und muss exakt mit dem API/Kind im Eigentümerverweis des Arbeitslast-Pods übereinstimmen.
+
+| `defaultSettings.concurrentAutomaticEngineUpgradePerNodeLimit`
+| Maximale Anzahl von Engines, die nach dem Upgrade des Longhorn Manager gleichzeitig auf jedem Knoten aktualisiert werden dürfen. Wenn der Wert "0" ist, führt {longhorn-product-name} kein automatisches Upgrade der Volume-Engines auf die neue Standard-Engine-Bildversion durch.
+
+| `defaultSettings.concurrentReplicaRebuildPerNodeLimit`
+| Maximale Anzahl von Replikaten, die gleichzeitig auf jedem Knoten neu aufgebaut werden können.
+
+| `defaultSettings.concurrentVolumeBackupRestorePerNodeLimit`
+| Maximale Anzahl von Volumes, die gleichzeitig auf jedem Knoten mithilfe eines Backups wiederhergestellt werden können. Wenn der Wert "0" ist, ist die Wiederherstellung von Volumes mithilfe eines Backups deaktiviert.
+
+| `defaultSettings.createDefaultDiskLabeledNodes`
+| Einstellung, die es {longhorn-product-name} ermöglicht, automatisch nur auf Knoten mit dem Label "node.longhorn.io/create-default-disk=true" eine Standarddisk zu erstellen (wenn keine anderen Disks vorhanden sind). Wenn diese Einstellung deaktiviert ist, erstellt {longhorn-product-name} auf jedem Knoten, der dem Cluster hinzugefügt wird, eine Standarddisk.
+
+| `defaultSettings.dataEngineCPUMask`
+| Gilt nur für die V2-Daten-Engine. Gibt die CPU-Kerne an, auf denen der Storage Performance Development Kit (SPDK) Ziel-Daemon läuft. Der Daemon wird in jedem Instance-Manager-Pod bereitgestellt. Stellen Sie sicher, dass die Anzahl der zugewiesenen Kerne die garantierten Instance-Manager-CPUs für die V2-Daten-Engine nicht überschreitet. Der Standardwert ist "{"v2":"0x1"}".
+
+| `defaultSettings.dataEngineHugepageEnabled`
+| Gilt nur für die V2-Daten-Engine. Aktiviert Hugepages für den Storage Performance Development Kit (SPDK) Ziel-Daemon. Wenn deaktiviert, wird der Legacy-Speicher verwendet. Die Größe der Zuweisung wird über die Einstellung zur Speicherkapazität der Daten-Engine festgelegt.
+
+| `defaultSettings.dataEngineLogFlags`
+| Gilt nur für die V2-Daten-Engine. Legt die Protokollflags für den Storage Performance Development Kit (SPDK) Ziel-Daemon fest.
+
+| `defaultSettings.dataEngineLogLevel`
+| Gilt nur für die V2-Daten-Engine. Legt das Protokollniveau für den Storage Performance Development Kit (SPDK) Ziel-Daemon fest. Unterstützte Werte sind: `Error`, `Warning`, `Notice`, `Info` und `Debug`. Der Standardwert ist `Notice`.
+
+| `defaultSettings.dataEngineMemorySize`
+| Gilt nur für die V2-Daten-Engine. Legt die Hugepage-Größe in MiB für den Storage Performance Development Kit (SPDK) Ziel-Daemon fest. Der Standardwert ist "{"v2":"2048"}"
+
+| `defaultSettings.defaultBackupBlockSize`
+| Legt die Standardgröße des Sicherungsblocks in MiB fest, die beim Erstellen eines neuen Volumes verwendet wird. Unterstützte Werte sind 2 oder 16.
+
+| `defaultSettings.defaultDataLocality`
+| Standarddatenlokalität. Ein Longhorn-Volume hat Datenlokalität, wenn eine lokale Kopie des Volumes auf demselben Knoten existiert wie der Pod, der das Volume verwendet.
+
+| `defaultSettings.defaultDataPath`
+| Standardpfad zum Speichern von Daten auf einem Host. Ein absoluter Verzeichnispfad zeigt auf ein Dateisystem-typisches Laufwerk, das von der V1 Data Engine verwendet wird, während ein Pfad zu einem Blockgerät auf ein Block-typisches Laufwerk hinweist, das von der V2 Data Engine verwendet wird. Der Standardwert ist `"/var/lib/longhorn/"`.
+
+| `defaultSettings.defaultLonghornStaticStorageClass`
+| Standardname der {longhorn-product-name} statischen StorageClass. `"storageClassName"` wird PVs und PVCs zugewiesen, die für ein bestehendes Longhorn-Volume erstellt werden. `"storageClassName"` kann auch als Label verwendet werden, sodass es möglich ist, eine Longhorn StorageClass zu verwenden, um eine Arbeitslast an ein bestehendes PV zu binden, ohne ein Kubernetes StorageClass-Objekt zu erstellen. `"storageClassName"` muss eine bestehende StorageClass sein. Der Standardwert ist "longhorn-static".
+
+| `defaultSettings.defaultReplicaCount`
+| Standardanzahl der Replikate für Volumes, die über die {longhorn-product-name} UI erstellt wurden. Für die Kubernetes-Konfiguration ändern Sie das `numberOfReplicas` Feld in der StorageClass. Der Standardwert ist `"{"v1":"3","v2":"3"}"`.
+
+| `defaultSettings.defaultUblkNumberOfQueue`
+| Diese Einstellung gibt die Standardanzahl der Warteschlangen für das Ublk-Frontend an. Diese Einstellung gilt für Volumes, die die V2 Data Engine mit Ublk-Frontend verwenden. Einzelne Volumes können diese Einstellung überschreiben, indem sie ihre eigene Anzahl von Warteschlangen für Ublk angeben.
+
+| `defaultSettings.defaultUblkQueueDepth`
+| Diese Einstellung gibt die Standardtiefe jeder Warteschlange für das Ublk-Frontend an. Diese Einstellung gilt für Volumes, die die V2 Data Engine mit Ublk-Frontend verwenden. Einzelne Volumes können diese Einstellung überschreiben, indem sie ihre eigene Ublk-Warteschlangentiefe angeben.
+
+| `defaultSettings.deletingConfirmationFlag`
+| Flag, das eine versehentliche Deinstallation von {longhorn-product-name} verhindert.
+
+| `defaultSettings.detachManuallyAttachedVolumesWhenCordoned`
+| Einstellung, die das automatische Abtrennen von manuell angehängten Volumes ermöglicht, wenn ein Knoten abgeriegelt wird.
+
+| `defaultSettings.disableRevisionCounter`
+| Einstellung, die den Versionszähler deaktiviert und damit verhindert, dass {longhorn-product-name} alle Schreiboperationen an einem Volume verfolgt. Beim Wiederherstellen eines Volumes verwendet {longhorn-product-name} Eigenschaften der `"volume-head-xxx.img"` Datei (die letzte Dateigröße und die letzte Änderungszeit der Datei), um die Replik auszuwählen, die für die Volumenwiederherstellung verwendet werden soll. Diese Einstellung gilt nur für Volumes, die über die {longhorn-product-name} UI erstellt wurden.
+
+| `defaultSettings.disableSchedulingOnCordonedNode`
+| Einstellung, die verhindert, dass der Longhorn Manager Replikate auf einem abgeriegelten Kubernetes-Knoten plant. Diese Einstellung ist standardmäßig aktiviert.
+
+| `defaultSettings.disableSnapshotPurge`
+| Einstellung, die vorübergehend alle Versuche verhindert, Volume-Snapshots zu löschen.
+
+| `defaultSettings.endpointNetworkForRWXVolume`
+| Spezifiziert ein dediziertes Netzwerk zum Mounten von RWX (ReadWriteMany) Volumes. Lassen Sie dieses Feld leer, um das Standardnetzwerk des Kubernetes-Clusters zu verwenden. *Achtung*: Diese Einstellung sollte geändert werden, nachdem alle RWX-Volumes getrennt sind, da einige Longhorn-Komponenten-Pods neu erstellt werden müssen, um die Einstellung anzuwenden. Sie können diese Einstellung nicht ändern, während RWX-Volumes noch angeschlossen sind.
+
+| `defaultSettings.engineReplicaTimeout`
+| Zeitüberschreitung zwischen der Longhorn-Engine und den Replikaten. Geben Sie einen Wert zwischen `"8"` und `"30"` Sekunden an. Der Standardwert ist `"8"`.
+
+| `defaultSettings.failedBackupTTL`
+| Anzahl der Minuten, die {longhorn-product-name} eine fehlgeschlagene Sicherungsressource aufbewahrt. Wenn der Wert `"0"` ist, ist die automatische Löschung deaktiviert.
+
+| `defaultSettings.fastReplicaRebuildEnabled`
+| Einstellung, die ein schnelles Wiederaufbauen von Replikaten mithilfe der Prüfsumme der Snapshot-Diskdateien ermöglicht. Bevor Sie diese Einstellung aktivieren, müssen Sie den Wert für die snapshot-data-integrity auf `"enable"` oder `"fast-check"` setzen.
+
+| `defaultSettings.freezeFilesystemForSnapshot`
+| Einstellung, die das Dateisystem auf der Root-Partition einfriert, bevor ein Snapshot erstellt wird.
+
+| `defaultSettings.guaranteedInstanceManagerCPU`
+| Prozentsatz der insgesamt zuweisbaren CPU-Ressourcen auf jedem Knoten, der für jeden Instanzmanager-Pod reserviert werden soll. Der Standardwert ist {"v1":"12","v2":"12"}.
+
+| `defaultSettings.instanceManagerPodLivenessProbeTimeout`
+| In Sekunden. Die Einstellung gibt die Zeitüberschreitung für die Liveness-Prüfung des Instanzmanager-Pods an. Der Standardwert ist 10 Sekunden.
+
+| `defaultSettings.kubernetesClusterAutoscalerEnabled`
+| Einstellung, die {longhorn-product-name} benachrichtigt, dass der Cluster den Kubernetes Cluster Autoscaler verwendet.
+
+| `defaultSettings.logLevel`
+| Protokollebene, die den Typ und die Schwere der Protokolle im Longhorn Manager angibt. Der Standardwert ist `"Info"`. (Optionen: `"Panic"`, `"Fatal"`, `"Error"`, `"Warn"`, `"Info"`, `"Debug"`, `"Trace"`)
+
+| `defaultSettings.logPath`
+| Gibt das Verzeichnis auf dem Host an, in dem Longhorn Protokolldateien für den Instanzmanager-Pod speichert. Derzeit wird es nur für Instanzmanager-Pods in der V2 Data Engine verwendet.
+
+| `defaultSettings.longGRPCTimeOut`
+| Anzahl der Sekunden, die {longhorn-product-name} für den Abschluss von Replikat-Wiederherstellungs- und Snapshot-Klonvorgängen zulässt.
+
+| `defaultSettings.managerUrl`
+| Die externe URL, die zum Zugriff auf die Longhorn Manager API verwendet wird. Wenn festgelegt, wird diese URL in API-Antworten (den Feldern Aktionen und Links) anstelle der internen Pod-IP zurückgegeben. Dies ist nützlich, wenn auf die API über Ingress oder Gateway API HTTPRoute zugegriffen wird. Format: `scheme://host[:port]` (zum Beispiel `https://longhorn.example.com` oder `https://longhorn.example.com:8443`). Lassen Sie es leer, um das Standardverhalten zu verwenden.
+
+| `defaultSettings.nodeDiskHealthMonitoring`
+| Steuert, ob Longhorn Gesundheitsinformationen für Knotenfestplatten überwacht und aufgezeichnet werden. Wenn deaktiviert, werden die Gesundheitsprüfungen der Festplatten und Statusaktualisierungen übersprungen.
+
+| `defaultSettings.nodeDownPodDeletionPolicy`
+| Richtlinie, die die Aktion definiert, die {longhorn-product-name} ergreift, wenn ein Volume mit einem StatefulSet oder Implementierung-Pod auf einem fehlgeschlagenen Knoten feststeckt.
+
+| `defaultSettings.nodeDrainPolicy`
+| Richtlinie, die die Aktion definiert, die {longhorn-product-name} ergreift, wenn ein Knoten mit dem letzten gesunden Replikat eines Volumes entleert wird.
+
+| `defaultSettings.offlineReplicaRebuilding`
+| Aktiviert den automatischen Wiederaufbau von degradierten Replikaten, während das Volume getrennt ist. Diese Einstellung hat nur Wirkung, wenn die individuelle Volume-Einstellung auf `"ignored"` oder `"enabled"` gesetzt ist.
+
+| `defaultSettings.orphanResourceAutoDeletion`
+| Aktiviert Longhorn, um automatisch verwaiste Ressourcen und deren zugehörige Daten oder Prozesse (z. B. veraltete Replikate) zu löschen. Verwaiste Ressourcen auf fehlgeschlagenen oder unbekannten Knoten werden nicht automatisch bereinigt. Sie müssen die zu löschenden Ressourcentypen mit einer durch Semikolons getrennten Liste angeben (z. B. `replica-data;instance`). Verfügbare Elemente sind: `replica-data`, `instance`.
+
+| `defaultSettings.orphanResourceAutoDeletionGracePeriod`
+| Gibt die Wartezeit in Sekunden an, bevor Longhorn automatisch eine verwaiste benutzerdefinierte Ressource (CR) und deren zugehörige Ressourcen löscht. Beachten Sie, dass, wenn ein Benutzer manuell eine verwaiste CR löscht, die Löschung sofort erfolgt und dieser Kulanzzeitraum nicht respektiert wird.
+
+| `defaultSettings.priorityClass`
+| PriorityClass für systemverwaltete Longhorn-Komponenten. Diese Einstellung kann helfen zu verhindern, dass Longhorn-Komponenten bei Knotenbelastung evakuiert werden. Beachten Sie, dass dies standardmäßig auf {longhorn-product-name} benutzerbereitgestellte Komponenten angewendet wird, wenn noch keine Prioritätsklassenwerte festgelegt sind, wie zum Beispiel `longhornManager.priorityClass`.
+
+| `defaultSettings.rebuildConcurrentSyncLimit` 
+| Maximale Anzahl von Dateisynchronisierungsvorgängen, die während eines einzelnen Replikat-Wiederaufbaus gleichzeitig ausgeführt werden können. Im Moment gilt dies nur für die V1 Data Engine.
+
+| `defaultSettings.recurringFailedJobsHistoryLimit`
+| Maximale Anzahl von fehlgeschlagenen wiederkehrenden Sicherungs- und Snapshot-Jobs, die aufbewahrt werden sollen. Wenn der Wert `"0"` beträgt, wird keine Historie von fehlgeschlagenen wiederkehrenden Sicherungs-Jobs aufbewahrt.
+
+| `defaultSettings.recurringJobMaxRetention`
+| Maximale Anzahl von Snapshots oder Sicherungen, die aufbewahrt werden sollen.
+
+| `defaultSettings.recurringSuccessfulJobsHistoryLimit`
+| Maximale Anzahl von erfolgreichen wiederkehrenden Sicherungs- und Snapshot-Jobs, die aufbewahrt werden sollen. Wenn der Wert `"0"` beträgt, wird keine Historie von erfolgreichen wiederkehrenden Sicherungs-Jobs aufbewahrt.
+
+| `defaultSettings.removeSnapshotsDuringFilesystemTrim`
+| Einstellung, die es {longhorn-product-name} ermöglicht, den neuesten Snapshot und dessen übergeordnete Dateien während eines Dateisystem-Trims automatisch als entfernt zu kennzeichnen. {longhorn-product-name} entfernt keine Snapshots, die mehrere untergeordnete Dateien enthalten.
+
+| `defaultSettings.replicaAutoBalance`
+| Einstellung, die Replikate automatisch neu ausbalanciert, wenn ein verfügbarer Knoten entdeckt wird.
+
+| `defaultSettings.replicaDiskSoftAntiAffinity`
+| Einstellung, die das Planen auf Festplatten mit vorhandenen gesunden Replikaten des gleichen Volumens ermöglicht. Diese Einstellung ist standardmäßig aktiviert.
+
+| `defaultSettings.replicaFileSyncHttpClientTimeout`
+| Anzahl der Sekunden, die ein HTTP-Client auf eine Antwort von einem File Sync-Server wartet, bevor er die Verbindung als fehlgeschlagen betrachtet.
+
+| `defaultSettings.replicaRebuildingBandwidthLimit`
+| Diese Einstellung gibt das standardmäßige Schreibbandbreitenlimit (in Megabyte pro Sekunde) für den Wiederaufbau von Volumenreplikaten bei Verwendung der V2 Data Engine (SPDK) an. Wenn dieser Wert auf 0 gesetzt ist, gibt es keine Einschränkung der Schreibbandbreite. Einzelne Volumen können diese Einstellung überschreiben, indem sie ihr eigenes Wiederaufbau-Bandbreitenlimit angeben.
+
+| `defaultSettings.replicaReplenishmentWaitInterval`
+| Anzahl der Sekunden, die {longhorn-product-name} wartet, bevor vorhandene Daten auf einem fehlgeschlagenen Replikat wiederverwendet werden, anstatt ein neues Replikat eines degradierten Volumens zu erstellen.
+
+| `defaultSettings.replicaSoftAntiAffinity`
+| Einstellung, die das Planen auf Knoten mit gesunden Replikaten des gleichen Volumens ermöglicht. Diese Einstellung ist standardmäßig deaktiviert.
+
+| `defaultSettings.replicaZoneSoftAntiAffinity`
+| Einstellung, die es {longhorn-product-name} ermöglicht, neue Replikate eines Volumens auf Knoten in derselben Zone wie vorhandene gesunde Replikate zu planen. Knoten, die zu keiner Zone gehören, werden als existierend in der Zone behandelt, die gesunde Replikate enthält. Bei der Identifizierung von Zonen verlässt sich {longhorn-product-name} auf das Label "topology.kubernetes.io/zone=+++<Zone name="" of="" the="" node="">+++" im Kubernetes-Knotenobjekt.+++</Zone>+++
+
+| `defaultSettings.restoreConcurrentLimit`
+| Maximale Anzahl von Arbeits-Threads, die gleichzeitig für jede Wiederherstellungsoperation ausgeführt werden können.
+
+| `defaultSettings.restoreVolumeRecurringJobs`
+| Einstellung, die wiederkehrende Aufgaben von einem Sicherungs-Volume auf ein Sicherungs-Ziel wiederherstellt und wiederkehrende Aufgaben erstellt, wenn während der Wiederherstellung der Sicherung keine vorhanden sind.
+
+| `defaultSettings.rwxVolumeFastFailover`
+| Einstellung, die es Longhorn ermöglicht, Knotenfehler zu erkennen und betroffene RWX-Volumes sofort zu migrieren.
+
+| `defaultSettings.snapshotDataIntegrity`
+| Einstellung, die es Ihnen ermöglicht, Snapshot-Hashing und Datenintegritätsprüfungen zu aktivieren und zu deaktivieren.
+
+| `defaultSettings.snapshotDataIntegrityCronjob`
+| Einstellung, die definiert, wann {longhorn-product-name} die Integrität der Daten in Snapshot-Disk-Dateien überprüft. Sie müssen das Format der Unix-Cron-Daemon-Ausdrücke verwenden.
+
+| `defaultSettings.snapshotDataIntegrityImmediateCheckAfterSnapshotCreation`
+| Einstellung, die es ermöglicht, das Snapshot-Hashing nach der Erstellung eines Snapshots zu deaktivieren, um die Auswirkungen auf die Systemleistung zu minimieren.
+
+| `defaultSettings.snapshotHeavyTaskConcurrentLimit`
+| Einstellung, die steuert, wie viele Snapshot-intensive Aufgaben (wie Bereinigung und Klonen) gleichzeitig pro Knoten ausgeführt werden können. Dies ist ein Best-Effort-Mechanismus: Aufgrund der verteilten Natur des Systems kann es zu vorübergehenden Überbuchungen kommen. Der Begrenzer reduziert die schlimmsten Überlastungen, garantiert jedoch keine perfekte Durchsetzung.
+
+| `defaultSettings.snapshotMaxCount`
+| Maximale Snapshot-Anzahl für ein Volume. Der Wert sollte zwischen 2 und 250 liegen.
+
+| `defaultSettings.storageMinimalAvailablePercentage`
+| Prozentsatz der minimal verfügbaren Festplattenkapazität. Wenn die minimal verfügbare Kapazität die insgesamt verfügbare Kapazität überschreitet, wird die Festplatte nicht planbar, bis mehr Speicherplatz zur Verfügung gestellt wird. Der Standardwert ist `"25"`.
+
+| `defaultSettings.storageNetwork`
+| Speichernetzwerk für den internen Clusterverkehr. Wenn nicht angegeben, verwendet {longhorn-product-name} das Kubernetes-Cluster-Netzwerk.
+
+| `defaultSettings.storageOverProvisioningPercentage`
+| Prozentsatz des Speichers, der im Verhältnis zur Festplattenkapazität zugewiesen werden kann. Der Standardwert ist `"100"`.
+
+| `defaultSettings.storageReservedPercentageForDefaultDisk`
+| Prozentsatz des Speicherplatzes, der nicht dem Standardlaufwerk auf jedem neuen Longhorn-Knoten zugewiesen ist.
+
+| `defaultSettings.supportBundleFailedHistoryLimit`
+| Maximale Anzahl fehlgeschlagener Support-Bundles, die im Cluster existieren können. Wenn der Wert "0" ist, {longhorn-product-name} löscht automatisch alle fehlgeschlagenen Support-Bundles.
+
+| `defaultSettings.systemManagedCSIComponentsResourceLimits`
+| Ressourcengrenzen für systemverwaltete CSI-Komponenten. Diese Einstellung ermöglicht es Ihnen, CPU- und Arbeitsspeicheranforderungen/-grenzen für CSI-Attacher, Provisionierer, Resizer, Snapshotter und Plugin-Komponenten zu konfigurieren. Unterstützte Komponenten: `csi-attacher`, `csi-provisioner`, `csi-resizer`, `csi-snapshotter`, `longhorn-csi-plugin`, `node-driver-registrar`, `longhorn-liveness-probe`. Beachten Sie, dass Änderungen an den Ressourcengrenzen dazu führen, dass CSI-Komponenten neu gestartet werden, was vorübergehend die Bereitstellung von Volumes und die An- und Abkopplungsoperationen beeinträchtigen kann, bis die Komponenten bereit sind. Der Wert sollte ein JSON-Objekt mit Komponentennamen als Schlüsseln und ResourceRequirements als Werten sein.
+
+| `defaultSettings.systemManagedComponentsNodeSelector`
+| Knotenauswahl für systemverwaltete Longhorn-Komponenten.
+
+| `defaultSettings.systemManagedPodsImagePullPolicy`
+| Image-Pull-Richtlinie für systemverwaltete Pods, wie Instance Manager, Engine-Images und CSI-Treiber. Änderungen an der Image-Pull-Richtlinie werden erst nach dem Neustart der systemverwalteten Pods angewendet.
+
+| `defaultSettings.taintToleration`
+| Taint oder Toleranz für systemverwaltete Longhorn-Komponenten. Geben Sie Werte in einer durch Semikolons getrennten Liste in der `kubectl taint`-Syntax an (Beispiel: key1=value1:effect; key2=value2:effect).
+
+| `defaultSettings.upgradeChecker`
+| Upgrade-Checker, der regelmäßig nach neuen {longhorn-product-name}-Versionen sucht. Wenn eine neue Version verfügbar ist, erscheint eine Benachrichtigung in der {longhorn-product-name}-Benutzeroberfläche. Diese Einstellung ist standardmäßig aktiviert.
+
+| `defaultSettings.upgradeResponderURL`
+| Der Upgrade-Responder sendet eine Benachrichtigung, wann immer eine neue Longhorn-Version, auf die Sie upgraden können, verfügbar wird. Der Standardwert ist `https://longhorn-upgrade-responder.rancher.io/v1/checkupgrade`.
+
+| `defaultSettings.v1DataEngine`
+| Einstellung, die es Ihnen ermöglicht, die V1-Daten-Engine zu aktivieren.
+
+| `defaultSettings.v2DataEngine`
+| Einstellung, die es Ihnen ermöglicht, die V2-Daten-Engine zu aktivieren, die auf dem Storage Performance Development Kit (SPDK) basiert. Die V2-Daten-Engine ist eine experimentelle Funktion und sollte nicht in Produktionsumgebungen verwendet werden.
+|===

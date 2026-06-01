@@ -1,0 +1,94 @@
+= 创建备份
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 递增备份
+
+Longhorn中的备份是集群外的备份存储中的对象。快照的备份被复制到备份存储中，访问备份存储的端点是备份目标。有关更多信息，请参见xref:introduction/concepts.adoc#_3_1_how_backups_work[本节。]
+
+____
+*前提条件：*必须设置备份目标。有关更多信息，请参见xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[设置备份目标]。如果未设置备份目标，您将看到一个错误。
+____
+
+=== 使用 UI 创建递增备份
+
+要创建备份，
+
+. 导航到*卷*菜单。
+. 选择您希望备份的卷。
+. 单击*创建备份。*
+. 添加任何适当的标签，然后单击确定。
+
+*结果：*备份已创建。要查看它，请单击顶部导航栏中的*备份*。
+
+有关从快照恢复卷的信息，请参见xref:snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[从备份恢复]。
+
+=== 使用 YAML 代码创建递增备份
+
+. 获取您想要备份的快照名称（可以从Longhorn UI或CR中获取）。
+. 应用 YAML。
+
+示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Backup
+metadata:
+  name: backup-example
+  namespace: longhorn-system
+spec:
+  backupMode: incremental
+  snapshotName: snapshot-name-example
+  labels:
+    app: test
+----
+
+== 全备份
+
+默认情况下，Longhorn仅备份自上次备份以来已更改的数据。这种方法被称为 _增量备份_，提高了时间效率并节省了网络吞吐量。然而，当备份存储中的数据块损坏时，Longhorn 在后续备份操作中不会用健康的数据块替换该数据块。
+
+从 v1.7.0 开始，Longhorn 可以执行完整备份，上传卷中的所有数据块并覆盖备份存储中现有的数据块。
+
+=== 使用 Longhorn UI 创建完整备份
+
+. 转到 *卷* 屏幕。
+. 选择您要备份的卷。
+. 单击 *创建备份*。
+. 添加适当的标签。
+. 选择完整备份。
+. 单击 *确定*。
+
+=== 使用 YAML 代码创建完整备份
+
+. 获取您想要备份的快照名称（可以从Longhorn UI或CR中获取）。
+. 应用 YAML。
+
+示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Backup
+metadata:
+  name: backup-example
+  namespace: longhorn-system
+spec:
+  backupMode: full
+  snapshotName: snapshot-name-example
+  labels:
+    app: test
+----
+
+== 上传的数据大小
+
+为了方便收集每个备份的数据传输信息，Longhorn 使用 CR 状态中的两个指标记录该信息。
+
+=== 新上传的数据大小
+
+`status.newlyUploadDataSize` 记录在最新备份中_首次上传_到备份存储的数据大小。换句话说，它跟踪在备份存储中之前不存在的数据块的大小。
+
+=== 重新上传的数据大小
+
+`status.reUploadDataSize` 记录在最新完整备份中被覆盖的数据大小。换句话说，它跟踪在备份存储中之前存在的数据块的大小。

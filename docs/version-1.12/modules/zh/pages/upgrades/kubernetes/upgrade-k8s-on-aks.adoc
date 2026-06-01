@@ -1,0 +1,61 @@
+= 在 Azure Kubernetes 服务 (AKS) 上升级 Kubernetes
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+AKS 提供 `az aks upgrade` 通过节点重映像进行就地节点升级，但这将导致原始 {longhorn-product-name} 磁盘丢失，从而在升级后的节点中将没有磁盘允许副本重建。
+
+我们建议使用节点池替换来升级代理节点，但对控制平面节点使用 `az aks upgrade` 以确保数据安全。
+
+. 在 {longhorn-product-name} 中，将 `replica-replenishment-wait-interval` 设置为 `0`。
+. 升级 AKS 控制平面。
++
+----
+ AKS_RESOURCE_GROUP=<aks-resource-group>
+ AKS_CLUSTER_NAME=<aks-cluster-name>
+ AKS_K8S_VERSION_UPGRADE=<aks-k8s-version>
+
+ az aks upgrade \
+     --resource-group ${AKS_RESOURCE_GROUP} \
+     --name ${AKS_CLUSTER_NAME} \
+     --kubernetes-version ${AKS_K8S_VERSION_UPGRADE} \
+     --control-plane-only
+----
+
+. 添加一个新的节点池。
++
+----
+ AKS_NODEPOOL_NAME_NEW=<new-nodepool-name>
+ AKS_DISK_SIZE=<disk-size-in-gb>
+ AKS_NODE_NUM=<number-of-nodes>
+
+ az aks nodepool add \
+   --resource-group ${AKS_RESOURCE_GROUP} \
+   --cluster-name ${AKS_CLUSTER_NAME} \
+   --name ${AKS_NODEPOOL_NAME_NEW} \
+   --node-count ${AKS_NODE_NUM} \
+   --node-osdisk-size ${AKS_DISK_SIZE} \
+   --kubernetes-version ${AKS_K8S_VERSION_UPGRADE} \
+   --mode System
+----
+
+. 使用 {longhorn-product-name} 界面禁用旧节点池中节点的磁盘调度并请求驱逐。
+. 将旧节点池中的 Kubernetes 节点标记为不可调度并进行排空。
++
+----
+ AKS_NODEPOOL_NAME_OLD=<old-nodepool-name>
+
+ for n in `kubectl get nodes | grep ${AKS_NODEPOOL_NAME_OLD}- | awk '{print $1}'`; do
+   kubectl cordon $n && \
+   kubectl drain $n --ignore-daemonsets --delete-emptydir-data
+ done
+----
+
+. 删除旧节点池。
++
+----
+ az aks nodepool delete \
+   --cluster-name ${AKS_CLUSTER_NAME} \
+   --name ${AKS_NODEPOOL_NAME_OLD} \
+   --resource-group ${AKS_RESOURCE_GROUP}
+----

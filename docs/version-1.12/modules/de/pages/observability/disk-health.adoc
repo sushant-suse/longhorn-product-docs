@@ -1,0 +1,54 @@
+= Festplattenzustandsüberwachung
+:revdate: 2025-11-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Festplattenzustandsmetriken
+
+Ab {longhorn-product-name} v1.11.0 sind Metriken zur Festplattenzustandsüberwachung sowohl für die V1- als auch für die V2-Datenengine verfügbar. Diese Metriken bieten Einblicke in den Festplattenzustand.
+
+[NOTE]
+====
+* {longhorn-product-name} sammelt Gesundheitsdaten alle 10 Minuten.
+* Bestimmte virtualisierte oder Cloud-Umgebungen (zum Beispiel AWS EBS) geben keine vollständigen SMART-Daten preis, was zu Nullwerten für bestimmte Attribute führt.
+* Verfügbare Gesundheitsattribute variieren je nach Festplattentyp und Hardware.
+* Der vollständige Satz gesammelter Gesundheitsdaten ist in den `nodes.longhorn.io` benutzerdefinierten Ressourcen (CRs) verfügbar.
+====
+
+=== Datenquellen
+
+* *V1-Datenengine*: Gesundheitsdaten werden mit dem SMART-Überwachungstool (`smartctl`) gesammelt.
+* *V2-Datenengine*:
+** *NVMe-Festplatten*: Gesundheitsdaten werden über SPDK abgerufen.
+** *AIO-Festplatten*: Gesundheitsdaten werden mit dem SMART-Überwachungstool (`smartctl`) gesammelt.
+
+[NOTE]
+====
+Gesundheitsdaten werden je nach Festplattentyp unterschiedlich bezogen:
+
+* V1-Festplatten und V2 AIO-Festplatten: über SMART
+* V2 NVMe-Festplatten: über SPDK
+
+Verfügbare Attribute und Formate variieren je nach Festplattentyp und Hardware. Für Details:
+
+* SMART-Attribute: https://www.smartmontools.org/wiki/TocDoc[smartmontools-Dokumentation]
+* SPDK NVMe-Gesundheitsdaten: https://github.com/spdk/spdk/blob/v25.09/doc/jsonrpc.md.jinja2#L4805-L4856[`bdev_nvme_get_controller_health_info` JSON-RPC]
+====
+
+=== Gesundheitsattribute
+
+Die `longhorn_disk_health_attribute_raw`-Metrik gibt rohe Attributwerte mit den folgenden Bezeichnungen aus:
+
+* `attribute`: Name des Attributs.
+* `attribute_id`: Attribut-ID, wenn sie von der Erfassungsmethode bereitgestellt wird.
+* `disk`: Longhorn-Disk-Identifikator.
+* `node`: Name des Knotens.
+
+[NOTE]
+====
+SMART-Daten sind möglicherweise nicht auf allen Plattformen verfügbar, insbesondere bei Cloud-Anbietern. Wenn SMART nicht unterstützt wird, erscheinen Gesundheitsmetriken als `0`.
+====
+
+=== Hinweise
+
+* Verwandtes GitHub-Problem https://github.com/longhorn/longhorn/issues/12016[#12016].

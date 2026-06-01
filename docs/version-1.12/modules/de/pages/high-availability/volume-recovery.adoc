@@ -1,0 +1,39 @@
+= Volumenwiederherstellung
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn bietet zwei Mechanismen zur Aufrechterhaltung der Volumenfunktionalität in verschiedenen Situationen.
+
+== Automatische Löschung von Arbeitslast-Pods
+
+Dieser Wiederherstellungsmechanismus wird durch die Einstellung xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[_Automatisch Arbeitslast-Pod löschen, wenn das Volumen unerwartet getrennt wird_] aktiviert.
+
+Wenn eine der folgenden Situationen eintritt, versucht Longhorn automatisch, Arbeitslast-Pods zu löschen, die von einem Controller verwaltet werden (zum Beispiel Deployment, StatefulSet oder DaemonSet). Nach der Löschung startet der Controller den Arbeitslast-Pod neu, und Kubernetes kümmert sich um die Wiederanbindung und das erneute Einhängen des Volumens.
+
+. Ein Volumen wurde unerwartet getrennt, möglicherweise aufgrund eines https://github.com/longhorn/longhorn/issues/703[Kubernetes-Updates], https://github.com/longhorn/longhorn/issues/686[Neustarts der Container-Laufzeit], eines Netzwerkverbindungsproblems oder eines Absturzes der Volumen-Engine.
+. Ein Volumen wurde automatisch gerettet, nachdem alle Replikate fehlerhaft wurden, möglicherweise aufgrund eines Netzwerkverbindungsproblems. Longhorn versucht, die verwendbaren Replikate zu identifizieren und verwendet sie für das Volumen.
+. Ein Fehler ist auf einem Share-Manager-Pod aufgetreten, der ein RWX-Volumen verwendet.
+
+Wenn Sie verhindern möchten, dass Longhorn automatisch Arbeitslast-Pods löscht, deaktivieren Sie die Einstellung xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[_Automatisch Arbeitslast-Pod löschen, wenn das Volumen unerwartet getrennt wird_] in der Longhorn-Benutzeroberfläche.
+
+Longhorn löscht keine Pods ohne einen Controller, da solche Pods nach der Löschung nicht neu gestartet werden können. Um Volumen, die unerwartet getrennt wurden, wiederherzustellen, müssen Sie die Pods ohne einen Controller manuell löschen und neu starten.
+
+== Automatisches erneutes Einhängen von Volumen
+
+Dieser Wiederherstellungsmechanismus wird durch keine spezifische Einstellung gesteuert.
+
+Der Zustand eines Volumens kann auf schreibgeschützt wechseln, wenn IO-Fehler auftreten. IO-Fehler können durch eine Vielzahl von Problemen verursacht werden, einschließlich der folgenden:
+
+* Netzwerktrennung: Unterbrochene Verbindung zwischen der Engine und den Replikaten.
+* Hohe Festplattenlatenz: Bedeutende Verzögerung beim Datentransfer zwischen einer Replik und der entsprechenden Festplatte.
+
+Longhorn überprüft alle 10 Sekunden den Zustand des globalen Einhängepunkts des Volumes. Wenn das Dateisystem des Volumes auf schreibgeschützt wechselt, aktualisiert Longhorn den Zustand an die Daten-Engine des Volumes. Longhorn versucht dann automatisch, den globalen Einhängepunkt auf dem Host erneut einzuhängen, um den Zustand wieder auf Lese- und Schreibzugriff zu ändern. Nach erfolgreichem erneuten Einhängen funktionieren die Arbeitslast-Pods ohne Unterbrechung weiter. Wenn der Einhängepunkt jedoch schreibgeschützt wird und Longhorn nicht in der Lage ist, den Einhängepunkt erneut einzuhängen, müssen Sie möglicherweise die Arbeitslast manuell neu erstellen, um sie zu zwingen, sich wieder anzuschließen und das Volume erneut einzuhängen.
+
+NOTE: Dieser Mechanismus funktioniert möglicherweise in einigen Situationen nicht. Zum Beispiel, wenn die Daten-Engine des Volumes abstürzt, trennt Longhorn das Volume automatisch und verbindet es erneut. In diesem Fall wechselt das Dateisystem in den Nur-Lese-Modus. Longhorn wird den schreibgeschützten Modus erkennen und den Zustand aktualisieren, aber <<_automatic_volume_remounting,Automatische erneute Einhängung des Volumens>> kann ihn nicht wieder auf Lese- und Schreibzugriff ändern, da das Gerät jetzt schreibgeschützt ist. In diesem Fall können Sie sich nur auf den Mechanismus <<_automatic_workload_pod_deletion,Automatische Löschung von Arbeitslast-Pods>> verlassen, der das erneute Einhängen des Volumes ermöglicht, nachdem der Arbeitslast-Pod neu erstellt wurde.
+
+== Zusammenfassung
+
+<<_automatic_workload_pod_deletion,Automatische Löschung von Arbeitslast-Pods>> wird ausgelöst, wenn unerwartete Fehler auftreten. Der Controller löscht den Arbeitslast-Pod und startet ihn dann neu, und Kubernetes kümmert sich um die Wiederverbindung und das erneute Einhängen des Volumes. Der Prozess kann Unterbrechungen der Arbeitslast verursachen. Wenn Sie verhindern möchten, dass Longhorn automatisch Arbeitslast-Pods löscht, deaktivieren Sie die Einstellung xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[_Automatisch Arbeitslast-Pod löschen, wenn das Volume unerwartet getrennt wird_] in der Longhorn-Benutzeroberfläche.
+
+<<_automatic_volume_remounting,Automatische erneute Einhängung des Volumens>> wird ausgelöst, wenn das Dateisystem des Volumes auf schreibgeschützt wechselt. Longhorn hängt den globalen Einhängepunkt auf dem Host erneut ein, um den Zustand wieder auf Lese- und Schreibzugriff zu ändern.

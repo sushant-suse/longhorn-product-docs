@@ -1,0 +1,54 @@
+= Monitoramento da saúde do disco
+:revdate: 2025-11-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Métricas de saúde do disco
+
+A partir da versão {longhorn-product-name} v1.11.0, as métricas de monitoramento da saúde do disco estão disponíveis para os motores de dados V1 e V2. Essas métricas fornecem insights sobre o status da saúde do disco.
+
+[NOTE]
+====
+* {longhorn-product-name} coleta dados de saúde a cada 10 minutos.
+* Certos ambientes virtualizados ou em nuvem (por exemplo, AWS EBS) não expõem todos os dados SMART, resultando em valores zero para certos atributos.
+* Os atributos de saúde disponíveis variam dependendo do tipo de disco e do hardware.
+* O conjunto completo de dados de saúde coletados está disponível em `nodes.longhorn.io` recursos personalizados (CRs).
+====
+
+=== Fontes de dados
+
+* *Motor de dados V1*: Os dados de saúde são coletados usando a ferramenta de monitoramento SMART (`smartctl`).
+* *Motor de dados V2*:
+** *Discos NVMe*: Os dados de saúde são recuperados através do SPDK.
+** *Discos AIO*: Os dados de saúde são coletados usando a ferramenta de monitoramento SMART (`smartctl`).
+
+[NOTE]
+====
+Os dados de saúde são obtidos de maneira diferente dependendo do tipo de disco:
+
+* Discos V1 e discos AIO V2: via SMART
+* Discos NVMe V2: via SPDK
+
+Os atributos e formatos disponíveis variam conforme o tipo de disco e hardware. Para obter detalhes:
+
+* Atributos SMART: https://www.smartmontools.org/wiki/TocDoc[documentação do smartmontools]
+* Dados de saúde NVMe do SPDK: https://github.com/spdk/spdk/blob/v25.09/doc/jsonrpc.md.jinja2#L4805-L4856[`bdev_nvme_get_controller_health_info` JSON-RPC]
+====
+
+=== Atributos de saúde
+
+A métrica `longhorn_disk_health_attribute_raw` expõe valores brutos de atributos com os seguintes rótulos:
+
+* `attribute`: Nome do atributo.
+* `attribute_id`: ID do atributo, quando fornecido pelo método de coleta.
+* `disk`: Identificador do disco Longhorn.
+* `node`: Nome do nó.
+
+[NOTE]
+====
+Os dados SMART podem não estar disponíveis em todas as plataformas, especialmente em provedores de nuvem. Se o SMART não for suportado, as métricas de saúde aparecem como `0`.
+====
+
+=== Referências
+
+* Problema relacionado no GitHub https://github.com/longhorn/longhorn/issues/12016[#12016].

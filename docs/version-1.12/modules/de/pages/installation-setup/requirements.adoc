@@ -1,0 +1,383 @@
+= Anforderungen
+:revdate: 2026-02-05
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Jeder Knoten im Kubernetes-Cluster, auf dem {longhorn-product-name} installiert ist, muss die folgenden Anforderungen erfüllen:
+
+* Eine Container-Laufzeit, die mit Kubernetes kompatibel ist (Docker v1.13+, containerd v1.3.7+, usw.)
+* Kubernetes v1.25 oder höher
+* `open-iscsi` ist installiert, und der `iscsid` Daemon läuft auf allen Knoten. Dies ist notwendig, da {longhorn-product-name} auf `iscsiadm` auf dem Host angewiesen ist, um persistente Volumes für Kubernetes bereitzustellen. Für Hilfe bei der Installation von `open-iscsi` siehe <<_installing_open_iscsi,Installation von open-iscsi>>.
+* Die RWX-Unterstützung erfordert, dass jeder Knoten einen NFSv4-Client installiert hat.
+ ** Für die Installation eines NFSv4-Clients siehe <<_installing_nfsv4_client,Installation des NFSv4-Clients>>.
+* Das Host-Dateisystem unterstützt die `file extents` Funktion zur Speicherung der Daten. Derzeit unterstützen wir:
+ ** ext4
+ ** XFS
+* `bash`, `curl`, `findmnt`, `grep`, `awk`, `blkid`, `lsblk` müssen installiert sein.
+* https://kubernetes-csi.github.io/docs/deploying.html#enabling-mount-propagation[Mount-Propagation] muss aktiviert sein.
+
+Die {longhorn-product-name} Workloads müssen als Root ausgeführt werden können, damit {longhorn-product-name} ordnungsgemäß bereitgestellt und betrieben werden kann.
+
+Das xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn-Kommandozeilenwerkzeug] kann verwendet werden, um die Longhorn-Umgebung auf potenzielle Probleme zu überprüfen.
+
+Für die minimal empfohlenen Hardwareanforderungen siehe den xref:installation-setup/best-practices.adoc#_minimum_recommended_hardware[Leitfaden zu Best Practices].
+
+[discrete]
+== Betriebssystem-/Distribution-spezifische Konfiguration
+
+Sie müssen zusätzliche Einstellungen vornehmen, bevor Sie {longhorn-product-name} mit bestimmten Betriebssystemen und Distributionen verwenden.
+
+* Google Kubernetes Engine (GKE): Siehe xref:installation-setup/os-distro/gke.adoc[GKE].
+* K3s-Cluster: Siehe xref:installation-setup/os-distro/k3s.adoc[K3s].
+
+[discrete]
+== Überprüfung der Kubernetes-Version
+
+Verwenden Sie den folgenden Befehl, um die Version Ihres Kubernetes-Servers zu überprüfen:
+
+[,shell]
+----
+kubectl version
+----
+
+Ergebnis:
+
+[,shell]
+----
+Client Version: version.Info{Major:"1", Minor:"26", GitVersion:"v1.26.10", GitCommit:"b8609d4dd75c5d6fba4a5eaa63a5507cb39a6e99", GitTreeState:"clean", BuildDate:"2023-10-18T11:44:31Z", GoVersion:"go1.20.10", Compiler:"gc", Platform:"linux/amd64"}
+Server Version: version.Info{Major:"1", Minor:"26", GitVersion:"v1.26.10+k3s2", GitCommit:"cb5cb5557f34e240e38c68a8c4ca2506c68b1d86", GitTreeState:"clean", BuildDate:"2023-11-08T03:21:46Z", GoVersion:"go1.20.10", Compiler:"gc", Platform:"linux/amd64"}
+----
+
+Die `Server Version` sollte größer oder gleich v1.25 sein.
+
+[discrete]
+=== Pod-Sicherheitsrichtlinie
+
+{longhorn-product-name} wird mit einer standardmäßigen Pod-Sicherheitsrichtlinie ausgeliefert, die {longhorn-product-name} die notwendigen Berechtigungen gibt, um ordnungsgemäß ausgeführt zu werden.
+
+Es sind keine speziellen Konfigurationen erforderlich, damit {longhorn-product-name} auf Clustern mit aktivierter Pod-Sicherheitsrichtlinie ordnungsgemäß funktioniert.
+
+[discrete]
+=== Hinweise zur Mount-Propagation
+
+Wenn Ihr Kubernetes-Cluster von Rancher v2.0.7+ oder später bereitgestellt wurde, ist die MountPropagation-Funktion standardmäßig aktiviert.
+
+Wenn die MountPropagation deaktiviert ist, wird die Basisbildfunktion deaktiviert.
+
+[discrete]
+=== Root- und privilegierte Berechtigungen
+
+Die {longhorn-product-name}-Komponenten benötigen Root-Zugriff mit privilegierten Berechtigungen, um Volumenoperationen und -verwaltung durchzuführen, da {longhorn-product-name} auf Systemressourcen auf dem Host in verschiedenen Namespaces angewiesen ist. Zum Beispiel verwendet {longhorn-product-name} `nsenter`, um die Nutzung von Blockgeräten zu verstehen oder Volumen auf dem Host zu verschlüsseln/entschlüsseln.
+
+Nachfolgend sind die Verzeichnisse aufgeführt, auf die {longhorn-product-name}-Komponenten mit Root- und privilegierten Berechtigungen zugreifen müssen:
+
+* Longhorn Manager
+ ** /boot: Informationen über erforderliche Module von `/boot/config-$(uname -r)` auf dem Host abrufen.
+ ** /dev: Blockgeräte, die von Longhorn erstellt wurden, befinden sich unter dem `/dev`-Pfad.
+ ** /proc: Finden Sie den erkannten Hostprozess wie die Container-Laufzeit, und verwenden Sie `nsenter`, um auf die Mounts auf dem Host zuzugreifen, um die Festplattennutzung zu verstehen.
+ ** /var/lib/longhorn: Der Standardpfad zum Speichern von Volumendaten auf einem Host.
+* Longhorn Engine Image
+ ** /var/lib/longhorn/engine-binaries: Der Standardpfad zum Speichern der Longhorn-Engine-Binärdateien.
+* Longhorn Instance Manager
+ ** /: Greifen Sie auf jeden Datenpfad auf diesem Knoten zu und greifen Sie auf die Longhorn-Engine-Binärdateien zu.
+ ** /dev: Blockgeräte, die von Longhorn erstellt wurden, befinden sich unter dem `/dev`-Pfad.
+ ** /proc: Finden Sie den erkannten Hostprozess wie die Container-Laufzeit, und verwenden Sie `nsenter`, um iSCSI-Ziele und -Initiatoren zu verwalten, sowie einige Dateisysteme.
+* Longhorn Share Manager
+ ** /dev: Blockgeräte, die von Longhorn erstellt wurden, befinden sich unter dem `/dev`-Pfad.
+ ** /lib/modules: Kernelmodule, die von `cryptsetup` für die Volumenkryptierung benötigt werden.
+ ** /proc: Finden Sie den erkannten Hostprozess wie die Container-Laufzeit, und verwenden Sie `nsenter` für die Volumenkryptierung.
+ ** /sys: Unterstützen Sie die Volumenkryptierung durch `cryptsetup`.
+* Longhorn CSI Plugin
+ ** /: Für Hostprüfungen über den NFS-Client-Mounter (ausgelaufen). Bitte beachten Sie, dass dies in der zukünftigen Version entfernt wird.
+ ** /dev: Blockgeräte, die von Longhorn erstellt wurden, befinden sich unter dem `/dev`-Pfad.
+ ** /lib/modules: Kernelmodule, die vom Longhorn CSI-Plugin benötigt werden.
+ ** /sys: Unterstützen Sie die Volumenkryptierung durch `cryptsetup`.
+ ** /var/lib/kubelet/plugins/kubernetes.io/csi: Der Pfad, an dem das Longhorn CSI-Plugin den Staging-Pfad (über `NodeStageVolume`) eines Blockgeräts erstellt. Der Staging-Pfad wird an den Zielpfad `/var/lib/kubelet/pods` (über `NodePublishVolume`) gebunden, um zu ermöglichen, dass ein einzelnes Volume an mehrere Pods montiert werden kann.
+ ** /var/lib/kubelet/plugins_registry: Der Pfad, an dem der Node-Driver-Registrar das CSI-Plugin bei kubelet registriert.
+ ** /var/lib/kubelet/plugins/driver.longhorn.io: Der Pfad, an dem der Socket für die Kommunikation zwischen kubelet und dem Longhorn CSI-Treiber liegt.
+ ** /var/lib/kubelet/pods: Der Pfad, an dem der Longhorn CSI-Treiber Volumes vom Zielpfad (über `NodePublishVolume`) einbindet.
+* Longhorn CSI Attacher/Provisioner/Resizer/Snapshotter
+ ** /var/lib/kubelet/plugins/driver.longhorn.io: Der Pfad, an dem der Socket für die Kommunikation zwischen kubelet und dem Longhorn CSI-Treiber liegt.
+* Longhorn Backing Image Manager
+ ** /var/lib/longhorn: Der Standardpfad zum Speichern von Daten auf dem Host.
+* Longhorn Backing Image Datenquelle
+ ** /var/lib/longhorn: Der Standardpfad zum Speichern von Daten auf dem Host.
+* Longhorn Systemwiederherstellungs-Rollout
+ ** /var/lib/longhorn/engine-binaries: Der Standardpfad zum Speichern der Longhorn-Engine-Binärdateien.
+
+[discrete]
+== open-iscsi installieren
+
+Der Befehl zum Installieren von `open-iscsi` variiert je nach Linux-Distribution.
+
+Für GKE empfehlen wir, Ubuntu als Gastbetriebssystem-Image zu verwenden, da es ``open-iscsi`` bereits enthält.
+
+Möglicherweise müssen Sie die Sicherheitsgruppe des Clusters bearbeiten, um SSH-Zugriff zu ermöglichen.
+
+* SUSE und openSUSE: Führen Sie das folgende Kommando aus:
++
+----
+zypper install open-iscsi
+systemctl enable iscsid
+systemctl start iscsid
+----
+
+* Debian und Ubuntu: Führen Sie das folgende Kommando aus:
++
+----
+apt-get install open-iscsi
+----
+
+* RHEL, CentOS und EKS _(EKS Kubernetes Worker AMI mit AmazonLinux2-Image)_: Führen Sie folgende Befehle aus:
++
+----
+yum --setopt=tsflags=noscripts install iscsi-initiator-utils
+echo "InitiatorName=$(/sbin/iscsi-iname)" > /etc/iscsi/initiatorname.iscsi
+systemctl enable iscsid
+systemctl start iscsid
+----
+
+Bitte stellen Sie sicher, dass das iscsi_tcp-Modul geladen wurde, bevor der iscsid-Dienst startet. Im Allgemeinen sollte es automatisch zusammen mit der Paketinstallation geladen werden.
+
+----
+modprobe iscsi_tcp
+----
+
+IMPORTANT: Auf SUSE und openSUSE ist das `iscsi_tcp` Modul nur im `kernel-default` Paket enthalten. Wenn das `kernel-default-base` Paket auf Ihrem System installiert ist, müssen Sie es durch `kernel-default` ersetzen.
+
+Wir bieten auch einen `iscsi` Installer an, um es den Benutzern zu erleichtern, `open-iscsi` automatisch zu installieren. Sie können die xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI] verwenden, um die Voraussetzungen zu installieren.
+
+Sie können den `longhornctl check preflight` Befehl verwenden. Dieser Befehl überprüft Ihre Kubernetes-Cluster-Umgebung, um sicherzustellen, dass sie die Anforderungen von {longhorn-product-name} erfüllt. Er führt eine Reihe von Überprüfungen durch, die helfen können, potenzielle Probleme zu identifizieren, die verhindern könnten, dass {longhorn-product-name} korrekt funktioniert.
+
+Beispiel:
+
+[,shell]
+----
+> longhornctl check preflight
+INFO[2025-08-22T12:58:40+08:00] Initializing preflight checker
+INFO[2025-08-22T12:58:40+08:00] Cleaning up preflight checker
+INFO[2025-08-22T12:58:42+08:00] Running preflight checker
+INFO[2025-08-22T12:58:49+08:00] Retrieved preflight checker result:
+ip-10-0-1-132:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-client is installed
+  - Package open-iscsi is installed
+  - Package cryptsetup is installed
+  - Package device-mapper is installed
+  - Module dm_crypt is loaded
+  warn:
+  - Kube DNS "coredns" is set with fewer than 2 replicas; consider increasing replica count for high availability
+INFO[2025-08-22T12:58:49+08:00] Cleaning up preflight checker
+INFO[2025-08-22T12:58:50+08:00] Completed preflight checker
+----
+
+In seltenen Fällen kann es erforderlich sein, die installierte SELinux-Richtlinie zu ändern, um {longhorn-product-name} zum Laufen zu bringen. Wenn Sie eine aktuelle Version einer Fedora-Downstream-Distribution (z. B. Fedora, RHEL, Rocky, CentOS usw.) ausführen und SELinux aktiviert lassen möchten, siehe link:https://longhorn.io/kb/troubleshooting-volume-attachment-fails-due-to-selinux-denials[die KB] für Details.
+
+[discrete]
+== Installation des NFSv4-Clients
+
+Die Sicherungsfunktion erfordert NFSv4, v4.1 oder v4.2, und die ReadWriteMany (RWX) Volumenfunktion erfordert NFSv4.1. Bevor Sie den NFSv4-Client-Benutzerdämon und die Dienstprogramme installieren, stellen Sie sicher, dass die Unterstützung des Client-Kernels auf jedem {longhorn-product-name} Knoten aktiviert ist.
+
+* Überprüfen Sie, ob die `NFSv4.1` Unterstützung im Kernel aktiviert ist.
++
+----
+cat /boot/config-`uname -r`| grep CONFIG_NFS_V4_1
+----
+
+* Überprüfen Sie, ob die `NFSv4.2` Unterstützung im Kernel aktiviert ist.
++
+----
+cat /boot/config-`uname -r`| grep CONFIG_NFS_V4_2
+----
+
+Der Befehl zur Installation eines NFSv4-Clients variiert je nach Linux-Distribution.
+
+* Für Debian und Ubuntu verwenden Sie diesen Befehl:
++
+----
+apt-get install nfs-common
+----
+
+* Für RHEL, CentOS und EKS mit `EKS Kubernetes Worker AMI with AmazonLinux2 image` verwenden Sie diesen Befehl:
++
+----
+yum install nfs-utils
+----
+
+* Für SUSE/OpenSUSE können Sie einen NFSv4-Client über folgenden Befehl installieren:
++
+----
+zypper install nfs-client
+----
+
+* Für Talos Linux ist https://www.talos.dev/v1.6/kubernetes-guides/configuration/storage/#nfs[der NFS-Client Teil des `kubelet` Images, das vom Talos-Team gepflegt wird].
+* Für Container-Optimized OS wird https://cloud.google.com/kubernetes-engine/docs/concepts/node-images#storage_driver_support[der NFS mit dem Knoten-Image unterstützt].
+
+Wir bieten auch einen `nfs` Installer an, um es den Benutzern zu erleichtern, `nfs-client` automatisch zu installieren. Sie können die xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI] verwenden, um die Voraussetzungen zu installieren.
+
+Sie können den `longhornctl check preflight` Befehl verwenden. Dieser Befehl überprüft Ihre Kubernetes-Cluster-Umgebung, um sicherzustellen, dass sie {longhorn-product-name} entspricht. Er führt eine Reihe von Überprüfungen durch, die helfen können, potenzielle Probleme zu identifizieren, die verhindern könnten, dass {longhorn-product-name} korrekt funktioniert.
+
+Beispiel:
+
+[,shell]
+----
+> longhornctl check preflight
+INFO[2025-08-22T12:58:40+08:00] Initializing preflight checker
+INFO[2025-08-22T12:58:40+08:00] Cleaning up preflight checker
+INFO[2025-08-22T12:58:42+08:00] Running preflight checker
+INFO[2025-08-22T12:58:49+08:00] Retrieved preflight checker result:
+ip-10-0-1-132:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-client is installed
+  - Package open-iscsi is installed
+  - Package cryptsetup is installed
+  - Package device-mapper is installed
+  - Module dm_crypt is loaded
+  warn:
+  - Kube DNS "coredns" is set with fewer than 2 replicas; consider increasing replica count for high availability
+INFO[2025-08-22T12:58:49+08:00] Cleaning up preflight checker
+INFO[2025-08-22T12:58:50+08:00] Completed preflight checker
+----
+
+[discrete]
+== Cryptsetup und LUKS installieren
+
+https://gitlab.com/cryptsetup/cryptsetup[Cryptsetup] ist ein Open-Source-Tool, das verwendet wird, um `dm-crypt` basierte Device-Mapper-Ziele bequem einzurichten, und {longhorn-product-name} verwendet das https://gitlab.com/cryptsetup/cryptsetup#luks-design[LUKS2]-Format (Linux Unified Key Setup), das der Standard für die Linux-Datenverschlüsselung ist, um die Volumenverschlüsselung zu unterstützen.
+
+Der Befehl zum Installieren des Cryptsetup-Tools variiert je nach Linux-Distribution.
+
+* Für Debian und Ubuntu verwenden Sie diesen Befehl:
++
+[subs="+attributes",shell]
+----
+apt-get install cryptsetup
+----
+
+* Für RHEL, CentOS, Rocky Linux und EKS mit `EKS Kubernetes Worker AMI with AmazonLinux2 image` verwenden Sie diesen Befehl:
++
+[subs="+attributes",shell]
+----
+yum install cryptsetup
+----
+
+* Für SUSE/OpenSUSE verwenden Sie diesen Befehl:
++
+[subs="+attributes",shell]
+----
+zypper install cryptsetup
+----
+
+[discrete]
+== Das Device Mapper Userspace Tool installieren
+
+Der Device Mapper ist ein Framework, das vom Linux-Kernel bereitgestellt wird, um physische Blockgeräte auf höhere virtuelle Blockgeräte abzubilden. Es bildet die Grundlage der `dm-crypt` Datenverschlüsselung und bietet das lineare dm-Gerät auf der obersten Ebene des v2-Volumes. Der Device Mapper ist in der Regel standardmäßig in vielen Linux-Distributionen enthalten. Einige leichte oder stark angepasste Distributionen oder eine minimale Installation einer Distribution könnten es ausschließen, um Speicherplatz zu sparen oder die Komplexität zu reduzieren.
+
+Der Befehl zum Installieren des Device Mappers variiert je nach Linux-Distribution.
+
+* Für Debian und Ubuntu verwenden Sie diesen Befehl:
++
+[subs="+attributes",shell]
+----
+apt-get install dmsetup
+----
+
+* Für RHEL, CentOS, Rocky Linux und EKS mit `EKS Kubernetes Worker AMI with AmazonLinux2 image` verwenden Sie diesen Befehl:
++
+[subs="+attributes",shell]
+----
+yum install device-mapper
+----
+
+* Für SUSE/OpenSUSE verwenden Sie diesen Befehl:
++
+[subs="+attributes",shell]
+----
+zypper install device-mapper
+----
+
+== Longhorn-Befehlszeilenwerkzeug
+
+=== Überprüfung der Voraussetzungen mit dem Longhorn-Befehlszeilenwerkzeug
+
+Das `longhornctl` Werkzeug ist eine Befehlszeilenschnittstelle (CLI) für Longhorn-Operationen. Für weitere Informationen siehe xref:longhorn-system/system-access/install-longhorn-cli.adoc[Kommandozeilenwerkzeug (longhornctl)].
+
+Um die Voraussetzungen und Konfigurationen zu überprüfen, laden Sie das `longhornctl` Werkzeug herunter und führen Sie dann den `check` Befehl aus:
+
+[subs="+attributes",bash]
+----
+# For AMD64 platform
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-amd64
+# For ARM platform
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-arm64
+
+chmod +x longhornctl
+./longhornctl check preflight
+----
+
+Beispiel für das Ergebnis:
+
+[,text]
+----
+INFO[2024-01-01T00:00:01Z] Initializing preflight checker
+INFO[2024-01-01T00:00:01Z] Cleaning up preflight checker
+INFO[2024-01-01T00:00:01Z] Running preflight checker
+INFO[2024-01-01T00:00:02Z] Retrieved preflight checker result:
+worker1:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-common is installed
+  - Package open-iscsi is installed
+  warn:
+  - multipathd.service is running. Please refer to https://longhorn.io/kb/troubleshooting-volume-with-multipath/ for more information.
+worker2:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-common is not installed
+  - Package open-iscsi is installed
+----
+
+=== Voraussetzungen mit dem Longhorn-Befehlszeilenwerkzeug installieren
+
+Verwenden Sie den `install` Befehl, um die Vorababhängigkeiten vor der Installation von Longhorn zu installieren und einzurichten. Dies umfasst Vorgänge, die möglicherweise einen Systemneustart auf bestimmten Linux-Distributionen erfordern.
+
+Hier sind Beispiele, wie man den `install` Befehl verwendet:
+
+. Um von einer lokal heruntergeladenen `longhornctl` Binärdatei auszuführen:
++
+[,bash]
+----
+./longhornctl install preflight
+----
+
+. Um mit expliziten `kube-config` und `image` Parametern auszuführen:
++
+[subs="+attributes",bash]
+----
+longhornctl --kubeconfig ~/.kube/config --image longhornio/longhorn-cli:v{patch-version} install preflight
+----
+
+Beispiel für das Ergebnis nach Ausführung des Befehls 'install':
+
+[,text]
+----
+INFO[2025-03-11T08:17:57+08:00] Initializing preflight installer
+INFO[2025-03-11T08:17:57+08:00] Cleaning up preflight installer
+INFO[2025-03-11T08:17:57+08:00] Running preflight installer
+INFO[2025-03-11T08:17:57+08:00] Installing dependencies with package manager
+INFO[2025-03-11T08:18:28+08:00] Installed dependencies with package manager
+INFO[2025-03-11T08:18:28+08:00] Cleaning up preflight installer
+INFO[2025-03-11T08:18:28+08:00] Completed preflight installer. Use 'longhornctl check preflight' to check the result.
+----
+
+[NOTE]
+====
+Auf einigen unveränderlichen Linux-Distributionen, wie SUSE Linux Enterprise Micro (SLE Micro), müssen Sie möglicherweise die Arbeitsknoten nach der Ausführung des `install` Befehls neu starten, damit die Änderungen wirksam werden. Nach dem Neustart müssen Sie den `install` Befehl erneut ausführen, um den Vorgang abzuschließen.
+
+Die Dokumentation der verwendeten Linux-Distribution sollte solche Anforderungen umreißen. Zum Beispiel erklärt die link:https://documentation.suse.com/sle-micro/6.0/html/Micro-transactional-updates/index.html#reference-transactional-update-usage[SLE Micro-Dokumentation], wie alle Änderungen, die durch den `transactional-update` Befehl vorgenommen werden, erst nach dem Neustart des Knotens aktiv werden.
+====

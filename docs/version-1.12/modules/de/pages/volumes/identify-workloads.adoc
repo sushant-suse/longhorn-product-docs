@@ -1,0 +1,48 @@
+= Identifizieren Sie Arbeitslasten, die ein Volume verwenden
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Jetzt können Benutzer aktuelle Arbeitslasten oder den Verlauf der Arbeitslasten für vorhandene Longhorn-Persistent-Volumes (PVs) sowie deren Bindungshistorie an Persistent-Volume-Claims (PVCs) einsehen.
+
+Gehen Sie in der Longhorn-UI zum Tab *Volumes*. Jedes Longhorn-Volume wird auf der Seite aufgelistet. Die *Attached To* Spalte zeigt den Namen der Arbeitslast an, die das Volume verwendet. Wenn Sie auf den Arbeitslastnamen klicken, können Sie weitere Details einsehen, einschließlich des Arbeitslasttyps, des Podnamens und des Status.
+
+Informationen zur Arbeitslast sind auch auf der Detailseite des Longhorn-Volumes verfügbar. Um die Details zu sehen, klicken Sie auf den Volumennamen:
+
+----
+State: attached
+...
+Namespace:default
+PVC Name:longhorn-volv-pvc
+PV Name:pvc-0edf00f3-1d67-4783-bbce-27d4458f6db7
+PV Status:Bound
+Pod Name:teststatefulset-0
+Pod Status:Running
+Workload Name:teststatefulset
+Workload Type:StatefulSet
+----
+
+== Verlauf
+
+Nachdem die Arbeitslast das Longhorn-Volume nicht mehr verwendet, zeigt die Detailseite des Volumes den historischen Status der zuletzt verwendeten Arbeitslast an:
+
+----
+Last time used by Pod: a few seconds ago
+...
+Last Pod Name: teststatefulset-0
+Last Workload Name: teststatefulset
+Last Workload Type: Statefulset
+----
+
+Wenn diese Felder gesetzt sind, zeigen sie an, dass derzeit keine Arbeitslast dieses Volume verwendet.
+
+Wenn ein PVC nicht mehr an das Volume gebunden ist, wird der folgende Status angezeigt:
+
+----
+Last time bound with PVC:a few seconds ago
+Last time used by Pod:32 minutes ago
+Last Namespace:default
+Last Bounded PVC Name:longhorn-volv-pvc
+----
+
+Wenn das `Last time bound with PVC` Feld gesetzt ist, zeigt es an, dass derzeit kein PVC an dieses Volume gebunden ist. Die zugehörigen Felder zeigen die zuletzt verwendete Arbeitslast für dieses Volume an.

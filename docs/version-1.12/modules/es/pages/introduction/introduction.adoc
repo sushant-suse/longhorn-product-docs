@@ -1,0 +1,44 @@
+= Introducción
+:revdate: 27/06/2025
+:page-revdate: {revdate}
+
+{longhorn-product-name-tm} es un sistema de almacenamiento distribuido en bloques ligero, fiable y fácil de usar para Kubernetes.
+
+Con {longhorn-product-name}, puedes:
+
+* Usar {longhorn-product-name} volúmenes como almacenamiento persistente para las aplicaciones distribuidas con estado en tu clúster de Kubernetes
+* Particionar tu almacenamiento en bloques en {longhorn-product-name} volúmenes para que puedas usar volúmenes de Kubernetes con o sin un proveedor de nube
+* Replicar el almacenamiento en bloques a través de múltiples nodos y centros de datos para aumentar la disponibilidad
+* Almacenar datos de copia de seguridad en almacenamiento externo como NFS o AWS S3
+* Crear volúmenes de recuperación ante desastres entre clústeres para que los datos de un clúster principal de Kubernetes puedan ser recuperados rápidamente desde una copia de seguridad en un segundo clúster de Kubernetes
+* Programar instantáneas recurrentes de un volumen y programar copias de seguridad recurrentes a almacenamiento secundario compatible con NFS o S3
+* Restaurar volúmenes desde una copia de seguridad
+* Actualizar {longhorn-product-name} versión de sin interrumpir los volúmenes persistentes
+
+{longhorn-product-name} viene con una interfaz de usuario independiente y se puede instalar utilizando Helm, kubectl o el catálogo de aplicaciones de Rancher.
+
+== Simplificando el Almacenamiento Distribuido en Bloques con Microservicios
+
+Debido a que los entornos de nube modernos requieren decenas de miles a millones de volúmenes de almacenamiento distribuido en bloques, algunos controladores de almacenamiento se han vuelto sistemas distribuidos altamente complejos. Por el contrario, {longhorn-product-name} puede simplificar el sistema de almacenamiento al particionar un gran controlador de almacenamiento en bloques en varios controladores de almacenamiento más pequeños, siempre que esos volúmenes aún puedan construirse a partir de un grupo común de discos. Al usar un controlador de almacenamiento por volumen, {longhorn-product-name} convierte cada volumen en un microservicio. El controlador se llama Longhorn Engine.
+
+El componente Longhorn Manager orquesta los Longhorn Engines, para que trabajen juntos de manera coherente.
+
+== Usar Almacenamiento Persistente en Kubernetes sin depender de un proveedor de nube
+
+Los Pods pueden referenciar el almacenamiento directamente, pero esto no se recomienda porque no permite que el Pod o contenedor sea portátil. En su lugar, los requisitos de almacenamiento de las cargas de trabajo deben definirse en los Volúmenes Persistentes (PVs) y las Solicitudes de Volumen Persistente (PVCs) de Kubernetes. Con {longhorn-product-name}, puedes especificar el tamaño del volumen, el número de réplicas sincrónicas y otras configuraciones específicas del volumen que deseas en los hosts que suministran el recurso de almacenamiento para el volumen. Entonces, tus recursos de Kubernetes pueden utilizar el PVC y el PV correspondiente para cada {longhorn-product-name} volumen, o usar una {longhorn-product-name} clase de almacenamiento para crear automáticamente un PV para una carga de trabajo.
+
+Las réplicas se provisionan de forma delgada en los discos subyacentes o en el almacenamiento en red.
+
+== Programa Múltiples Réplicas a través de Múltiples Hosts de Cómputo o Almacenamiento
+
+Para aumentar la disponibilidad, {longhorn-product-name} crea réplicas de cada volumen. Las réplicas contienen una cadena de instantáneas del volumen, con cada instantánea almacenando el cambio desde una instantánea anterior. Cada réplica de un volumen también se ejecuta en un contenedor, por lo que un volumen con tres réplicas resulta en cuatro contenedores.
+
+El número de réplicas para cada volumen es configurable en {longhorn-product-name}, así como los nodos donde se programarán las réplicas. {longhorn-product-name} supervisa la salud de cada réplica y realiza reparaciones, reconstruyendo la réplica cuando es necesario.
+
+== Asigna múltiples front end de almacenamiento para cada volumen
+
+Los front end comunes incluyen un dispositivo del kernel de Linux (mapeado bajo /dev/longhorn) y un objetivo iSCSI.
+
+== Especifica Programaciones para Operaciones de Instantáneas y Copias de Seguridad Recurrentes
+
+Especifica la frecuencia de estas operaciones (horaria, diaria, semanal, mensual y anual), la hora exacta en la que se realizan estas operaciones (por ejemplo, a las 3:00 a.m. cada domingo) y cuántas instantáneas recurrentes y conjuntos de copias de seguridad se mantienen.

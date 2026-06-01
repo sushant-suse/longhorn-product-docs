@@ -1,0 +1,449 @@
+= 存储类参数
+:revdate: 2026-03-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 概述
+
+存储类作为资源对象具有多个可配置参数。
+
+示例：
+
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-test
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  backupTargetName: "default"
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  fromBackup: ""
+  fsType: "ext4"
+#  mkfsParams: ""
+#  migratable: false
+#  encrypted: false
+#  dataLocality: "disabled"
+#  replicaAutoBalance: "ignored"
+#  diskSelector: "ssd,fast"
+#  nodeSelector: "storage,fast"
+#  recurringJobSelector: '[{"name":"snap-group", "isGroup":true},
+#                          {"name":"backup", "isGroup":false}]'
+#  backingImageName: ""
+#  backingImageChecksum: ""
+#  backingImageDataSourceType: ""
+#  backingImageDataSourceParameters: ""
+#  unmapMarkSnapChainRemoved: "ignored"
+#  disableRevisionCounter: false
+#  replicaSoftAntiAffinity: "ignored"
+#  replicaZoneSoftAntiAffinity: "ignored"
+#  replicaDiskSoftAntiAffinity: "ignored"
+#  nfsOptions: "soft,timeo=150,retrans=3"
+#  dataEngine: "v1"
+#  freezeFSForSnapshot: "ignored"
+# allowedTopologies:
+#   - matchLabelExpressions:
+#       - key: topology.kubernetes.io/zone
+#         values:
+#           - us-central-1a
+#           - us-central-1b
+----
+
+== 内置字段
+
+某些字段是所有Kubernetes存储类共有的。
+另见 https://kubernetes.io/docs/concepts/storage/storage-classes[Kubernetes存储类]。
+
+[discrete]
+==== 供应者 _(字段: `provisioner`)_
+
+指定将用于动态创建持久卷的插件。对于 {longhorn-product-name}，这始终是 `driver.longhorn.io`。
+
+____
+见 https://kubernetes.io/docs/concepts/storage/storage-classes/#provisioner[Kubernetes存储类：供应者]。
+____
+
+[discrete]
+==== 允许卷扩展 _(字段: `allowVolumeExpansion`)_
+
+____
+默认值：`true`
+见 https://kubernetes.io/docs/concepts/storage/storage-classes/#allow-volume-expansion[Kubernetes存储类：允许卷扩展]。
+____
+
+[discrete]
+==== 回收策略 _(字段: `reclaimPolicy`)_
+
+____
+默认值：`Delete`
+见 https://kubernetes.io/docs/concepts/storage/storage-classes/#reclaim-policy[Kubernetes存储类：回收策略]。
+____
+
+[discrete]
+==== 挂载选项 _(字段: `mountOptions`)_
+
+____
+默认 `[]`
+见 https://kubernetes.io/docs/concepts/storage/storage-classes/#mount-options[Kubernetes存储类 - 挂载选项]。
+____
+
+[discrete]
+==== 卷绑定模式 _(字段: `volumeBindingMode`)_
+
+____
+默认 `Immediate`
+见 https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode[Kubernetes存储类 - 卷绑定模式]。
+____
+
+
+[discrete]
+==== 允许的拓扑 _(字段: `allowedTopologies`)_
+
+____
+查看Kubernetes参考 https://kubernetes.io/docs/concepts/storage/storage-classes/#allowed-topologies[存储类 — 允许的拓扑]。
+____
+
+它指定了可以通过匹配节点标签来配置卷的节点集合。
+{longhorn-product-name}使用此字段填充PV的`nodeAffinity`，通过CSI `accessibleTopology`字段。
+
+要使 `allowedTopologies` 生效，必须使用相应的拓扑键配置 {longhorn-product-name} 设置 xref:longhorn-system/settings.adoc#_csi_allowed_topology_keys[`csi-allowed-topology-keys`]（例如，`topology.kubernetes.io/zone`）。没有此设置，拓扑信息将不会传递，PV 将没有 `nodeAffinity`。
+
+*请不要* 将 `allowedTopologies` 与 `parameters.dataLocality: strict-local` 一起使用。生成的 PV `nodeAffinity` 变为不可变，并且会与 {longhorn-product-name} 的严格本地卷固定冲突。
+
+有关示例的完整操作指南，请参见 xref:nodes/topology-aware-provisioning.adoc[拓扑感知配置]。
+
+== {longhorn-product-name}特定参数
+
+请注意，这些参数中的某些参数也存在，并且可以在全局设置中指定。当使用 Kubernetes 针对特定存储类提供卷时，存储类参数会覆盖全局设置。
+这些字段仅适用于新卷的创建。如果修改了存储类，{longhorn-product-name} 和 Kubernetes 都不会处理将其参数的更改传播回之前使用该存储类创建的卷。
+
+[discrete]
+==== 副本数量 _(字段: `parameters.numberOfReplicas`)_
+
+____
+默认值为: `3`
+____
+
+为实现冗余所需的副本数量。
+
+* 必须在 1 到 20 之间。
+* 副本将分布在集群中尽可能广泛的区域、节点和磁盘上，受其他约束（如 NodeSelector）的限制。
+
+____
+全局设置 - xref:longhorn-system/settings.adoc#_default_replica_count[默认副本数量]。
+____
+
+[discrete]
+==== 过期副本超时 _(字段: `parameters.staleReplicaTimeout`)_
+
+____
+默认值为: `30`
+____
+
+副本被标记为不健康后，需等待几分钟才会被视为对重建无用并被删除。
+
+[discrete]
+==== 从备份 _(字段: `parameters.fromBackup`)_
+
+____
+默认值：`""`示例： `"s3://backupbucket@us-east-1?volume=minio-vol01&backup=backup-eeb2782d5b2f42bb"`
+____
+
+要恢复的备份的 URL。
+
+[discrete]
+==== FS 类型 _(字段: `parameters.fsType`)_
+
+____
+默认值：`ext4`
+有关更多详细信息，请查看 xref:volumes/create-volumes.adoc#creating_longhorn_volumes_with_kubectl[创建 Longhorn 卷与 Kubernetes]。
+____
+
+[discrete]
+==== Mkfs 参数 _(字段: `parameters.mkfsParams`)_
+
+____
+默认值：`""`
+有关更多详细信息，请查看 xref:volumes/create-volumes.adoc#creating_longhorn_volumes_with_kubectl[创建 Longhorn 卷与 Kubernetes]。
+____
+
+[discrete]
+==== 可迁移 _(字段: `parameters.migratable`)_
+
+____
+默认值为: `false`
+____
+
+启用 Longhorn 卷的实时迁移功能，允许在保持活动 I/O 操作的同时将其从一个节点迁移到另一个节点。
+
+*何时使用*：
+
+. *`migratable: true`*：对于需要实时迁移的工作负载。必须与 `ReadWriteMany` 访问模式和 `volumeMode: Block` 一起使用。
+. *`migratable: false`*：对于不需要实时迁移功能的标准卷。
+
+[NOTE]
+====
+有关更多详细信息，请查看 xref:/volumes/rwx-volumes.adoc[可读写多（RWX）卷]。
+====
+
+[discrete]
+==== 加密 _(字段: `parameters.encrypted`)_
+
+____
+默认值：`false`
+有关更多详细信息，请查看 xref:volumes/volume-encryption.adoc[加密卷]。
+____
+
+[discrete]
+==== 数据本地性 _(字段: `parameters.dataLocality`)_
+
+____
+默认值为: `disabled`
+____
+
+如果启用，尽量将数据保留在与工作负载相同的节点上以获得更好的性能。
+
+* 对于 `best-effort`，如果可能，副本将共置，但如果不可能，则允许找到另一个节点。
+* 对于 `strict-local`，副本数量应为 1，否则卷创建将因参数验证错误而失败。
+* 如果由于其他原因无法 `strict-local`，则卷创建将失败。一个与其工作负载分离的 `strict-local` 副本将被标记为 `"Stopped"`。
+
+____
+全局设置 - xref:longhorn-system/settings.adoc#_default_data_locality[默认数据本地性]。
+有关更多详细信息，请查看 xref:high-availability/data-locality.adoc[数据本地性]。
+____
+
+[discrete]
+==== 副本自动平衡 _(字段: `parameters.replicaAutoBalance`)_
+
+____
+默认值为: `ignored`
+____
+
+如果启用，将副本移动到负载较轻的节点。
+
+* `ignored`表示使用全局设置。
+* 其他选项为 `disabled`, `least-effort`, `best-effort`。
+
+____
+全局设置 - xref:longhorn-system/settings.adoc#_replica_auto_balance[副本自动平衡]。
+有关更多详细信息，请查看xref:high-availability/automatic-replica-balancing.adoc[自动平衡副本]。
+____
+
+[discrete]
+==== 磁盘选择器 _(字段: `parameters.diskSelector`)_
+
+____
+默认值：`""`示例： `"ssd,fast"`
+____
+
+选择哪些磁盘是副本放置候选者的标签列表。
+
+____
+有关更多详细信息，请查看xref:nodes/storage-tags.adoc[存储标签]。
+____
+
+[discrete]
+==== 节点选择器 _(字段: `parameters.nodeSelector`)_
+
+____
+默认值：`""`示例： `"storage,fast"`
+____
+
+选择哪些节点是副本放置候选者的标签列表。
+
+____
+有关更多详细信息，请查看xref:nodes/storage-tags.adoc[存储标签]。
+____
+
+[discrete]
+==== 定期作业选择器 _(字段: `parameters.recurringJobSelector`)_
+
+____
+默认值：`""` 示例： `[{"name":"backup", "isGroup":true}]`
+____
+
+要在卷上运行的定期作业列表。
+
+____
+有关更多详细信息，请查看xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[创建定期备份/快照作业]。
+____
+
+[discrete]
+==== 后备映像名称 _(字段: `parameters.backingImageName`)_
+
+____
+默认值：`""` 请参见 xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[后备映像]。
+____
+
+[discrete]
+==== 后备映像校验和 _(字段: `parameters.backingImageChecksum`)_
+
+____
+默认值：`""` 请参见 xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[后备映像]。
+____
+
+[discrete]
+==== 后备映像数据源类型 _(字段: `parameters.backingImageDataSourceType`)_
+
+____
+默认值：`""` 请参见 xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[后备映像]。
+____
+
+[discrete]
+==== 后备映像数据源参数 _(字段: `parameters.backingImageDataSourceParameters`)_
+
+____
+默认值：`""` 请参见 xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[后备映像]。
+____
+
+[discrete]
+==== 取消映射标记快照链已移除 _(字段: `parameters.unmapMarkSnapChainRemoved`)_
+
+____
+默认值为: `ignored`
+____
+
+* `ignored`表示使用全局设置。
+* 其他值为 `enabled` 和 `disabled`。
+
+____
+全局设置 - xref:longhorn-system/settings.adoc#_remove_snapshots_during_filesystem_trim[在文件系统修整期间去除快照]。
+有关更多详细信息，请查看 xref:volumes/trim-filesystem.adoc[修整文件系统]。
+____
+
+[discrete]
+==== 禁用修订计数器 _(字段: `parameters.disableRevisionCounter`)_
+
+____
+默认值为: `true`
+____
+
+____
+全局设置 - xref:longhorn-system/settings.adoc#_disable_revision_counter[禁用修订计数器]。
+有关更多详细信息，请查看 xref:high-availability/revision_counter.adoc[修订计数器]。
+____
+
+[discrete]
+==== 副本软反亲和性 _(字段: `parameters.replicaSoftAntiAffinity`)_
+
+____
+默认值为: `ignored`
+____
+
+* `ignored`表示使用全局设置。
+* 其他值为 `enabled` 和 `disabled`。
+
+____
+全局设置 - xref:longhorn-system/settings.adoc#_replica_node_level_soft_anti_affinity[副本节点级别软反亲和性]。
+有关更多详细信息，请查看 xref:nodes/scheduling.adoc[调度] 和 xref:installation-setup/best-practices.adoc#_replica_node_level_soft_anti_affinity[最佳实践]。
+____
+
+[discrete]
+==== 副本区域软反亲和性 _(字段: `parameters.replicaZoneSoftAntiAffinity`)_
+
+____
+默认值为: `ignored`
+____
+
+* `ignored`表示使用全局设置。
+* 其他值为 `enabled` 和 `disabled`。
+
+____
+全局设置 - xref:longhorn-system/settings.adoc#_replica_zone_level_soft_anti_affinity[副本区域级别软反亲和性]。
+有关更多详细信息，请查看 xref:nodes/scheduling.adoc[调度]。
+____
+
+[discrete]
+==== 副本磁盘软反亲和性 _(字段: `parameters.replicaDiskSoftAntiAffinity`)_
+
+____
+默认值为: `ignored`
+____
+
+* `ignored`表示使用全局设置。
+* 其他值为 `enabled` 和 `disabled`。
+
+____
+全局设置 - xref:longhorn-system/settings.adoc#_replica_disk_level_soft_anti_affinity[副本磁盘级别软反亲和性]。
+有关更多详细信息，请查看 xref:nodes/scheduling.adoc[调度]。
+____
+
+[discrete]
+==== NFS 选项 _(字段: `parameters.nfsOptions`)_
+
+____
+默认值：`""` 示例： `"hard,sync"`
+____
+
+* RWX 卷的 NFS 挂载覆盖到共享管理器。请谨慎使用此字段。
++
+[NOTE]
+====
+内置选项因版本而异。在设置此项之前，请检查您的发布详细信息。
+====
+
+____
+有关更多详细信息，请查看xref:volumes/rwx-volumes.adoc#_configuring_volume_mount_options_for_generic_non_migratable_rwx_volumes[RWX Workloads]。
+____
+
+[discrete]
+==== 数据引擎 _(字段：`parameters.dataEngine`)_
+
+____
+默认值为: `"v1"`
+____
+
+* 指定"v2"以启用V2数据引擎（技术预览功能）。未指定时，{longhorn-product-name}使用默认值（"v1"）。
+
+____
+全局设置：xref:longhorn-system/settings.adoc#_v2_data_engine[V2数据引擎]。
+更多详细信息在xref:longhorn-system/v2-data-engine/quick-start-guide.adoc#_create_a_storageclass[V2数据引擎快速入门]。
+____
+
+[discrete]
+==== 为快照冻结文件系统 _(字段：`parameters.freezeFilesystemForSnapshot`)_
+
+____
+默认值为: `ignored`
+____
+
+* `ignored`指示{longhorn-product-name}使用全局设置。
+* 其他值为 `enabled` 和 `disabled`。
+
+____
+全局设置 - xref:longhorn-system/settings.adoc#_freeze_filesystem_for_snapshot[为快照冻结文件系统]。
+____
+
+[discrete]
+==== 备份目标名称 _(字段：`parameters.backupTargetName`)_
+
+____
+默认值为: `default`
+____
+
+* 更多详细信息可在xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_default_backup_target[默认备份目标]和xref:volumes/create-volumes.adoc[创建卷]中找到。
+
+[discrete]
+==== 备份块大小 _(字段：`parameters.backupBlockSize`)_
+
+____
+默认值为: `""`
+____
+
+示例：`"2Mi"`或`"16Mi"`
+
+Kubernetes数量字符串。使用空字符串""以应用全局设置。
+
+有关更多信息，请参见：
+
+* xref:longhorn-system/settings.adoc[默认备份块大小]
+* xref:snapshots-backups/volume-snapshots-backups/configure-backup-block-size.adoc[配置备份的块大小]
+
+== Helm安装
+
+如果通过 Helm 安装了 {longhorn-product-name}，可以通过编辑 https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[`values.yaml`] 中相应的项目来设置默认存储类中的值。 所有存储类参数都有一个 `persistence` 的前缀。 例如，`persistence.defaultNodeSelector`。

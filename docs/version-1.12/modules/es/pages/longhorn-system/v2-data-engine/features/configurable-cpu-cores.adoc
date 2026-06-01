@@ -1,0 +1,63 @@
+= Núcleos de CPU configurables
+:revdate: 2026-03-16
+:page-revdate: {revdate}
+
+{longhorn-product-name} ahora admite núcleos de CPU configurables para el motor de datos V2 mediante el uso de una *Máscara de CPU*. Esta máscara te permite definir exactamente qué núcleos de CPU están asignados al motor, ofreciendo opciones de configuración tanto globales como por nodo.
+
+== Comprendiendo la Máscara de CPU
+
+La máscara de CPU es una *representación hexadecimal (hex) de una máscara de bits binaria*, donde cada bit corresponde a un núcleo de CPU específico.
+
+* Un bit establecido en *1* significa que el núcleo está habilitado para el motor de datos.
+* Un bit establecido en *0* significa que el núcleo se omite.
+
+=== Cómo Calcular la Máscara
+
+Para determinar la cadena hex correcta, visualiza tus núcleos de CPU como una secuencia de bits de derecha a izquierda:
+
+[cols="1,1,1"]
+|===
+| Número deseado de núcleos | Representación binaria (Núcleos 3, 2, 1, 0) | Valor hexadecimal
+
+| *1 Núcleo*
+| `0001`
+| *0x1*
+
+| *2 Núcleos*
+| `0011`
+| *0x3*
+
+| *3 Núcleos*
+| `0111`
+| *0x7*
+
+| *4 Núcleos*
+| `1111`
+| *0xF*
+|===
+
+*Ejemplo para 23 Núcleos*: Para asignar 23 núcleos, necesitas 23 bits establecidos en `1`.
+
+* *Binario*: `111 1111 1111 1111 1111 1111`
+* *Hexadecimal*: `0x7FFFFF`
+
+[NOTE]
+====
+No confundas el número de núcleos con el valor hexadecimal. Por ejemplo, establecer `0x4` (Binario `0100`) solo habilita *uno* núcleo (Núcleo #2), mientras que `0xF` (Binario `1111`) habilita *cuatro* núcleos.
+====
+
+== Configuración Global
+
+Para establecer núcleos de CPU globalmente en el clúster, actualiza la configuración xref:longhorn-system/settings.adoc#_data_engine_cpu_mask[`data-engine-cpu-mask`].
+
+1. Navega a *Configuración > General*.
+2. Localiza *Máscara de CPU del Motor de Datos*.
+3. Introduce tu cadena hexadecimal calculada (por ejemplo, `0xF`).
+
+== Configuración por nodo
+
+Para la asignación de núcleos de CPU específica por nodo, actualiza el campo `spec.dataEngineSpec.v2.cpuMask` del gestor de instancias con una cadena codificada en hexadecimal. Por defecto, este valor está vacío, y el motor de datos v2 utilizará la configuración global especificada por `data-engine-cpu-mask`. Cuando se establece una configuración por nodo, el motor de datos v2 priorizará este valor sobre la configuración global para ese nodo específico.
+
+== Herramientas de Cálculo
+
+Puedes usar un https://www.rapidtables.com/convert/number/binary-to-hex.html[Convertidor de Binario a Hex] para ayudar a calcular tu máscara. Escribe un `1` para cada núcleo que desees asignar y convierte la cadena binaria resultante a Hex.

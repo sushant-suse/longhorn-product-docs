@@ -1,0 +1,24 @@
+= ボリュームスナップショットとバックアップ
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+____
+以前のバージョンでは、Longhornはリモートバックアップターゲットとの通信に「ブロッキング方式」を使用していました。その結果、リモートバックアップターゲットに依存する機能に影響を与えるいくつかの非自発的な要因があります。例えば、低レイテンシ、バックアップのリスト表示、またはバックアップターゲット操作後にさらなる連鎖的な問題を引き起こすことです。
+____
+
+____
+現在のバージョンでは、Longhornは前述の問題を解決するために非同期バックアップ操作を使用し始めました。
+
+* これを行うには、まずバックアップクラスターのカスタムリソースを作成し、その後リモートバックアップターゲットに対してスナップショットおよびバックアップ操作を実行します。
+* バックアップの作成が完了したら、非同期的にリモートバックアップターゲットからバックアップボリュームとバックアップの状態を取得します。次に、対応するクラスターのカスタムリソースのステータスを更新します。
+
+この改善により、バックアップクエリのスケーラビリティが向上し、ブロッキング方式によって生じる高コストなリソースの問題解決を支援します。これは、すべてのバックアップがリモートターゲットから直接取得されるのではなく、カスタムリソースとして保存されるためです。
+
+NOTE: Longhornのアップグレード後、ボリュームが最新のLonghornエンジン（≥v1.2.0）にアップグレードされていない場合。バックアップを作成する際、作成されたバックアップの名前の中間遷移状態を持つことになります（最新のLonghornバージョン（≥v1.2.0）でのバックアップ名の取り扱いが異なるため）。その後、Longhornはバックアップがリモートバックアップターゲットとsyncされることを確認し、バックアップをリモートバックアップターゲットを唯一の情報源とする最終状態に更新します。Longhornエンジンをアップグレードするには、xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[]またはxref:upgrades/longhorn-components/auto-upgrade-engine.adoc[]を参照してください。
+____
+
+* xref:/snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[バックアップターゲットの設定]
+* xref:/snapshots-backups/volume-snapshots-backups/create-backup.adoc[バックアップを作成する]
+* xref:/snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[バックアップから復元する]
+* xref:/snapshots-backups/volume-snapshots-backups/restore-volume-statefulset.adoc[Kubernetes StatefulSetsのためのボリュームの復元]

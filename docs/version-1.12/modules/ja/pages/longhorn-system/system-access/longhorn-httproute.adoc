@@ -1,0 +1,140 @@
+= HTTPRouteをGateway APIで作成する
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Kubernetesクラスターに{longhorn-product-name}をkubectlまたはHelmでインストールすると、 https://gateway-api.sigs.k8s.io/[Gateway API] HTTPRouteを使用して、Ingressの代替として、{longhorn-product-name} UIを外部トラフィックに公開する現代的な方法として利用できます。
+
+Gateway APIはIngressの後継であり、より表現力豊かなルーティング機能と、さまざまな実装にわたる標準化されたアプローチを提供します。
+
+== 前提条件
+
+. クラスターに*Gateway API CRDがインストールされている*:
++
+[source,shell]
+----
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml
+----
+
+. クラスター内で*ゲートウェイコントローラー*が実行されている（例：Istio、Envoy Gateway、Cilium、NGINX Gateway Fabric、Traefikなど）。
+
+. 少なくとも1つの*ゲートウェイリソース*がデプロイされ、構成されている。
+
+== Helm値の設定
+
+以下のHelm値がHTTPRouteの生成を制御します：
+
+[cols="1,1,1,3",options="header"]
+|===
+| キー | タイプ | デフォルト | 説明
+
+| `httproute.enabled`
+| bool
+| `false`
+| {longhorn-product-name} UIのためのHTTPRoute生成を有効にする
+
+| `httproute.parentRefs`
+| リスト
+| `[]`
+| このルートを処理すべき、単一または複数のゲートウェイへの参照
+
+| `httproute.hostnames`
+| リスト
+| `[]`
+| HTTPRouteのホスト名のリスト
+
+| `httproute.path`
+| 文字列
+| `"/"`
+| {longhorn-product-name} UIにアクセスするためのパス
+
+| `httproute.pathType`
+| 文字列
+| `"PathPrefix"`
+| パスマッチタイプ：`Exact`、`PathPrefix`、または`RegularExpression`
+
+| `httproute.annotations`
+| object
+| `{}`
+| HTTPRouteリソースの注釈
+|===
+
+== 基本的なインストール
+
+HTTPRouteを有効にして{longhorn-product-name}をインストールする：
+
+[,shell]
+----
+helm install longhorn longhorn/longhorn \
+  --namespace longhorn-system \
+  --create-namespace \
+  --set "httproute.enabled=true" \
+  --set "httproute.parentRefs[0].name=my-gateway" \
+  --set "httproute.parentRefs[0].namespace=default" \
+  --set "httproute.hostnames[0]=longhorn.example.com"
+----
+
+== 詳細設定
+
+より複雑なセットアップの場合、valuesファイルを作成します：
+
+[,yaml]
+----
+httproute:
+  enabled: true
+  parentRefs:
+    - name: primary-gateway
+      namespace: gateway-system
+    - name: secondary-gateway
+      namespace: gateway-system
+      sectionName: https  # Target specific listener
+  hostnames:
+    - longhorn.example.com
+    - longhorn.example.org
+  path: /longhorn
+  pathType: PathPrefix
+  annotations:
+    custom-annotation: "value"
+----
+
+valuesファイルを使用してインストールする：
+
+[,shell]
+----
+helm install longhorn longhorn/longhorn \
+  --namespace longhorn-system \
+  --create-namespace \
+  --values values.yaml
+----
+
+== 検証
+
+. HTTPRouteが作成されたことを確認する：
++
+[,shell]
+----
+kubectl get httproute -n longhorn-system
+----
+
+. HTTPRouteの詳細を確認する：
++
+[,shell]
+----
+kubectl describe httproute longhorn-httproute -n longhorn-system
+----
+
+. ゲートウェイによってルートが受け入れられていることを確認する：
++
+[,shell]
+----
+kubectl get httproute longhorn-httproute -n longhorn-system -o jsonpath='{.status.parents[*].conditions}'
+----
++
+出力には`Accepted: True`と`ResolvedRefs: True`が表示されるべきです。
+
+. ゲートウェイの外部IPアドレスまたはホスト名を通じて{longhorn-product-name} UIにアクセスする。
+
+== 参考資料
+
+* https://gateway-api.sigs.k8s.io/[ゲートウェイAPIドキュメント]
+* https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.HTTPRoute[HTTPRoute仕様]

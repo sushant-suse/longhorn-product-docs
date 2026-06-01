@@ -1,0 +1,117 @@
+= Sauvegarde d'image de sauvegarde
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn prend en charge la sauvegarde des images de sauvegarde.
+
+== Conditions préalables
+
+Vous devez d'abord xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[configurer une cible de sauvegarde]. Si vous sautez cette étape cruciale, l'absence de cible de sauvegarde empêchera Longhorn de créer une sauvegarde de l'image de sauvegarde.
+
+== Créer une sauvegarde d'une image de sauvegarde
+
+Parce que les images de sauvegarde sont globalement uniques dans le système Longhorn, les sauvegardes correspondantes sont également globalement uniques et sont identifiées par le même nom.
+
+=== Créer une sauvegarde en utilisant YAML
+
+Exemple d'image de sauvegarde{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-backup
+  namespace: longhorn-system
+spec:
+  backingImage: parrot
+  backupTargetName: default
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+Exemple de code YAML utilisé pour créer une sauvegarde de l'image de sauvegarde d'exemple{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackupBackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  userCreated: true
+  labels:
+    usecase: test
+    type: raw
+----
+
+* `name` : Si les noms ne sont pas uniques, Longhorn ne pourra pas créer une sauvegarde de l'image de sauvegarde.
+* `backingImage` : Image de sauvegarde associée à la sauvegarde
+* `backupTargetName` : Point de terminaison utilisé pour stocker et accéder à la sauvegarde dans le backupstore.
+* `userCreated` : Définissez la valeur sur `true` pour indiquer que vous avez créé la ressource personnalisée de sauvegarde, ce qui a permis la création de la sauvegarde dans le backupstore. La valeur `false` indique que la ressource personnalisée de sauvegarde a été synchronisée depuis le backupstore.
+* `labels` : Vous pouvez ajouter des étiquettes à la sauvegarde de l'image de sauvegarde.
+
+=== Créer une sauvegarde en utilisant l'interface utilisateur de Longhorn
+
+. Allez à *Paramètres -> d'image de sauvegarde*.
+. Sélectionnez l'image de sauvegarde que vous souhaitez sauvegarder, puis cliquez sur *Sauvegarder* dans le menu *Opération*.
+
+Longhorn crée la sauvegarde et ajoute les détails à la liste *Sauvegarde d'image de sauvegarde*.
+
+image::screenshots/backing-image/backup.png[Image]
+
+== Restaurer une image de sauvegarde à partir d'une sauvegarde
+
+Vous pouvez restaurer une image de sauvegarde dans un autre cluster après avoir créé une sauvegarde dans le backupstore.
+
+Exemple de code YAML utilisé pour restaurer une image de sauvegarde{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+    name: parrot-restore
+    namespace: longhorn-system
+spec:
+    sourceType: restore
+    sourceParameters:
+        # change to your backup URL
+        # backup-url: nfs://longhorn-test-nfs-svc.default:/opt/backupstore?backingImage=parrot
+        backup-url: s3://backupbucket@us-east-1/?backingImage=parrot
+        concurrent-limit: "2"
+    checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+[IMPORTANT]
+====
+* `sourceType` : Définissez la valeur sur `restore`.
+* `sourceParameters` : Configurez les paramètres suivants{nbsp}:
+ ** `backup-url` : URL de la ressource d'image de sauvegarde dans le backupstore. Vous pouvez trouver cette information dans l'état de la ressource personnalisée de sauvegarde `.Status.URL`.
+ ** `concurrent-limit` : Nombre maximum de threads de travail pouvant s'exécuter simultanément pour chaque opération de restauration. Lorsqu'il n'est pas spécifié, Longhorn utilise la valeur par défaut.
+* `checksum` : Vous pouvez spécifier la somme de contrôle SHA-512 attendue du fichier d'image de sauvegarde, que Longhorn utilise pour valider le fichier restauré. Lorsqu'il n'est pas spécifié, Longhorn utilise la somme de contrôle du fichier restauré comme valeur de référence.
+====
+
+=== Restaurer à partir d'une sauvegarde en utilisant l'interface utilisateur de Longhorn
+
+. Allez à *Paramètres -> d'image de sauvegarde*.
+. Sélectionnez la sauvegarde que vous souhaitez utiliser, puis cliquez sur *Restaurer* dans le menu *Opération*.
+. Si vous restaurez une image de sauvegarde chiffrée, spécifiez le `Secret` et le `Secret Namespace`.
+. Cliquez sur *OK*.
+
+image::screenshots/backing-image/restore.png[Image]
+
+[IMPORTANT]
+====
+Longhorn ne stocke actuellement pas d'informations liées aux secrets dans les sauvegardes d'images de sauvegarde. Vous devez spécifier le secret et l'espace de noms du secret lors de la restauration d'images de sauvegarde chiffrées. Ce problème sera résolu dans une version ultérieure.
+====
+
+== Volume avec une image de sauvegarde
+
+Lorsque vous créez une sauvegarde d'un volume, Longhorn crée automatiquement une sauvegarde de son image de sauvegarde.
+
+Vous pouvez restaurer un volume avec une image de sauvegarde. Si l'image existe déjà dans le cluster, Longhorn utilise l'image de sauvegarde directement. Si l'image existe dans le backupstore mais pas dans le cluster, Longhorn restaure automatiquement l'image de sauvegarde.

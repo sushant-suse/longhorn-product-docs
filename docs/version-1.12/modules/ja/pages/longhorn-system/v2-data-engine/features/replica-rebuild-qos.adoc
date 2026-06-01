@@ -1,0 +1,69 @@
+= レプリカ再構築QoS
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:aliases: ["/spdk/features/replica-rebuild-qos.md"]
+:current-version: {page-component-version}
+
+{longhorn-product-name}は、SPDKに基づいてv2ボリュームのための再構築帯域幅制限（Quality of Service、QoS）をサポートします。この機能により、再構築中にレプリカに帯域幅制限を適用でき、ソースおよび宛先ノードのストレージスループットの過負荷を防ぐのに役立ちます。
+
+== グローバル設定：`v2-data-engine-rebuilding-mbytes-per-second`
+
+* このクラスター全体の設定は、レプリカ再構築のための最大書き込み帯域幅（MB/s単位）を定義します。
+* `0`の値は制限なしを示します。
+* この設定は、`kubectl`を介してのみ構成できます：
+
+[,bash]
+----
+kubectl -n longhorn-system patch settings.longhorn.io v2-data-engine-rebuilding-mbytes-per-second \
+  --type=merge -p '{"value":"100"}'
+----
+
+== ボリュームごとのQoSオーバーライド
+
+特定のボリュームのためにグローバルな再構築帯域幅制限をオーバーライドするには、ボリュームの仕様に`spec.rebuildingMbytesPerSecond`を設定します：
+
+[,yaml]
+----
+spec:
+  rebuildingMbytesPerSecond: 50
+----
+
+== 実効QoS
+
+有効な再構築帯域幅制限は、グローバル設定とボリューム固有の設定の両方を評価することによって決定されます。ボリューム固有の値がゼロより大きい場合、それはグローバル設定をオーバーライドします。
+
+|===
+|グローバル設定 | ボリュームオーバーライド | 有効なQoS
+
+|0
+|0
+|制限なし
+
+|100
+|0
+|100 MB/s
+
+|0
+|200
+|200 MB/s
+
+|100
+|200
+|200 MB/s
+|===
+
+適用されたQoSは、エンジンステータス内の`status.rebuildStatus[*].appliedRebuildingMbps`フィールドに記録されます。
+
+例えば、適用された帯域幅制限は、ここに示すようにボリュームエンジンステータスに表示されます：
+
+[,yaml]
+----
+  Rebuild Status:
+    tcp://172.24.1.95:20001:
+      Error:
+      From Replica Address:  tcp://172.24.8.133:20001
+      Is Rebuilding:         true
+      Progress:              97
+      State:                 in_progress
+      appliedRebuildingMbps: 50
+----

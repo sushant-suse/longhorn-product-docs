@@ -1,0 +1,231 @@
+= デフォルト設定のカスタマイズ
+:revdate: 2025-06-29
+:page-revdate: {revdate}
+:experimental:
+:current-version: {page-component-version}
+
+インストールまたはアップグレード中に、{longhorn-product-name}のデフォルト設定をカスタマイズできます。例えば、`Create Default Disk With Node Labeled`と`Default Data Path`を、{longhorn-product-name}の開始前に指定できます。
+
+[NOTE]
+====
+LonghornデプロイメントYAMLファイルまたはHelmを使用してインストール、更新、またはアップグレードする際に、デフォルト設定の値が空の文字列で有効な場合、デフォルト設定は{longhorn-product-name}でクリーンアップされます。そうでない場合、{longhorn-product-name}は無効な値を無視し、デフォルト値を更新しません。
+====
+
+== インストール
+
+=== Rancher UIの使用
+
+Rancherのプロジェクトビューから、menu:アプリとマーケットプレイス[Longhorn> インストール> 次へ> オプションの編集> Longhornデフォルト設定> デフォルト設定のカスタマイズ]に移動し、アプリをインストールする前に設定を編集します。
+
+=== LonghornデプロイメントYAMLファイルの使用
+
+. Longhornリポジトリをダウンロードします。
++
+[subs="+attributes",shell]
+----
+git clone https://github.com/longhorn/longhorn.git
+----
+
+. YAMLファイル`longhorn/deploy/longhorn.yaml`の`longhorn-default-setting`という名前の設定マップを修正します。
++
+以下の例では、ユーザーはデフォルト設定、バックアップターゲット、バックアップターゲットクレデンシャルシークレット、およびデフォルトデータパスをカスタマイズします。
+ 設定が存在しない場合、または先頭に`#`記号がある場合、デフォルト設定は{longhorn-product-name}のデフォルト値または以前に構成されたカスタマイズされた値を使用します。
++
+[subs="+attributes",yaml]
+----
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: longhorn-default-setting
+  namespace: longhorn-system
+data:
+  default-setting.yaml: |-
+    backup-target: s3://backupbucket@us-east-1/backupstore
+    backup-target-credential-secret: minio-secret
+    #allow-recurring-job-while-volume-detached:
+    #create-default-disk-labeled-nodes:
+    default-data-path: /var/lib/longhorn-example/
+    #replica-soft-anti-affinity:
+    #replica-auto-balance:
+    #storage-over-provisioning-percentage:
+    #storage-minimal-available-percentage:
+    #upgrade-checker:
+    #upgrade-responder-url:
+    #default-replica-count:
+    #default-data-locality:
+    #default-longhorn-static-storage-class:
+    #backupstore-poll-interval:
+    #taint-toleration:
+    #system-managed-components-node-selector:
+    #priority-class:
+    #auto-salvage:
+    #auto-delete-pod-when-volume-detached-unexpectedly:
+    #disable-scheduling-on-cordoned-node:
+    #replica-zone-soft-anti-affinity:
+    #replica-disk-soft-anti-affinity:
+    #node-down-pod-deletion-policy:
+    #node-drain-policy:
+    #replica-replenishment-wait-interval:
+    #concurrent-replica-rebuild-per-node-limit:
+    #disable-revision-counter:
+    #system-managed-pods-image-pull-policy:
+    #allow-volume-creation-with-degraded-availability:
+    #auto-cleanup-system-generated-snapshot:
+    #concurrent-automatic-engine-upgrade-per-node-limit:
+    #backing-image-cleanup-wait-interval:
+    #backing-image-recovery-wait-interval:
+    #guaranteed-instance-manager-cpu:
+    #kubernetes-cluster-autoscaler-enabled:
+    #orphan-resource-auto-deletion:
+    #storage-network:
+    #recurring-successful-jobs-history-limit:
+    #recurring-failed-jobs-history-limit:
+---
+----
+
+=== Helmの使用
+
+[NOTE]
+====
+{longhorn-product-name}をインストールおよびアップグレードする際は、Helm 3を使用してください。Helm 2は https://helm.sh/blog/helm-2-becomes-unsupported/[サポートされなくなりました]。
+====
+
+デフォルト設定を変更するには、`--set`フラグを使用してHelmコマンドを実行します。次に例を示します。
+
+[subs="+attributes",shell]
+----
+helm install longhorn longhorn/longhorn \
+  --namespace longhorn-system \
+  --create-namespace \
+  --set defaultSettings.taintToleration="key1=value1:NoSchedule; key2:NoExecute"
+----
+
+Helmコマンドを実行する際に、デフォルト設定が変更された`values.yaml`ファイルのコピーを`--values`フラグに提供することもできます：
+
+. GitHubから`values.yaml`ファイルのコピーを取得します。
++
+[subs="+attributes",shell]
+----
+curl -Lo values.yaml https://raw.githubusercontent.com/longhorn/charts/master/charts/longhorn/values.yaml
+----
+
+. YAMLファイル内のデフォルト設定を修正します。以下は`values.yaml`の例のスニペットです。
++
+設定が存在しない場合、または先頭に`#`記号がある場合、デフォルト設定は{longhorn-product-name}のデフォルト値または以前に構成されたカスタマイズされた値を使用します。
++
+[subs="+attributes",yaml]
+----
+defaultSettings:
+  backupTarget: s3://backupbucket@us-east-1/backupstore
+  backupTargetCredentialSecret: minio-secret
+  createDefaultDiskLabeledNodes: true
+  defaultDataPath: /var/lib/longhorn-example/
+  replicaSoftAntiAffinity: false
+  storageOverProvisioningPercentage: 600
+  storageMinimalAvailablePercentage: 15
+  upgradeChecker: false
+  defaultReplicaCount: 2
+  defaultDataLocality: disabled
+  defaultLonghornStaticStorageClass: longhorn-static-example
+  backupstorePollInterval: 500
+  taintToleration: key1=value1:NoSchedule; key2:NoExecute
+  systemManagedComponentsNodeSelector: "label-key1:label-value1"
+  priorityClass: high-priority
+  autoSalvage: false
+  disableSchedulingOnCordonedNode: false
+  replicaZoneSoftAntiAffinity: false
+  replicaDiskSoftAntiAffinity: false
+  volumeAttachmentRecoveryPolicy: never
+  nodeDownPodDeletionPolicy: do-nothing
+  guaranteedInstanceManagerCpu: 15
+  orphanAutoDeletion: ""
+  orphanResourceAutoDeletionGracePeriod: 300
+----
+
+. `values.yaml`を使用してHelmを実行します:
++
+[subs="+attributes",shell]
+----
+helm install longhorn longhorn/longhorn \
+  --namespace longhorn-system \
+  --create-namespace \
+  --values values.yaml
+----
+
+Helmの使用に関する詳細は、xref:installation-setup/installation/install-using-helm.adoc[Helmで{longhorn-product-name}をインストールする]のセクションを参照してください。
+
+=== Helm Controllerの使用
+
+HelmChart YAMLファイルで、希望する設定をspec.setに追加します:
+
+[,yaml]
+----
+spec:
+  ...
+  set:
+    defaultSettings.priorityClass: system-node-critical
+    defaultSettings.replicaAutoBalance: least-effort
+    defaultSettings.storageOverProvisioningPercentage: "200"
+    persistence.defaultClassReplicaCount: "2"
+----
+
+=== Helmコントローラーを使用する
+
+HelmChart YAMLファイルで、希望する設定を`spec.set`に追加します:
+
+[,yaml]
+----
+spec:
+  ...
+  set:
+    defaultSettings.priorityClass: system-node-critical
+    defaultSettings.replicaAutoBalance: least-effort
+    defaultSettings.storageOverProvisioningPercentage: "200"
+    persistence.defaultClassReplicaCount: "2"
+----
+
+== アップデートの設定
+
+=== {longhorn-product-name} UIを使用する
+
+既存のクラスターで{longhorn-product-name}設定を変更するには、{longhorn-product-name} UIの使用をお勧めします。これにより設定が永続化されます。
+
+=== Rancher UIの使用
+
+Rancherのプロジェクトビューから、menu:アプリ＆マーケットプレイス[Longhorn > アップグレード > 次へ > オプションを編集 > Longhornのデフォルト設定 > デフォルト設定をカスタマイズ]に移動し、アプリを現在の{longhorn-product-name}バージョンにアップグレードする前に設定を編集します。
+
+=== Kubectlを使用する
+
+コマンドラインから設定を更新する場合は、`kubectl`を使用してください。他のCRDとの衝突を避けるため、単純な`settings`は使用しないでください。代わりに、`settings.longhorn.io`または`lhs`を使用してください。
+
+[subs="+attributes",shell]
+----
+kubectl edit settings.longhorn.io <SETTING-NAME> -n longhorn-system
+----
+
+=== Helmの使用
+
+<<_using_helm,新規インストール > Helmの使用>>に記載されているように、YAMLファイルのデフォルト設定を変更し、その後、設定を更新します。
+
+----
+helm upgrade longhorn longhorn/longhorn --namespace longhorn-system --values ./values.yaml --version `helm list -n longhorn-system -o json | jq -r .'[0].app_version'`
+----
+
+== アップグレード
+
+=== Rancher UIの使用
+
+Rancherのプロジェクトビューから、menu:アプリ＆マーケットプレイス[Longhorn > アップグレード > 次へ > オプションを編集 > Longhornのデフォルト設定 > デフォルト設定をカスタマイズ]に移動し、アプリをアップグレードする前に設定を編集します。
+
+=== LonghornデプロイメントYAMLファイルの使用
+
+<<_using_the_longhorn_deployment_yaml_file,新規インストール > LonghornデプロイメントYAMLファイルの使用>>に記載されているように、YAMLファイル`longhorn/deploy/longhorn.yaml`の`longhorn-default-setting`という名前の設定マップを変更し、その後、`kubectl`を使用してLonghornシステムをアップグレードします。
+
+=== Helmの使用
+
+<<_using_helm,新規インストール > Helmの使用>>に記載されているように、YAMLファイルのデフォルト設定を変更し、その後、`helm upgrade`を使用してLonghornシステムをアップグレードします。
+
+== 履歴
+
+v1.3.0以降利用可能 (https://github.com/longhorn/longhorn/issues/2570[参照])

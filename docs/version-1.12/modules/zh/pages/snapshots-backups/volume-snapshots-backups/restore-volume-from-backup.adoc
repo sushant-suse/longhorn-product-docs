@@ -1,0 +1,21 @@
+= 从备份恢复卷。
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn 可以轻松地将备份恢复到卷中。
+
+有关备份工作原理的更多信息，请参阅 xref:introduction/concepts.adoc#_3_backups_and_secondary_storage[概念] 部分。
+
+当您恢复备份时，默认情况下会创建一个同名的卷。如果已存在与备份同名的卷，则不会恢复该备份。
+
+要恢复备份。
+
+. 导航到 *备份.* 菜单。
+. 选择您希望恢复的备份，然后单击 *恢复最新备份.*。
+. 在 *名称* 字段中，选择您希望恢复的卷。
+. 单击 *确定.*。
+
+在从备份恢复卷后，您可以从该卷创建 PV/PVC。在这里，您可以指定 `storageClassName` 或留空以使用从备份卷的 PVC 继承的 `storageClassName`。`StorageClass` 应该已经在集群中，以防止任何进一步的问题。
+
+*结果：*恢复的卷在 *卷* 页面上可用。

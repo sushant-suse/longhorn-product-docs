@@ -1,0 +1,42 @@
+= Rancher監視システムにSUSE® Storage Metricsを統合します。
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Rancher監視システムについて
+
+Rancherを使用すると、 https://prometheus.io/[Prometheus]との統合を通じて、クラスターのノード、Kubernetesコンポーネント、およびソフトウェアデプロイメントの状態とプロセスを監視できます。
+
+Rancher監視システムのデプロイ/有効化に関する指示は https://rancher.com/docs/rancher/v2.x/en/monitoring-alerting/[こちら]をご覧ください。
+
+== Rancher監視システムにLonghornメトリクスを追加します。
+
+Kubernetesを管理するためにRancherを使用しており、すでにRancher監視システムを有効にしている場合は、次のServiceMonitorをデプロイすることでLonghornメトリクスをRancher監視システムに追加できます。
+
+[subs="+attributes",yaml]
+----
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: longhorn-prometheus-servicemonitor
+  namespace: longhorn-system
+  labels:
+    name: longhorn-prometheus-servicemonitor
+spec:
+  selector:
+    matchLabels:
+      app: longhorn-manager
+  namespaceSelector:
+    matchNames:
+    - longhorn-system
+  endpoints:
+  - port: manager
+----
+
+ServiceMonitorが作成されると、Rancherは自動的にすべてのLonghornメトリクスを検出します。
+
+その後、視覚化のためにGrafanaダッシュボードを設定できます。
+
+私たちの事前構築された https://grafana.com/grafana/dashboards/13032[Longhorn例ダッシュボード]をインポートして、参考にすることができます。
+
+Rancher UIでアラートを設定することもできます。

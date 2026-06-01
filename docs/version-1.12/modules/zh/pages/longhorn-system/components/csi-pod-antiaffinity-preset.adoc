@@ -1,0 +1,80 @@
+= CSI 组件 Pod 反亲和性
+:revdate: 2025-12-02
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+本文档描述了如何为 Longhorn CSI 组件配置 Pod 反亲和性。
+Pod 反亲和性通过确保多个 CSI 组件的副本不会在同一节点上运行，从而提高了存储的弹性，特别是在小型集群中。
+
+有关 Pod 反亲和性的详细信息，请参阅 Kubernetes 文档中的 https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity[跨 Pod 亲和性和反亲和性]。
+
+== 为 Longhorn CSI 组件配置 Pod 反亲和性
+
+您可以为以下 Longhorn CSI 组件配置 Pod 反亲和性：
+
+* `csi-attacher`
+* `csi-provisioner`
+* `csi-resizer`
+* `csi-snapshotter`
+
+`podAntiAffinityPreset` 设置接受以下值：
+
+* *软*（默认）：使用 `preferredDuringSchedulingIgnoredDuringExecution` 的尽力而为规则。调度程序尝试避免将多个 CSI 副本放置在同一节点上，但这并不能保证。
+
+* *硬*：使用 `requiredDuringSchedulingIgnoredDuringExecution` 的严格规则。调度程序阻止在违反反亲和性规则的节点上放置 Pod。如果没有合适的节点，Pod 可能会保持在 `Pending` 状态。
+
+== 在 {longhorn-product-name} 安装期间配置
+
+您可以通过以下方法之一在初始安装期间设置 Pod 反亲和性。
+
+=== 使用 Rancher
+
+通过 Rancher UI 安装 {longhorn-product-name} 时，选择 *Edit as YAML* 并将以下参数添加到 YAML 中：
+
+[source, yaml]
+----
+csi:
+    podAntiAffinityPreset: "hard"
+----
+
+=== 使用 Helm
+
+通过 Helm 安装 {longhorn-product-name} 时，在您的 `csi.podAntiAffinityPreset` 文件中设置 `values.yaml` 值：
+
+[source, yaml]
+----
+csi:
+  podAntiAffinityPreset: hard
+----
+
+将其添加到您的 `values.yaml` 文件后，按常规安装图表。
+
+=== 使用 Kubectl
+
+如果您使用 {longhorn-product-name} 部署 `kubectl`，请手动编辑 `longhorn-driver-deployer` 部署，并将以下环境变量添加到容器规范中：
+
+[source, yaml]
+----
+- name: CSI_POD_ANTIAFFINITY_PRESET
+  value: hard
+----
+
+== 在 {longhorn-product-name} 安装后进行配置
+
+[WARNING]
+====
+编辑部署会重新部署 `longhorn-driver-deployer` 和所有 CSI Pod。
+====
+
+要更新现有安装，请手动编辑 `longhorn-driver-deployer` 部署，并将以下环境变量添加到容器规范中：
+
+[source, yaml]
+----
+- name: CSI_POD_ANTIAFFINITY_PRESET
+  value: hard
+----
+
+
+== 历史记录
+
+* https://github.com/longhorn/longhorn/issues/11617[原始功能请求]。

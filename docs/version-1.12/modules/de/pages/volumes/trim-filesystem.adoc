@@ -1,0 +1,112 @@
+= Dateisystem trimmen
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn unterstützt das Trimmen des Dateisystems innerhalb von Longhorn-Volumes. Das Trimmen gibt den durch entfernte Dateien des Dateisystems verschwendeten Speicherplatz wieder frei.
+
+[NOTE]
+====
+
+
+* Das Trimmen von entfernten Dateien in Snapshots hat keine Auswirkungen auf das Dateisystem, da gültige Snapshots unveränderlich sind. Das Dateisystem merkt sich jedoch, wann es Blöcke, die mit einem Snapshot verbunden sind, getrimmt hat. Aus diesem Grund müssen Sie möglicherweise das Dateisystem aushängen und erneut einhängen, bevor Sie versuchen, einen als entfernt markierten Snapshot erneut zu trimmen.
+* Wenn Sie die automatische Snapshot-Entfernung während des Dateisystemtrimmens zulassen, verwenden Sie die Mount-Option `discard` mit Vorsicht. `discard` löst häufig die Snapshot-Entfernung aus und unterbricht Vorgänge wie die Erstellung von Backups.
+====
+
+== Voraussetzungen
+
+* Die Longhorn-Version muss v1.4.0 oder höher sein.
+* Es gibt ein trimmbares Dateisystem wie EXT4 oder XFS innerhalb des Longhorn-Volumes.
+* Das Volume ist vor dem Trimmen an einem Einhängepunkt angeschlossen und eingehängt.
+
+== Dateisystem in einem Longhorn-Volume trimmen
+
+Sie können ein Longhorn-Volume entweder über die Longhorn-Benutzeroberfläche oder den Befehl `fstrim` trimmen.
+
+=== Via Longhorn UI
+
+Klicken Sie direkt auf die Volumenoperation `Trim Filesystem` für angeschlossene Volumen.
+
+Dann wird Longhorn *sein Bestes versuchen*, um den Einhängepunkt zu ermitteln und `fstrim <the mount point>` auszuführen.  Wenn etwas nicht stimmt oder das Dateisystem nicht existiert, gibt die Benutzeroberfläche einen Fehler zurück.
+
+=== Über den Shell-Befehl
+
+Wenn Sie `fstrim` verwenden, müssen Sie den Einhängepunkt des Volumes identifizieren und dann den Befehl `fstrim <the mount point>` ausführen.
+
+* RWO-Volume: Der Einhängepunkt ist entweder ein Pod der Arbeitslast oder der Knoten, an den das Volume manuell angeschlossen wurde.
+* RWX volume: Der Einhängepunkt ist der Share-Manager-Pod des Volumes. Der Share-Manager-Pod enthält den NFS-Server und wird typischerweise `share-manager-<volume name>` genannt.
+
+Um ein RWX-Volume zu trimmen, führen Sie die folgenden Schritte aus:
+
+. Identifizieren Sie den Share-Manager-Pod des Volumes und öffnen Sie dann eine Shell darin.
++
+----
+ kubectl -n longhorn-system exec -it <the share manager pod> -- bash
+----
+
+. Identifizieren Sie das Arbeitsverzeichnis des NFS-Servers (zum Beispiel `/export/<volume name>`).
++
+----
+ mount | grep <volume name>
+ /dev/longhorn/<volume name> on /export/<volume name> type ext4 (rw,relatime)
+----
+
+. Trimmen Sie das Arbeitsverzeichnis.
++
+----
+ fstrim /export/<volume name>
+----
+
+==== Trimmen Sie das Dateisystem regelmäßig.
+
+Sie können einen xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc#_set_up_recurring_jobs[WiederkehrendenJob] einrichten, um das Dateisystem regelmäßig zu trimmen.
+
+== Snapshots während des Trimmens des Dateisystems automatisch entfernen.
+
+Von der Gestaltung her sind gültige Snapshots von Longhorn-Volumes unveränderlich, sodass Sie die Funktion zum Trimmen des Dateisystems nur mit den folgenden verwenden können:
+
+* Volume-Kopf
+* Vorhergehende kontinuierliche Kette von Snapshots, die vom System erstellt oder als entfernt markiert wurden.
+
+Wenn der größte Teil des tatsächlich von einem Volume verbrauchten Speicherplatzes mit gültigen Snapshots verbunden ist, ist die Trim-Operation nicht sehr effektiv.
+
+=== Globale Einstellung: "Snapshots während des Trimmens des Dateisystems entfernen"
+
+Wenn Sie möchten, dass Longhorn den maximalen Speicherplatz automatisch zurückgewinnt, können Sie die Einstellung xref:longhorn-system/settings.adoc#_remove_snapshots_during_filesystem_trim[_Snapshots während des Trimmens des Dateisystems entfernen_] aktivieren.
+Wenn diese globale Einstellung aktiviert ist, werden der neueste Snapshot und die vorhergehende kontinuierliche Kette von Snapshots automatisch als entfernt markiert, sodass Longhorn so viel Speicherplatz wie möglich für Snapshots zurückgewinnen kann. Die Einstellung kann jedoch dazu führen, dass Snapshots entfernt (und schließlich gelöscht) werden, die Sie absichtlich erstellt haben.
+
+=== Das Volumen-Spezifikationsfeld "UnmapMarkSnapChainRemoved"
+
+Es gibt ein volumenbezogenes Feld `volume.Spec.UnmapMarkSnapChainRemoved`, das die oben erwähnte globale Einstellung überschreibt.
+
+Die Optionen für diese volumenbezogene Einstellung sind "deaktiviert", "aktiviert" und "ignoriert". Wenn der Wert "ignoriert" ist, tritt die globale Einstellung in Kraft.
+
+Sie können diese Einstellung in einer StorageClass konfigurieren, sodass der Wert auf alle Volumen angewendet wird, die mit dieser StorageClass erstellt werden.
+
+== Bekannte Probleme & Einschränkungen
+
+=== Wiederherstellung von Volumen
+
+Designbedingt entfernt Longhorn Blöcke im Volumenkopf und in der vorhergehenden kontinuierlichen Kette von Snapshots, die als entfernt markiert sind. Einige dieser Snapshots können während der Wiederherstellung von Volumes von einem Replikat zu einem anderen verschoben werden, sodass Longhorn nicht in der Lage ist, das Dateisystem der betroffenen Volumes während des Wiederherstellungsprozesses zu trimmen.
+
+Da die Wiederherstellung lange dauern kann, entfernt Longhorn einfach keine Blöcke während einer Wiederherstellung, anstatt einen I/O-Fehler an das Dateisystem zurückzugeben. Dieses Verhalten kommt insbesondere VM-Arbeitslasten zugute, die schlecht reagieren, wenn wiederholte Versuche, einen Trim abzuschließen, Fehler zurückgeben. Siehe https://github.com/longhorn/longhorn/issues/7103[Issue #7103] für weitere Informationen.
+
+Ein Trim-Vorgang, der während der Wiederherstellung gestartet wird, hat keine Wirkung. Zukünftige Trim-Vorgänge auf demselben gemounteten Volumen können ebenfalls keine Wirkung haben, da das Dateisystem sich merkt, welche Blöcke es getrimmt hat. Sie müssen möglicherweise das Dateisystem aushängen und erneut einhängen, bevor Sie versuchen, den Trim-Vorgang erneut zu starten.
+
+=== Erweiterung von Volumes
+
+Longhorn kann das Dateisystem während der Volumenerweiterung nicht trimmen. Da die Erweiterung schnell ist, gibt Longhorn einen I/O-Fehler zurück, wann immer das Problem auftritt. Das Dateisystem erkennt, dass Blöcke nicht getrimmt wurden, und kann ohne ein erneutes Einhängen einen weiteren Versuch unternehmen.
+
+=== Verschlüsselte Volumes
+
+* Standardmäßig sind TRIM-Befehle im Device-Mapper nicht aktiviert. Sie können https://wiki.archlinux.org/title/Dm-crypt/Specialties#Discard/TRIM_support_for_solid_state_drives_(SSD)[dieses Dokument] für Details überprüfen.
+* Wenn Sie dennoch ein verschlüsseltes Longhorn-Volume trimmen möchten, können Sie:
+ .. Melden Sie sich auf dem Knoten an, an den das Volume angeschlossen ist.
+ .. Aktivieren Sie das Flag `discards` für das verschlüsselte Volume. Die Passphrase ist im entsprechenden Secret hinterlegt:
++
+[subs="+attributes",shell]
+----
+  cryptsetup --allow-discards --persistent refresh <Longhorn volume name>
+----
+
+ .. Verwenden Sie direkt die Longhorn-Benutzeroberfläche, um das Volume zu trimmen, oder führen Sie `fstrim` manuell für *den Einhängepunkt* von `/dev/mapper/<volume name>` aus.

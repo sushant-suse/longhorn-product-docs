@@ -1,0 +1,13 @@
+= Kubernetes auf dem Amazon Elastic Kubernetes Service (Amazon EKS) upgraden
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Setzen Sie {longhorn-product-name} in `replica-replenishment-wait-interval` auf `0`.
+
+Siehe https://docs.aws.amazon.com/eks/latest/userguide/update-cluster.html[Aktualisierung eines Clusters] für Anweisungen.
+
+[NOTE]
+====
+Wenn Sie xref:nodes/managed-kubernetes/eks-managed-node-pools.adoc#_create_additional_volume[zusätzliche Festplatten] für Longhorn erstellt haben, müssen Sie den Pfad des gemounteten Laufwerks manuell in die Festplattenliste der nach dem Upgrade aktualisierten Knoten hinzufügen.
+====

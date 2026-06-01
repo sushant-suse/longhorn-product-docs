@@ -1,0 +1,38 @@
+= Identificar y recuperarse de errores de datos.
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Si has encontrado un mensaje de error como el siguiente:
+
+ 'fsck' found errors on device /dev/longhorn/pvc-6288f5ea-5eea-4524-a84f-afa14b85780d but could not correct them.
+
+Entonces tienes una situación de corrupción de datos. Esta sección describe cómo abordar el problema.
+
+== Disco subyacente defectuoso
+
+Para determinar si el error se debe a que uno de los discos subyacentes está defectuoso, sigue xref:data-integrity-recovery/data-recovery/identify-corrupted-replicas.adoc[estos pasos] para identificar réplicas corruptas.
+
+Si la mayoría de las réplicas en el disco están defectuosas, eso significa que el disco es poco fiable ahora y debe ser reemplazado.
+
+Si solo una réplica en el disco está defectuosa, puede ser una situación conocida como `bit rot`. En este caso, eliminar la réplica es suficiente.
+
+== Recuperar de una instantánea
+
+Si todas las réplicas son idénticas, entonces el volumen necesita ser recuperado utilizando instantáneas.
+
+La razón de esto probablemente sea que el bit defectuoso fue escrito desde la carga de trabajo a la que estaba adjunto el volumen.
+
+Para revertir a una instantánea anterior:
+
+. En modo de mantenimiento, adjunta el volumen a cualquier nodo.
+. Revertir a una instantánea. Deberías empezar con el más reciente.
+. Desconecta el volumen del modo de mantenimiento en cualquier nodo.
+. Vuelve a adjuntar el volumen a un nodo al que tengas acceso.
+. Monta el volumen desde `/dev/longhorn/<volume_name>` y verifica el contenido del volumen.
+. Si el contenido del volumen sigue siendo incorrecto, repite desde el paso 1.
+. Una vez que encuentres una instantánea utilizable, crea una nueva instantánea desde allí y comienza a usar el volumen como de costumbre.
+
+== Recuperar desde la copia de seguridad
+
+Si todos los métodos anteriores fallaron, utiliza una copia de seguridad para xref:snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[recuperar el volumen.]

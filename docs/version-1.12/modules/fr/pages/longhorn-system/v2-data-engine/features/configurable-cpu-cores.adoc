@@ -1,0 +1,63 @@
+= Cœurs d'UC configurables
+:revdate: 2026-03-16
+:page-revdate: {revdate}
+
+{longhorn-product-name} prend désormais en charge les cœurs d'UC configurables pour le moteur de données V2 grâce à l'utilisation d'un *Masque d'UC*. Ce masque vous permet de définir exactement quels cœurs d'UC sont alloués au moteur, offrant à la fois des options de configuration globales et par nœud.
+
+== Comprendre le Masque d'UC
+
+Le masque d'UC est une *représentation hexadécimale (hex) d'un masque de bits binaire*, où chaque bit correspond à un cœur d'UC spécifique.
+
+* Un bit défini sur *1* signifie que le cœur est activé pour le moteur de données.
+* Un bit défini sur *0* signifie que le cœur est ignoré.
+
+=== Comment Calculer le Masque
+
+Pour déterminer la chaîne hexadécimale correcte, visualisez vos cœurs d'UC comme une séquence de bits de droite à gauche :
+
+[cols="1,1,1"]
+|===
+| Nombre de Cœurs Souhaité | Représentation Binaire (Cœurs 3, 2, 1, 0) | Valeur Hexadécimale
+
+| *1 Cœur*
+| `0001`
+| *0x1*
+
+| *2 Cœurs*
+| `0011`
+| *0x3*
+
+| *3 Cœurs*
+| `0111`
+| *0x7*
+
+| *4 Cœurs*
+| `1111`
+| *0xF*
+|===
+
+*Exemple pour 23 Cœurs*{nbsp}: Pour allouer 23 cœurs, vous avez besoin de 23 bits définis sur `1`.
+
+* *Binaire*{nbsp}: `111 1111 1111 1111 1111 1111`
+* *Hexadécimal*{nbsp}: `0x7FFFFF`
+
+[NOTE]
+====
+Ne confondez pas le nombre de cœurs avec la valeur hexadécimale. Par exemple, définir `0x4` (Binaire `0100`) n'active qu'un seul *cœur* (Cœur #2), tandis que `0xF` (Binaire `1111`) active *quatre* cœurs.
+====
+
+== configuration globale
+
+Pour définir les cœurs d'UC globalement dans le cluster, mettez à jour le paramètre xref:longhorn-system/settings.adoc#_data_engine_cpu_mask[`data-engine-cpu-mask`].
+
+1. Accédez à *Paramètres > Général*.
+2. Localisez *Masque d'UC du moteur de données*.
+3. Entrez votre chaîne hexadécimale calculée (par exemple, `0xF`).
+
+== Configuration par nœud
+
+Pour l'allocation de cœurs d'UC spécifiques au nœud, mettez à jour le champ `spec.dataEngineSpec.v2.cpuMask` du gestionnaire d'instances avec une chaîne encodée en hexadécimal. Par défaut, cette valeur est vide, et le moteur de données v2 utilisera le paramètre global spécifié par `data-engine-cpu-mask`. Lorsqu'une configuration par nœud est définie, le moteur de données v2 privilégiera cette valeur par rapport au paramètre global pour ce nœud spécifique.
+
+== Outils de calcul
+
+Vous pouvez utiliser un https://www.rapidtables.com/convert/number/binary-to-hex.html[Convertisseur Binaire en Hex] pour vous aider à calculer votre masque. Tapez un `1` pour chaque cœur que vous souhaitez allouer et convertissez la chaîne binaire résultante en Hex.

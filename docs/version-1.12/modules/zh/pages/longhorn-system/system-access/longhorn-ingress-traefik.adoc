@@ -1,0 +1,134 @@
+= 创建带基本身份验证的 Ingress（Traefik）
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+如果您在 Kubernetes 集群上通过 {longhorn-product-name} 或 Helm 安装 `kubectl`，则需要创建一个 Ingress，以允许外部流量访问 {longhorn-product-name} 用户界面。
+
+默认情况下，`kubectl` 和 Helm 安装未启用身份验证。在这些步骤中，您需要学习如何使用基本身份验证创建 Ingress，并使用 Traefik 配置对大文件上传（用于备份镜像）的支持。
+
+[NOTE]
+====
+这些说明假设 https://doc.traefik.io/traefik[Traefik Ingress Controller] 已安装并在您的集群中运行。Traefik 是 RKE2 和 K3s 的默认 Ingress 控制器。如果您使用的是不同的环境，请确保在继续之前已部署 Traefik。您可以通过运行 `kubectl get pods -A | grep traefik` 来验证其存在。
+====
+
+== 1.创建基本身份验证密钥
+
+创建基本身份验证文件 `auth`。重要的是，密钥中必须有一个名为 `auth` 的键，以便进行以下步骤。
+
+[source,shell]
+----
+$ USER=<USERNAME_HERE>; PASSWORD=<PASSWORD_HERE>; echo "${USER}:$(openssl passwd -stdin -apr1 <<< ${PASSWORD})" > auth
+----
+
+在 `longhorn-system` 名称空间中创建密钥：
+
+[,shell]
+----
+$ kubectl -n longhorn-system create secret generic basic-auth --from-file=auth
+----
+
+== 2.创建 Traefik 中间件
+
+Traefik 利用中间件来处理身份验证和请求限制。创建一个名为 `longhorn-middlewares.yml` 的文件：
+
+[,yaml]
+----
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: longhorn-auth
+  namespace: longhorn-system
+spec:
+  basicAuth:
+    secret: basic-auth
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: longhorn-buffering
+  namespace: longhorn-system
+spec:
+  buffering:
+    # Allows backing image uploads up to 10,000MB
+    maxRequestBodyBytes: 10485760000 
+----
+
+应用配置：
+
+[,shell]
+----
+$ kubectl apply -f longhorn-middlewares.yml
+----
+
+== 3.创建 Ingress 清单
+
+创建 Ingress 清单 `longhorn-ingress.yml`。为了确保备份镜像上传按预期工作，我们通过注解包含 `longhorn-buffering` 中间件。
+
+[,yaml]
+----
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: longhorn-ingress
+  namespace: longhorn-system
+  annotations:
+    # Connect the middlewares defined in step 2
+    traefik.ingress.kubernetes.io/router.middlewares: 
+      longhorn-system-longhorn-auth@kubernetescrd,
+      longhorn-system-longhorn-buffering@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: longhorn-frontend
+            port:
+              number: 80
+----
+
+== 4.创建 Ingress
+
+[,shell]
+----
+$ kubectl -n longhorn-system apply -f longhorn-ingress.yml
+----
+
+=== 示例
+
+[source,shell]
+----
+$ USER=foo; PASSWORD=bar; echo "${USER}:$(openssl passwd -stdin -apr1 <<< ${PASSWORD})" > auth
+$ kubectl -n longhorn-system create secret generic basic-auth --from-file=auth
+secret/basic-auth created
+
+# (After applying middlewares and ingress manifests)
+
+$ kubectl -n longhorn-system get ingress
+NAME                CLASS    HOSTS   ADDRESS      PORTS   AGE
+longhorn-ingress   traefik   * 10.0.2.15    80      15s
+
+$ curl -I http://10.0.2.15/
+HTTP/1.1 401 Unauthorized
+Www-Authenticate: Basic realm="traefik"
+
+$ curl -u foo:bar -I http://10.0.2.15/
+HTTP/1.1 200 OK
+----
+
+== AWS EKS Kubernetes 集群的附加步骤
+
+要将 Traefik Ingress 控制器暴露到 AWS EKS 上的互联网，您必须配置一个 AWS 负载均衡器。可能会产生额外费用。
+
+. *安装 Traefik*:如果您的 EKS 集群中尚未安装 Traefik，请遵循 https://doc.traefik.io/traefik/getting-started/install-traefik/#use-the-helm-chart[官方 Traefik Helm Chart 安装指南]。
+. *配置负载均衡器*:默认情况下，将 Traefik 服务类型设置为 `LoadBalancer` 将触发创建一个 AWS ELB。有关高级配置（例如使用 NLB 或特定安全组），请参阅 https://doc.traefik.io/traefik/providers/kubernetes-ingress/#annotations[Traefik AWS 指南]。
+
+== 参考资料
+
+* https://doc.traefik.io/traefik/[Traefik 文档]
+* https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-ingress/[Traefik Kubernetes Ingress 指南]
+* https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/[Kubernetes 博客 - Ingress-NGINX 退役]

@@ -1,0 +1,287 @@
+= Programación
+:revdate: 2026-03-06
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} programa réplicas en función de múltiples factores.
+
+== Directiva de Programación
+
+{longhorn-product-name}La directiva de programación de  tiene dos etapas. El programador solo pasa a la siguiente etapa si se cumple la etapa anterior. De lo contrario, la programación falla.
+
+Si se ha establecido que alguna etiqueta debe ser seleccionada para la programación, la etiqueta del nodo y la etiqueta del disco deben coincidir cuando se selecciona el nodo o el disco.
+
+La primera etapa es la *etapa de selección de nodo y zona*. {longhorn-product-name} filtra el nodo y la zona en función de la configuración de `Replica Node Level Soft Anti-Affinity` y `Replica Zone Level Soft Anti-Affinity`.
+
+La segunda etapa es la *etapa de selección de disco*. {longhorn-product-name} filtra los discos que satisfacen la primera etapa en función de `Replica Disk Level Soft Anti-Affinity`, `Storage Minimal Available Percentage`, `Storage Over Provisioning Percentage` y otros factores relacionados con el disco, como el espacio en disco solicitado.
+
+=== La Etapa de Selección de Nodo y Zona
+
+{longhorn-product-name} evalúa qué nodos son adecuados para programar una nueva réplica en función de una serie de criterios. El proceso de toma de decisiones sigue un orden específico para garantizar una colocación óptima para la tolerancia a fallos.
+
+==== 1. Coincidencia de Etiquetas de Nodo
+
+{longhorn-product-name} primero verifica las etiquetas de selector de nodo en el volumen.
+
+* Si el volumen tiene etiquetas de selector de nodo, solo los nodos con etiquetas coincidentes son elegibles.
+* Si el volumen tiene *ningún selector de nodo*, el comportamiento depende de la configuración de *Permitir Volumen de Selector de Nodo Vacío*:
+* `true` (predeterminado): Programa en nodos *con o sin etiquetas*.
+* `false`: Programa *solo* en nodos *sin etiquetas*.
+
+==== 2. Manejo de Nodos Aislados
+
+La configuración *Deshabilitar Programación en Nodo Aislado* determina si los nodos aislados son elegibles para la programación de réplicas:
+
+* `true` (predeterminado): Los nodos aislados están excluidos.
+* `false`: Los nodos aislados son elegibles.
+
+==== 3. Reglas de Anti-Afinidad entre Nodos y Zonas
+
+{longhorn-product-name} prioriza la distribución de réplicas entre diferentes *nodos* y *zonas* para mejorar la tolerancia a fallos. Un *"nuevo"* nodo o zona es aquel que *no* alberga actualmente ninguna réplica del volumen, mientras que un *"existente"* nodo o zona ya alberga una réplica del volumen.
+
+El programador intenta colocar la nueva réplica en la ubicación más "aislada" posible, siguiendo esta jerarquía de preferencias:
+
+. *Nuevo Nodo en una Nueva Zona* (más preferido)
+. *Nuevo Nodo en una Zona Existente*
+. *Nodo Existente en una Zona Existente* (menos preferido)
+
+La siguiente tabla detalla la configuración requerida para que una réplica sea programada en cada escenario:
+
+[cols="3,3,3,3a", options="header"]
+|===
+|Escenario |Nivel de Zona de Réplica Anti-Afinidad Suave |Nivel de Nodo de Réplica Anti-Afinidad Suave |Acción del Programador
+
+| *Nuevo Nodo en una Nueva Zona*
+| `false`
+| `false`
+| *Programa* la réplica.
+
+|
+| Cualquier otro valor
+| Cualquier otro valor
+| *No* programa la réplica.
+
+| *Nuevo Nodo en una Zona Existente*
+| `true`
+| `false`
+| *Programa* la réplica si no hay nueva zona disponible.
+
+|
+| Cualquier otro valor
+| Cualquier otro valor
+| *No* programa la réplica.
+
+| *Nodo Existente en una Zona Existente*
+| `true`
+| `true`
+| *Programa* la réplica si no hay otras opciones disponibles.
+
+|
+| Cualquier otro valor
+| Cualquier otro valor
+| *No* programa la réplica.
+|===
+
+=== Etapa de selección de disco
+
+Después de la etapa de selección de nodo y zona, {longhorn-product-name} determina si puede programar la réplica en cualquier disco del nodo seleccionado. Verifica los discos disponibles en función de las etiquetas coincidentes, el espacio total del disco y el espacio disponible en el disco. También considera si ya existe otra réplica y la configuración de anti-afinidad.
+
+{longhorn-product-name} verifica todos los discos disponibles en el nodo seleccionado para asegurarse de que cumplan con los siguientes criterios:
+
+. *Coincidencia de Etiquetas de Disco*:
+* Si el volumen tiene etiquetas de disco, el disco debe coincidir con cualquier etiqueta especificada requerida para la réplica.
+* Si el volumen no tiene etiquetas de disco, el comportamiento depende de la configuración *Permitir Volumen de Selector de Disco Vacío*:
+** `true` (predeterminado): Permite la programación en discos con o sin etiquetas.
+** `false`: Solo permite la programación en discos sin etiquetas.
+. *Comprobación de Espacio Disponible*:
+* El disco debe tener suficiente espacio disponible según lo configurado en `Storage Minimal Available Percentage`.
+. *Configuraciones de Anti-Afinidad*:
+* *Anti-Afinidad Dura*: Previene la programación de una réplica en un disco que ya alberga otra réplica del mismo volumen.
+* *Anti-Afinidad Blanda* (cuando está habilitada): Prefiere programar la réplica en un disco sin una réplica existente, incluso si es una opción menos óptima en términos de espacio u otros factores.
+. *Condiciones de Espacio*: Dos fórmulas determinan si un disco es programable:
+* *Condición de Uso Actual del Espacio*: Asegura que quede suficiente almacenamiento utilizable después de tener en cuenta el espacio actualmente utilizado.
+** Fórmula: `(Storage Available - Actual Size) > (Storage Maximum × Minimal Available Percentage) / 100`
+* *Condición de Espacio de Programación*: Asegura que el tamaño de la réplica (más cualquier dato programado pero no escrito) se ajuste dentro del límite de sobreaprovisionamiento.
+** Fórmula: `(Size + Storage Scheduled) <= ((Storage Maximum - Storage Reserved) × Over Provisioning Percentage) / 100`
+
+[NOTE]
+====
+Durante la evaluación del disco, dado que aún no se está programando ninguna réplica específica, `Actual Size` y `Size` se tratan temporalmente como `0` en estas fórmulas.
+====
+
+Si alguna de estas condiciones falla, incluyendo la etiqueta del disco, la anti-afinidad o los requisitos de espacio, el disco se marca como no programable, y {longhorn-product-name} no colocaría la réplica en ese disco.
+
+==== Situación de ejemplo
+
+Considera un nodo (*Nodo A*) con dos discos:
+
+* *Disco X*: 1 GB disponible, 4 GB de espacio máximo
+* *Disco Y*: 2 GB disponibles, 8 GB de espacio máximo
+
+===== Fase 1: Evaluación Inicial del Disco
+
+Durante la etapa de selección inicial del disco, {longhorn-product-name} realiza una verificación básica en todos los discos disponibles. En este punto, no se ha seleccionado ninguna réplica específica, por lo que `Actual Size` y `Size` se tratan como `0`.
+
+*Evaluación del Disco X*
+
+* *Espacio disponible*: 1 GB
+* *`Storage Minimal Available Percentage`*: 25% (predeterminado)
+* *Espacio disponible mínimo requerido*: `(4 GB × 25) / 100 = 1 GB`
+* *Resultado*: *El disco X* falla el `Actual Space Usage Condition` porque su espacio disponible (1 GB) no es mayor que el mínimo requerido (1 GB). Por lo tanto, el disco X no es programable a menos que el `Storage Minimal Available Percentage` se establezca en `0`.
+
+*Evaluación del disco Y*
+
+* *Espacio disponible*: 2 GB
+* *`Storage Minimal Available Percentage`*: 10%
+* *Espacio disponible mínimo requerido*: `(8 GB × 10) / 100 = 0.8 GB`
+* *Resultado*: *El disco Y* pasa el `Actual Space Usage Condition` porque su espacio disponible (2 GB) es mayor que el mínimo requerido (0.8 GB).
+
+A continuación, comprobamos el `Scheduling Space Condition`:
+
+* *Espacio programado*: 2 GB
+* *`Storage Reserved`*: 1 GB
+* *`Over Provisioning Percentage`*: 100% (predeterminado)
+* *Almacenamiento máximo provisionable*: `(8 GB - 1 GB) × 100 / 100 = 7 GB`
+* *Resultado*: *El disco Y* pasa el `Scheduling Space Condition` porque el espacio actualmente programado (2 GB) es menor que el almacenamiento máximo provisionable (7 GB).
+
+Dado que el disco Y cumple todas las condiciones, se marca como un candidato a disco programable.
+
+===== Etapa 2: Reglas de anti-afinidad
+
+Supongamos que tanto el disco X como el disco Y pasan las comprobaciones iniciales de espacio y que el disco X ya alberga una réplica para el mismo volumen.
+
+*Anti-Afinidad Dura*
+
+* {longhorn-product-name} no programaría la nueva réplica en el disco X. En su lugar, intentaría programarla en el disco Y.
+* Si el disco Y no es adecuado (por ejemplo, etiquetas de disco no coincidentes), la programación de esta réplica fallaría.
+
+*Anti-Afinidad Blanda*
+
+* Si *Anti-Afinidad Blanda* está habilitada, {longhorn-product-name} *prefiere* programar la réplica en el disco Y para evitar la co-localización de réplicas.
+* Sin embargo, si el disco Y no es adecuado por cualquier motivo, {longhorn-product-name} *puede seguir programando* la réplica en el disco X. Esto permite compartir un disco como opción de respaldo cuando no hay otros candidatos viables disponibles.
+
+== Algoritmo de programación
+
+Después de identificar los discos candidatos que cumplen con todos los requisitos de programación, el paso final es seleccionar el disco óptimo para la réplica. Esta selección se determina utilizando el algoritmo de balance, que tiene como objetivo distribuir las réplicas de manera uniforme entre nodos y discos.
+
+=== Fórmula del Factor de Balance por Almacenamiento Utilizable
+
+* `Disk_Usable_Storage = (Disk.StorageAvailable - Disk.StorageReserved) - Disk.StorageScheduled`
+* Puntuación más baja = distribución más equilibrada.
+
+*Fórmula:*
+
+----
+BalanceScore(X) = (max(X) - min(X)) / mean(X)
+----
+
+Dónde:
+
+* `X` = conjunto de valores de almacenamiento utilizable (por nodo o por disco).
+
+*Proceso de selección:*
+
+. Simular la colocación de la réplica en cada nodo candidato y calcular la puntuación de balance resultante. +
+  → Elegir el nodo con la puntuación más baja (distribución más equilibrada).
+
+. Dentro del nodo seleccionado, simular la colocación en cada disco candidato y calcular de nuevo la puntuación de balance. +
+  → Elegir el disco con la puntuación más baja entre ellos.
+
+==== Situación de ejemplo
+
+Supongamos que el clúster tiene dos nodos, y cada nodo contiene dos discos candidatos que son elegibles para la programación de réplicas.
+
+Tamaño de la réplica = 100 GiB.
+
+[cols="1,1,1", options="header"]
+|===
+| Nodo | Disco | Almacenamiento Utilizable (GiB)
+
+| Nodo A | A1 | 900
+| Nodo A | A2 | 100
+| Nodo B | B1 | 600
+| Nodo B | B2 | 700
+|===
+
+*Paso 1: Selección de nodo*
+
+*Simular colocación en el Nodo A*
+
+Nuevos totales:
+
+* Nodo A = (900 + 100) − 100 = 900
+* Nodo B = (600 + 700) = 1300
+
+Puntuación de balance del nodo:
+
+----
+BalanceScore_NodeA  = (1300 - 900) / ((1300 + 900) / 2)
+                    = 400 / 1100
+                    ≈ 0.364
+----
+
+*Simular colocación en el Nodo B*
+
+Nuevos totales:
+
+* Nodo A = (900 + 100) = 1000
+* Nodo B = (600 + 700) - 100 = 1200
+
+Puntuación de balance del nodo:
+
+----
+BalanceScore_NodeB  = (1200 - 1000) / ((1200 + 1000) / 2)
+                    = 200 / 1100
+                    ≈ 0.182
+----
+
+Elegir *Nodo B* (puntuación más baja, más equilibrado).
+
+*Paso 2: Selección de disco*
+
+*Simular colocación en B1 (600 → 500)*
+
+Nuevo disco utilizable: B1 = 500, B2 = 700
+
+Puntuación de balance del disco:
+
+----
+BalanceScore_DiskB1 = (700 - 500) / ((700 + 500) / 2)
+                    = 200 / 600
+                    ≈ 0.333
+----
+
+*Simular colocación en B2 (700 → 600)*
+
+Nuevo disco utilizable: B1 = 600, B2 = 600
+
+Puntuación de balance del disco:
+
+----
+BalanceScore_DiskB2 = (600 - 600) / ((600 + 600) / 2)
+                    = 0 / 600
+                    = 0
+----
+
+Elegir *Disco B2* (equilibrio perfecto entre B1 y B2).
+
+== Settings (Configuración posterior al failback)
+
+Para más información sobre configuraciones relevantes para la programación de réplicas en nodos y discos, consulta la referencia de configuraciones:
+
+* xref:longhorn-system/settings.adoc#_disable_scheduling_on_cordoned_node[Deshabilitar programación en nodo cordonado]
+* xref:longhorn-system/settings.adoc#_replica_node_level_soft_anti_affinity[Anti-afinidad suave de réplica] (también llamada anti-afinidad suave a nivel de nodo de réplica)
+* xref:longhorn-system/settings.adoc#_replica_zone_level_soft_anti_affinity[Anti-afinidad suave a nivel de zona de réplica]
+* xref:longhorn-system/settings.adoc#_replica_disk_level_soft_anti_affinity[Anti-afinidad suave a nivel de disco de réplica]
+* xref:longhorn-system/settings.adoc#_storage_minimal_available_percentage[Porcentaje mínimo de almacenamiento disponible]
+* xref:longhorn-system/settings.adoc#_storage_over_provisioning_percentage[Porcentaje de sobreaprovisionamiento de almacenamiento]
+* xref:longhorn-system/settings.adoc#_allow_empty_node_selector_volume[Permitir volumen de selector de nodo vacío]
+* xref:longhorn-system/settings.adoc#_allow_empty_disk_selector_volume[Permitir volumen de selector de disco vacío]
+
+[NOTE]
+====
+{longhorn-product-name} se basa en la etiqueta `topology.kubernetes.io/zone=<Zone name of the node>` o `topology.kubernetes.io/region=<Region name of the node>` en el objeto de nodo de Kubernetes para identificar la zona o la región.
+
+Dado que estos están reservados y son utilizados por Kubernetes como https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone[etiquetas bien conocidas].
+====
+

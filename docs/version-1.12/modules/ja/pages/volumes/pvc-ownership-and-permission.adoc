@@ -1,0 +1,120 @@
+= PVCの所有権と権限
+:revdate: 2025-10-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+KubernetesはPVCのために2つの https://kubernetes.io/docs/concepts/storage/persistent-volumes/#volume-mode[ボリュームモード]をサポートしています：ファイルシステムとブロック。
+ポッドがセキュリティコンテキストを定義し、Longhorn PVCを要求する場合、Kubernetesはボリュームモードに基づいてPVCの所有権と権限の変更を異なる方法で処理します。
+
+== ファイルシステムボリュームモードのLonghorn PVC
+
+Longhorn CSIドライバー`csiDriver.spec.fsGroupPolicy`が`ReadWriteOnceWithFSType`に設定されているため、Kubeletは以下の方法でLonghorn PVCの所有権と権限を変更しようとします：
+
+. `pod.spec.securityContext.fsGroup`を確認してください。
+ ** 空でない場合は、次のステップに進んでください。
+ ** 空の場合、Kubeletはボリュームの所有権と権限を変更しようとはしません。
+. PVの`fsType`とPVCの`accessModes`を確認してください。
+ ** PVの`fsType`が定義されていて、PVCの`accessModes`リストに`ReadWriteOnce`が含まれている場合、次のステップに進んでください。
+ ** そうでない場合、Kubeletはボリュームの所有権と権限を変更しようとはしません。
+. `pod.spec.securityContext.fsGroupChangePolicy`を確認してください。
+ ** `pod.spec.securityContext.fsGroupChangePolicy`が`always`または空に設定されている場合、Kubeletは以下のアクションを実行します：
+  *** ポッド内のコンテナのすべてのプロセスが補助グループID`pod.spec.securityContext.fsGroup`の一部であることを確認します。
+  *** ボリューム内で作成される新しいファイルがグループID`pod.spec.securityContext.fsGroup`に属することを確認します。
+  *** ボリュームがマウントされるたびに、ボリュームの権限と所有権を`pod.spec.securityContext.fsGroup`と同じグループIDに再帰的に変更します。
+ ** `pod.spec.securityContext.fsGroupChangePolicy`が`OnRootMismatch`に設定されている場合：
+  *** ボリュームのルートがすでに正しい権限（すなわち、グループID`pod.spec.securityContext.fsGroup`に属する）を持っている場合、再帰的な権限と所有権の変更はスキップされます。
+  *** そうでない場合、Kubeletはボリュームの権限と所有権を`pod.spec.securityContext.fsGroup`と同じグループIDに再帰的に変更します。
+
+詳細については、以下を参照してください。
+
+* https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#configure-volume-permission-and-ownership-change-policy-for-pods
+* https://github.com/longhorn/longhorn/issues/2131#issuecomment-778897129
+
+== ブロックボリュームモードのLonghorn PVC
+
+ブロックボリュームモードのPVCの場合、Kubeletはコンテナ内でブロックデバイスを利用可能にする際に、権限や所有権を変更しようとはしません。
+ポッドがブロックデバイスに対して読み書き可能となる、またはコンテナをルートとして実行するためには、`pod.spec.securityContext`に正しいグループIDを設定する必要があります。
+
+デフォルトでは、LonghornはブロックデバイスをグループID6に設定します。これは通常「ディスク」グループに関連付けられています。
+したがって、ブロックボリュームモードのLonghorn PVCを使用するポッドは、`pod.spec.securityContext`でグループID6を設定するか、ルートとして実行する必要があります。
+次に例を示します。
+
+. `pod.spec.securityContext`でグループID6を設定するポッド
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: PersistentVolumeClaim
+ metadata:
+   name: longhorn-block-vol
+ spec:
+   accessModes:
+     - ReadWriteOnce
+   volumeMode: Block
+   storageClassName: longhorn
+   resources:
+     requests:
+       storage: 2Gi
+ ---
+ apiVersion: v1
+ kind: Pod
+ metadata:
+   name: block-volume-test
+   namespace: default
+ spec:
+   securityContext:
+     runAsGroup: 1000
+     runAsNonRoot: true
+     runAsUser: 1000
+     supplementalGroups:
+     - 6
+   containers:
+     - name: block-volume-test
+       image: ubuntu:20.04
+       command: ["sleep", "360000"]
+       imagePullPolicy: IfNotPresent
+       volumeDevices:
+         - devicePath: /dev/longhorn/testblk
+           name: block-vol
+   volumes:
+     - name: block-vol
+       persistentVolumeClaim:
+         claimName: longhorn-block-vol
+----
+
+. ルートとして実行するポッド
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: PersistentVolumeClaim
+ metadata:
+   name: longhorn-block-vol
+ spec:
+   accessModes:
+     - ReadWriteOnce
+   volumeMode: Block
+   storageClassName: longhorn
+   resources:
+     requests:
+       storage: 2Gi
+ ---
+ apiVersion: v1
+ kind: Pod
+ metadata:
+   name: block-volume-test
+   namespace: default
+ spec:
+   containers:
+     - name: block-volume-test
+       image: ubuntu:20.04
+       command: ["sleep", "360000"]
+       imagePullPolicy: IfNotPresent
+       volumeDevices:
+         - devicePath: /dev/longhorn/testblk
+           name: block-vol
+   volumes:
+     - name: block-vol
+       persistentVolumeClaim:
+         claimName: longhorn-block-vol
+----

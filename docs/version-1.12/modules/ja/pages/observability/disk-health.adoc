@@ -1,0 +1,54 @@
+= ディスクヘルスモニタリング
+:revdate: 2025-11-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== ディスクヘルスメトリクス
+
+{longhorn-product-name} v1.11.0以降、ディスクヘルスモニタリングメトリクスはV1およびV2データエンジンの両方で利用可能です。これらのメトリクスは、ディスクの健康状態に関する洞察を提供します。
+
+[NOTE]
+====
+* {longhorn-product-name}は10分ごとに健康データを収集します。
+* 特定の仮想化またはクラウド環境（例：AWS EBS）では、完全なSMARTデータが公開されず、特定の属性に対してゼロ値が返されることがあります。
+* 利用可能な健康属性は、ディスクの種類やハードウェアによって異なります。
+* 収集された健康データの完全なセットは、`nodes.longhorn.io`カスタムリソース（CR）で利用可能です。
+====
+
+=== データソース
+
+* *V1データエンジン*:健康データはSMARTモニタリングツール（`smartctl`）を使用して収集されます。
+* *V2データエンジン*:
+** *NVMeディスク*:健康データはSPDKを通じて取得されます。
+** *AIOディスク*:健康データはSMARTモニタリングツール（`smartctl`）を使用して収集されます。
+
+[NOTE]
+====
+健康データはディスクの種類によって異なる方法で取得されます：
+
+* V1ディスクおよびV2 AIOディスク：SMART経由
+* V2 NVMeディスク：SPDK経由
+
+利用可能な属性とフォーマットは、ディスクの種類やハードウェアによって異なります。詳細については：
+
+* SMART属性： https://www.smartmontools.org/wiki/TocDoc[smartmontoolsのドキュメント]
+* SPDK NVMe 健康データ: https://github.com/spdk/spdk/blob/v25.09/doc/jsonrpc.md.jinja2#L4805-L4856[`bdev_nvme_get_controller_health_info` JSON-RPC]
+====
+
+=== 健康属性
+
+`longhorn_disk_health_attribute_raw` メトリックは、次のラベルを持つ生の属性値を公開します:
+
+* `attribute`:属性の名前です。
+* `attribute_id`:収集方法によって提供される場合の属性 ID。
+* `disk`:Longhornディスク識別子。
+* `node`:ノードの名前。
+
+[NOTE]
+====
+SMARTデータは、すべてのプラットフォーム、特にクラウドプロバイダーで利用できない場合があります。SMARTがサポートされていない場合、健康メトリックは`0`として表示されます。
+====
+
+=== 参考資料
+
+* 関連する GitHub イシュー https://github.com/longhorn/longhorn/issues/12016[#12016].

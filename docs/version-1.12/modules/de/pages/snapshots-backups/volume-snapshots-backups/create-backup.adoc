@@ -1,0 +1,94 @@
+= Erstellen Sie eine Sicherung
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Inkrementelle Sicherung
+
+Backups in Longhorn sind Objekte in einem Off-Cluster-Backupstore. Eine Sicherung eines Snapshots wird in den Backupstore kopiert, und der Endpunkt zum Zugriff auf den Backupstore ist das Backup-Ziel. Weitere Informationen finden Sie in xref:introduction/concepts.adoc#_3_1_how_backups_work[diesen Abschnitt.]
+
+____
+*Voraussetzung:* Ein Backup-Ziel muss eingerichtet werden. Weitere Informationen finden Sie in xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[Backup-Ziel festlegen]. Wenn das Backup-Ziel nicht festgelegt wurde, wird Ihnen ein Fehler angezeigt.
+____
+
+=== Erstellen Sie eine inkrementelle Sicherung über die Benutzeroberfläche
+
+Um eine Sicherung zu erstellen,
+
+. Navigieren Sie zum Menü *Volume*.
+. Wählen Sie das Volume aus, das Sie sichern möchten.
+. Klicken Sie auf *Sicherung erstellen.*
+. Fügen Sie alle geeigneten Labels hinzu und klicken Sie auf OK.
+
+*Ergebnis:* Die Sicherung wird erstellt. Um sie zu sehen, klicken Sie auf *Sicherung* in der oberen Navigationsleiste.
+
+Für Informationen zur Wiederherstellung eines Volumes aus einem Snapshot, siehe xref:snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[Aus einer Sicherung wiederherstellen].
+
+=== Erstellen Sie eine inkrementelle Sicherung mit YAML-Code
+
+. Erhalten Sie den Namen des Snapshots, den Sie sichern möchten (entweder aus der Longhorn-Benutzeroberfläche oder dem CR).
+. Wenden Sie die YAML an.
+
+Beispiel:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Backup
+metadata:
+  name: backup-example
+  namespace: longhorn-system
+spec:
+  backupMode: incremental
+  snapshotName: snapshot-name-example
+  labels:
+    app: test
+----
+
+== Vollständige Sicherung
+
+Standardmäßig sichert Longhorn nur Daten, die seit der letzten Sicherung geändert wurden. Dieser Ansatz, bekannt als _Delta-Sicherung_, verbessert die Zeiteffizienz und schont die Netzwerkbandbreite. Wenn jedoch ein Datenblock im Backupstore beschädigt wird, ersetzt Longhorn diesen Datenblock bei nachfolgenden Sicherungsoperationen nicht durch einen gesunden Datenblock.
+
+Seit Version 1.7.0 kann Longhorn vollständige Sicherungen durchführen, die alle Datenblöcke im Volume hochladen und vorhandene Datenblöcke im Backupstore überschreiben.
+
+=== Erstellen Sie eine vollständige Sicherung über die Longhorn-Benutzeroberfläche.
+
+. Gehen Sie zum *Volume*-Bildschirm.
+. Wählen Sie das Volume aus, das Sie sichern möchten.
+. Klicken Sie auf *Sicherung erstellen*.
+. Fügen Sie geeignete Labels hinzu.
+. Wählen Sie vollständige Sicherung aus.
+. Klicken Sie auf *OK*.
+
+=== Erstellen Sie eine vollständige Sicherung mit YAML-Code.
+
+. Erhalten Sie den Namen des Snapshots, den Sie sichern möchten (entweder aus der Longhorn-Benutzeroberfläche oder dem CR).
+. Wenden Sie die YAML an.
+
+Beispiel:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Backup
+metadata:
+  name: backup-example
+  namespace: longhorn-system
+spec:
+  backupMode: full
+  snapshotName: snapshot-name-example
+  labels:
+    app: test
+----
+
+== Hochgeladene Datengröße
+
+Um die Erfassung von Informationen über den Datentransfer für jede Sicherung zu erleichtern, zeichnet Longhorn die Informationen mit zwei Metriken im CR-Status auf.
+
+=== Neu hochgeladene Datengröße
+
+`status.newlyUploadDataSize` zeichnet die Größe der Daten auf, die _zum ersten Mal_ im Backup-Speicher während der letzten Sicherung hochgeladen wurden. Mit anderen Worten, es verfolgt die Größe der Datenblöcke, die zuvor nicht im Backup-Speicher vorhanden waren.
+
+=== Wieder hochgeladene Datengröße.
+
+`status.reUploadDataSize` zeichnet die Größe der Daten auf, die während der letzten vollständigen Sicherung überschrieben wurden. Mit anderen Worten, es verfolgt die Größe der Datenblöcke, die zuvor im Backupstore vorhanden waren.

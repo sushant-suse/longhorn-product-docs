@@ -1,0 +1,31 @@
+= Kubeletボリュームメトリクス
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Kubeletボリュームメトリクスについて
+
+Kubeletは https://github.com/kubernetes/kubernetes/blob/4b24dca228d61f4d13dcd57b46465b0df74571f6/pkg/kubelet/metrics/collectors/volume_stats.go#L27[次のメトリクス]を公開します：
+
+. kubelet_volume_stats_capacity_bytes
+. kubelet_volume_stats_available_bytes
+. kubelet_volume_stats_used_bytes
+. kubelet_volume_stats_inodes
+. kubelet_volume_stats_inodes_free
+. kubelet_volume_stats_inodes_used
+
+これらのメトリクスは、Longhornブロックデバイス内のPVCのファイルシステムに関連する情報を測定します。
+
+これらは、Longhornブロックデバイスに特有の情報を測定するxref:observability/longhorn-metrics.adoc[longhorn_volume_*]メトリクスとは異なります。
+
+KubeletメトリクスエンドポイントをスクレイピングしてPVCのステータスを取得し、ストレージスペースが不足しそうな異常イベントに対してアラートを設定する監視システムを構築できます。
+
+一般的な監視セットアップは、 https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack[prometheus-operator/kube-prometheus-stack,]であり、`kubelet_volume_stats_*`メトリクスをスクレイピングし、それらのためのダッシュボードとアラートルールを提供します。
+
+== Longhorn CSIプラグインサポート
+
+Longhorn CSIプラグインは、`NodeGetVolumeStats` RPCを https://github.com/container-storage-interface/spec/blob/master/spec.md#nodegetvolumestats[CSI仕様]に従ってサポートします。
+
+これにより、kubeletはPVCのステータスを取得するためにLonghorn CSIプラグインにクエリを送信できます。
+
+その後、kubeletは`kubelet_volume_stats_*`メトリクスでその情報を公開します。

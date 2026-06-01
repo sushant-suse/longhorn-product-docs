@@ -1,0 +1,116 @@
+= Fluxを使用してSUSE® Storageをインストールします。
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 前提条件
+
+[NOTE]
+====
+{longhorn-product-name}のインストールには、SUSEアプリケーションコレクションへの認証されたアクセスが必要です。詳細については、 https://docs.apps.rancher.io/get-started/authentication[認証ガイド]を確認してください。
+====
+
+* あなたのワークステーション： https://helm.sh/docs/[Helm] v3.0以降をインストールします。
+* Kubernetesクラスタ：
+ ** 各ノードがxref:installation-setup/requirements.adoc[インストール要件]を満たしていることを確認してください。
+ ** https://fluxcd.io/flux/installation/#install-the-flux-cli[Flux CLIとコントローラーをインストールします]。
+ ** https://fluxcd.io/flux/installation/bootstrap/github/[Flux CLIを使用してGitHubでFluxを起動します]。
+次のコマンドを実行して、GitHubの個人アクセストークン（PAT）を環境変数としてエクスポートし、クラスタにFluxコントローラーをデプロイし、指定されたGitHubリポジトリからクラスタの状態を同期するようにコントローラーを構成します。
++
+[,bash]
+----
+export GITHUB_TOKEN=<gh-token>
+flux bootstrap github \
+  --token-auth \
+  --owner=<github_username> \
+  --repository=<github_repo_name> \
+  --branch=<branch_name> \
+  --path=<folder_path_within_repo> \
+  --personal
+----
+
+____
+xref:longhorn-system/system-access/longhorn-cli.adoc[Longhornコマンドラインツール]を使用して、Longhorn環境の潜在的な問題を確認できます。
+____
+
+== インストール
+
+. {longhorn-product-name} HelmチャートURLを指すHelmRepositoryカスタムリソース（CR）を作成します。
++
+[,bash]
+----
+ kubectl create ns longhorn-system
+ flux create source helm longhorn-repo \
+   --url=https://charts.longhorn.io \
+   --namespace=longhorn-system \
+   --export > helmrepo.yaml
+ kubectl apply -f helmrepo.yaml
+----
+
+. HelmRepositoryを参照し、インストールするHelmチャートのバージョンを指定するHelmRelease CRを作成します。
++
+[subs="+attributes",bash]
+----
+ flux create helmrelease longhorn-release \
+   --chart=longhorn \
+   --source=HelmRepository/longhorn-repo \
+   --chart-version=v{patch-version} \
+   --namespace=longhorn-system \
+   --export > helmrelease.yaml
+ kubectl apply -f helmrelease.yaml
+----
+
+. HelmRelease CRが作成され、正常に同期されたことを確認します。
++
+[,bash]
+----
+ flux get helmrelease longhorn-release -n longhorn-system
+----
+
+. {longhorn-product-name}が正常にインストールされたことを確認します。
++
+[,bash]
+----
+ kubectl -n longhorn-system get pod
+----
++
+正常なインストールの例：
++
+[,bash]
+----
+ NAME                                                READY   STATUS    RESTARTS   AGE
+ longhorn-ui-b7c844b49-w25g5                         1/1     Running   0          2m41s
+ longhorn-manager-pzgsp                              1/1     Running   0          2m41s
+ longhorn-driver-deployer-6bd59c9f76-lqczw           1/1     Running   0          2m41s
+ longhorn-csi-plugin-mbwqz                           2/2     Running   0          100s
+ csi-snapshotter-588457fcdf-22bqp                    1/1     Running   0          100s
+ csi-snapshotter-588457fcdf-2wd6g                    1/1     Running   0          100s
+ csi-provisioner-869bdc4b79-mzrwf                    1/1     Running   0          101s
+ csi-provisioner-869bdc4b79-klgfm                    1/1     Running   0          101s
+ csi-resizer-6d8cf5f99f-fd2ck                        1/1     Running   0          101s
+ csi-provisioner-869bdc4b79-j46rx                    1/1     Running   0          101s
+ csi-snapshotter-588457fcdf-bvjdt                    1/1     Running   0          100s
+ csi-resizer-6d8cf5f99f-68cw7                        1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-df8v6                       1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-g9cwc                       1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-8l9sw                       1/1     Running   0          101s
+ csi-resizer-6d8cf5f99f-smdjw                        1/1     Running   0          101s
+ instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc   1/1     Running   0          114s
+ engine-image-ei-df38d2e5-cv6nc                      1/1     Running   0          114s
+----
+
+. xref:longhorn-system/system-access/create-ingress.adoc[UIにアクセスするための基本認証付きNGINX Ingressコントローラーを作成します]。UIへの認証はデフォルトで有効になっていません。
+. xref:longhorn-system/system-access/system-access.adoc[UIにアクセスします]。
+
+== GitOpsによる継続的な運用
+
+エクスポートされたマニフェストをGitOpsリポジトリにコミットしてプッシュすることができます。
+
+[subs="+attributes",bash]
+----
+ git add helmrepo.yaml helmrelease.yaml
+ git commit -m "Add HelmRepository and HelmRelease for {longhorn-product-name} installation"
+ git push origin <branch_name>
+----
+
+その後、GitOpsリポジトリ内のYAMLマニフェストを編集することで、HelmReleaseおよびHelmRepositoryのCRを修正することができます。Fluxは自動的に変更を検出し、Kubernetesクラスタへの直接アクセスを必要とせずに適用します。

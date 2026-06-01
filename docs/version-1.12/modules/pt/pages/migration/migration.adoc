@@ -1,0 +1,181 @@
+= Migrando para {longhorn-product-name}
+:revdate: 2026-01-28
+:page-revdate: {revdate}
+
+[WARNING]
+====
+É recomendado criar um xref:snapshots-backups/system-backups/create-system-backup.adoc[backup do sistema Longhorn] antes de fazer upgrade. Isso garante que todos os recursos críticos, como volumes e imagens de apoio, sejam incluídos no backup e possam ser restaurados caso surjam problemas.
+====
+
+== Pré-requisitos
+
+=== gerenciamento
+
+* https://helm.sh/docs/[Helm] v3.0 ou posterior é necessário.
+* A xref:longhorn-system/system-access/longhorn-cli.adoc[Ferramenta de Linha de Comando Longhorn] pode ser usada para verificar o ambiente {longhorn-product-name} em busca de problemas potenciais.
+
+=== Autenticação
+
+* Para autenticar o Helm com o repositório de gráficos OCI da SUSE Application Collection, consulte a https://docs.apps.rancher.io/get-started/authentication/#helm[documentação de autenticação do Helm].
+* Para permitir que o Kubernetes puxe imagens do registro, siga a https://docs.apps.rancher.io/get-started/authentication/#kubernetes[documentação de autenticação do Kubernetes] para criar um segredo e definir o valor do chart `global.imagePullSecrets`.
+
+== Migrando Longhorn implantado via Helm para {longhorn-product-name}
+
+Se sua instalação existente do Longhorn foi implantada via Helm, você pode verificar isso executando `helm list --all-namespaces`. Por padrão, o release do Helm usado para instalar o Longhorn é nomeado `longhorn`, mas também pode ser um nome personalizado definido pelo usuário.
+
+Em seguida, opcionalmente crie um arquivo `values.yaml` com quaisquer configurações personalizadas que você deseja aplicar durante o upgrade.
+
+Prossiga com a atualização para {longhorn-product-name} usando o chart {longhorn-product-name}:
+
+[,shell]
+----
+helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+    --namespace longhorn-system \
+    --version <version> \ # Replace with the version you would like to upgrade to
+    --set global.imagePullSecrets=<PULL_IMAGE_SECRET>
+----
+
+Opcionalmente, se você tiver um arquivo `values.yaml` com configurações personalizadas, inclua-o com a flag `-f`:
+
+[,shell]
+----
+helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+    --namespace longhorn-system \
+    --version <version> \ # Replace with the version you would like to upgrade to
+    --set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
+    -f values.yaml
+----
+
+== Migrando Longhorn implantado via Marketplace de Apps do Rancher para {longhorn-product-name}
+
+Se sua instalação existente do Longhorn foi implantada via Marketplace de Apps do Rancher, você verá dois releases do Helm associados ao Longhorn ao executar `helm list --all-namespaces | grep longhorn`.
+
+O exemplo a seguir mostra a migração do **Longhorn v1.10.1, instalado via charts do Rancher, para {longhorn-product-name} v1.10.1**.
+
+[,shell]
+----
+$ helm list --all-namespaces | grep longhorn
+longhorn                                             longhorn-system        1           2025-11-12 02:58:40.877484249 +0000 UTC    deployed    108.2.0+up1.10.1                                                                                   v1.10.1
+longhorn-crd                                         longhorn-system        1           2025-11-12 02:58:38.192579711 +0000 UTC    deployed    longhorn-crd-108.2.0+up1.10.1                                                                               v1.10.1
+----
+
+Para migrar a instalação existente do Rancher Longhorn para {longhorn-product-name}, você precisa excluir o release do Helm `longhorn-crd` sem remover os CRDs, e então fazer upgrade do release do Helm `longhorn` seguindo os passos abaixo. 
+
+=== Remover o release do Helm `longhorn-crd` mantendo os CRDs
+
+Para remover o release do Helm `longhorn-crd` do seu sistema enquanto garante que os CRDs do Longhorn sejam preservados, siga estes passos:
+
+. Verifique a versão atual do seu release do Helm `longhorn-crd`:
++
+[,shell]
+----
+helm list --all-namespaces | grep longhorn-crd
+----
++
+A saída mostra os detalhes do seu release `longhorn-crd`, por exemplo:
++
+[,bash]
+----
+longhorn-crd                                         longhorn-system        1           2025-11-12 02:58:38.192579711 +0000 UTC    deployed    longhorn-crd-108.2.0+up1.10.1+up1.11.0                                                                               v1.10.1
+----
++
+Neste exemplo, a versão do release é `108.2.0+up1.10.1`.
+
+. Clone o repositório `rancher/charts` contendo a versão específica do chart `longhorn-crd` que corresponde ao seu release atual (por exemplo, `108.2.0+up1.10.1` para Longhorn v1.10.1):
++
+[,shell]
+----
+git clone https://github.com/rancher/charts.git
+----
++
+Navegue até o diretório correspondente à versão do chart `longhorn-crd` dentro do repositório clonado.
++
+Ou, você pode executar este link:{attachmentsdir}/download-longhorn-crd-chart.sh[script] para o chart `longhorn-crd`.
++
+Após executar o comando `bash ./download-longhorn-crd-chart.sh 108.2.0+up1.10.1`, o chart `longhorn-crd` é baixado para o diretório local `108.2.0+up1.10.1`. Em seguida, abra `108.2.0+up1.10.1/Chart.yaml` para verificar se a versão do chart corresponde a `108.2.0+up1.10.1`.
+
+. Corrija manualmente a anotação `helm.sh/resource-policy: keep` para *cada uma das definições de recursos personalizados (CRDs)* em `templates/crds.yaml` dentro do chart `longhorn-crd` que você clonou. Isso garante que o Helm não exclua os CRDs quando o release for desinstalado.
+Alternativamente, você pode usar o link:{attachmentsdir}/patch-resource-policy-annotation.sh[script] para corrigir automaticamente a anotação:
++
+[,shell]
+----
+bash ./patch-resource-policy-annotation.sh 108.2.0+up1.10.1/templates/crds.yaml
+----
++
+Para verificar se os CRDs foram corrigidos corretamente, execute:
++
+[,shell]
+----
+vimdiff /tmp/crds.yaml.original 108.2.0+up1.10.1/templates/crds.yaml
+----
+
+. Atualize o release do Helm `longhorn-crd` usando o chart corrigido localmente:
++
+[,shell]
+----
+helm upgrade longhorn-crd -n longhorn-system ./108.2.0+up1.10.1
+----
+
+. Desinstale o release do Helm `longhorn-crd` do seu sistema. Devido ao patch aplicado, os CRDs permanecem intactos.
++
+[,shell]
+----
+helm uninstall longhorn-crd --namespace longhorn-system
+----
++
+Você pode ver que os CRDs são mantidos enquanto desinstala o release do Helm `longhorn-crd`.
++
+[,shell]
+----
+$ helm uninstall longhorn-crd --namespace longhorn-system
+These resources were kept due to the resource policy:
+[CustomResourceDefinition] backingimagedatasources.longhorn.io
+[CustomResourceDefinition] backingimagemanagers.longhorn.io
+[CustomResourceDefinition] nodes.longhorn.io
+[CustomResourceDefinition] orphans.longhorn.io
+[CustomResourceDefinition] recurringjobs.longhorn.io
+[CustomResourceDefinition] replicas.longhorn.io
+[CustomResourceDefinition] settings.longhorn.io
+[CustomResourceDefinition] sharemanagers.longhorn.io
+[CustomResourceDefinition] snapshots.longhorn.io
+[CustomResourceDefinition] supportbundles.longhorn.io
+[CustomResourceDefinition] systembackups.longhorn.io
+[CustomResourceDefinition] systemrestores.longhorn.io
+[CustomResourceDefinition] backingimages.longhorn.io
+[CustomResourceDefinition] volumeattachments.longhorn.io
+[CustomResourceDefinition] volumes.longhorn.io
+[CustomResourceDefinition] backupbackingimages.longhorn.io
+[CustomResourceDefinition] backups.longhorn.io
+[CustomResourceDefinition] backuptargets.longhorn.io
+[CustomResourceDefinition] backupvolumes.longhorn.io
+[CustomResourceDefinition] engineimages.longhorn.io
+[CustomResourceDefinition] engines.longhorn.io
+[CustomResourceDefinition] instancemanagers.longhorn.io
+----
+
+=== Substitua `longhorn-crd` por `longhorn` nos CRDs do Longhorn
+
+Após garantir que o release do Helm `longhorn-crd` está desinstalado, mas os CRDs são mantidos, você precisa atualizar os rótulos de propriedade nos CRDs do Longhorn existentes para se preparar para o chart principal do Helm `longhorn`. Aplique o link:{attachmentsdir}/migrate-crd-ownership.sh[shell script] para realizar a substituição.
+
+=== Faça upgrade para {longhorn-product-name}
+
+Após a preparação dos CRDs, você pode prosseguir com o upgrade da sua instalação do Longhorn para {longhorn-product-name}:
+
+[,shell]
+----
+helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+    --namespace longhorn-system \
+    --version <version> \ # Replace with the version you would like to upgrade to
+    --set global.imagePullSecrets=<PULL_IMAGE_SECRET>
+----
+
+Opcionalmente, se você tiver um arquivo `values.yaml` com configurações personalizadas, inclua-o com a flag `-f`:
+
+[,shell]
+----
+helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+    --namespace longhorn-system \
+    --version <version> \ # Replace with the version you would like to upgrade to
+    --set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
+    -f values.yaml
+----

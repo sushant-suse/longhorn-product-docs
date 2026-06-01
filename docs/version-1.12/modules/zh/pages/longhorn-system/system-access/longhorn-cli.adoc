@@ -1,0 +1,22 @@
+= 命令行界面 (CLI)
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:description: 用于 Longhorn 操作和故障排除的命令行界面 (CLI)。
+:current-version: {page-component-version}
+
+`longhornctl` 工具是用于 Longhorn 操作的命令行界面。它通过创建 Kubernetes 自定义资源 (CR) 并在专用 Pod 内执行命令与 Longhorn 进行交互，以进行集群内和主机操作。
+
+== 常见使用场景
+
+* *Installation（安装）：*
+ ** `longhornctl install preflight`：在安装 Longhorn 之前执行预检依赖项的安装和设置。
+* *操作:*
+ ** `longhornctl export replica`：从 Longhorn 副本数据目录提取数据到其主机机器上的指定目录。当 Longhorn 不可用时，这对于恢复数据非常有用。
+ ** `longhornctl trim volume`：回收 Longhorn 卷内未使用的存储空间。
+* *查错：*
+ ** `longhornctl check preflight`：在使用之前识别潜在问题。
+ ** `longhornctl get replica`：检索有关主机上 Longhorn 副本的详细信息。
+
+== 用法
+
+有关可用命令的更多信息，请参见 GitHub 储存库中的 https://github.com/longhorn/cli/tree/v{patch-version}/docs/longhornctl.md[此文档]，或在终端中运行 `longhornctl help`。

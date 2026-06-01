@@ -1,0 +1,21 @@
+= Recuperar de um Disco Cheio
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Se um disco usado por uma das réplicas do Longhorn estiver cheio, essa réplica entrará em estado de erro, e o Longhorn reconstruirá outra réplica em outro nó/disco.
+
+Para recuperar de um disco cheio,
+
+. Desative o agendamento para o disco cheio.
++
+O Longhorn já deve ter marcado o disco como `unschedulable`.
++
+Esta etapa é para garantir que o disco não será agendado por acidente após mais espaço ser liberado.
+
+. Identifique as réplicas em estado de erro no disco usando a página de disco da interface do usuário do Longhorn.
+. Remova as réplicas em estado de erro.
+
+== Recomendado após a Recuperação
+
+Recomendamos adicionar mais discos ou mais espaço ao nó que teve essa situação.

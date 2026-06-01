@@ -1,0 +1,146 @@
+= 卷克隆
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 使用YAML克隆
+
+=== 克隆CSI快照
+
+要克隆CSI快照，请参考关于xref:snapshots-backups/csi-snapshots/csi-snapshot-longhorn-snapshot.adoc[从快照创建卷]的文档。
+
+=== 使用v2数据引擎克隆卷
+
+假设您有一个`StorageClass`，名为`longhorn-v2`：
+
+[source,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-v2
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  dataEngine: "v2"
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "2880"
+----
+
+同时，您已从该卷创建了一个名为`source-pvc-v2`的持久卷声明（PVC）：
+
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: source-pvc-v2
+spec:
+  storageClassName: longhorn-v2
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+----
+
+==== 使用`full-copy`模式克隆
+
+通过应用以下YAML创建一个与`source-pvc-v2`内容相同的新PVC。{longhorn-product-name}将从源PVC复制数据到新PVC。
+
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloned-pvc-v2
+spec:
+  storageClassName: longhorn-v2
+  dataSource:
+    name: source-pvc-v2
+    kind: PersistentVolumeClaim
+  accessModes:
+    - ReadWriteOnce
+  resources:
+      requests:
+        storage: 10Gi
+----
+
+==== 使用`linked-clone`模式克隆
+
+`full-copy`模式创建一个与源PVC完全独立的新PVC。然而，复制数据需要时间和资源。
+
+有时，您需要快速创建一个与源内容相同的临时PVC，而不复制数据。例如，像*Velero*或*Kasten*这样的备份解决方案可以利用此功能快速创建一个临时PVC以读取数据并将其上传到S3存储桶。
+
+在这种情况下，请使用`linked-clone`模式。此模式创建一个与源PVC共享相同数据块的新PVC。
+
+请遵循以下步骤：
+
+. 创建一个`StorageClass`，将`cloneMode`设置为`linked-clone`。
++
+[source,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-v2-linked-clone
+provisioner: driver.longhorn.io
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  dataEngine: "v2"
+  cloneMode: "linked-clone"
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "2880"
+----
+. 创建一个新PVC，使用您创建的`StorageClass`并在`dataSource`字段中引用源PVC。
++
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloned-pvc-v2-linked-clone
+spec:
+  storageClassName: longhorn-v2-linked-clone
+  dataSource:
+    name: source-pvc-v2
+    kind: PersistentVolumeClaim
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+----
+
+[NOTE]
+====
+. 除了 https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource[CSI卷克隆]的要求外，克隆的PVC（`cloned-pvc`）`resources.requests.storage`必须与源PVC（`source-pvc`）的存储大小匹配。
+. `linked-clone`模式仅由v2数据引擎支持。
+. 使用`linked-clone`创建的PVC与源共享数据块，并具有以下限制：
+* 它只能有一个副本。
+* 它无法进行快照或备份。
+* 它不能作为另一个克隆操作的源。
+* 一个源PVC一次只能有一个`linked-clone` PVC。
+* `linked-clone` PVC设计为短期使用。我们强烈建议您在不再需要时删除它们。
+====
+
+有关 `linked-clone` 模式的更多示例，请参见博客文章： https://longhorn.io/blog/20250902-k8s-backup-solutions-and-longhorn/[使用 Velero 备份带有 Longhorn V2 卷的应用程序]。
+
+=== 使用 {longhorn-product-name} 界面克隆卷
+
+您还可以使用 {longhorn-product-name} 界面克隆 v2 数据引擎卷：
+
+* 在 *卷* 页面上，单击 *创建卷* 并选择数据源（`Volume` 或 `Volume Snapshot`）。
+* 在 *卷* 页面上，选择一个卷并在 *操作* 菜单中单击 *克隆卷*。
+* 在 *卷* 页面上，选择一个卷，单击其名称，在 *快照和备份* 部分中，找到您想要使用的快照，然后单击 *克隆卷*。
+* 对于批量克隆，在 *卷* 页面上，选择一个或多个卷，然后单击表格顶部的 *克隆卷* 按钮。
+
+== 历史记录
+
+* https://github.com/longhorn/longhorn/issues/7794[GitHub 议题]。
+* https://github.com/longhorn/longhorn/pull/10873[Longhorn 增强提案]。
+
+自 v1.10.0 起可用。

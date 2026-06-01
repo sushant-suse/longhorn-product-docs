@@ -1,0 +1,56 @@
+= Conditions préalables
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/prerequisites.md"]
+:current-version: {page-component-version}
+
+== Conditions préalables
+
+Les nœuds Longhorn doivent satisfaire aux conditions suivantes{nbsp}:
+
+* Processeur AMD64 ou ARM64
++
+____
+*NOTICE*
+
+Les processeurs AMD64 nécessitent un support des instructions SSE4.2.
+____
+
+* Enterprise Linux
++
+La version 5.19 ou ultérieure est requise pour le support NVMe sur TCP
++
+____
+*NOTICE*
+
+Les machines hôtes avec le noyau Linux 5.15 peuvent redémarrer de manière inattendue en cas d'erreurs d'entrée/sortie liées au volume. Mettez à jour le noyau Linux sur les nœuds Longhorn vers la version 5.19 ou ultérieure pour éviter de tels problèmes.
+____
++
+La version 6.7 ou ultérieure est recommandée pour une meilleure stabilité du système
++
+____
+*NOTICE*
+
+Une corruption de la mémoire peut se produire sur les hôtes utilisant des versions du noyau Linux antérieures à 6.7, comme le souligne ce problème en amont de SPDK{nbsp}: https://github.com/spdk/spdk/issues/3116#issuecomment-1890984674. Dans les environnements Longhorn, la panique du noyau peut être causée par des délais d'attente d'entrée/sortie fréquents dans les communications entre le pilote `nvme-tcp` et SPDK. Mettez à jour le noyau Linux sur les nœuds Longhorn vers la version 6.7 ou ultérieure pour éviter que le problème ne se produise.
+____
+
+* Modules du noyau Linux
+ ** `vfio_pci`
+ ** `uio_pci_generic`
+ ** `nvme-tcp`
+* Support des grandes pages
+ ** 2 GiB de pages de 2 MiB
+
+== Remarque :
+
+=== UC
+
+Lorsque le moteur de données V2 est activé, chaque pod de gestionnaire d'instances utilise *1 cœur d'UC*. Cette utilisation élevée de l'UC est attribuée au processus `spdk_tgt` s'exécutant dans chaque pod de gestionnaire d'instances. Le processus spdk_tgt est responsable de la gestion des opérations d'entrée/sortie (IO) et nécessite un polling intensif. En conséquence, il consomme 100% d'un cœur d'UC dédié pour gérer et traiter efficacement les demandes d'entrée/sortie (IO), garantissant des performances optimales et une réactivité pour les opérations de stockage.
+
+=== Mémoire
+
+SPDK utilise des grandes pages pour améliorer les performances et minimiser la surcharge mémoire. Vous devez configurer des grandes pages de 2 MiB sur chaque nœud Longhorn pour permettre l'utilisation de grandes pages. En particulier, 1024 pages (équivalentes à un total de 2 GiB) doivent être disponibles sur chaque nœud Longhorn.
+
+=== Disque
+
+SPDK utilise des pilotes du noyau pour prendre en charge tous les types de disques pris en charge par Linux. Cependant, SPDK est équipé d'un pilote NVMe en espace utilisateur qui fournit un accès direct, sans copie, hautement parallèle à un SSD depuis une application en espace utilisateur. Pour cette raison, l'utilisation de *disques NVMe locaux* est fortement recommandée pour permettre aux volumes V2 d'atteindre des performances de stockage optimales.

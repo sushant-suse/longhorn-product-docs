@@ -1,0 +1,35 @@
+= Gestion de l'espace des instantanés
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn vous permet de configurer le nombre maximum d'instantanés et la taille maximale agrégée des instantanés pour chaque volume. Ces deux paramètres ne tiennent pas compte des instantanés supprimés, des images de sauvegarde et des instantanés de tête de volume. Lorsque l'une de ces limites est atteinte, vous devez supprimer des instantanés avant d'en créer de nouveaux.
+
+Dans les versions antérieures, le nombre maximum d'instantanés n'est pas configurable (la valeur est de 250) et il n'y a aucun moyen de limiter l'utilisation de l'espace des instantanés.
+
+== Paramètres
+
+=== Paramètres globaux
+
+*snapshot-max-count*: Nombre maximum d'instantanés que vous pouvez créer pour chaque volume.
+
+Vous devez spécifier une valeur entre "2" et "250". Longhorn nécessite au moins deux instantanés pour fonctionner correctement, en particulier lors de la reconstruction du volume. Un instantané est créé lorsque les instantanés existants sont fusionnés, tandis que l'autre instantané est créé pendant le processus de reconstruction.
+La valeur par défaut est "250".
+
+Lorsque vous créez un volume sans changer la valeur par défaut de `.Spec.SnapshotMaxCount`, Longhorn applique la valeur du paramètre `snapshot-max-count`. Changer la valeur de `snapshot-max-count` n'affecte pas les volumes existants.
+
+=== Paramètres spécifiques au volume
+
+*SnapshotMaxCount*: Nombre maximum d'instantanés que vous pouvez créer pour un volume spécifique.
+
+Vous pouvez spécifier "0" ou toute valeur entre "2" et "250". La valeur par défaut est "0".
+
+Lorsque vous créez un volume sans changer la valeur par défaut de ce paramètre, Longhorn applique la valeur du paramètre `snapshot-max-count`.
+
+*SnapshotMaxSize*: Taille agrégée maximale des instantanés pour un volume spécifique.
+
+Vous pouvez spécifier "0" ou toute valeur supérieure à `Volume.Spec.Size` multipliée par 2. Vous devez doubler la valeur de `Volume.Spec.Size` car Longhorn nécessite au moins deux instantanés pour fonctionner correctement.
+
+La valeur par défaut est "0", ce qui désactive effectivement le paramètre.
+
+Lorsque vous développez la taille du volume, Longhorn augmente automatiquement la valeur de ce paramètre à `Volume.Spec.Size` multipliée par 2 (si la valeur actuelle est inférieure).

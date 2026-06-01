@@ -1,0 +1,54 @@
+= Groupes de nœuds gérés sur Azure Kubernetes Service (AKS)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Voir https://docs.microsoft.com/en-us/azure/aks/use-multiple-node-pools[Créer et gérer plusieurs pools de nœuds pour un cluster dans Azure Kubernetes Service (AKS)] pour plus d'informations.
+
+Voici un exemple pour remplacer les nœuds du cluster par une nouvelle taille de stockage.
+
+== Extension de stockage
+
+AKS ne prend pas en charge le disque supplémentaire dans son https://docs.microsoft.com/en-us/azure/templates/Microsoft.ContainerService/2022-01-01/managedclusters?tabs=bicep#template-format[modèle]. Il est possible d'attacher manuellement un disque. Ensuite, le périphérique brut doit être monté soit en le montant manuellement dans la VM, soit lors du lancement avec CustomScriptExtension qui https://docs.microsoft.com/en-us/azure/aks/support-policies#user-customization-of-agent-nodes[n'est pas pris en charge] dans AKS.
+
+. Dans Longhorn, définissez `replica-replenishment-wait-interval` sur `0`.
+. Ajoutez un nouveau pool de nœuds. Plus tard, les composants Longhorn seront automatiquement déployés sur les nœuds de ce pool.
++
+----
+ AKS_NODEPOOL_NAME_NEW=<new-nodepool-name>
+ AKS_RESOURCE_GROUP=<aks-resource-group>
+ AKS_CLUSTER_NAME=<aks-cluster-name>
+ AKS_DISK_SIZE_NEW=<new-disk-size-in-gb>
+ AKS_NODE_NUM=<number-of-nodes>
+ AKS_K8S_VERSION=<kubernetes-version>
+
+ az aks nodepool add \
+   --resource-group ${AKS_RESOURCE_GROUP} \
+   --cluster-name ${AKS_CLUSTER_NAME} \
+   --name ${AKS_NODEPOOL_NAME_NEW} \
+   --node-count ${AKS_NODE_NUM} \
+   --node-osdisk-size ${AKS_DISK_SIZE_NEW} \
+   --kubernetes-version ${AKS_K8S_VERSION} \
+   --mode System
+----
+
+. Utiliser l'interface Longhorn pour désactiver la planification des disques et demander l'éviction des nœuds dans l'ancien pool de nœuds.
+. Cordonner et drainer les nœuds Kubernetes dans l'ancien pool de nœuds.
++
+----
+ AKS_NODEPOOL_NAME_OLD=<old-nodepool-name>
+
+ for n in `kubectl get nodes | grep ${AKS_NODEPOOL_NAME_OLD}- | awk '{print $1}'`; do
+   kubectl cordon $n && \
+   kubectl drain $n --ignore-daemonsets --delete-emptydir-data
+ done
+----
+
+. Supprimer l'ancien pool de nœuds.
++
+----
+ az aks nodepool delete \
+   --cluster-name ${AKS_CLUSTER_NAME} \
+   --name ${AKS_NODEPOOL_NAME_OLD} \
+   --resource-group ${AKS_RESOURCE_GROUP}
+----

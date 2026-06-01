@@ -1,0 +1,101 @@
+= Cloner des volumes
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:description: Créer un nouveau volume en tant que duplicata d'un volume existant
+:current-version: {page-component-version}
+
+{longhorn-product-name} prend en charge https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource/[le clonage de volumes CSI].
+
+== Cloner un volume à l'aide de YAML
+
+Supposons que vous ayez le `source-pvc` suivant{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: source-pvc
+spec:
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+----
+
+Vous pouvez créer un nouveau PVC qui a exactement le même contenu que le `source-pvc` en appliquant le fichier YAML suivant{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloned-pvc
+spec:
+  storageClassName: longhorn
+  dataSource:
+    name: source-pvc
+    kind: PersistentVolumeClaim
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+----
+
+____
+Remarque :
+En plus des exigences énumérées à https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource/[le clonage de volumes CSI], le `cloned-pvc` doit avoir le même `resources.requests.storage` que le `source-pvc`.
+____
+
+== Cloner un volume à l'aide de l'interface {longhorn-product-name}
+
+=== Cloner un volume
+
+. Allez à la page *Volumes*.
+. Sélectionnez un volume, puis cliquez sur *Cloner le volume* dans le menu *Opération*.
+. (Optionnel) Configurez les paramètres du nouveau volume.
+. Cliquez sur *OK*.
+
+=== Cloner un volume à l'aide d'un instantané
+
+. Allez à la page *Volumes*.
+. Cliquez sur le nom du volume que vous souhaitez cloner.
+. Dans la section *Instantanés et sauvegardes* de l'écran des détails, identifiez l'instantané que vous souhaitez utiliser, puis cliquez sur *Cloner le volume*.
+. (Optionnel) Configurez les paramètres du nouveau volume.
+. Cliquez sur *OK*.
+
+image::screenshots/snapshots-and-backups/clone-volume-modal.png[Image]
+
+=== Cloner plusieurs volumes (clonage en masse)
+
+. Allez à la page *Volumes*.
+. Sélectionnez le volume que vous souhaitez cloner.
+. Cliquez sur le bouton *Cloner le volume* en haut du tableau.
+. (Optionnel) Configurez les paramètres des nouveaux volumes
+. Cliquez sur *OK*
+
+[NOTE]
+====
+* L'interface utilisateur {longhorn-product-name} pré-remplit certains champs et vous empêche de modifier les valeurs pour garantir qu'elles correspondent aux paramètres du volume source.
+* {longhorn-product-name} attache automatiquement le nouveau volume, clone le volume source, puis détache le nouveau volume.
+* Avec le clonage efficace activé, un volume nouvellement cloné et détaché est dégradé et n'a qu'une seule réplique, avec son statut de clone défini sur `copy-completed-awaiting-healthy`. Pour ramener le volume à un état sain, faites passer le statut de clone à `completed` et reconstruisez la réplique restante en activant la reconstruction de réplique hors ligne ou en attachant le volume pour déclencher la reconstruction de réplique. Voir https://github.com/longhorn/longhorn/issues/12341[Problème #12341] et https://github.com/longhorn/longhorn/issues/12328[Problème #12328].
+====
+
+== Création de volumes
+
+. Allez à la page *Volumes*.
+. Cliquez sur *Créer un volume*.
+. Sélectionnez la source de données (*Volume* ou *Instantané de Volume*) que vous souhaitez utiliser.
+. Si vous sélectionnez *Instantané de Volume*, choisissez un instantané.
+. Spécifiez le nom du volume.
+. Cliquez sur *OK*.
+
+image::screenshots/snapshots-and-backups/create-volume-choose-datasource.png[Image]
+
+== History
+
+* https://github.com/longhorn/longhorn/issues/1815[Problème GitHub]
+* https://github.com/longhorn/longhorn/pull/2864[Proposition d'Amélioration Longhorn]

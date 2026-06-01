@@ -1,0 +1,125 @@
+= ボリューム暗号化
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:doctype: book
+:current-version: {page-component-version}
+
+Longhornは、`Filesystem`モードと`Block`モードの両方でボリューム暗号化をサポートし、不正アクセス、データ漏洩、コンプライアンス違反から保護します。暗号化されたボリュームから作成されたバックアップも暗号化されています。
+
+ボリューム暗号化は、Linuxカーネルモジュール`dm_crypt`、コマンドラインユーティリティ`cryptsetup`、およびKubernetes Secretsによって実現されます。`dm_crypt`と`cryptsetup`は暗号化デバイスの作成と管理を行い、Secrets（および関連する権限）は暗号化キーの安全な保存を促進します。
+
+== 要件
+
+暗号化されたボリュームを使用するには、`dm_crypt`カーネルモジュールがロードされていることと、`cryptsetup`がワーカーノードにインストールされていることを確認してください。
+
+== Kubernetes SecretsとStorageClassesの設定
+
+Longhornは、暗号化キーの安全な保存のためにKubernetes Secretsを使用します。Kubernetesは、ボリューム作成中に解決されるテンプレートパラメータの使用を許可します。暗号化ボリュームでSecretを使用するには、SecretをStorageClassパラメータとして構成する必要があります。
+
+テンプレートパラメータを使用すると、個々のボリュームまたはボリュームのコレクションとともにSecretsを使用できます。テンプレートパラメータに関する詳細は、Kubernetes CSI開発者ドキュメントの https://kubernetes-csi.github.io/docs/secrets-and-credentials-storage-class.html[StorageClass Secrets]を参照してください。
+
+次の例では、暗号化キーがSecretの`CRYPTO_KEY_VALUE`パラメータに文字列データとして指定されています。文字列データを使用することで、Secretがkubectl createを介して送信される前にBase64エンコーディングを行う必要がなくなります。
+
+`CRYPTO_KEY_VALUE`の他に、パラメータ`CRYPTO_KEY_CIPHER`、`CRYPTO_KEY_HASH`、`CRYPTO_KEY_SIZE`、および`CRYPTO_PBKDF`はボリューム暗号化のカスタマイズを提供します。
+
+* `CRYPTO_KEY_CIPHER`:暗号化仕様アルゴリズム文字列を設定します。デフォルト値はLUKSの場合、`aes-xts-plain64`です。
+* `CRYPTO_KEY_HASH`:`open`のためのパスフレーズハッシュを指定します。デフォルト値は、`sha256`です。
+* `CRYPTO_KEY_SIZE`:ビット単位のキーサイズを設定し、8の倍数でなければなりません。デフォルト値は、`256`です。
+* `CRYPTO_PBKDF`:LUKSキー スロットのためのパスワードベースのキー導出関数（PBKDF）アルゴリズムを設定します。デフォルト値は、`argon2i`です。
+
+詳細については、Linuxマニュアルページの https://man7.org/linux/man-pages/man8/cryptsetup.8.html[cryptsetup(8)]を参照してください。
+
+* Secretの例：
++
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+* グローバルなSecretを持つStorageClassの例：
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-crypto-global
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  encrypted: "true"
+  # global secret that contains the encryption key that will be used for all volumes
+  csi.storage.k8s.io/provisioner-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/provisioner-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-publish-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-publish-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-stage-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-stage-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-expand-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-expand-secret-namespace: "longhorn-system"
+----
+
+* ボリューム特有のSecretを持つStorageClassの例：
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-crypto-per-volume
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  encrypted: "true"
+  # per volume secret which utilizes the `pvc.name` and `pvc.namespace` template parameters
+  csi.storage.k8s.io/provisioner-secret-name: ${pvc.name}
+  csi.storage.k8s.io/provisioner-secret-namespace: ${pvc.namespace}
+  csi.storage.k8s.io/node-publish-secret-name: ${pvc.name}
+  csi.storage.k8s.io/node-publish-secret-namespace: ${pvc.namespace}
+  csi.storage.k8s.io/node-stage-secret-name: ${pvc.name}
+  csi.storage.k8s.io/node-stage-secret-namespace: ${pvc.namespace}
+  csi.storage.k8s.io/node-expand-secret-name: ${pvc.name}
+  csi.storage.k8s.io/node-expand-secret-namespace: ${pvc.namespace}
+----
+
+== 暗号化されたボリュームの使用
+
+暗号化されたボリュームを作成するには、暗号化のために設定されたストレージクラスを使用してPVCを作成する必要があります。上記のストレージクラスの例は、出発点として使用できます。
+
+PVCの作成後、関連するSecretが作成され、取得可能になるまで`Pending`状態のままです。新しく作成されたPVCは、関連するSecretが作成され、csi `external-provisioner`サイドカーによって取得可能になるまで`Pending`状態のままです。その後、暗号化が適用される通常のボリューム作成処理が続きます。
+
+== ファイルシステムの拡張
+
+Longhornは、暗号化されたボリュームのためにxref:volumes/volume-expansion.adoc#_encrypted_volume[オンラインおよびオフラインの両方の拡張]をサポートしています。
+
+オンライン拡張を有効にするために必要なストレージクラスのパラメータは次のとおりです：
+
+* `csi.storage.k8s.io/node-expand-secret-name`
+* `csi.storage.k8s.io/node-expand-secret-namespace`
+
+[NOTE]
+----
+Longhorn v1.8.0は、V2ボリュームの拡張をサポートしていません。
+----
+
+== 履歴
+
+* `Filesystem`モードのボリュームの暗号化：（ https://github.com/longhorn/longhorn/issues/1859[#1859]）
+* `Block`モードのボリュームの暗号化：（ https://github.com/longhorn/longhorn/issues/4883[#4883]）

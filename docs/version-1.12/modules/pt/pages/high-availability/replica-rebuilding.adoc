@@ -1,0 +1,320 @@
+= Reconstrução de Réplica
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Quando {longhorn-product-name} detecta uma réplica com falha ou excluída, inicia automaticamente um processo de reconstrução. Este documento descreve o fluxo de trabalho de reconstrução de réplica para o motor de dados v1, incluindo *completo*, *delta* e *rápido* métodos de reconstrução. Ele também explica as limitações associadas a cada método.
+
+*A reconstrução não começará nos seguintes cenários*:
+
+* O volume está migrando para outro nó.
+* O volume é um volume de restauração/DR antigo.
+* O volume está aumentando de tamanho.
+
+== Fluxo de Trabalho de Reconstrução de Réplica
+
+A reconstrução de réplica pode ocorrer nos seguintes cenários para o motor de dados v1:
+
+* Um nó é reiniciado, drenado ou expulso.
+* Uma réplica se torna não saudável ou é excluída.
+
+image::diagrams/architecture/replica-rebuilding-flow.png[Imagem]
+
+. Marque a réplica alvo com o modo `WO` (somente gravação).
+. Crie um novo instantâneo para servir como ponto de referência do cabeçalho do volume para verificações de integridade de dados.
+. Gere a lista de arquivos de sincronização para o cabeçalho do volume e para os arquivos de instantâneos.
+
+=== Para o Motor de Dados V1
+
+[start=4]
+
+. Inicie um servidor receptor na réplica alvo para cada snapshot.
+. Instrua a réplica de origem a iniciar a sincronização de dados.
+
+.. Para cada instantâneo:
+
+* Verifique se o arquivo do instantâneo existe no diretório de dados da réplica de destino.
+** Se _não_, transfira todos os dados do instantâneo da réplica de origem para a réplica de destino.
+Consulte o <<_full_replica_rebuilding>>.
+** Se _sim_, verifique se os arquivos de checksum do instantâneo existem e se o horário de modificação e os checksums são idênticos entre as réplicas de destino e origem.
+*** Se _sim_, {longhorn-product-name} pula a transferência dos dados do instantâneo. Essa otimização reduz o uso da CPU, E/S de disco, E/S de rede e o tempo total de reconstrução. Consulte o <<_fast_replica_rebuilding>>.
+*** Se _não_, {longhorn-product-name} calcula e compara checksums em nível de bloco usando o algoritmo SHA-512. Se forem encontradas divergências, apenas os blocos diferentes são sincronizados.
+Consulte o <<_delta_replica_rebuilding>>.
+
+=== Para o V2 Data Engine
+
+[start=4]
+
+. Exponha as réplicas de origem e destino e prepare uma cópia superficial usando o mecanismo SPDK.
+. Para cada instantâneo:
+
+* Verifique se o timestamp do instantâneo, o tamanho real e o checksum correspondem entre a origem e o destino.
+** Se _sim_, {longhorn-product-name} pula a transferência dos dados desse instantâneo.
+** Se _não_, verifique se ambos os instantâneos de origem e destino contêm checksums em intervalo.
+*** Se _sim_, busque e compare os checksums de intervalo. Se existirem divergências, apenas os intervalos divergentes são copiados.
+Consulte o <<_fast_replica_rebuilding>>.
+*** Se _não_, exclua o instantâneo de destino existente. Então, copie todo o instantâneo da réplica de origem para a réplica de destino.
+Consulte o <<_full_replica_rebuilding>>.
+
+=== Reconstrução Completa da Réplica
+
+Se a réplica for irrecuperável ou não tiver dados existentes, {longhorn-product-name} sincroniza todos os dados de uma réplica saudável. Ela reconstrói a réplica transferindo toda a cadeia de instantâneos.
+
+A reconstrução completa de réplicas consome uma largura de banda de rede significativa e resulta em pesadas operações de gravação em disco no nó de destino. No entanto, é necessário quando a réplica de destino não possui dados utilizáveis.
+
+=== Reconstrução de Réplica Delta
+
+A reconstrução de réplica delta é apenas para o mecanismo de dados v1. Começa com uma réplica com falha reutilizável e verifica, bloco a bloco, a integridade dos dados de todos os instantâneos.
+
+* Isso está disponível apenas para reutilização de réplicas com falha, e há um arquivo de instantâneo existente (com o mesmo nome) no diretório de dados da réplica com falha.
+* Quando um instantâneo não tem checksum, {longhorn-product-name} realiza a reconstrução de réplica delta para este instantâneo em vez disso.
+
+* *Vantagens*:
+** Reduz o consumo de largura de banda da rede.
+* *Desvantagens*:
+** Aumento da sobrecarga da CPU porque {longhorn-product-name} calculará o checksum dos dados do instantâneo, bloco a bloco, para verificação da integridade dos dados.
+** O tempo de reconstrução é influenciado pelo desempenho da CPU.
+
+=== Reconstrução Rápida de Réplica
+
+A reconstrução rápida de réplicas é ativada quando as seguintes condições são atendidas:
+
+* A configuração de reconstrução rápida de réplicas está ativada:
++
+--
+`fast-replica-rebuild-enabled: true`
+--
+
+* Os arquivos de checksum do instantâneo são criados (os checksums são pré-calculados) usando um dos seguintes métodos:
++
+--
+* `snapshot-data-integrity` está definido como `enabled`:
+  Um trabalho agendado calcula os checksums para todos os instantâneos em um intervalo configurado (padrão: 7 dias).
+* `snapshot-data-integrity-immediate-check-after-snapshot-creation` está definido como `true`:
+  O checksum do instantâneo é calculado imediatamente após a criação do instantâneo.
+--
+
+[NOTE]
+====
+Esses cálculos de checksum consomem recursos de armazenamento e computação.
+O tempo de cálculo é imprevisível e pode impactar negativamente o desempenho do armazenamento.
+Para mais informações, veja xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[Integridade dos Dados do Instantâneo].
+====
+
+* *Vantagens*:
+** Minimiza o consumo de largura de banda da rede.
+** Minimiza a entrada/saída do disco.
+* *Desvantagens*:
+** Calcular os checksums do instantâneo pode ser demorado.
+** O tempo de cálculo do checksum é imprevisível. Isso pode ser acionado mesmo sob alta carga de E/S.
+
+Para mais informações, veja xref:high-availability/fast-replica-rebuilding.adoc[Reconstrução Rápida de Réplicas].
+
+== Fatores que Afetam o Desempenho da Reconstrução
+
+* *Cabeçalho do volume grande*
+** *Por que isso é importante*:
+O cabeçalho do volume é um arquivo especial que nunca possui um checksum pré-computado.
+Se uma réplica falhar, {longhorn-product-name} deve sempre sincronizar todo o cabeçalho do volume.
+Um cabeçalho de volume maior aumenta o tempo de reconstrução.
+** *Como prevenir*:
+Tire instantâneos regularmente para reduzir o tamanho do cabeçalho do volume.
+Agende instantâneos antes da manutenção planejada para minimizar o tempo de reconstrução.
+
+* *Nenhum instantâneo existe*
+** *Por que isso é importante*:
+Sem instantâneos, {longhorn-product-name} não pode pular a transferência de dados ou reutilizar dados existentes.
+Se um instantâneo do cabeçalho do volume for criado, mas seu checksum não estiver pronto, {longhorn-product-name} deve realizar a reconstrução delta.
+Isso aumenta o uso da CPU devido às comparações de soma de verificação bloco a bloco.
+** *Como prevenir*:
++
+--
+. Ative `snapshot-data-integrity-immediate-check-after-snapshot-creation` ou `snapshot-data-integrity` para pré-computar somas de verificação.
+   *Compensação:* Aumenta o uso da CPU, E/S de disco e armazenamento durante a computação.
+. Use um trabalho recorrente para criar instantâneos regularmente.
+--
+
+* *Instantâneo excluído*
+** *Por que isso é importante*:
+Quando a exclusão de instantâneos começa, os instantâneos gerados pelo sistema são coalescidos no próximo instantâneo.
+Isso invalida a soma de verificação do próximo instantâneo.
+** *Como prevenir*:
++
+--
+. Ative `snapshot-data-integrity-immediate-check-after-snapshot-creation` para garantir que as somas de verificação sejam computadas após a exclusão.
+. Crie proativamente um instantâneo e permita tempo para a geração do checksum antes de fazer upgrade ou reconstruções.
+--
+
+* *Reconstruções simultâneas*
+** *Por que isso é importante*:
+Executar várias reconstruções no mesmo nó pode sobrecarregar a CPU, a entrada/saída do disco e a entrada/saída da rede, impactando o desempenho.
+** *Como prevenir*:
+Ajuste o número de reconstruções simultâneas usando a configuração `concurrent-replica-rebuild-per-node-limit`.
+
+* *Falhas múltiplas de réplicas*
+** *Por que isso é importante*:
+Aumenta o tempo e a complexidade da reconstrução.
+Se `auto-cleanup-system-generated-snapshot` for `true` e não existirem instantâneos criados pelo usuário, duas réplicas com falha podem acionar pelo menos uma transferência completa de dados.
++
+Para mais detalhes, veja https://github.com/longhorn/longhorn/issues/9335[Evite "transferência completa de dados" ao reconstruir duas réplicas com falha].
++
+** *Como prevenir*:
++
+--
+. Desative `auto-cleanup-system-generated-snapshot` antes de realizar a manutenção.
+. Crie instantâneos de usuário de todos os volumes antes de iniciar a manutenção.
+. Use um trabalho recorrente para tirar instantâneos regularmente.
+--
+
+* *Reconstrução de Réplicas em Escala*
+** *Por que isso é importante*:
++
+A reconstrução de réplicas em escala permite que uma réplica em reconstrução busque instantâneos de várias réplicas saudáveis simultaneamente, melhorando significativamente o desempenho da reconstrução para determinados padrões de carga de trabalho.
+** *Como habilitar*:
++
+Defina `replica-rebuild-concurrent-sync-limit` > 1 para permitir que várias réplicas saudáveis iniciem servidores de sincronização. A réplica em reconstrução, então, busca diferentes instantâneos de diferentes réplicas de origem simultaneamente. Esse recurso é particularmente benéfico para volumes com pequenos pedaços de dados espalhados e lacunas em seus instantâneos.
++
+Para mais detalhes, veja xref:high-availability/scale-replica-rebuilding.adoc[Reconstrução de Réplicas em Escala].
+
+== Casos de Uso
+
+=== Reinicialização de Nó Durante a Atualização
+
+Quando um nó de trabalho com réplicas é reinicializado como parte de uma atualização planejada:
+
+. A réplica nesse nó se torna temporariamente indisponível e falha, mas as operações de leitura e gravação continuam.
+. Se o nó se recuperar dentro do `replica-replenishment-wait-interval`, {longhorn-product-name} inicia uma reconstrução usando a réplica falha reutilizável.
+
+Durante o processo de reconstrução:
+
+. {longhorn-product-name} seleciona a réplica falha reutilizável mais recente se várias réplicas falhas reutilizáveis estiverem disponíveis.
+. Com base no cenário de reconstrução:
++
+--
+* *Se a reconstrução rápida de réplicas estiver habilitada e todos os checksums de instantâneos existirem*:
+  {longhorn-product-name} aciona <<_fast_replica_rebuilding>>.
+  Somente os blocos alterados no cabeçalho do volume são sincronizados, evitando tanto a reconstrução completa quanto a delta.
+
+* *Se a reconstrução rápida de réplicas estiver habilitada, mas alguns checksums de instantâneos estiverem ausentes*:
+  {longhorn-product-name} aciona <<_delta_replica_rebuilding>>.
+  Blocos alterados de instantâneos sem checksums são sincronizados, evitando a reconstrução completa.
+
+* *Se a reconstrução rápida de réplicas estiver desativada*:
+  {longhorn-product-name} realiza a reconstrução delta sincronizando os blocos alterados de *todos* os instantâneos, evitando a reconstrução completa.
+--
+
+=== Drenagem de Nó de Curto Prazo
+
+Se um nó trabalhador for drenado para manutenção de curto prazo e depois rapidamente restaurado:
+
+. A réplica no nó drenado é marcada como falha imediatamente.
+. Se o nó for liberado antes que o `replica-replenishment-wait-interval` expire, {longhorn-product-name} tenta reutilizar a réplica falha.
+. O comportamento de reconstrução segue a mesma lógica descrita no caso de uso anterior.
+
+== Configurações Relevantes
+
+[cols="1,1,4", options="header"]
+|===
+|Configuração |Default |Descrição
+
+|`fast-replica-rebuild-enabled`
+|`true`
+|Habilita a reconstrução rápida de réplicas. Baseia-se em checksums de instantâneos pré-computados.
+
+|xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[snapshot-data-integrity]
+|`fast-check`
+|Calcula hashes dos arquivos de disco do instantâneo apenas se eles não tiverem hash ou se o tempo de modificação tiver mudado.
+
+|`snapshot-data-integrity-cronjob`
+|`0 0 */7 * *`
+|Cronograma para calcular checksums para todos os instantâneos. Padrão: a cada 7 dias.
+
+|`snapshot-data-integrity-immediate-check-after-snapshot-creation`
+|`false`
+|Se habilitado, calcula checksums imediatamente após a criação do instantâneo.
+
+|`replica-replenishment-wait-interval`
+|`600`
+|Tempo em segundos para esperar antes de criar uma nova réplica. Permite a reutilização de réplicas falhas.
+
+|`concurrent-replica-rebuild-per-node-limit`
+|`5`
+|Limita o número de reconstruções de réplicas concorrentes por nó.
+
+| `replica-rebuild-concurrent-sync-limit`
+| `1` 
+| Número máximo de réplicas saudáveis que podem sincronizar com uma réplica em reconstrução simultaneamente. Faixa: 1-5. Definir como 1 desabilita a reconstrução em escala. 
+
+|`offline-replica-rebuilding`
+|`false`
+|Determina se réplicas degradadas são reconstruídas enquanto o volume está desconectado.
+|===
+
+=== Análise de Compromissos de Configuração
+
+* xref:longhorn-system/settings.adoc#_fast_replica_rebuild_enabled[reconstrução-rápida-de-réplica-habilitada]
++
+--
+* `enabled`:
+  Ignora a transferência de dados do instantâneo se os checksums estiverem atuais. Fornece reconstruções rápidas, mas não revalida os dados.
+
+* `disabled`:
+  Realiza reconstrução delta usando comparações de bloco. Mais lento, mas garante a integridade dos dados do instantâneo.
+--
+
+* xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[snapshot-data-integrity]
++
+--
+* `enabled`:
+  Por padrão, calcula os checksums dos instantâneos a cada 7 dias. Aumenta o uso de CPU, E/S de disco e recursos.
+--
+
+* xref:longhorn-system/settings.adoc#_snapshot_data_integrity_check_cronjob[snapshot-data-integrity-cronjob]
++
+--
+* Padrão: `0 0 */7 * *`
++
+Se `snapshot-data-integrity` estiver habilitado, isso define quando os checksums dos instantâneos são recalculados. Instantâneos criados entre execuções do cron podem não ter checksums.
+--
+
+* xref:longhorn-system/settings.adoc#_immediate_snapshot_data_integrity_check_after_creating_a_snapshot[snapshot-data-integrity-immediate-check-after-snapshot-creation]
++
+--
+* `true`:
+  Calcula imediatamente os checksums do instantâneo após a criação. Aumenta o uso de CPU e E/S de disco. O tempo de conclusão é imprevisível.
+
+* `false`:
+  Instantâneos podem não ter checksums até a próxima execução do cron. A reconstrução delta será necessária se os checksums estiverem ausentes.
+--
+
+* xref:longhorn-system/settings.adoc#_replica_replenishment_wait_interval[intervalo-de-espera-de-reabastecimento-de-réplica]
++
+--
+* Padrão: `600` segundos
+
+** *Intervalo curto*:
+  Pode pular a reutilização de réplicas com falha e acionar reconstruções completas.
+
+** *Intervalo longo*:
+  Espera mais para reutilizar réplicas com falha, mas pode atrasar a recuperação.
+--
+
+* xref:longhorn-system/settings.adoc#_concurrent_replica_rebuild_per_node_limit[concurrent-replica-rebuild-per-node-limit]
++
+--
+* Padrão: `5`
+
+** *Limite alto*:
+  Pode sobrecarregar os recursos do nó, desacelerando as reconstruções e as cargas de trabalho ativas.
+
+** *Limite baixo*:
+  Reduz a contenção de recursos, mas aumenta o tempo de reconstrução devido ao enfileiramento.
+--
+
+* xref:longhorn-system/settings.adoc#_replica_rebuild_concurrent_sync_limit[limite-de-sincronização-concorrente-de-reconstrução-de-réplica]
++
+--
+** Padrão: `1`
+*** Quando definido como `1`, a reconstrução em escala é desativada e apenas a reconstrução tradicional de fonte única é utilizada com consumo mínimo de recursos. Quando definido para valores de 2 a 5, habilita a reconstrução em escala com múltiplas réplicas de origem, proporcionando uma melhoria significativa de desempenho para volumes. No entanto, valores mais altos aumentam o consumo de CPU nas réplicas de origem e destino.
+*** Essa configuração pode ser substituída por `volume.spec.RebuildConcurrentSyncLimit` para cada volume.
+--

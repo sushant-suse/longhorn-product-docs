@@ -1,0 +1,349 @@
+= 用語集/用語
+:revdate: 2025-12-26
+:page-revdate: {revdate}
+
+* <<attachreattach,接続/再接続>>
+* <<backup,バックアップ>>
+* <<backupstore,バックアップストア>>
+* <<backup-target,バックアップターゲット>>
+* <<backup-volume,バックアップボリューム>>
+* <<block-storage,ブロックストレージ>>
+* <<block-type-disks,ブロックタイプディスク>>
+* <<crd,CRD>>
+* <<cross-cluster-disaster-recovery,クロスクラスター災害復旧>>
+* <<csi-driver,CSI Driver>>
+* <<disaster-recovery-volumes-dr-volume,災害復旧ボリューム（DRボリューム）>>
+* <<ext4,Ext4>>
+* <<filesystem-type-disks,ファイルシステムタイプのディスク>>
+* <<frontend,Frontend>>
+* <<instance-manager,インスタンスマネージャー>>
+* <<longhorn-engine,Longhorn Engine>>
+* <<longhorn-manager,Longhorn Manager>>
+* <<longhorn-volume,Longhornボリューム>>
+* <<maintenance-mode,メンテナンスモード>>
+* <<mount,マウント>>
+* <<nfs,NFS>>
+* <<object-storage,オブジェクトストレージ>>
+* <<offline-expansion,オフライン拡張>>
+* <<overprovisioning,オーバープロビジョニング>>
+* <<persistentvolume,PersistentVolume>>
+* <<persistentvolumeclaim,PersistentVolumeClaim>>
+* <<primary-backups,プライマリバックアップ>>
+* <<read-index,Read Index>>
+* <<recurring-snapshots,定期的スナップショット>>
+* <<remount,再マウント>>
+* <<replica,レプリカ>>
+* <<s3,S3>>
+* <<salvage-a-volume,ボリュームを修復する>>
+* <<secondary-backups,セカンダリバックアップ>>
+* <<smbcifs,SMB/CIFS>>
+* <<snapshot,Snapshot>>
+* <<snapshot-data-integrity,スナップショットデータの整合性>>
+* <<stable-identity,安定したアイデンティティ>>
+* <<statefulset,StatefulSet>>
+* <<storageclass,StorageClass>>
+* <<system-backup,システムバックアップ>>
+* <<thin-provisioning,シンプロビジョニング>>
+* <<umount,アンマウント>>
+* <<v1-data-engine,V1データエンジン>>
+* <<v2-data-engine,V2データエンジン>>
+* <<volumes-kubernetes-concept,ボリューム（Kubernetesの概念）>>
+* <<xfs,XFS>>
+
+[[attachreattach]]
+== 接続/再接続
+
+ブロックデバイスを接続することは、それをLinuxノード上に表示させることです（例えば、`/dev/longhorn/testvol`）。
+ボリュームエンジンが予期せず停止した場合、{longhorn-product-name}は自動的にボリュームを再接続します。
+
+[[backup]]
+== バックアップ
+
+バックアップは、バックアップストアに保存されたオブジェクトです。バックアップストアには、ボリュームバックアップとシステムバックアップの両方が含まれる場合があります。
+
+[[backupstore]]
+== バックアップストア
+
+バックアップストアは、{longhorn-product-name}バックアップが保存される外部ストレージの場所です。
+NFS共有、CIFS共有、またはS3互換のオブジェクトストアのいずれかです。{longhorn-product-name}は、構成されたバックアップターゲットを介してバックアップストアに接続します。
+
+[[backup-target]]
+== バックアップターゲット
+
+バックアップターゲットは、{longhorn-product-name}のバックアップストアにアクセスするために使用されるエンドポイントです。
+
+[[backup-volume]]
+== バックアップボリューム
+
+バックアップボリュームは、単一の元のLonghornボリュームに関連付けられたすべてのバックアップを表します。
+バックアップストアに保存され、*バックアップ*ページの{longhorn-product-name} UIで表示されます。
+
+バックアップボリュームには、同じボリュームの複数のバックアップが含まれています。
+バックアップはスナップショットから作成され、スナップショットが取得された時点でのボリュームの状態をキャプチャします。
+スナップショットチェーンや変更履歴は含まれていません。
+
+バックアップはデフォルトでオブジェクトストレージに2 MiBのブロックとして保存されます。
+
+スナップショットとバックアップの動作に関する詳細は、概念ドキュメント - xref:introduction/concepts.adoc#_3_1_how_backups_work[バックアップの動作]を参照してください。
+
+[[block-storage]]
+== ブロックストレージ
+
+データが固定サイズのブロックに保存され、それぞれがメモリアドレスによって識別されるストレージアプローチ。
+
+[[block-type-disks]]
+== ブロックタイプディスク
+
+ブロックタイプディスクは、{longhorn-product-name}がV2データエンジンボリュームに直接使用する未フォーマットのブロックデバイスです。
+
+[[crd]]
+== CRD
+
+Kubernetesの https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/[カスタムリソース定義]。
+
+[[cross-cluster-disaster-recovery]]
+== クロスクラスター災害復旧
+
+クロスクラスター災害復旧により、プライマリKubernetesクラスターのデータをバックアップを使用して別のクラスターで復元できます。
+
+[[csi-driver]]
+== CSIドライバー
+
+Longhorn CSIドライバーは、Kubernetesで使用できる https://kubernetes-csi.github.io/docs/drivers.html[コンテナストレージインターフェース]です。
+Longhornボリューム用のCSIドライバーは`driver.longhorn.io`と呼ばれています。
+
+[[disaster-recovery-volumes-dr-volume]]
+== 災害復旧ボリューム（DRボリューム）
+
+DRボリュームは、プライマリクラスタが利用できなくなった場合にワークロードを復旧できるように、バックアップクラスターにデータのコピーを維持するために使用される特別なボリュームです。
+DRボリュームは、Longhornボリュームのレジリエンシーを高めるために使用されます。
+
+バックアップストア内の各バックアップボリュームは1つの元のLonghornボリュームに対応し、各DRボリュームはバックアップボリュームに対応します。
+
+DRボリュームは、Longhornボリュームのバックアップを正確に反映するように作成できますが、アクティブ化されるまで通常のLonghornボリュームとして機能することはできません。
+
+[[ext4]]
+== Ext4
+
+{longhorn-product-name}によってストレージ用にサポートされているLinuxファイルシステム。
+
+[[filesystem-type-disks]]
+== ファイルシステムタイプのディスク
+
+ファイルシステムタイプのディスクは、拡張ベースのファイルシステム（`ext4`やXFSなど）でフォーマットされたブロックデバイスです。{longhorn-product-name}はそれをマウントし、V1データエンジンのレプリカデータを保存します。
+
+[[frontend]]
+== フロントエンド
+
+フロントエンドは、Longhornボリュームによって公開されるブロックデバイスを指します。
+
+[[instance-manager]]
+== インスタンスマネージャー
+
+エンジンとレプリカインスタンスのライフサイクルを管理する責任を持つ{longhorn-product-name}コンポーネント。
+
+[[longhorn-engine]]
+== Longhornエンジン
+
+Longhornエンジンは、{longhorn-product-name}のデータプレーンコンポーネントです。
+これは、ボリュームレプリカにデータを同期的に複製する責任を持つボリュームごとのストレージコントローラーです。
+
+[[longhorn-manager]]
+== Longhorn Manager
+
+Longhornマネージャーは、{longhorn-product-name}のコントロールプレーンコンポーネントです。
+これはKubernetes DaemonSetとして実行され、ボリュームの管理、APIリクエストの処理、Longhornエンジン、レプリカ、およびその他のカスタムリソースのオーケストレーションを担当します。
+
+[[longhorn-volume]]
+== Longhornボリューム
+
+Longhornボリュームは、{longhorn-product-name}によって管理および複製されるKubernetesボリュームです。
+
+各ボリュームに対して、Longhorn Managerは以下を作成します：
+
+* Longhornエンジンインスタンス
+* スナップショットチェーンを含む複数のレプリカ、各レプリカはボリュームの履歴を表します
+
+デフォルトでは、3つのレプリカが作成され、異なるノードに分散されて高可用性が確保されます。
+
+[[maintenance-mode]]
+== メンテナンスモード
+
+フロントエンドを有効にせずにボリュームをアタッチするボリュームアタッチモード、主にスナップショットからボリュームを復元するために使用されます。
+
+[[mount]]
+== マウント
+
+ノード上のディレクトリにブロックデバイスをアタッチするために使用されるLinuxコマンド（例えば、`mount /dev/longhorn/testvol/mnt`）。
+
+[[nfs]]
+== NFS
+
+ネットワークベースのファイルアクセスを提供する https://en.wikipedia.org/wiki/Network_File_System[分散ファイルシステムプロトコル]。
+
+{longhorn-product-name}は以下のケースでNFSの使用をサポートします：
+
+* 二次ストレージのバックアップストアとして。
+* RWXボリュームの基盤となるファイルシステムとして。
+
+[[object-storage]]
+== オブジェクトストレージ
+
+データをオブジェクトとして管理するデータストレージアーキテクチャで、各オブジェクトはデータ、可変量のメタデータ、およびグローバル固有識別子を含みます。{longhorn-product-name}はS3互換のオブジェクトストレージへのボリュームのバックアップをサポートします。
+
+[[offline-expansion]]
+== オフライン拡張
+
+ボリュームが切り離されている間に行われるボリューム拡張。
+
+[[overprovisioning]]
+== オーバープロビジョニング
+
+オーバープロビジョニングにより、利用可能な物理容量よりも多くの論理ストレージを割り当てることができます。
+
+例えば、200 GiBのディスクスペースを持つノード（50 GiBはオペレーティングシステム用に予約されている）は、750 GiBのLonghornボリュームをプロビジョニングできます。
+
+*ストレージオーバープロビジョニングパーセンテージ*は{longhorn-product-name}設定で構成可能です。詳細についてはxref:longhorn-system/settings.adoc[設定]を参照してください。
+
+[[persistentvolume]]
+== PersistentVolume
+
+PersistentVolume (PV)は、クラスター内のストレージの一部を表すKubernetesリソースです。
+手動またはストレージクラスを使用して動的にプロビジョニングできます。
+
+これはクラスター全体のリソースであり、ポッドのライフサイクルとは独立した永続ストレージを使用するためにポッドに必要です。
+
+詳細については、Kubernetesの https://kubernetes.io/docs/concepts/storage/persistent-volumes/[永続ボリューム]に関するドキュメントを参照してください。
+
+[[persistentvolumeclaim]]
+== PersistentVolumeClaim
+
+PersistentVolumeClaim（PVC）は、ストレージに対するユーザーのリクエストです。
+クレームは、希望するサイズとアクセスモード（たとえば、ReadWriteOnceまたはReadOnlyMany）を指定します。
+
+ポッドはPVCを使用して永続ストレージを取得します。
+
+公式のKubernetesドキュメントは https://kubernetes.io/docs/concepts/storage/persistent-volumes/[永続ボリューム]でご覧ください。
+
+[[primary-backups]]
+== プライマリバックアップ
+
+Kubernetesクラスター内のLonghornボリュームのレプリカは、プライマリバックアップと見なすことができます。
+
+[[read-index]]
+== 読み取りインデックス
+
+読み取りインデックスは、各レプリカが読み取り性能を向上させるために使用するメモリ内データ構造です。
+それは、各4Kブロックに対して有効なデータを含む差分ディスク（スナップショット）を記録します。
+
+[[recurring-snapshots]]
+== 定期的スナップショット
+
+定期的なスナップショットにより、{longhorn-product-name}は指定された頻度（たとえば、毎時または毎日）でスナップショットを自動的に作成および保持できます。
+
+[[remount]]
+== 再マウント
+
+再接続後、{longhorn-product-name}は自動的にボリュームのファイルシステムを検出してマウントします。
+
+[[replica]]
+== レプリカ
+
+レプリカは、ボリューム内のデータの変更履歴で構成されるLonghornボリュームデータストアです。
+
+[[s3]]
+== S3
+
+https://aws.amazon.com/s3/[Amazon S3]はオブジェクトストレージサービスです。
+
+[[salvage-a-volume]]
+== ボリュームの回収
+
+すべてのレプリカが故障した場合（たとえば、ネットワーク接続の切断による）には、回収操作が必要です。
+回収中、{longhorn-product-name}は使用可能なレプリカを特定し、それを使用してボリュームを回復しようとします。
+
+[[secondary-backups]]
+== セカンダリバックアップ
+
+Kubernetesクラスターの外部に、S3、NFS、またはCIFSに保存されたバックアップ。
+
+[[smbcifs]]
+== SMB/CIFS
+
+https://en.wikipedia.org/wiki/Server_Message_Block[ネットワークファイル共有プロトコル]で、ローカルストレージに似たリモートファイルアクセスを提供します。{longhorn-product-name}は、セカンダリストレージのバックアップストアとしてSMB/CIFSを使用することをサポートしています。
+
+[[snapshot]]
+== Snapshot
+
+スナップショットは、スナップショットが作成された時点でのボリュームの状態をキャプチャします。
+各スナップショットは、以前のデータを上書きする変更のみを保存するため、完全な状態を表すにはスナップショットのチェーンが必要です。
+
+ボリュームはスナップショットから復元できます。
+
+概念のドキュメントを参照してください - xref:introduction/concepts.adoc#_2_4_1_how_snapshots_work[スナップショットの仕組み]。
+
+[[snapshot-data-integrity]]
+== スナップショットデータの整合性
+
+スナップショットデータの整合性は、{longhorn-product-name}機能で、スナップショットディスクファイルのハッシュを作成し、定期的にその整合性をチェックして、ビットロットのようなファイルシステムに無関係な破損を検出します。
+
+[[stable-identity]]
+== 安定したアイデンティティ
+
+https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[ステートフルセット]は安定したアイデンティティを持ち、KubernetesはPodを強制的に削除しません。
+
+[[statefulset]]
+== StatefulSet
+
+ステートフルアプリケーションの管理に使用される https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[Kubernetesリソース]です。
+
+[[storageclass]]
+== ストレージクラス
+
+https://kubernetes.io/docs/concepts/storage/storage-classes/#the-storageclass-resource[Kubernetesリソース]は、ポッド用の永続ボリュームを自動的にプロビジョニングするために使用されます。
+
+[[system-backup]]
+== システムバックアップ
+
+システムバックアップには、Longhornシステムリソースのバンドルが含まれ、バックアップストアに保存されます。
+
+システムバックアップに含まれるリソースの詳細については、Longhornのxref:snapshots-backups/system-backups/create-system-backup.adoc[システムバックアップバンドルのドキュメント]を参照してください。
+
+[[thin-provisioning]]
+== シンプロビジョニング
+
+{longhorn-product-name}は薄いプロビジョニング方式のストレージシステムです。{longhorn-product-name}ボリュームは、特定の時点で必要なスペースのみを使用します。
+
+例えば、1 GiBのデータを保存する20 GiBのボリュームは、1 GiBのディスクスペースのみを使用します。
+
+[[umount]]
+== アンマウント
+
+https://linux.die.net/man/8/umount[Linuxコマンド]で、ファイルシステムをファイル階層から切り離します。
+
+[[v1-data-engine]]
+== V1データエンジン
+
+V1データエンジンは、{longhorn-product-name}の元のデータプレーンコンポーネントです。
+それは、スナップショットとバックアップをサポートするレプリカで構成されたボリュームを使用して、ホストファイルシステムのスパースファイルを薄いプロビジョニングに利用します。
+
+[[v2-data-engine]]
+== V2データエンジン
+
+V2データエンジンは、Longhornデータプレーンです。
+それは、SPDKと巨大ページ、ブロックデバイスを使用して、より高いパフォーマンスを提供します。
+
+[[volumes-kubernetes-concept]]
+== ボリューム（Kubernetesの概念）
+
+Kubernetesボリュームは、ポッドがそのライフタイム中にファイルを保存できるようにします。
+これらのファイルは、コンテナの再起動を超えて持続しますが、ポッドが削除されると消えます。
+
+ポッドのライフサイクルを超えてストレージを保持するには、 https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes[永続ボリューム]が必要です。
+
+詳細については、 https://kubernetes.io/docs/concepts/storage/volumes/[Volumes]のKubernetesドキュメントを参照してください。
+
+[[xfs]]
+== XFS
+
+ほとんどのLinux配布パッケージでサポートされている https://en.wikipedia.org/wiki/XFS[ファイルシステム]。{longhorn-product-name}は、ストレージのためにXFSをサポートしています。

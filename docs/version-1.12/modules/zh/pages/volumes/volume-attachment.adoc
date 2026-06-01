@@ -1,0 +1,220 @@
+= {longhorn-product-name} 卷附加
+:revdate: 2025-07-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+本文档提供了 `VolumeAttachment` 自定义资源 {longhorn-product-name} 的详细概述，包括其与 Kubernetes 原生 `VolumeAttachment` 的集成、操作流程和常见故障排除场景。
+
+== Kubernetes 和 {longhorn-product-name} `VolumeAttachment`
+
+要理解 {longhorn-product-name} 中卷附加的工作原理，重要的是区分 Kubernetes 的 `VolumeAttachment` 和 {longhorn-product-name} 的自定义 `VolumeAttachment`：
+
+* **Kubernetes `VolumeAttachment`**：这是一个原生 Kubernetes API 资源，属于容器存储接口（CSI）规范的一部分。其主要作用是向 CSI 驱动程序发出信号，指示某个卷应附加到特定节点。
+* **{longhorn-product-name} `VolumeAttachment`**：这是由 {longhorn-product-name} 定义的自定义资源（CR），全名为 `volumeattachment.longhorn.io`。此内部 {longhorn-product-name} 资源由 Longhorn Manager 使用，以跟踪和管理所有卷的附加请求。
+
+== {longhorn-product-name} `VolumeAttachment`
+
+=== `VolumeAttachment` CR
+
+要检索 {longhorn-product-name} `VolumeAttachment` CR，请使用以下命令：
+
+[,shell]
+----
+kubectl -n longhorn-system get volumeattachment.longhorn.io <volume-name> -o yaml
+----
+
+示例输出：
+
+[,yaml]
+----
+apiVersion: v1
+...
+  spec:
+    attachmentTickets:
+      csi-f0471a334f0b249f964cd1dec461a5eb94c8d268cbbc904c1a8e9a37e2045208:
+        generation: 0
+        id: csi-f0471a334f0b249f964cd1dec461a5eb94c8d268cbbc904c1a8e9a37e2045208
+        nodeID: rancher60-master
+        parameters:
+          disableFrontend: "false"
+          lastAttachedBy: ""
+        type: csi-attacher
+    volume: pvc-b26e9514-aafd-46e0-b70c-4e3f187c7977
+  status:
+    attachmentTicketStatuses:
+      csi-f0471a334f0b249f964cd1dec461a5eb94c8d268cbbc904c1a8e9a37e2045208:
+        conditions:
+        - lastProbeTime: ""
+          lastTransitionTime: "2025-07-05T09:17:27Z"
+          message: ""
+          reason: ""
+          status: "True"
+          type: Satisfied
+        generation: 0
+        id: csi-f0471a334f0b249f964cd1dec461a5eb94c8d268cbbc904c1a8e9a37e2045208
+        satisfied: true
+...
+----
+
+* `spec.attachmentTickets`：一个包含所有活动附加请求的映射，也称为 **附件票据**。每个票据包括：
+ ** `id`：附件票据的唯一标识符。
+ ** `nodeID`：卷应附加的节点 ID。
+ ** `parameters`：附加的可选参数，例如 `disableFrontend` 和 `lastAttachedBy`。
+ ** `type`：附加者类型，指示附加请求的来源。
+
+* `status.attachmentTicketStatuses`：一个包含每个活动附加票据或请求当前状态的映射。每个条目包括：
+ ** `conditions`：票证的当前状态，包括请求是否已满足。
+ ** `satisfied`：一个布尔数据类型，指示附件请求是否已完成。
+ ** `generation`：票证的生成编号，用于跟踪更新。
+
+=== 理解附件票据
+
+{longhorn-product-name} `VolumeAttachment` 自定义资源（CR）管理来自各种内部 {longhorn-product-name} 系统控制器的附件请求。每个请求在 CR 中表示为一个 **附件票证**。
+
+所有活动附件票据存储在 `spec.attachmentTickets` 映射中。每个附件票据中的 `type` 字段（称为 **AttacherType**）标识请求的来源。常见的 `AttacherType` 值包括：
+
+* `csi-attacher`：最常见的类型，处理来自 Kubernetes CSI 插件的标准附件请求，通常在将卷挂载到 pod 时。
+* `longhorn-api`：表示用户通过 {longhorn-product-name} 用户界面或 API 发起的手动附件请求。
+* `snapshot-controller`：在附加卷以创建或恢复快照时使用。
+* `backup-controller`：在附加卷以执行备份时使用。
+* `volume-restore-controller`：在附加卷以进行恢复操作时使用。
+* `volume-clone-controller`：在附加卷以从现有卷克隆时使用。
+* `share-manager-controller`：通过将后端卷附件附加到 share-manager pod 来管理 ReadWriteMany (RWX) 卷的附件。
+* `volume-expansion-controller`：处理在线卷扩展所需的附件。
+* `volume-rebuilding-controller`：在附加卷以重建降级或缺失的副本时使用。
+* `salvage-controller`：在 {longhorn-product-name} 尝试恢复和重新附加有问题的卷时使用。
+* `volume-eviction-controller`：处理从节点中驱逐副本所涉及的附件。
+* `bim-ds-controller`：由后备映像数据源控制器在从后备映像创建卷时使用。
+
+== CSI 附加和分离工作流
+
+要理解 {longhorn-product-name} 如何与 Kubernetes 集成，重要的是要检查原生 Kubernetes `VolumeAttachment` 资源与 {longhorn-product-name} 自定义 `VolumeAttachment` CR 如何通过 CSI 接口进行交互。
+
+=== 工作流中的核心组件
+
+除了 Kubernetes 和 {longhorn-product-name} `VolumeAttachment` 对象外，还有几个关键组件协同工作以管理卷的附加和分离：
+
+* `external-attacher`：一个 CSI 边车容器，监控 Kubernetes `VolumeAttachment` 对象，并触发 `ControllerPublishVolume` 或 `ControllerUnpublishVolume` gRPC 调用到 Longhorn CSI 驱动程序。
+* `longhorn-csi-plugin`：实现所需 CSI gRPC 服务的 Longhorn CSI 驱动程序。
+* `longhorn-manager`：在 {longhorn-product-name} 中管理 Longhorn 卷完整生命周期的中央控制器。它包括多个子控制器，包括卷附加逻辑。
+* `longhorn-volume-attachment-controller`：在 `longhorn-manager` 中的一个子控制器，监控 {longhorn-product-name} `VolumeAttachment` CR，并根据其规格执行附加或分离操作。
+
+=== CSI 卷附加流程
+
+当使用 Longhorn PersistentVolumeClaim (PVC) 的 pod 被调度到节点上时，CSI 卷附加工作流开始。
+
+. **Kubelet 请求**:目标节点上的 kubelet 检测到需要挂载 Longhorn 卷，并通知 Kubernetes `attach-detach-controller`。
+. **Kubernetes `VolumeAttachment` 创建**:`attach-detach-controller` 创建一个 Kubernetes `VolumeAttachment` 对象，指定 Longhorn CSI 驱动程序 (`driver.longhorn.io`)、目标节点名称和持久卷名称。
+. **`external-attacher` 触发 CSI 调用**:`external-attacher` 边车容器观察到新的 Kubernetes `VolumeAttachment` 对象，并向 `longhorn-csi-plugin` 发出 `ControllerPublishVolume` gRPC 调用。
+. **Longhorn `VolumeAttachment` CR 创建**:与其直接附加卷，`longhorn-csi-plugin` 创建一个 Longhorn `VolumeAttachment` 自定义资源 (CR)。它向 CR 的 spec 字段中添加一个 **附件票据**，以表示附加请求。
+. **Longhorn 控制器协调**：`longhorn-volume-attachment-controller`，作为 `longhorn-manager` 中的一个子控制器，检测到新的附件票据并开始协调。它验证卷是否可用，并用目标节点名称更新相应卷 CR 的 `spec.nodeID` 字段。
+. **`longhorn-manager` 执行附加**：在检测到 `spec.nodeID` 被设置后，`longhorn-manager` 在指定节点上启动 Longhorn 引擎以完成附件。
+. **卷附加完成**：
+* `longhorn-manager` 更新卷 CR 的状态以反映卷已附加。
+* `longhorn-volume-attachment-controller` 更新 Longhorn `VolumeAttachment` CR 的状态以指示成功。
+* `longhorn-csi-plugin` 接收成功状态并响应 `external-attacher`。
+* 最后，`external-attacher` 将 Kubernetes `VolumeAttachment` 对象的 `status.attached` 字段标记为 `true`。
+. **Kubelet 挂载卷**：一旦卷被标记为附加，kubelet 将继续进行 `NodeStageVolume` 和 `NodePublishVolume` CSI 调用，将卷挂载到 pod 的容器中。
+
+=== CSI 卷分离流程
+
+当使用 Longhorn 卷的 pod 被删除或重新调度时，CSI 分离工作流开始。
+
+. **Kubelet 请求**:kubelet 向 Kubernetes `attach-detach-controller` 发出信号，表示该卷在节点上不再需要。
+. **Kubernetes `VolumeAttachment` 删除**：`attach-detach-controller` 删除相应的 Kubernetes `VolumeAttachment` 对象。
+. **`external-attacher` 触发 CSI 调用**:`external-attacher` 观察到删除并发起一个 `ControllerUnpublishVolume` gRPC 调用到 `longhorn-csi-plugin`。
+. **附件票据移除**:`longhorn-csi-plugin` 通过更新 {longhorn-product-name} `VolumeAttachment` CR 来处理请求，以移除相关的附件票据。
+. **Longhorn 控制器协调**：`longhorn-volume-attachment-controller` 检测到票据已被移除。如果该卷没有其他票据，则在 Longhorn 卷 CR 中清除 `spec.nodeID` 字段。
+. **`longhorn-manager` 执行分离**:在 `spec.nodeID` 被清除后，`longhorn-manager` 通过停止节点上的 Longhorn Engine 来启动分离过程。
+. **卷分离完成**:
+* `longhorn-manager` 更新卷 CR 的状态，以指示该卷已被分离。
+* `longhorn-csi-plugin` 收到确认并向 `external-attacher` 返回成功。
+* `external-attacher` 从 Kubernetes `VolumeAttachment` 对象中移除最终处理器，允许 API 服务器完全删除它。
+
+=== 工作流摘要
+
+{longhorn-product-name} 通过引入自定义 `VolumeAttachment` CR 扩展了 Kubernetes 的原生卷附件机制。该设计提供了几个优势：
+
+* **解耦与抽象**:自定义资源将复杂的附加或分离逻辑封装在 {longhorn-product-name} 中，减少了 `longhorn-csi-plugin` 的责任。
+* **细粒度控制**:附件票据系统使 {longhorn-product-name} 能够处理来自多个来源的请求（例如，pod、快照、备份），同时确保每个卷在任何时候只有一个有效的附加。
+* **可观察性与故障排除**:CR 提供了对卷的附件状态和历史的清晰可见性，简化了监控和故障排除。
+
+总之，Kubernetes `VolumeAttachment` 对象启动附件或分离过程，而 {longhorn-product-name} 的自定义 `VolumeAttachment` CR 在内部协调和管理实际操作。
+
+== 故障排除卷附加问题
+
+本节概述了与卷附加相关的常见问题，并提供了推荐的解决步骤。在进行任何更改之前，请仔细检查系统日志和相关的自定义资源，以避免干扰正在进行的工作负载。
+
+=== 卷卡在 `Attaching` 或 `Detaching` 状态
+
+当卷在 `Attaching` 或 `Detaching` 状态下停留较长时间时，原因通常与 {longhorn-product-name} `VolumeAttachment` CR 中的过期或冲突的附件票据有关。
+
+==== 可能原因
+
+* **过期或孤立的工单**:来自先前工作负载的工单（例如，已删除的 pod 或已完成的备份作业）未被正确去除，仍然存在于 `spec.attachmentTickets` 下。
+* **冲突的工单**:现有工单（例如，来自 CSI 附加器的工单）阻止了新的请求（例如，手动分离或移动到不同节点）。
+
+==== 解决步骤
+
+. **检查 {longhorn-product-name} `VolumeAttachment` CR**:使用以下命令查看附加工单：
++
+[,shell]
+----
+kubectl -n longhorn-system get volumeattachment.longhorn.io <volume-name> -o yaml
+----
++
+. **分析工单来源**:查看 `spec.attachmentTickets` 下的每个工单，并检查 `type` 字段以识别其来源（例如，`csi-attacher`、`backup-controller` 等）。
+. **谨慎移除无效工单**:如果您确认某个工单不再需要（例如，其对应的 pod 已被删除），您可以通过编辑 CR 将其去除。
++
+[WARNING]
+====
+删除活动工单可能会导致严重干扰。如果您去除一个仍被运行工作负载所需的工单，{longhorn-product-name} 将其视为分离请求：
+
+* 卷引擎将在节点上停止，导致 pod 失去存储访问权限并遇到输入/输出错误，可能会导致 pod 崩溃。
+* Kubernetes CSI 最终会检测到该问题并重新附加卷，重新创建工单，但这会导致停机时间，并可能需要手动重启 pod。
+
+在移除工单之前，请始终确认与该工单相关的工作负载处于非活动状态。
+====
++
+. **验证状态**：在去除无效工单后，{longhorn-product-name} 应能够成功完成附加或分离操作。
+
+=== 案例分析
+
+==== 案例 1：由于意外的 `longhorn-ui` 附件工单，无法附加卷。
+
+* **问题**: https://github.com/longhorn/longhorn/issues/8339[#8339]
+* **表现**：
+ ** 使用受影响卷的工作负载仍然停留在 `Pending` 状态。
+ ** {longhorn-product-name} `VolumeAttachment` CR 包含来自 `longhorn-ui` 的意外工单。
+* **解决方法**：
+ ** 检查 `VolumeAttachment` CR：
++
+[,shell]
+----
+kubectl -n longhorn-system get volumeattachment.longhorn.io <volume-name> -o yaml
+----
++
+ ** 如果发现 `longhorn-ui` 附件工单，请从 CR 中去除整个工单块。
+
+==== 案例 2：由于备份作业停留在待处理状态，卷无法附加到新节点。
+
+* **问题**: https://github.com/longhorn/longhorn/issues/10090[#10090]
+* **表现**：
+ ** 当工作负载被重新调度到不同节点时，卷无法跟随。
+ ** 引用不存在快照的备份作业仍然停留在 `Pending` 状态，`status.message` 包含 `failed to get the snapshot ... not found`。
+ ** 这些停滞的备份作业占用卷，阻止分离或重新附加。
+* **解决方法**：
+. 检查 {longhorn-product-name} `VolumeAttachment` CR 是否有任何锁定卷的工单：
++
+[,shell]
+----
+kubectl -n longhorn-system get volumeattachment.longhorn.io <volume-name> -o yaml
+----
++
+. 如果看到来自备份控制器的工单，则备份作业正在锁定卷。
+. **请勿直接删除`backup-*`附件工单**，因为{longhorn-product-name}会重新创建它。
+. 相反，通过去除任何`Backup` CR来解决卡住的备份作业，方法是：
+ ** `status.state = pending`
+ ** `status.message`包含`Failed to get the Snapshot...`
++
+这会释放卷并允许其重新附加。

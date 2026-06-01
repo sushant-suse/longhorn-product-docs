@@ -1,0 +1,26 @@
+= Utiliza un volumen como objetivo iSCSI
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn soporta el modo de frontend de objetivo iSCSI. Puedes conectarte a él a través de cualquier cliente iSCSI, incluyendo `open-iscsi`, y a un hipervisor de máquina virtual como KVM, siempre que esté en la misma red que el sistema Longhorn.
+
+El controlador CSI de Longhorn no soporta el modo iSCSI.
+
+Para iniciar un volumen con el modo de frontend de objetivo iSCSI, selecciona `iSCSI` como el frontend al xref:volumes/create-volumes.adoc[crear el volumen.]
+
+Después de que el volumen haya sido adjuntado, verás algo como lo siguiente en el campo `endpoint`:
+
+[subs="+attributes",text]
+----
+iscsi://10.42.0.21:3260/iqn.2014-09.com.rancher:testvolume/1
+----
+
+En este ejemplo,
+
+* La IP y el puerto son `10.42.0.21:3260`.
+* El nombre del objetivo es `iqn.2014-09.com.rancher:testvolume`.
+* El nombre del volumen es `testvolume`.
+* El número de LUN es 1. Longhorn siempre usa LUN 1.
+
+La información anterior puede ser utilizada para conectarse al objetivo iSCSI proporcionado por Longhorn utilizando un cliente iSCSI.

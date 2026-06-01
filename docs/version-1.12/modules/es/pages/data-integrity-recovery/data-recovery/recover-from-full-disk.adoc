@@ -1,0 +1,21 @@
+= Recuperación de un disco lleno
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Si un disco utilizado por una de las réplicas de Longhorn está lleno, esa réplica pasará al estado de error, y Longhorn reconstruirá otra réplica en otro nodo/disco.
+
+Para recuperarse de un disco lleno,
+
+. Desactiva la programación para el disco lleno.
++
+Longhorn ya debería haber marcado el disco como `unschedulable`.
++
+Este paso es para asegurarse de que el disco no se programe por accidente después de que se libere más espacio.
+
+. Identifica las réplicas en estado de error en el disco utilizando la página de disco de la interfaz de usuario de Longhorn.
+. Elimina las réplicas en estado de error.
+
+== Recomendado después de la recuperación
+
+Recomendamos añadir más discos o más espacio al nodo que tuvo esta situación.

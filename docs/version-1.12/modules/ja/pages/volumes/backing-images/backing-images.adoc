@@ -1,0 +1,280 @@
+= バックイメージ
+:revdate: 2025-12-10
+:page-revdate: {revdate}
+:experimental:
+:current-version: {page-component-version}
+
+{longhorn-product-name} はバックイメージをネイティブにサポートしています。
+
+QCOW2 または RAW イメージは、{longhorn-product-name} ボリュームのバックイメージ/ベースイメージとして設定でき、{longhorn-product-name} は https://www.suse.com/products/rancher/virtualization[{harvester-product-name}] のような仮想化ソリューションと統合されます。
+
+[IMPORTANT]
+====
+イメージサイズは *512 バイトの倍数* でなければなりません。{longhorn-product-name} は直接 I/O を使用し、ファイルサイズを基盤となるストレージブロックサイズに合わせる必要があります。
+====
+
+== V1 データエンジンバックイメージを作成する
+
+=== パラメータ
+
+==== Data Source
+
+サポートされているデータソースのいずれかを使用して、V1 バックイメージを準備できます。
+
+. バックイメージファイルをダウンロードします（URLを使用）。
+. ローカルマシンからファイルをアップロードします。このオプションは {longhorn-product-name} UI ユーザーに利用可能です。
+. 既存のクラスター内ボリュームをバックイメージとしてエクスポートします。
+. バックアップストアからバックイメージを復元します。詳細については、xref:snapshots-backups/backing-image-backups.adoc[バックイメージバックアップ] を参照してください。
+. バックイメージをクローンします。
+
+==== ボリュームのエクスポート
+
+バックイメージは {longhorn-product-name} ボリュームのスナップショットチェーンにおける初期スナップショットとして機能します。関連するバックイメージを持つボリュームをエクスポートすると、{longhorn-product-name} はそのイメージをデルタ変更と統合し、新しい統合バックイメージを生成します。
+
+==== [チェックサム]
+
+* バックイメージのチェックサムは、実際のコンテンツではなく、バックイメージ *ファイル* 全体の *SHA512 チェックサム* です。
+違いは何ですか？{longhorn-product-name} が qcow2 ファイルのチェックサムを計算する際、qcow ライブラリを使用して正しいコンテンツを読み取るのではなく、RAWファイルとして読み取ります。言い換えれば、ユーザーはファイル形式に関係なく `shasum -a 512 <the file path>` を実行することで常に正しいチェックサムを取得します。
+* バックイメージ作成時に期待されるチェックサムを提供することをお勧めします。
+そうでなければ、{longhorn-product-name} は最初のファイルのチェックサムを正しいものと見なします。最初のファイルの準備に何か問題があると、期待される値として不正なチェックサムが生成され、このバックイメージはおそらく利用できません。
+
+==== スケジューリング
+
+* {longhorn-product-name} は最初にバックイメージファイルをランダムなノードとディスクに準備して保存し、その後、レプリカを保存しているディスクにファイルを複製します。
+* スペース効率を向上させるために、特定のノードとディスクのセットにバックイメージファイルを強制的に保存するために `nodeSelector` と `diskSelector` を追加できます。
+* レプリカは、バックイメージをスケジュールできないノードやディスクにはスケジュールできません。
+
+==== 部数
+
+* クラスタ内に複数のバックイメージファイルが存在することを保証するために `minNumberOfCopies` を追加できます。
+* グローバル設定で `minNumberOfCopies` を調整して、BackingImage にデフォルト値を適用できます。
+
+=== バックイメージを作成する方法
+
+==== {longhorn-product-name} UI を使用してバックイメージを作成する
+
+menu:高度な[バックイメージ] ページでは、ユーザーはあらゆる種類のデータソースを使用してバックイメージを作成できます。
+
+==== YAML を使用して V1 バックイメージを作成する
+
+YAML を介してファイルをダウンロードするか、既存のボリュームをバックイメージとしてエクスポートできます。
+YAML を介してファイルを「アップロード」しない方が良いです。そうでなければ、HTTP リクエストを介してデータのアップロードを手動で処理する必要があります。
+
+たとえば、次のようになります。
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: bi-download
+  namespace: longhorn-system
+spec:
+  dataEngine: v1
+  minNumberOfCopies: 2
+  nodeSelector:
+    - "node1"
+  diskSelector:
+    - "disk1"
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: bi-export
+  namespace: longhorn-system
+spec:
+  dataEngine: v1
+  minNumberOfCopies: 2
+  nodeSelector:
+    - "node1"
+  diskSelector:
+    - "disk1"
+  sourceType: export-from-volume
+  sourceParameters:
+    volume-name: vol-export-src
+    export-type: qcow2
+----
+
+==== StorageClass と PVC を使用してバックイメージを作成する
+
+. Longhorn StorageClass 内で。
+. パラメータ `backingImageName` を設定することは、{longhorn-product-name} にこのバックイメージをボリューム作成中に使用するように依頼することを意味します。
+. バックイメージを作成したい場合、CSI ボリューム作成中に存在しない限り、パラメータ `backingImageDataSourceType` と `backingImageDataSourceParameters` を設定する必要があります。YAML と同様に、StorageClass で「アップロード」を介してバックイメージを作成しない方が良いです。これらのすべてのパラメータが設定されていて、バックイメージがすでに存在する場合、{longhorn-product-name} は使用する前にパラメータが既存のものと一致するかどうかを検証します。
+
+ ** について:`download`
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-backing-image-example
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  backingImage: "bi-download"
+  backingImageDataSourceType: "download"
+  backingImageDataSourceParameters: '{"url": "https://backing-image-example.s3-region.amazonaws.com/test-backing-image"}'
+  backingImageChecksum: "SHA512 checksum of the backing image"
+  backingImageMinNumberOfCopies: "2"
+  backingImageNodeSelector: "node1"
+  backingImageDiskSelector: "disk1"
+  dataEngine: "v1"
+----
+
+ ** について:`export-from-volume`
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-backing-image-example
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  backingImage: "bi-export-from-volume"
+  backingImageDataSourceType: "export-from-volume"
+  backingImageDataSourceParameters: '{"volume-name": "vol-export-src", "export-type": "qcow2"}'
+  backingImageMinNumberOfCopies: "2"
+  backingImageNodeSelector: "node1"
+  backingImageDiskSelector: "disk1"
+  dataEngine: "v1"
+----
+. ストレージクラスを使用してPVCを作成します。次に、バックイメージが存在しない場合は（{longhorn-product-name}ボリュームを使用して）作成されます。
+. {longhorn-product-name}は、バックイメージを使用するボリュームがノードに接続されると、ディスクにバックイメージを準備し始めます。
+
+[NOTE]
+====
+* ストレージクラスにダウンロードURLを入力する際は、エスケープ文字`\`に注意してください。
+* ストレージクラスを使用して作成されたバックイメージは、ボリュームと同じデータエンジンを持っています。
+====
+
+== ボリュームでバックイメージを使用します。
+
+ユーザーは、<<Create a Backing Image Using a StorageClass and PVC,ストレージクラスを介してバックイメージを直接作成し、すぐに使用する>>か、以下に示すように既存のバックイメージを利用することもできます。
+
+[discrete]
+==== 既存のバックイメージを使用します。
+
+[discrete]
+===== ボリューム作成中に既存のバックイメージを使用します。
+
+. menu:高度な[バックイメージ]を{longhorn-product-name} UIでクリックします。
+. *バックイメージを作成*をクリックして、ユニークな名前と有効なURLを持つバックイメージを作成します。
+. リストからバックイメージを選択します。ボリュームとバックイメージは同じデータエンジンを使用する必要があります。
+. {longhorn-product-name}は、バックイメージを使用するボリュームがノードに接続されると、ディスクにバックイメージをダウンロードし始めます。
+
+[discrete]
+===== ボリューム復元中に既存のバックイメージを使用します。
+
+. `Backup`をクリックして、復元するバックアップボリュームを選択します。
+. バックアップボリュームにバックイメージがすでに設定されている限り、{longhorn-product-name}は復元中にバックイメージを自動的に選択します。
+. {longhorn-product-name}は、復元中にバックイメージを再指定または上書きすることを許可します。
+
+[discrete]
+==== バックイメージファイルをダウンロードします。
+
+v1.3.0以降、ユーザーはUIを介して既存のバックイメージファイルをローカルマシンにダウンロードできます。
+
+[NOTE]
+====
+* ユーザーは、指定されたバックイメージを使用してボリュームを作成または復元する際に、バックイメージの存在を確認する必要があります。
+* 既存のバックイメージファイルをローカルにダウンロードする前に、ユーザーはそれに対して準備されたファイルがあることを保証する必要があります。
+* V2データエンジンのバックイメージのダウンロードは現在サポートされていません。
+====
+
+== V2データエンジンバックイメージを作成する
+
+v1.8.0以降、ユーザーはYAMLで`Data Engine`を設定することにより、V2データエンジンに対応したバックイメージを作成できます（UIまたはStorageClassを通じて）。
+
+=== パラメータ
+
+すべてのパラメータはV1データエンジンのバックイメージと同じですが、`Data Engine`を除きます。
+
+==== データソース
+
+サポートされているデータソースのいずれかを使用して、V2データエンジンのバックイメージを準備できます。
+
+* バックイメージファイルをダウンロードします（URLを使用）。
+* ローカルマシンからファイルをアップロードします。このオプションは {longhorn-product-name} UI ユーザーに利用可能です。
+* 既存のクラスター内V1データエンジンボリュームをバックイメージとしてエクスポートします。
+* バックアップストアからバックイメージを復元します。詳細については、xref:snapshots-backups/backing-image-backups.adoc[バックイメージバックアップ]を参照してください。
+* V1バックイメージをクローンします。
+
+[NOTE]
+====
+* 現在サポートされていない操作は次のとおりです：
+ ** V2データエンジンボリュームからのエクスポート
+ ** V2バックイメージのクローン作成
+ ** V2バックイメージのバックアップ
+* ファイルベースのV1データエンジンとは異なり、V2データエンジンはバックイメージデータをSPDK論理ボリュームに保存するために{longhorn-product-name}を必要とします。その結果、qcow2イメージの場合、{longhorn-product-name}はまずqcow2イメージをRAW形式に変換してから、V2データエンジンのバックイメージにデータを保存し、正しいデータを読み取れるようにする必要があります。
+====
+
+== バックイメージをクリーンアップする
+
+[discrete]
+==== ディスク内のバックイメージをクリーンアップする
+
+* {longhorn-product-name}は、xref:longhorn-system/settings.adoc#_backing_image_cleanup_wait_interval[設定`Backing Image Cleanup Wait Interval`]に基づいて、ディスク上の未使用のバックイメージファイルを自動的にクリーンアップします。しかし、{longhorn-product-name}は各バックイメージに対してディスク上に少なくとも1つのファイルを保持します。
+* {longhorn-product-name} UIを使用して、手動でディスクからバックイメージを削除できます。*設定* > *バックイメージ*に移動し、特定のバックイメージの名前をクリックします。開いたウィンドウで、1つ以上のディスクを選択し、次に*クリーンアップ*をクリックします。
+* バックイメージを使用しているディスクに1つのレプリカが存在する限り、レプリカの現在の状態に関係なく、このディスク内のバックイメージファイルはクリーンアップできません。
+
+[discrete]
+==== バックイメージの削除
+
+* バックイメージは、それを使用しているボリュームがない場合にのみ削除できます。
+
+== バックイメージの回復
+
+* 1つのディスクにまだ準備が整ったバックイメージファイルがある場合、{longhorn-product-name}は自動的に失敗したバックイメージファイルをクリーンアップし、次に準備が整ったファイルからこれらのファイルを再起動します。
+* もしバックイメージのすべてのファイルが失敗し、最初のファイルが次のような場合：
+ ** URLからダウンロードされた場合、{longhorn-product-name}はダウンロードを再起動します。
+ ** 既存のボリュームからエクスポートされた場合、{longhorn-product-name}は（必要に応じてボリュームをアタッチし、次に）エクスポートを再起動します。
+ ** ユーザーのローカル環境からアップロードされた場合、回復する方法はありません。ユーザーはこのバックイメージを削除し、ファイルを再アップロードすることで新しいものを再作成する必要があります。
+* ノードがダウンしているか、ノード上のバックイメージマネージャーポッドが利用できない場合、ノード上のすべてのバックイメージファイルは`unknown`になります。後で、ノードが復帰し、ポッドが実行されている場合、{longhorn-product-name}はそれを検出し、既存のファイルを自動的に再利用します。
+
+== バックイメージの追放
+
+* `Scheduling`を`Disabled`に、`Eviction Requested`を`True`に設定することで、ノードまたはディスクからすべてのバックイメージファイルを手動で追放できます。
+* クラスターにバックイメージファイルが1つだけ存在する場合、{longhorn-product-name}は最初にそのファイルを別のディスクに複製し、次にそのファイルを削除します。
+* バックイメージファイルを他のディスクに複製できない場合、{longhorn-product-name}はそのファイルを削除しません。設定を更新して問題を解決できます。
+
+== バックイメージワークフロー
+
+. ディスク上のすべてのバックイメージファイルを管理するために、{longhorn-product-name}は各ディスクに対して単一のバックイメージマネージャーポッドを作成します。ディスクにバックイメージファイルの要件がなくなると、バックイメージマネージャーは自動的に削除されます。
+. バックイメージマネージャーがディスクのためにバックイメージファイルを準備すると、そのファイルはこのディスク内のすべてのボリュームレプリカで共有されます。
+. バックイメージが作成されると、{longhorn-product-name}は初期ファイルを準備するためにバックイメージデータソースポッドを起動します。ファイルデータは、ユーザーによって指定されたソースから取得されます。たとえば、リモートロケーションからのダウンロード、ローカルファイルからのアップロード、または既存のボリュームからのエクスポートなどです。準備が完了すると、同じディスク上のバックイメージマネージャーポッドがファイルを引き継ぎ、{longhorn-product-name}はデータソースポッドを停止します。
+. 新しいバックイメージがボリュームによって使用されると、そのボリュームレプリカが存在するディスクのバックイメージマネージャーポッドは、すでにファイルを含むバックイメージマネージャーポッドからファイルを同期するように求められます。
+. セクション<<_clean_up_backing_images_in_disks,#clean_up_backing_images_in_disks>>で述べたように、1つのディスク内のすべてのレプリカが1つのバックイメージファイルを使用しない場合、ファイルは自動的にクリーンアップされます。
+
+== バックイメージ同期の同時制限
+
+* グローバル設定の`Concurrent Backing Image Replenish Per Node Limit`は、ノード上で同時に補充できるバックイメージのコピーの数を制御します。
+* 0に設定されている場合、{longhorn-product-name}はminNumberOfCopiesを下回っていても自動的にコピーを補充しません。
+
+== 警告
+
+* バックイメージのダウンロードURLは公開されている必要があります。将来的にこの部分を改善します。
+* <<_download_a_backing_image_file,ファイルダウンロード>>の後に1つのバックイメージマネージャーポッドのメモリ使用量が高い場合、これはシステムキャッシュ/バッファが原因です。メモリ使用量は自動的に減少するため、心配する必要はありません。詳細については https://github.com/longhorn/longhorn/issues/4055[GitHubチケット]を参照してください。
+
+== 履歴
+
+* https://github.com/Longhorn/Longhorn/issues/2006[でバックイメージ機能を有効にします。{longhorn-product-name}]
+* https://github.com/longhorn/longhorn/issues/2404[アップロード]と https://github.com/longhorn/longhorn/issues/2403[ボリュームエクスポート]をサポートします。
+* https://github.com/longhorn/longhorn/issues/2404[ローカルにダウンロード]と https://github.com/longhorn/longhorn/issues/3155[ボリュームエクスポート]をサポートします。

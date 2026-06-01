@@ -1,0 +1,38 @@
+= Éviction des répliques sur des disques ou nœuds désactivés
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn prend en charge l'éviction automatique des répliques sur les disques ou nœuds désactivés sélectionnés vers d'autres disques et nœuds appropriés. Pendant ce temps, le même niveau de haute disponibilité est maintenu durant l'éviction.
+
+NOTE: Cette fonctionnalité d'éviction ne peut être activée que lorsque les disques ou nœuds sélectionnés ont la planification désactivée. Et pendant le temps d'éviction, les disques ou nœuds sélectionnés ne peuvent pas être réactivés pour la planification.
+
+NOTE: Cette fonctionnalité d'éviction fonctionne pour les volumes qui sont `Attached` et `Detached`. Si le volume est 'Détaché', Longhorn l'attachera automatiquement avant l'éviction et le détachera automatiquement une fois l'éviction terminée.
+
+Par défaut, `Eviction Requested` pour les disques ou nœuds est `false`. Et pour maintenir le même niveau de haute disponibilité durant l'éviction, Longhorn n'effectue l'éviction que d'une réplique par volume après que la reconstruction de la réplique pour ce volume a abouti.
+
+== Sélectionner des disques ou nœuds pour l'éviction
+
+Pour évincer des disques d'un nœud,
+
+. Allez dans l'onglet `Node`, sélectionnez l'un des nœuds, et sélectionnez `Edit Node and Disks` dans le menu déroulant.
+. Assurez-vous que le disque est désactivé pour la planification et définissez `Scheduling` sur `Disable`.
+. Définissez `Eviction Requested` sur `true` et enregistrez.
+
+Pour évincer un nœud,
+
+. Allez dans l'onglet `Node`, sélectionnez un ou plusieurs nœuds, et cliquez sur `Edit Node`.
+. Assurez-vous que le nœud est désactivé pour la planification et définissez `Scheduling` sur `Disable`.
+. Définissez `Eviction Requested` sur `true`, et enregistrez.
+
+== Annuler l'éviction des disques ou nœuds
+
+Pour annuler l'éviction d'un disque ou d'un nœud, définissez le paramètre correspondant `Eviction Requested` sur `false`.
+
+== Vérifier l'état de l'éviction
+
+Le nombre `Replicas` sur les disques ou nœuds sélectionnés doit être réduit à 0 une fois l'éviction réussie.
+
+Si vous cliquez sur le nombre `Replicas`, cela affichera le nom de la réplique sur ce disque. Lorsque vous cliquez sur le nom de la réplique, l'interface utilisateur de Longhorn redirigera la page web vers la page du volume correspondant, et affichera l'état du volume. S'il y a une erreur, par exemple, pas d'espace, ou si un autre disque planifiable n'a pas pu être trouvé (échec de la planification), l'erreur sera affichée. Toutes les erreurs seront enregistrées dans le journal des événements.
+
+Si une erreur se produit pendant l'éviction, celle-ci sera suspendue jusqu'à ce qu'un nouvel espace soit libéré ou elle sera annulée. Et si l'éviction est annulée, les répliques restantes sur les disques ou nœuds sélectionnés resteront sur les disques ou nœuds.

@@ -1,0 +1,24 @@
+= Instantâneos de volume e backups
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+____
+Em versões anteriores, o Longhorn usava uma forma "bloqueante" para comunicação com o alvo de backup remoto. Consequentemente, existem alguns fatores involuntários que impactam as funções que dependem do alvo de backup remoto. Por exemplo, a latência da rede, listar backups ou causar mais problemas em cascata após a operação do alvo de backup.
+____
+
+____
+Nas versões atuais, o Longhorn começou a usar operações de backup assíncronas para resolver os problemas mencionados na versão anterior.
+
+* Para fazer isso, crie primeiro os recursos personalizados do cluster de backup, depois execute as seguintes operações de instantâneo e backup no alvo de backup remoto.
+* Uma vez que a criação do backup esteja concluída, puxe assíncronamente o estado dos volumes de backup e backups do alvo de backup remoto. Em seguida, atualize o status dos recursos personalizados do cluster correspondentes.
+
+Essa melhoria é escalável para a consulta de backup para ajudar a resolver os recursos custosos causados pela forma bloqueante. Isso ocorreu porque todos os backups são salvos como recursos personalizados em vez de consultar diretamente do alvo de backup remoto.
+
+NOTE: Após o upgrade do Longhorn, se um volume não tiver sido atualizado para a versão mais recente do Longhorn Engine (≥v1.2.0). Ao criar um backup, ele terá o estado de transição intermediária do nome do backup criado (devido ao tratamento diferente do nome do backup na versão mais recente do Longhorn ≥ v1.2.0). O Longhorn então garantirá que o backup esteja sincronizado com o alvo de backup remoto e que ele seja atualizado para o estado final correto, considerando o alvo de backup remoto como a fonte única da verdade. Para fazer upgrade do Longhorn Engine, consulte xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[] ou xref:upgrades/longhorn-components/auto-upgrade-engine.adoc[].
+____
+
+* xref:/snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[Definindo um Alvo de Backup]
+* xref:/snapshots-backups/volume-snapshots-backups/create-backup.adoc[Criar um Backup]
+* xref:/snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[Restaurar de um Backup]
+* xref:/snapshots-backups/volume-snapshots-backups/restore-volume-statefulset.adoc[Restaurando Volumes para Kubernetes StatefulSets]

@@ -1,0 +1,61 @@
+= Azure Kubernetes Service (AKS) の Kubernetes をアップグレードする
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+AKS は、ノードの再イメージ化によるインプレースノードのアップグレードのための `az aks upgrade` を提供しますが、これにより元の {longhorn-product-name} ディスクが失われ、アップグレードされたノードでレプリカの再構築を行うためのディスクがなくなります。
+
+エージェントノードをアップグレードするためにはノードプールの置き換えを使用することをお勧めしますが、データの安全性を確保するためにコントロールプレーンノードには `az aks upgrade` を使用してください。
+
+. {longhorn-product-name} で `replica-replenishment-wait-interval` を `0` に設定します。
+. AKS コントロールプレーンをアップグレードします。
++
+----
+ AKS_RESOURCE_GROUP=<aks-resource-group>
+ AKS_CLUSTER_NAME=<aks-cluster-name>
+ AKS_K8S_VERSION_UPGRADE=<aks-k8s-version>
+
+ az aks upgrade \
+     --resource-group ${AKS_RESOURCE_GROUP} \
+     --name ${AKS_CLUSTER_NAME} \
+     --kubernetes-version ${AKS_K8S_VERSION_UPGRADE} \
+     --control-plane-only
+----
+
+. 新しいノードプールを追加します。
++
+----
+ AKS_NODEPOOL_NAME_NEW=<new-nodepool-name>
+ AKS_DISK_SIZE=<disk-size-in-gb>
+ AKS_NODE_NUM=<number-of-nodes>
+
+ az aks nodepool add \
+   --resource-group ${AKS_RESOURCE_GROUP} \
+   --cluster-name ${AKS_CLUSTER_NAME} \
+   --name ${AKS_NODEPOOL_NAME_NEW} \
+   --node-count ${AKS_NODE_NUM} \
+   --node-osdisk-size ${AKS_DISK_SIZE} \
+   --kubernetes-version ${AKS_K8S_VERSION_UPGRADE} \
+   --mode System
+----
+
+. 古いノードプールのノードに対してディスクスケジューリングを無効にし、エビクションを要求するために {longhorn-product-name} UI を使用します。
+. 古いノードプールの Kubernetes ノードをコードンし、ドレインします。
++
+----
+ AKS_NODEPOOL_NAME_OLD=<old-nodepool-name>
+
+ for n in `kubectl get nodes | grep ${AKS_NODEPOOL_NAME_OLD}- | awk '{print $1}'`; do
+   kubectl cordon $n && \
+   kubectl drain $n --ignore-daemonsets --delete-emptydir-data
+ done
+----
+
+. 古いノードプールを削除します。
++
+----
+ az aks nodepool delete \
+   --cluster-name ${AKS_CLUSTER_NAME} \
+   --name ${AKS_NODEPOOL_NAME_OLD} \
+   --resource-group ${AKS_RESOURCE_GROUP}
+----

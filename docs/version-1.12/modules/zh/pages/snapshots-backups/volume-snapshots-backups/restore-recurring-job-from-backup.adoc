@@ -1,0 +1,65 @@
+= 从备份中恢复定期作业
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn 支持定期作业的备份和恢复，以及卷的备份和恢复。在恢复备份卷时，如果用户启用 `Restore Volume Recurring Jobs` 设置，卷的原始定期作业将相应地恢复。
+
+有关设置 `Restore Volume Recurring Jobs` 的更多信息，请参阅 xref:longhorn-system/settings.adoc#_restore_volume_recurring_jobs[设置] 部分。
+
+有关卷备份工作原理的更多信息，请参阅 xref:introduction/concepts.adoc#_3_backups_and_secondary_storage[概念] 部分。
+
+在恢复具有定期作业的卷时，Longhorn 将一起恢复它们。如果卷名称已存在，则卷和定期作业将不会被恢复。 如果定期作业名称已存在但规格不同，则恢复的定期作业将使用随机生成的名称以避免冲突。否则，Longhorn 将尝试重用现有的定期作业，如果它们与备份卷的恢复定期作业相同。
+
+默认情况下，Longhorn 不会自动恢复卷的定期作业，用户可以通过 Longhorn UI 或 kubectl 启用自动恢复。
+
+== Via Longhorn UI
+
+. 导航到 *设置* 菜单并单击 *常规*
+. 启用 `Restore Volume Recurring Jobs`
+. 导航到 *备份* 菜单
+. 选择您希望恢复的备份，然后单击 *恢复最新备份*。
+. 在 *名称* 字段中，选择您希望恢复的卷。
+. 单击 *确定*
+
+== 通过命令行
+
+[subs="+attributes",bash]
+----
+# kubectl -n longhorn-system edit settings.longhorn.io restore-volume-recurring-jobs
+----
+
+然后，将值设置为 `true`。
+
+[subs="+attributes",text]
+----
+# kubectl -n longhorn-system get setting restore-volume-recurring-jobs
+NAME                            VALUE   AGE
+restore-volume-recurring-jobs   false   28m
+----
+
+=== 卷特定设置示例
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  labels:
+    longhornvolume: vol-01
+  name: vol-01
+  namespace: longhorn-system
+spec:
+  restoreVolumeRecurringJob: ignored
+  engineImage: longhornio/longhorn-engine:v1.4.0
+  fromBackup: "s3://backupbucket@us-east-1?volume=minio-vol01&backup=backup-eeb2782d5b2f42bb"
+  frontend: blockdev
+----
+
+用户可以通过卷规格属性 `restore-volume-recurring-jobs` 来覆盖设置 `spec.restoreVolumeRecurringJob`。
+
+* *忽略*。这是默认选项，指示 Longhorn 从全局设置中继承。
+* *启用*。此选项指示 Longhorn 强制从备份目标恢复卷定期作业。
+* *禁用*。此选项指示 Longhorn 不应恢复卷定期作业。
+
+*结果：*恢复的卷定期作业可在 *RecurringJob* 页面上找到。

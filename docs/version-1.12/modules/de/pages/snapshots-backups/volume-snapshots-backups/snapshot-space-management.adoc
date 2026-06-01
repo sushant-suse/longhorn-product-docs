@@ -1,0 +1,35 @@
+= Snapshot-Speicherverwaltung
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn ermöglicht es Ihnen, die maximale Anzahl von Snapshots und die maximale aggregierte Snapshot-Größe für jedes Volume zu konfigurieren. Beide Einstellungen berücksichtigen keine entfernten Snapshots, Backing-Images und Volume-Head-Snapshots. Wenn einer dieser Limits erreicht ist, müssen Sie Snapshots löschen, bevor Sie neue erstellen.
+
+In früheren Versionen ist die maximale Anzahl von Snapshots nicht konfigurierbar (der Wert beträgt 250) und es gibt keine Möglichkeit, die Nutzung des Snapshot-Speichers zu begrenzen.
+
+== Einstellungen
+
+=== Globale Einstellungen
+
+*snapshot-max-count*: Maximale Anzahl von Snapshots, die Sie für jedes Volume erstellen können.
+
+Sie müssen einen Wert zwischen "2" und "250" angeben. Longhorn benötigt mindestens zwei Snapshots, um ordnungsgemäß zu funktionieren, insbesondere während des Wiederaufbaus des Volumes. Ein Snapshot wird erstellt, wenn die vorhandenen Snapshots zusammengeführt werden, während der andere Snapshot während des Wiederaufbauprozesses erstellt wird.
+Der Standardwert ist "250".
+
+Wenn Sie ein Volume erstellen, ohne den Standardwert von `.Spec.SnapshotMaxCount` zu ändern, wendet Longhorn den Wert der `snapshot-max-count`-Einstellung an. Die Änderung des Wertes von `snapshot-max-count` hat keinen Einfluss auf vorhandene Volumes.
+
+=== Volumespezifische Einstellungen
+
+*SnapshotMaxCount*: Maximale Anzahl von Snapshots, die Sie für ein bestimmtes Volume erstellen können.
+
+Sie können "0" oder einen Wert zwischen "2" und "250" angeben. Der Standardwert ist "0".
+
+Wenn Sie ein Volume erstellen, ohne den Standardwert dieser Einstellung zu ändern, wendet Longhorn den Wert der `snapshot-max-count`-Einstellung an.
+
+*SnapshotMaxSize*: Maximale aggregierte Größe von Snapshots für ein bestimmtes Volume.
+
+Sie können "0" oder jeden Wert größer als `Volume.Spec.Size` multipliziert mit 2 angeben. Sie müssen den Wert von `Volume.Spec.Size` verdoppeln, da Longhorn mindestens zwei Snapshots benötigt, um ordnungsgemäß zu funktionieren.
+
+Der Standardwert ist "0", was die Einstellung effektiv deaktiviert.
+
+Wenn Sie die Volumengröße erweitern, erhöht Longhorn automatisch den Wert dieser Einstellung auf `Volume.Spec.Size` multipliziert mit 2 (wenn der aktuelle Wert kleiner ist).

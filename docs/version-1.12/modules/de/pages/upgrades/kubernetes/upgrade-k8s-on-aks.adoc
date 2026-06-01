@@ -1,0 +1,61 @@
+= Kubernetes auf Azure Kubernetes Service (AKS) upgraden
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+AKS bietet `az aks upgrade` für das In-Place-Upgrade von Knoten mittels Node-Reimaging an, aber dies führt dazu, dass die ursprünglichen {longhorn-product-name}-Festplatten fehlen, sodass in den geupgradeten Knoten keine Festplatten mehr zur Wiederherstellung von Replikaten vorhanden sind.
+
+Wir empfehlen, den Knotenpool-Austausch zu verwenden, um die Agentenknoten zu upgraden, aber `az aks upgrade` für die Steuerungsebene zu verwenden, um die Datensicherheit zu gewährleisten.
+
+. In {longhorn-product-name}, `replica-replenishment-wait-interval` auf `0` setzen.
+. AKS-Steuerungsebene upgraden.
++
+----
+ AKS_RESOURCE_GROUP=<aks-resource-group>
+ AKS_CLUSTER_NAME=<aks-cluster-name>
+ AKS_K8S_VERSION_UPGRADE=<aks-k8s-version>
+
+ az aks upgrade \
+     --resource-group ${AKS_RESOURCE_GROUP} \
+     --name ${AKS_CLUSTER_NAME} \
+     --kubernetes-version ${AKS_K8S_VERSION_UPGRADE} \
+     --control-plane-only
+----
+
+. Einen neuen Knotenpool hinzufügen.
++
+----
+ AKS_NODEPOOL_NAME_NEW=<new-nodepool-name>
+ AKS_DISK_SIZE=<disk-size-in-gb>
+ AKS_NODE_NUM=<number-of-nodes>
+
+ az aks nodepool add \
+   --resource-group ${AKS_RESOURCE_GROUP} \
+   --cluster-name ${AKS_CLUSTER_NAME} \
+   --name ${AKS_NODEPOOL_NAME_NEW} \
+   --node-count ${AKS_NODE_NUM} \
+   --node-osdisk-size ${AKS_DISK_SIZE} \
+   --kubernetes-version ${AKS_K8S_VERSION_UPGRADE} \
+   --mode System
+----
+
+. Verwenden Sie die {longhorn-product-name}-Benutzeroberfläche, um das Festplatten-Scheduling zu deaktivieren und die Evakuierung der Knoten im alten Knotenpool anzufordern.
+. Kubernetes-Knoten im alten Knotenpool absperren und entleeren.
++
+----
+ AKS_NODEPOOL_NAME_OLD=<old-nodepool-name>
+
+ for n in `kubectl get nodes | grep ${AKS_NODEPOOL_NAME_OLD}- | awk '{print $1}'`; do
+   kubectl cordon $n && \
+   kubectl drain $n --ignore-daemonsets --delete-emptydir-data
+ done
+----
+
+. Alten Knotenpool löschen.
++
+----
+ az aks nodepool delete \
+   --cluster-name ${AKS_CLUSTER_NAME} \
+   --name ${AKS_NODEPOOL_NAME_OLD} \
+   --resource-group ${AKS_RESOURCE_GROUP}
+----

@@ -1,0 +1,117 @@
+= Copia de seguridad de la imagen de respaldo
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn admite la copia de seguridad de las imágenes de respaldo.
+
+== Requisitos previos
+
+Primero debes xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[configurar un destino de copia de seguridad]. Si omites este paso crucial, la falta de un destino de copia de seguridad impedirá que Longhorn cree una copia de seguridad de la imagen de respaldo.
+
+== Crear una copia de seguridad de la imagen de respaldo
+
+Debido a que las imágenes de respaldo son globalmente únicas dentro del sistema Longhorn, las copias de seguridad correspondientes también son globalmente únicas y se identifican utilizando el mismo nombre.
+
+=== Crear una copia de seguridad utilizando YAML
+
+Ejemplo de imagen de respaldo:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-backup
+  namespace: longhorn-system
+spec:
+  backingImage: parrot
+  backupTargetName: default
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+Ejemplo de código YAML utilizado para crear una copia de seguridad de la imagen de respaldo de muestra:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackupBackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  userCreated: true
+  labels:
+    usecase: test
+    type: raw
+----
+
+* `name`: Si los nombres no son únicos, Longhorn no podrá crear una copia de seguridad de la imagen de respaldo.
+* `backingImage`: Imagen de respaldo de la copia de seguridad.
+* `backupTargetName`: Punto final utilizado para almacenar y acceder a la copia de seguridad en el almacén de copias de seguridad.
+* `userCreated`: Establece el valor en `true` para indicar que creaste el recurso personalizado de copia de seguridad, lo que habilitó la creación de la copia de seguridad en el almacén de copias de seguridad. El valor `false` indica que el recurso personalizado de copia de seguridad se sincronizó desde el almacén de copias de seguridad.
+* `labels`: Puedes añadir etiquetas a la copia de seguridad de la imagen de respaldo.
+
+=== Crear una copia de seguridad utilizando la interfaz de usuario de Longhorn
+
+. Ve a *Ajustes -> Imagen de Respaldo*.
+. Selecciona la imagen de respaldo que deseas respaldar y luego haz clic en *Hacer copia de seguridad* en el menú *Operación*.
+
+Longhorn crea la copia de seguridad y añade los detalles a la lista de *Copia de Seguridad de la Imagen de Respaldo*.
+
+image::screenshots/backing-image/backup.png[Imagen]
+
+== Restaurar una imagen de respaldo desde una copia de seguridad
+
+Puedes restaurar una imagen de respaldo en otro clúster después de crear una copia de seguridad en el almacén de copias de seguridad.
+
+Ejemplo de código YAML utilizado para restaurar una imagen de respaldo:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+    name: parrot-restore
+    namespace: longhorn-system
+spec:
+    sourceType: restore
+    sourceParameters:
+        # change to your backup URL
+        # backup-url: nfs://longhorn-test-nfs-svc.default:/opt/backupstore?backingImage=parrot
+        backup-url: s3://backupbucket@us-east-1/?backingImage=parrot
+        concurrent-limit: "2"
+    checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+[IMPORTANT]
+====
+* `sourceType`: Establezca el valor en `restore`.
+* `sourceParameters`: Configure los siguientes parámetros:
+ ** `backup-url`: URL del recurso de imagen de respaldo en el almacén de copias de seguridad. Puedes encontrar esta información en el estado del recurso personalizado de copia de seguridad `.Status.URL`.
+ ** `concurrent-limit`: Número máximo de hilos de trabajo que pueden ejecutarse simultáneamente para cada operación de restauración. Cuando no se especifica, Longhorn utiliza el valor predeterminado.
+* `checksum`: Puedes especificar la suma de comprobación SHA-512 esperada del archivo de imagen de respaldo, que Longhorn utiliza para validar el archivo restaurado. Cuando no se especifica, Longhorn utiliza la suma de comprobación del archivo restaurado como la verdad.
+====
+
+=== Restaurar desde una copia de seguridad utilizando la interfaz de usuario de Longhorn
+
+. Ve a *Ajustes -> Imagen de Respaldo*.
+. Selecciona la copia de seguridad que deseas utilizar y luego haz clic en *Restaurar* en el menú *Operación*.
+. Si estás restaurando una imagen de respaldo cifrada, especifica el `Secret` y el `Secret Namespace`.
+. Haga clic en *Aceptar*.
+
+image::screenshots/backing-image/restore.png[Imagen]
+
+[IMPORTANT]
+====
+Longhorn actualmente no almacena información relacionada con secretos en las copias de seguridad de imágenes de respaldo. Debes especificar el secreto y el espacio de nombres del secreto al restaurar imágenes de respaldo cifradas. Este problema se abordará en una futura versión.
+====
+
+== Volumen con una imagen de respaldo.
+
+Cuando creas una copia de seguridad de un volumen, Longhorn crea automáticamente una copia de seguridad de su imagen de respaldo.
+
+Puedes restaurar un volumen con una imagen de respaldo. Si la imagen de respaldo ya existe en el clúster, Longhorn la utiliza directamente. Si la imagen existe en el almacén de copias de seguridad pero no en el clúster, Longhorn restaura automáticamente la imagen de respaldo.

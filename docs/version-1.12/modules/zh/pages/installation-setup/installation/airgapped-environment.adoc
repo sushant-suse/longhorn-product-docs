@@ -1,0 +1,171 @@
+= 在隔离的环境中安装{longhorn-product-name}
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+:doctype: book
+
+{longhorn-product-name}可以通过使用 Helm 图表在隔离的环境中安装。
+
+== 先决条件
+
+* 要求 https://helm.sh/docs/[Helm] 版本 3.0 或更高。
+* 将 {longhorn-product-name} 组件镜像部署到您自己的注册表。
+* 将 Kubernetes CSI 驱动程序组件镜像部署到您自己的注册表。
+
+== 隔离的环境中的镜像管理
+
+. **获取所需镜像列表** +
+运行 link:{attachmentsdir}/download-longhorn-image-list.sh[脚本] 以下载 {longhorn-product-name} 所需的所有镜像的完整列表。该脚本将生成一个 `longhorn-images.txt` 文件，其中包含镜像列表。
++
+[NOTE]
+====
+此脚本从 SUSE 应用程序集合 OCI 注册表中提取 {longhorn-product-name} 图表以获取所需的镜像列表。必须使用身份验证凭据配置 Helm 以访问注册表。有关设置说明，请参阅 https://docs.apps.rancher.io/get-started/authentication/#helm[Helm 身份验证文档]。
+====
++
+. **拉取并保存 {longhorn-product-name} 镜像** +
+{longhorn-product-name} 提供 https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/save-images.sh[`save-images.sh`] 脚本，以快速拉取 `longhorn-images.txt` 文件中列出的镜像。
++
+[NOTE]
+====
+运行此脚本需要 Docker 身份验证以访问 SUSE 应用程序集合 OCI 注册表并拉取容器镜像。确保您的 Docker 客户端已正确认证。有关设置说明，请参阅 https://docs.apps.rancher.io/get-started/authentication/#docker[Docker 身份验证文档]。
+====
++
+要将 Longhorn 镜像拉取并保存到 `tar.gz` 文件（例如，`longhorn-images.tar.gz`），请运行以下命令：
++
+[subs="+attributes",bash]
+----
+wget https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/save-images.sh
+chmod +x save-images.sh
+./save-images.sh --image-list longhorn-images.txt --images longhorn-images.tar.gz
+----
++
+然后，将生成的 `longhorn-images.tar.gz` 文件复制到您的隔离的环境中。如果您未使用 `--images` 标志指定文件名，则脚本将仅将镜像拉取到您的本地 Docker 镜像缓存中，而不保存到文件。
+
+. **加载并推送 {longhorn-product-name} 镜像到您的私有注册表** +
+{longhorn-product-name} 提供了另一个脚本， https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/load-images.sh[`load-images.sh`] 脚本，用于将镜像推送到您的私有容器注册表。要从 `tar.gz` 文件（例如，`longhorn-images.tar.gz`）加载镜像并将其推送到您的注册表，请运行以下命令。将 `<YOUR-PRIVATE-REGISTRY>` 替换为您私有注册表的实际地址。
++
+[subs="+attributes",bash]
+----
+wget https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/load-images.sh
+chmod +x load-images.sh
+./load-images.sh --image-list longhorn-images.txt --images longhorn-images.tar.gz --registry <YOUR-PRIVATE-REGISTRY>
+----
++
+如果您未使用 `--images` 标志指定 `tar.gz` 文件，脚本将会在您的本地 Docker 缓存中查找镜像并将其推送到注册表。
+
+== 通过 Helm Chart 安装
+
+. ** 获取 {longhorn-product-name} Chart** +
+获取 {longhorn-product-name} Chart 并解压下载的 tarball：
++
+[subs="+attributes",bash]
+----
+helm pull longhorn oci://dp.apps.rancher.io/charts/suse-storage:{patch-version}
+tar -zxf suse-storage-{patch-version}.tgz
+cd suse-storage
+----
+
+. **在 `values.yaml` 中配置镜像设置** +
+克隆后，根据您选择的方法在 `values.yaml` 文件中配置您的镜像设置：
++
+[cols="1,2a",options="header",width="100%"]
+|===
+| 方法
+| 配置详细信息
+
+| 使用默认镜像名称
+|
+在 `values.yaml` 中，指定您的 `Private registry URL`。如果注册表需要身份验证，还需指定 `Private registry user`、`Private registry password` 和 `Private registry secret`。{longhorn-product-name} 将自动生成一个包含该信息的密钥，并用它从您的私有注册表中拉取镜像。
+
+[,yaml]
+----
+privateRegistry:
+  # -- Setting that allows you to create a private registry secret.
+  createSecret: true
+  # -- URL of a private registry. When unspecified, Longhorn uses the default system registry.
+  registryUrl: <REGISTRY_URL>
+  # -- User account used for authenticating with a private registry.
+  registryUser: <REGISTRY_USER>
+  # -- Password for authenticating with a private registry.
+  registryPasswd: <REGISTRY_PASSWORD>
+  # -- Kubernetes secret that allows you to pull images from a private registry. This setting applies only when creation of private registry secrets is enabled. You must include the private registry name in the secret name.
+  registrySecret: <REGISTRY_SECRET_NAME>
+----
+
+| 使用自定义镜像名称
+|
+在 `values.yaml` 中，为每个组件配置镜像设置。
+
+[NOTE]
+====
+请勿包含私有注册表前缀（例如，`example.com/username/`）；它将自动添加。如果您的镜像是 `example.com/username/longhorn-manager`，请在以下 Chart 中使用 `username/longhorn-manager`。
+====
+
+为每个 {longhorn-product-name} 组件镜像指定 `repository` 和 `tag`：
+
+[,yaml]
+----
+  image:
+    longhorn:
+      engine:
+        repository: <USERNAME>/longhorn-engine
+        tag: <LONGHORN_ENGINE_IMAGE_TAG>
+      manager:
+        repository: <USERNAME>/longhorn-manager
+        tag: <LONGHORN_MANAGER_IMAGE_TAG>
+      ui:
+        repository: <USERNAME>/longhorn-ui
+        tag: <LONGHORN_UI_IMAGE_TAG>
+      instanceManager:
+        repository: <USERNAME>/longhorn-instance-manager
+        tag: <LONGHORN_INSTANCE_MANAGER_IMAGE_TAG>
+      shareManager:
+        repository: <USERNAME>/longhorn-share-manager
+        tag: <LONGHORN_SHARE_MANAGER_IMAGE_TAG>
+----
+为 CSI 驱动程序组件镜像指定 `repository` 和 `tag`：
+
+[,yaml]
+----
+    csi:
+      attacher:
+        repository: <USERNAME>/csi-attacher
+        tag: <CSI_ATTACHER_IMAGE_TAG>
+      provisioner:
+        repository: <USERNAME>/csi-provisioner
+        tag: <CSI_PROVISIONER_IMAGE_TAG>
+      nodeDriverRegistrar:
+        repository: <USERNAME>/csi-node-driver-registrar
+        tag: <CSI_NODE_DRIVER_REGISTRAR_IMAGE_TAG>
+      resizer:
+        repository: <USERNAME>/csi-resizer
+        tag: <CSI_RESIZER_IMAGE_TAG>
+      snapshotter:
+        repository: <USERNAME>/csi-snapshotter
+        tag: <CSI_SNAPSHOTTER_IMAGE_TAG>
+----
+最后，指定您的 `Private registry URL`。如果注册表需要身份验证，请指定 `Private registry user`、`Private registry password` 和 `Private registry secret`。{longhorn-product-name} 将自动生成一个包含该信息的密钥，并使用它从您的私有注册表中拉取镜像。
+
+[,yaml]
+----
+privateRegistry:
+  # -- Setting that allows you to create a private registry secret.
+  createSecret: true
+  # -- URL of a private registry. When unspecified, Longhorn uses the default system registry.
+  registryUrl: <REGISTRY_URL>
+  # -- User account used for authenticating with a private registry.
+  registryUser: <REGISTRY_USER>
+  # -- Password for authenticating with a private registry.
+  registryPasswd: <REGISTRY_PASSWORD>
+  # -- Kubernetes secret that allows you to pull images from a private registry. This setting applies only when creation of private registry secrets is enabled. You must include the private registry name in the secret name.
+  registrySecret: <REGISTRY_SECRET_NAME>
+----
+|===
+
+. **安装 {longhorn-product-name}** +
+通过在克隆目录中运行以下命令来安装 {longhorn-product-name}：
++
+[,bash]
+----
+helm install longhorn --namespace longhorn-system --create-namespace ./
+----

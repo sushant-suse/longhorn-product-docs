@@ -1,0 +1,33 @@
+= 节点条件
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+节点条件描述了所有工作节点的状态，并用于检查工作节点的环境设置，以在任何系统影响之前识别潜在问题。
+
+节点条件：
+
+* `Ready`：表示节点已准备好进行 Longhorn 操作，包括在该节点上运行 `longhorn-manager` pod，Kubernetes 节点已准备好，并且没有物理资源压力。
++
+* `Schedulable`：表示节点未被隔离，工作负载可以调度到该节点。
++
+* `MountPropagation`：表示节点支持挂载传播。这对于在同一 Longhorn pod 中的容器与同一节点上的其他 Longhorn pod 共享由容器挂载的卷是必要的。
++ 
+* `Multipathd`：检查 `multipathd` 服务是否未在节点上运行，这可能会影响卷启动的 pod。请参见 link:https://longhorn.io/kb/troubleshooting-volume-with-multipath/[故障排除：`MountVolume.SetUp failed for volume` 由于节点上的 multipathd]。
+* `RequiredPackages`：检查 Longhorn 所需的所有软件包是否存在（xref:installation-setup/requirements.adoc#_installing_nfsv4_client[NFS 客户端]，xref:installation-setup/requirements.adoc#_installing_open-_scsi[iSCSI 工具]，xref:installation-setup/requirements.adoc#_installing_cryptsetup_and_luks[cryptsetup]，xref:installation-setup/requirements.adoc#_installing_device_mapper_userspace_tool[dmsetup]）。
++
+* `NFSClientInstalled`：检查是否支持以下任何 NFS 客户端：`v4.2`，`v4.1` 或 `v4.0`。RWX 卷和备份需要 NFS 客户端。
++
+* `KernelModulesLoaded`：检查以下内核模块是否已加载：
++
+** `dm_crypt`：卷和后备镜像加密是必需的。
+** `vfio_pci`：这是 SPDK 和 PCI 设备管理（V2 数据引擎）所必需的。
+** `uio_pci_generic`：这是 SPDK UIO 支持（V2 数据引擎）所必需的。
+** `nvme_tcp`：这是 NVMe-over-TCP 设备使用（V2 数据引擎）所必需的。
++
+* `HugePagesAvailable`：指示节点是否已正确配置 HugePages（2Mi），这是 Longhorn V2 数据引擎所需的。这包括验证以下内容：
++
+** HugePages（2Mi）已注册为 Kubernetes 资源（`hugepages-2Mi`）。
+** 配置的 HugePages 容量满足或超过 `v2-data-engine-hugepage-limit` 设置中定义的值。
+
+节点状态不会阻止 Longhorn 部署，但会在 Longhorn `Node` 资源中产生警告。有关更多信息，请参见 xref:installation-setup/requirements.adoc#_requirements[Longhorn 安装要求]。

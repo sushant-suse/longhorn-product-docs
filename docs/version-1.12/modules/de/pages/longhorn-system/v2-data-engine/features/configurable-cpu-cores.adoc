@@ -1,0 +1,63 @@
+= Konfigurierbare CPU-Kerne
+:revdate: 2026-03-16
+:page-revdate: {revdate}
+
+{longhorn-product-name} unterstützt jetzt konfigurierbare CPU-Kerne für die V2-Datenengine durch die Verwendung einer *CPU-Maske*. Diese Maske ermöglicht es Ihnen, genau zu definieren, welche CPU-Kerne der Engine zugewiesen sind, und bietet sowohl globale als auch pro-Knoten-Konfigurationsoptionen.
+
+== Erläuterung der CPU-Maske
+
+Die CPU-Maske ist eine *hexadezimale (hex) Darstellung einer binären Bitmaske*, wobei jedes Bit einem bestimmten CPU-Kern entspricht.
+
+* Ein auf *1* gesetztes Bit bedeutet, dass der CPU-Kern für die Datenengine aktiviert ist.
+* Ein auf *0* gesetztes Bit bedeutet, dass der CPU-Kern übersprungen wird.
+
+=== So berechnen Sie die Maske
+
+Um die korrekte hexadezimale Zeichenfolge zu bestimmen, visualisieren Sie Ihre CPU-Kerne als eine Sequenz von Bits von rechts nach links:
+
+[cols="1,1,1"]
+|===
+| Gewünschte Anzahl der Kerne | Binäre Darstellung (Kerne 3, 2, 1, 0) | Hexadezimalwert
+
+| *1 Kern*
+| `0001`
+| *0x1*
+
+| *2 Kerne*
+| `0011`
+| *0x3*
+
+| *3 Kerne*
+| `0111`
+| *0x7*
+
+| *4 Kerne*
+| `1111`
+| *0xF*
+|===
+
+*Beispiel für 23 Kerne*: Um 23 Kerne zuzuweisen, müssen 23 Bits auf `1` gesetzt werden.
+
+* *Binär*: `111 1111 1111 1111 1111 1111`
+* *Hexadezimal*: `0x7FFFFF`
+
+[NOTE]
+====
+Verwechseln Sie die Anzahl der Kerne nicht mit dem hexadezimalen Wert. Wenn Sie `0x4` (Binär `0100`) festlegen, wird nur *ein* CPU-Kern (CPU-Kern #2) aktiviert, während `0xF` (Binär `1111`) *vier* CPU-Kerne aktiviert.
+====
+
+== Globale Konfiguration
+
+Um die CPU-Kerne global im Cluster festzulegen, aktualisieren Sie die Einstellung xref:longhorn-system/settings.adoc#_data_engine_cpu_mask[`data-engine-cpu-mask`].
+
+1. Navigieren Sie zu *Einstellungen > Allgemein*.
+2. Suchen Sie *Datenengine-CPU-Maske*.
+3. Geben Sie Ihre berechnete hexadezimale Zeichenfolge ein (zum Beispiel `0xF`).
+
+== Pro-Knoten-Konfiguration
+
+Für die spezifische Zuweisung von CPU-Kernen pro Knoten aktualisieren Sie das Feld `spec.dataEngineSpec.v2.cpuMask` des Instanzmanagers mit einer hexadezimal kodierten Zeichenfolge. Standardmäßig ist dieser Wert leer, und die v2-Datenengine verwendet die global festgelegte Einstellung, die durch `data-engine-cpu-mask` angegeben ist. Wenn eine Pro-Knoten-Konfiguration festgelegt ist, priorisiert die v2-Datenengine diesen Wert gegenüber der globalen Einstellung für diesen spezifischen Knoten.
+
+== Berechnungstools
+
+Sie können einen https://www.rapidtables.com/convert/number/binary-to-hex.html[Binär zu Hex-Konverter] verwenden, um Ihre Maske zu berechnen. Geben Sie ein `1` für jeden Kern ein, den Sie zuweisen möchten, und konvertieren Sie die resultierende binäre Zeichenfolge in Hex.

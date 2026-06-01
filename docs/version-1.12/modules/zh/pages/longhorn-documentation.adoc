@@ -1,0 +1,18 @@
+include::partial$longhorn-globals.adoc[]
+= {longhorn-product-name-tm} 概述
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:description: 适用于 Kubernetes 的云原生分布式块存储
+
+*{longhorn-product-name}* 是一个轻量级、可靠且强大的分布式 https://cloudacademy.com/blog/object-storage-block-storage/[块存储] 系统，适用于 Kubernetes。它源自开源项目 https://www.cncf.io/projects/longhorn/[Longhorn]。
+
+{longhorn-product-name} 通过容器和微服务实现分布式块存储。它会为每个块设备卷创建专用存储控制器，并将卷同步复制到存储在多个节点上的多个复本。存储控制器与复本本身均由 Kubernetes 编排管理。
+
+== 功能
+
+* 企业级分布式块存储，无单点故障
+* 块存储的增量快照
+* 备份到二级存储（ https://www.extrahop.com/resources/protocols/nfs/[NFS] 或 https://aws.amazon.com/s3/[S3] 兼容的对象存储），基于高效的变更块检测
+* 定期快照和备份
+* 自动化、非中断的升级。您可以在不干扰正在运行的存储卷的情况下升级整个 {longhorn-product-name} 软件堆栈。
+* 直观的GUI仪表板
