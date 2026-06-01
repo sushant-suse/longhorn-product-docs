@@ -1,5 +1,5 @@
 = Important Notes
-:revdate: 2026-05-25
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -108,7 +108,7 @@ For more information, see https://github.com/longhorn/longhorn/issues/12771[Issu
 [#_dualstack_cluster_support]
 === Dual-Stack Cluster Support
 
-{longhorn-product-name} supports dual-stack Kubernetes clusters under a specific requirement: all nodes must be configured with their IP families in the same order (either all IPv4-first, or all IPv6-first). When the order is consistent, {longhorn-product-name} uses the first IP family of each node and operates correctly. This applies to both the V1 and V2 data engines.
+{longhorn-product-name} supports dual-stack Kubernetes clusters under a specific requirement: all nodes must be configured with their IP families in the same order (either all IPv4-first, or all IPv6-first). When the order is consistent, {longhorn-product-name} uses the first IP family of each node and operates correctly. This applies to both the V1 and V2 Data Engines.
 
 [WARNING]
 ====
@@ -137,13 +137,28 @@ For more information, see https://github.com/longhorn/longhorn/issues/11442[Issu
 
 == V2 Data Engine
 
-=== Longhorn System Upgrade
+[NOTE]
+====
+*Volume Attach Latency at Scale*
+
+In environments with a growing number of attached V2 volumes, increased attach latency has been observed for subsequent volumes. Initial analysis suggests this may be related to NVMe-TCP connection handling at scale, though the precise layer (SPDK user-space or Linux kernel) has not yet been identified. Further investigation is in progress. For follow-up status, see https://github.com/longhorn/longhorn/issues/13241[Issue #13241].
+====
+
+=== {longhorn-product-name} System Upgrade
 
 Live upgrades of V2 volumes are *not supported*. Ensure all V2 volumes are detached before upgrading.
 
+=== Default SPDK CPU Allocation
+
+{longhorn-product-name} v{patch-version} changes the default `data-engine-cpu-mask` from `0x1` (1 CPU core) to `0x3` (2 CPU cores). SPDK uses a busy-polling reactor model where the master reactor handles both I/O polling and management RPCs. When only a single core is assigned, heavy I/O workloads can delay or starve RPC processing, resulting in increased latency, timeout events, and operational instability.
+
+Assigning 2 or more cores allows I/O and management tasks to run on separate reactors, improving responsiveness and operational stability.
+
+For more information, see https://github.com/longhorn/longhorn/issues/13237[Issue #13237] and xref:longhorn-system/v2-data-engine/features/configurable-cpu-cores.adoc[Configurable CPU Cores].
+
 === UBLK Front-end Kernel Limitation
 
-The UBLK front-end for V2 data engine volumes is experimental and only functional on Linux kernels below v6.17. On kernel v6.17.0 and above, UBLK fails due to upstream UBLK API changes that cause `EINVAL` errors when starting UBLK devices.
+The UBLK front-end for V2 Data Engine volumes is experimental and only functional on Linux kernels below v6.17. On kernel v6.17.0 and above, UBLK fails due to upstream UBLK API changes that cause `EINVAL` errors when starting UBLK devices.
 
 For more information, see https://github.com/longhorn/longhorn/issues/11977[Issue #11977] and xref:v2-data-engine/ublk-frontend-support.adoc[UBLK Front-end Support].
 
@@ -157,12 +172,12 @@ For more information, see https://github.com/longhorn/longhorn/issues/10928[Issu
 
 ==== Fast Volume Cloning
 
-Fast volume cloning for the V2 data engine is planned for {longhorn-product-name} v1.12.1. This enhancement is intended to allow the initial `linked-clone` to be created with multiple replicas in parallel instead of being limited to a single replica.
+Fast volume cloning for the V2 Data Engine is planned for {longhorn-product-name} v1.12.1. This enhancement is intended to allow the initial `linked-clone` to be created with multiple replicas in parallel instead of being limited to a single replica.
 
 For more information, see https://github.com/longhorn/longhorn/issues/12552[Issue #12552].
 
 ==== Storage Sharding
 
-Storage sharding for the V2 data engine is planned as an experimental feature for {longhorn-product-name} v1.12.1. This capability is intended to address the existing space efficiency limitations caused by replica-based storage overhead.
+Storage sharding for the V2 Data Engine is planned as an experimental feature for {longhorn-product-name} v1.12.1. This capability is intended to address the existing space efficiency limitations caused by replica-based storage overhead.
 
 For more information, see https://github.com/longhorn/longhorn/issues/1061[Issue #1061].
