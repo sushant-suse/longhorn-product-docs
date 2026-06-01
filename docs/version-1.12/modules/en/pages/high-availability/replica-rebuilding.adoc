@@ -1,5 +1,5 @@
 = Replica Rebuilding
-:revdate: 2026-01-12
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -35,11 +35,11 @@ image::diagrams/architecture/replica-rebuilding-flow.png[Image]
 
 * Check if the snapshot file exists in the data directory of the target replica.
 ** If _no_, transfer the entire snapshot data from the source replica to the target replica.
-See <<_full_replica_rebuilding>>.
+See xref:_full_replica_rebuilding[full replica rebuilding].
 ** If _yes_, check whether the snapshot checksum files exist, and whether the modification time and checksums are identical between the target and source replicas.
-*** If _yes_, {longhorn-product-name} skips transferring the data of the snapshot. This optimization reduces CPU usage, disk I/O, network I/O, and total rebuild time. See <<_fast_replica_rebuilding>>.
+*** If _yes_, {longhorn-product-name} skips transferring the data of the snapshot. This optimization reduces CPU usage, disk I/O, network I/O, and total rebuild time. See xref:_fast_replica_rebuilding[fast replica rebuilding].
 *** If _no_, {longhorn-product-name} calculates and compares block-level checksums using the SHA-512 algorithm. If mismatches are found, only the differing blocks are synchronized.
-See <<_delta_replica_rebuilding>>.
+See xref:_delta_replica_rebuilding[delta replica rebuilding].
 
 === For V2 Data Engine
 
@@ -52,16 +52,18 @@ See <<_delta_replica_rebuilding>>.
 ** If _yes_, {longhorn-product-name} skips transferring the data of that snapshot.
 ** If _no_, check whether both the source and target snapshots contain ranged checksums.
 *** If _yes_, fetch and compare the range checksums. If mismatches exist, only the mismatched ranges are copied.
-See <<_fast_replica_rebuilding>>.
+See xref:_fast_replica_rebuilding[fast replica rebuilding].
 *** If _no_, delete the existing target snapshot. Then, copy the entire snapshot from the source replica to the target replica.
-See <<_full_replica_rebuilding>>.
+See xref:_full_replica_rebuilding[full replica rebuilding].
 
+[#_full_replica_rebuilding]
 === Full Replica Rebuilding
 
 If the replica is unrecoverable or has no existing data, {longhorn-product-name} synchronizes all data from a healthy replica. It reconstructs the replica by transferring the full snapshot chain.
 
 Full replica rebuilding consumes significant network bandwidth and results in heavy disk write operations on the target node. However, it is required when the target replica has no usable data.
 
+[#_delta_replica_rebuilding]
 === Delta Replica Rebuilding
 
 Delta replica rebuilding is only for v1 data engine. It starts with a reusable failed replica, and it checks the data integrity for all snapshots' data block by block.
@@ -75,6 +77,7 @@ Delta replica rebuilding is only for v1 data engine. It starts with a reusable f
 ** Increased CPU overhead because {longhorn-product-name} will compute the checksum of the snapshot data block by block for data integrity check.
 ** Rebuilding time is influenced by CPU performance.
 
+[#_fast_replica_rebuilding]
 === Fast Replica Rebuilding
 
 Fast replica rebuilding is enabled when the following conditions are met:
@@ -124,13 +127,13 @@ Schedule snapshots before planned maintenance to minimize rebuild time.
 * *No snapshots exist*
 ** *Why it matters*:  
 Without snapshots, {longhorn-product-name} cannot skip data transfer or reuse existing data.  
-If a volume head snapshot is created but its checksum isn't ready, {longhorn-product-name} must perform delta rebuilding.  
+If a volume head snapshot is created but its checksum is not ready, {longhorn-product-name} must perform delta rebuilding.  
 This increases CPU usage due to block-by-block checksum comparisons.
 ** *How to prevent*:
 +
 --
 . Enable `snapshot-data-integrity-immediate-check-after-snapshot-creation` or `snapshot-data-integrity` to precompute checksums.  
-   *Trade-off:* Increases CPU, disk I/O, and storage usage during computation.
+   *Trade-off:* Increases CPU, disk I/O and storage usage during computation.
 . Use a recurring job to create snapshots regularly.
 --
 
@@ -192,11 +195,11 @@ During the rebuilding process:
 +
 --
 * *If fast replica rebuilding is enabled and all snapshot checksums exist*:  
-  {longhorn-product-name} triggers <<_fast_replica_rebuilding>>.  
+  {longhorn-product-name} triggers xref:_fast_replica_rebuilding[fast replica rebuilding].
   Only changed blocks in the volume head are synced, avoiding both full and delta rebuilding.
 
 * *If fast replica rebuilding is enabled but some snapshot checksums are missing*:  
-  {longhorn-product-name} triggers <<_delta_replica_rebuilding>>.  
+  {longhorn-product-name} triggers xref:_delta_replica_rebuilding[delta replica rebuilding]..  
   Changed blocks from snapshots without checksums are synced, avoiding full rebuilding.
 
 * *If fast replica rebuilding is disabled*:  
@@ -256,7 +259,7 @@ If a worker node is drained for short-term maintenance and then quickly restored
 +
 --
 * `enabled`:  
-  Skips snapshot data transfer if checksums are current. Provides fast rebuilds but doesn't revalidate data.
+  Skips snapshot data transfer if checksums are current. Provides fast rebuilds but does not revalidate data.
 
 * `disabled`:  
   Performs delta rebuilding using block comparisons. Slower, but ensures snapshot data integrity.

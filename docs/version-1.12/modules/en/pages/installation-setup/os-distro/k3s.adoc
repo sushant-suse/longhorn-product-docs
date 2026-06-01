@@ -1,5 +1,5 @@
 = K3s
-:revdate: 2025-07-12
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -22,7 +22,7 @@ If you want to deploy {longhorn-product-name} on K3s versions earlier than v0.10
 
 === Failed to get arg root-dir: Cannot get kubelet root dir, no related proc for root-dir detection ...
 
-This error is due to {longhorn-product-name} cannot detect where is the root dir setup for Kubelet, so the CSI plugin installation failed.
+This error is due to {longhorn-product-name} cannot detect where is the root dir setup for Kubelet, so the CSI plug-in installation failed.
 
 You can override the root-dir detection by setting environment variable `KUBELET_ROOT_DIR` in https://github.com/longhorn/longhorn/blob/v{patch-version}/deploy/longhorn.yaml[`longhorn.yaml`]. 
 
@@ -30,13 +30,14 @@ You can override the root-dir detection by setting environment variable `KUBELET
 
 *For K3S prior to v0.10.0*
 
-Run `ps aux | grep k3s` and get argument `--data-dir` or `-d` on k3s node.
+Run `ps aux | grep k3s` and get argument `--data-dir` or `-d` on k3s node. For example, the result could be like below:
 
-e.g.
-
- $ ps uax | grep k3s
- root      4160  0.0  0.0  51420  3948 pts/0    S+   00:55   0:00 sudo /usr/local/bin/k3s server --data-dir /opt/test/kubelet
- root      4161 49.0  4.0 259204 164292 pts/0   Sl+  00:55   0:04 /usr/local/bin/k3s server --data-dir /opt/test/kubelet
+[,bash]
+----
+$ ps uax | grep k3s
+root      4160  0.0  0.0  51420  3948 pts/0    S+   00:55   0:00 sudo /usr/local/bin/k3s server --data-dir /opt/test/kubelet
+root      4161 49.0  4.0 259204 164292 pts/0   Sl+  00:55   0:04 /usr/local/bin/k3s server --data-dir /opt/test/kubelet
+----
 
 You will find `data-dir` in the cmdline of proc `k3s`. By default it is not set and `/var/lib/rancher/k3s` will be used. Then joining `data-dir` with `/agent/kubelet` you will get the `root-dir`. So the default `root-dir` for K3S is `/var/lib/rancher/k3s/agent/kubelet`.
 
@@ -48,7 +49,7 @@ It is always `/var/lib/kubelet`
 
 == Background
 
-=== {longhorn-product-name} versions earlier than v0.7.0 don't work on K3s v0.10.0 or later
+=== {longhorn-product-name} versions earlier than v0.7.0 do not work on K3s v0.10.0 or later
 
 K3s now sets its kubelet directory to `/var/lib/kubelet`. See https://github.com/rancher/k3s/releases/tag/v0.10.0[the K3S release comment] for details.
 

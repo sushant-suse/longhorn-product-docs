@@ -1,5 +1,5 @@
 = Configure Prometheus and Grafana to Monitor SUSE® Storage
-:revdate: 2025-07-29
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -23,7 +23,7 @@ image::screenshots/monitoring/longhorn-monitoring-system.png[images]
 
 There are 2 unmentioned components in the above picture:
 
-* Longhorn Backend service is a service pointing to the set of Longhorn manager pods. Longhorn's metrics are exposed in Longhorn manager pods at the endpoint `+http://LONGHORN_MANAGER_IP:PORT/metrics+`.
+* Longhorn Back-end service is a service pointing to the set of Longhorn manager pods. Longhorn's metrics are exposed in Longhorn manager pods at the endpoint `+http://LONGHORN_MANAGER_IP:PORT/metrics+`.
 * https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/user-guides/getting-started.md[Prometheus operator] makes running Prometheus on top of Kubernetes very easy. The operator watches 3 custom resources: ServiceMonitor, Prometheus ,and AlertManager.
 When you create those custom resources, Prometheus Operator deploys and manages the Prometheus server, AlertManager with the user-specified configurations.
 
@@ -86,7 +86,7 @@ helm upgrade longhorn longhorn/longhorn --namespace longhorn-system -f values.ya
 
 Longhorn ServiceMonitor is a https://prometheus-operator.dev/[Prometheus Operator] custom resource. This setup allows the Prometheus server to discover all Longhorn Manager pods and their respective endpoints.
 
-You can use the label selector `app: longhorn-manager` to select the longhorn-backend service, which points to the set of Longhorn Manager pods.
+You can use the label selector `app: longhorn-manager` to select the `longhorn-backend` service, which points to the set of Longhorn Manager pods.
 
 === Install and configure Prometheus AlertManager
 
@@ -179,7 +179,7 @@ Alertmanager instances require the secret resource naming to follow the format `
 After creating the above service, you can access the web UI of Alertmanager via a Node's IP and the port 30903.
 +
 ____
-Use the above `NodePort` service for quick verification only because it doesn't communicate over the TLS connection. You may want to change the service type to `ClusterIP` and set up an Ingress-controller to expose the web UI of Alertmanager over a TLS connection.
+Use the above `NodePort` service for quick verification only because it does not communicate over the TLS connection. You may want to change the service type to `ClusterIP` and set up an Ingress-controller to expose the web UI of Alertmanager over a TLS connection.
 ____
 
 === Install and configure Prometheus server
@@ -318,7 +318,7 @@ At this point, you should be able to see all Longhorn manager targets as well as
 ____
 +
 ____
-Use the above NodePort service for quick verification only because it doesn't communicate over the TLS connection. You may want to change the service type to `ClusterIP` and set up an Ingress controller to expose the web UI of the Prometheus server over a TLS connection.
+Use the above NodePort service for quick verification only because it does not communicate over the TLS connection. You may want to change the service type to `ClusterIP` and set up an Ingress controller to expose the web UI of the Prometheus server over a TLS connection.
 ____
 
 === Setup Grafana
@@ -431,7 +431,7 @@ ____
 ----
 +
 ____
-Use the above NodePort service for quick verification only because it doesn't communicate over the TLS connection. You may want to change the service type to ClusterIP and set up an Ingress controller to expose Grafana over a TLS connection.
+Use the above NodePort service for quick verification only because it does not communicate over the TLS connection. You may want to change the service type to ClusterIP and set up an Ingress controller to expose Grafana over a TLS connection.
 ____
 
 . Access the Grafana dashboard using any node IP on port `32000`.

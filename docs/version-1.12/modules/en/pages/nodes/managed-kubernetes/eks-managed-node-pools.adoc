@@ -1,5 +1,5 @@
 = Managed Node Pools on Amazon Elastic Kubernetes Service (Amazon EKS)
-:revdate: 2025-06-27
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -15,16 +15,21 @@ The following is an example to replace cluster nodes with new storage size.
 . Go to the launch template of the EKS cluster node-group. You can find in the EKS cluster tab `Configuration/Compute/<node-group-name>` and click the launch template.
 . Click `Modify template (Create new version)` in the `Actions` drop-down menu.
 . Choose the `Source template version` in the `Launch template name and version description`.
-. Follow steps to <<_expand_volume,Expand volume>>, or <<_create_additional_volume,Create additional volume>>.
+. Follow steps to xref:_expand_volume[Expand volume], or xref:_create_additional_volume[Create additional volume].
 +
-NOTE: If you choose to expand by <<_create_additional_volume,create additional volume>>, the disks need to be manually added to the disk list of the nodes after the EKS cluster upgrade.
+[NOTE]
+====
+If you choose to expand by xref:_create_additional_volume[create additional volume], the disks need to be manually added to the disk list of the nodes after the EKS cluster upgrade.
+====
 
+[#_expand_volume]
 === Expand volume
 
 . Update the volume size in `Configure storage`.
 . Click `Create template version` to save changes.
 . Go to the EKS cluster node-group and change `Launch template version` in `Node Group configuration`. Track the status in the `Update history` tab.
 
+[#_create_additional_volume]
 === Create additional volume
 
 . Click `Advanced` then `Add new volume` in `Configure storage` and fill in the fields.

@@ -1,5 +1,5 @@
 = {longhorn-product-name} VolumeAttachment
-:revdate: 2025-07-16
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -73,13 +73,13 @@ The {longhorn-product-name} `VolumeAttachment` custom resource (CR) manages atta
 
 All active tickets are stored in the `spec.attachmentTickets` map. The `type` field in each ticket (referred to as the **AttacherType**) identifies the source of the request. Common `AttacherType` values include:
 
-* `csi-attacher`: The most common type, handling standard attachment requests from the Kubernetes CSI plugin, typically when mounting a volume to a pod.
+* `csi-attacher`: The most common type, handling standard attachment requests from the Kubernetes CSI plug-in, typically when mounting a volume to a pod.
 * `longhorn-api`: Represents a manual attachment request initiated by a user through the {longhorn-product-name} UI or API.
 * `snapshot-controller`: Used when attaching a volume to create or restore a snapshot.
 * `backup-controller`: Used when attaching a volume to perform a backup.
 * `volume-restore-controller`: Used when attaching a volume during a restore operation.
 * `volume-clone-controller`: Used when attaching a volume for cloning from an existing volume.
-* `share-manager-controller`: Manages backend volume attachments for ReadWriteMany (RWX) volumes by attaching them to the share-manager pod.
+* `share-manager-controller`: Manages back-end volume attachments for ReadWriteMany (RWX) volumes by attaching them to the share-manager pod.
 * `volume-expansion-controller`: Handles attachments needed for online volume expansion.
 * `volume-rebuilding-controller`: Used when attaching a volume to rebuild a degraded or missing replica.
 * `salvage-controller`: Used during the salvage process when {longhorn-product-name} attempts to recover and reattach a problematic volume.

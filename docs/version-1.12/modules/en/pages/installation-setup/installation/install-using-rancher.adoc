@@ -1,5 +1,5 @@
 = Install {longhorn-product-name} Using Rancher
-:revdate: 2026-01-12
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -94,7 +94,7 @@ Note that when the Network Policy is enabled, access to the UI from Rancher may 
 
 Rancher interacts with the {longhorn-product-name} UI via a service called remotedialer, which facilitates connections between Rancher and the downstream clusters it manages. This service allows a user agent to access the cluster through an endpoint on the Rancher server. Remotedialer connects to the {longhorn-product-name} UI service by using the Kubernetes API Server as a proxy.
 
-However, when the Network Policy is enabled, the Kubernetes API Server may be unable to reach pods on different nodes. This occurs because the Kubernetes API Server operates within the network namespace of host without a dedicated per-pod IP address. If you're using the Calico CNI plugin, any process in the network namespace of host (such as the API Server) connecting to a pod triggers Calico to encapsulate the packet in IPIP before forwarding it to the remote host. The tunnel address is chosen as the source to ensure the remote host knows to encapsulate the return packets correctly.
+However, when the Network Policy is enabled, the Kubernetes API Server may be unable to reach pods on different nodes. This occurs because the Kubernetes API Server operates within the network namespace of host without a dedicated per-pod IP address. If you are using the Calico CNI plug-in, any process in the network namespace of host (such as the API Server) connecting to a pod triggers Calico to encapsulate the packet in IPIP before forwarding it to the remote host. The tunnel address is chosen as the source to ensure the remote host knows to encapsulate the return packets correctly.
 
 In other words, to allow the proxy to work with the Network Policy, the Tunnel IP of each node must be identified and explicitly permitted in the policy.
 

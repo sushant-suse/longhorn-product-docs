@@ -1,5 +1,5 @@
 = Offline Replica Rebuilding
-:revdate: 2025-09-16
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -56,15 +56,15 @@ The following table shows how the global and per-volume settings interact:
 
 == Rebuilding Process
 
-* When offline replica rebuilding is triggered, {longhorn-product-name} attaches the volume without activating the frontend, rebuilds any missing replicas, and then detaches the volume after the rebuilding process is complete.
+* When offline replica rebuilding is triggered, {longhorn-product-name} attaches the volume without activating the front-end, rebuilds any missing replicas, and then detaches the volume after the rebuilding process is complete.
 * This process can be interrupted if the associated workload scales up and requires the volume.
 
 == Rebuilding Not Started or Canceled
 
-When offline rebuilding starts, degraded volumes can get stuck in the attached state if rebuilding conditions aren't met. To prevent this, if the necessary conditions aren't satisfied, offline rebuilding won't start or will be canceled.
+When offline rebuilding starts, degraded volumes can get stuck in the attached state if rebuilding conditions are not met. To prevent this, if the necessary conditions are not satisfied, offline rebuilding would not start or will be canceled.
 
 * *Benefits*:
-** It ensures volumes don't remain stuck in the attached state if rebuilding never finishes.
+** It ensures volumes do not remain stuck in the attached state if rebuilding never finishes.
 ** It prevents wasteful rebuilding attempts.
 ** It reduces unnecessary volume attachment and detachment cycles.
 ** It provides predictable rebuilding behavior based on resource availability.
@@ -101,7 +101,7 @@ When offline rebuilding is enabled, {longhorn-product-name} determines whether i
 . The volume is detached and then a replica of the volume is deleted.
 . Offline rebuilding begins, and the volume is attached.
 . After rebuilding finishes, the volume is detached.
-* *Offline rebuilding doesn't start even when it is enabled*:
+* *Offline rebuilding does not start even when it is enabled*:
 . A volume is created with 3 replicas in a 3-worker-node (A, B, and C) cluster.
 . Offline rebuilding is enabled.
 . Worker node A is unschedulable.

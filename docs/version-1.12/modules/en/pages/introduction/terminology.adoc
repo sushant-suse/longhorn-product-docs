@@ -1,10 +1,10 @@
 = Terminology
-:revdate: 2025-06-27
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 
 == Attach/Reattach
 
-To attach a block device is to make it appear on the Linux node, e.g. `/dev/longhorn/testvol`
+To attach a block device is to make it appear on the Linux node, for example, `/dev/longhorn/testvol`
 
 If the volume engine dies unexpectedly, {longhorn-product-name} will reattach the volume.
 
@@ -26,19 +26,19 @@ A backup target is the endpoint used to access a backupstore in {longhorn-produc
 
 A backup volume is the backup that maps to one original volume, and it is located in the backupstore. Backup volumes can be viewed on the *Backup* page in the UI. The backup volume will contain multiple backups for the same volume.
 
-Backups can be created from snapshots. They contain the state of the volume at the time the snapshot was created, but they don't contain snapshots, so they do not contain the history of changes to the volume data. While backups are made of 2 MB files, snapshots can be terabytes.
+Backups can be created from snapshots. They contain the state of the volume at the time the snapshot was created, but they do not contain snapshots, so they do not contain the history of changes to the volume data. While backups are made of 2 MB files, snapshots can be terabytes.
 
 Backups are made of 2 MB blocks in an object store.
 
-For a longer explanation of how snapshots and backups work, refer to the xref:introduction/concepts.adoc#_2_4_1_how_snapshots_work[conceptual documentation.]
+For a longer explanation of how snapshots and backups work, refer to the xref:introduction/concepts.adoc#_2_4_1_how_snapshots_work[conceptual documentation].
 
 == Block storage
 
-An approach to storage in which data stored in fixed-size blocks. Each block is distinguished based on a memory address.
+An approach to storage in which data is stored in fixed-size blocks. Each block is distinguished based on a memory address.
 
 == CRD
 
-A Kubernetes https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/[custom resource definition.]
+A Kubernetes https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/[custom resource definition].
 
 == CSI Driver
 
@@ -52,17 +52,17 @@ Each backup volume in the backupstore maps to one original volume in the Kuberne
 
 DR volumes can be created to accurately reflect backups of a {longhorn-product-name} volume, but they cannot be used as a normal {longhorn-product-name} volume until they are activated.
 
-== ext4
+== `ext4`
 
-A file system for Linux. {longhorn-product-name} supports ext4 for storage.
+A file system for Linux. {longhorn-product-name} supports `ext4` for storage.
 
-== Frontend expansion
+== Front-end expansion
 
-The frontend here is referring to the block device exposed by the {longhorn-product-name} volume.
+The front-end here is referring to the block device exposed by the {longhorn-product-name} volume.
 
 == Instance Manager
 
-The component for controller/replica instance lifecycle management.
+The component for controller or replica instance lifecycle management.
 
 == {longhorn-product-name} volume
 
@@ -75,7 +75,7 @@ Each replica contains a chain of snapshots, which record the changes in the volu
 
 == Mount
 
-A Linux command to mount the block device to a certain directory on the node, e.g. `mount /dev/longhorn/testvol /mnt`
+A Linux command to mount the block device to a certain directory on the node, for example, `mount /dev/longhorn/testvol /mnt`
 
 == NFS
 
@@ -91,17 +91,17 @@ In an offline volume expansion, the volume is detached.
 
 == Overprovisioning
 
-Overprovisioning allows a server to view more storage capacity than has been physically reserved. That means we can schedule a total of 750 GiB {longhorn-product-name} volumes on a 200 GiB disk with 50G reserved for the root file system. The *Storage Over Provisioning Percentage* can be configured in the xref:longhorn-system/settings.adoc[settings.]
+Overprovisioning allows a server to view more storage capacity than has been physically reserved. That means we can schedule a total of 750 GiB {longhorn-product-name} volumes on a 200 GiB disk with 50G reserved for the root file system. The *Storage Over Provisioning Percentage* can be configured in the xref:longhorn-system/settings.adoc[settings].
 
 == PersistentVolume
 
-A PersistentVolume (PV) is a Kubernetes resource that represents piece of storage in the cluster that has been provisioned by an administrator or dynamically provisioned using Storage Classes. It is a cluster-level resource, and is required for pods to use persistent storage that is independent of the lifecycle of any individual pod. For more information, see the official https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetes documentation about persistent volumes.]
+A PersistentVolume (PV) is a Kubernetes resource that represents piece of storage in the cluster that has been provisioned by an administrator or dynamically provisioned using Storage Classes. It is a cluster-level resource, and is required for pods to use persistent storage that is independent of the lifecycle of any individual pod. For more information, see the official https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetes documentation about persistent volumes].
 
 == PersistentVolumeClaim
 
-A PersistentVolumeClaim (PVC) is a request for storage by a user. Pods can request specific levels of resources (CPU and Memory) by using a PVC for storage. Claims can request specific sizes and access modes (e.g., they can be mounted once read/write or many times read-only).
+A PersistentVolumeClaim (PVC) is a request for storage by a user. Pods can request specific levels of resources (CPU and Memory) by using a PVC for storage. Claims can request specific sizes and access modes (for example, they can be mounted once read/write or many times read-only).
 
-For more information, see the official https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetes documentation.]
+For more information, see the official https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetes documentation].
 
 == Primary backups
 
@@ -121,7 +121,7 @@ https://aws.amazon.com/s3/[Amazon S3] is an object storage service.
 
 == Salvage a volume
 
-The salvage operation is needed when all replicas become faulty, e.g. due to a network disconnection.
+The salvage operation is needed when all replicas become faulty, for example, due to a network disconnection.
 
 When salvaging a volume, {longhorn-product-name} will try to figure out which replica(s) are usable, then use them to recover the volume.
 
@@ -131,11 +131,11 @@ Backups external to the Kubernetes cluster, on S3 or NFS.
 
 == Snapshot
 
-A snapshot captures the state of a volume at the time the snapshot is created. Each snapshot only captures changes that overwrite data from earlier snapshots, so a sequence of snapshots is needed to fully represent the full state of the volume. Volumes can be restored from a snapshot. For a longer explanation of snapshots, refer to the xref:introduction/concepts.adoc[conceptual documentation.]
+A snapshot captures the state of a volume at the time the snapshot is created. Each snapshot only captures changes that overwrite data from earlier snapshots, so a sequence of snapshots is needed to fully represent the full state of the volume. Volumes can be restored from a snapshot. For a longer explanation of snapshots, refer to the xref:introduction/concepts.adoc[conceptual documentation].
 
 == Stable identity
 
-https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[StatefulSets] have a stable identity, which means that Kubernetes won't force delete the Pod for the user.
+https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[StatefulSets] have a stable identity, which means that Kubernetes would not force delete the Pod for the user.
 
 == StatefulSet
 
@@ -143,7 +143,7 @@ A https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[Kuberne
 
 == StorageClass
 
-A Kubernetes resource that can be used to automatically provision a PersistentVolume for a pod. For more information, refer to the https://kubernetes.io/docs/concepts/storage/storage-classes/#the-storageclass-resource[Kubernetes documentation.]
+A Kubernetes resource that can be used to automatically provision a PersistentVolume for a pod. For more information, refer to the https://kubernetes.io/docs/concepts/storage/storage-classes/#the-storageclass-resource[Kubernetes documentation].
 
 == System Backup
 
@@ -165,7 +165,7 @@ A volume in Kubernetes allows a pod to store files during the lifetime of the po
 
 These files will still be available after a container crashes, but they will not be available past the lifetime of a pod. To get storage that is still available after the lifetime of a pod, a Kubernetes https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes[PersistentVolume (PV)] is required.
 
-For more information, see the Kubernetes documentation on https://kubernetes.io/docs/concepts/storage/volumes/[volumes.]
+For more information, see the Kubernetes documentation on https://kubernetes.io/docs/concepts/storage/volumes/[volumes].
 
 == XFS
 
