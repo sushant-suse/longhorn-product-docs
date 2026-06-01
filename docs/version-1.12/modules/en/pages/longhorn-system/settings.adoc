@@ -1,5 +1,5 @@
 = Settings
-:revdate: 2026-05-06
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -1253,9 +1253,9 @@ When applying the setting, {longhorn-product-name} tries to restart all instance
 
 === Data Engine CPU Mask
 
-*Default value*: `{"v2":"true"}`
+*Default value*: `{"v2":"0x3"}`
 
-This setting applies only to the V2 Data Engine. It enables hugepages for the Storage Performance Development Kit (SPDK) target daemon. If this setting is disabled, legacy memory is used. The allocation size for this memory is set through the Data Engine Memory Size setting. Accepts hex mask format (for example, `0x1`, `0xff`) or CPU list format (for example, 1-3,5,7). CPU list format is automatically converted to hex mask. The default value is `0x1`.
+Applies only to the V2 Data Engine. Specifies the CPU cores on which the Storage Performance Development Kit (SPDK) target daemon runs. The daemon is deployed in each Instance Manager pod. Ensure that the assigned CPU cores do not exceed the guaranteed CPUs allocated to the V2 Data Engine Instance Manager. A minimum of 2 CPU cores is recommended. SPDK uses a busy-polling reactor model where the master reactor handles both I/O polling and management RPCs. When only a single core is assigned, heavy I/O workloads can delay or starve RPC processing, resulting in increased latency, timeout events, and operational instability. Assigning 2 or more cores allows I/O and management tasks to run on separate reactors, improving responsiveness and operational stability. Accepts either hexadecimal CPU masks (for example, `0x3` or `0xff`) or CPU list format (for example, 0-1, 2, 5). CPU lists are automatically converted to hexadecimal masks. The default value is `0x3`.
 
 === Data Engine Hugepage Enabled
 
