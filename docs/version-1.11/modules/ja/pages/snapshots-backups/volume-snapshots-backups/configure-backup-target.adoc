@@ -1,0 +1,542 @@
+= バックアップターゲットを設定する
+:revdate: 2025-07-14
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+バックアップターゲットは、バックアップストアにアクセスするためのエンドポイントです。バックアップターゲットは、{longhorn-product-name} UI（*設定 > バックアップターゲット*）で設定できます。バックアップストアは、Longhornボリュームのバックアップを保存するサーバーです。NFS、SMB/CIFS、Azure Blob Storage、およびS3互換サーバーを使用できます。
+
+[NOTE]
+====
+v1.8.0以降、{longhorn-product-name}は複数のバックアップストアの使用をサポートしています。新しいバックアップターゲットを作成する前に、デフォルトのバックアップターゲットを設定することをお勧めします。
+====
+
+S3などのオブジェクトストアに保存することが望ましいです。一般的に、より良い信頼性を提供します。 もう一つの利点は、ターゲットをマウントおよびアンマウントする必要がないため、フェイルオーバーやアップグレードが複雑にならないことです。
+
+{longhorn-product-name}におけるバックアップストアの動作についての詳細は、xref:introduction/concepts.adoc#_3_backups_and_secondary_storage[概念]を参照してください。
+
+AWS S3にアクセスできない場合や、バックアップストアを最初に試してみたい場合は、<<_set_up_a_local_testing_backupstore, https://minio.io/[MinIO]を使用してローカルS3テストバックアップストアをセットアップする方法>>も提供しています。
+
+{longhorn-product-name}は、{longhorn-product-name} UIまたはKubernetesストレージクラスを介して、ボリュームの定期的なスナップショット/バックアップジョブの設定もサポートしています。詳細については、xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[こちら]を参照してください。
+
+[NOTE]
+====
+* バックアップストア内のLonghornバックアップのライフサイクルは、完全に{longhorn-product-name}によって管理されます。*バックアップストアに直接保持ポリシーを適用することは厳禁です*。
+
+* {longhorn-product-name}は、以下のシナリオでバックアップ関連のカスタムリソースをクリーンアップしようとします：
+
+* NFSサーバーが利用できなくなり、空の応答を送信します。
+* 関連するLonghornバックアップコントローラー間でレースコンディションが発生します。
+
+バックアップ情報は、次のポーリング間隔中に再同期されます。詳細については、 https://github.com/longhorn/longhorn/issues/9530[問題 #9530]を参照してください。
+====
+
+== デフォルトバックアップターゲット
+
+デフォルトバックアップターゲット（`default`）は、新規インストール時に自動的に作成されます。インストール中またはインストール後に、Helmまたは https://raw.githubusercontent.com/longhorn/longhorn/v1.8.0/deploy/longhorn.yaml[マニフェストYAMLファイル]（`longhorn.yaml`）を使用してデフォルトバックアップターゲットを設定できます。
+
+=== Helmを使用してデフォルトバックアップターゲットを設定する
+
+`values.yaml`ファイル内で、デフォルトバックアップターゲットを管理するための3つのパラメータを設定できます。
+
+* `defaultBackupStore.backupTarget`:デフォルトバックアップストアにアクセスするために使用されるエンドポイント。
+* `defaultBackupStore.backupTargetCredentialSecret`:デフォルトバックアップターゲットに関連付けられたKubernetesシークレットの名前。
+* `defaultBackupStore.pollInterval`:{longhorn-product-name}が新しいバックアップのためにデフォルトバックアップストアをチェックする前に待機する秒数。
+
+[,yaml]
+----
+# -- Setting that allows you to update the default backupstore.
+defaultBackupStore:
+  # -- Endpoint used to access the default backupstore.
+  backupTarget: ~
+  # -- Name of the Kubernetes secret associated with the default backup target.
+  backupTargetCredentialSecret: ~
+  # -- Number of seconds that {longhorn-product-name} waits before checking the default backupstore for new backups.
+  pollInterval: ~
+----
+
+=== マニフェストYAMLファイルを使用してデフォルトバックアップターゲットを設定する
+
+v1.8.0以降、デフォルトバックアップターゲットリソースを含むリソースの設定を管理するために、`ConfigMap`という新しいリソース名の`longhorn-default-resource`を使用できます。
+
+* `backup-target`:デフォルトバックアップストアにアクセスするために使用されるエンドポイント。
+* `backup-target-credential-secret`:デフォルトバックアップターゲットに関連付けられたKubernetesシークレットの名前。
+* `backupstore-poll-interval`:Longhornが新しいバックアップのためにデフォルトバックアップストアをチェックする前に待機する秒数。
+
+[,yaml]
+----
+# Example
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: longhorn-default-resource
+  namespace: longhorn-system
+data:
+  default-resource.yaml: |
+    "backup-target": "s3://example@us-west-1/"
+    "backup-target-credential-secret": "example-secret"
+    "backupstore-poll-interval": "180"
+----
+
+== AWS S3バックアップストアを設定する
+
+. https://aws.amazon.com/s3/[AWS S3.]に新しいバケットを作成する
+. {longhorn-product-name}の権限を設定する。資格情報を設定するための2つのオプションがあります。最初のオプションは、AWS IAMユーザーの資格情報を持つKubernetesシークレットを設定することです。2番目のオプションは、AWS資格情報を使用するのではなく、アノテーションを介してPodの一時的なAWS IAM権限を管理するためにサードパーティアプリケーションを使用することです。
+ ** オプション1:IAMユーザー資格情報を持つKubernetesシークレットを作成する
+
+ .. 以下の権限を設定して新しいAWS IAMユーザーを作成するために https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html#id_users_create_console[ガイド]に従ってください。あなたのS3バケット名を使用するように`Resource`セクションを編集してください:
++
+[subs="+attributes",json]
+----
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "GrantLonghornBackupstoreAccess0",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:ListBucket",
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::<your-bucket-name>",
+        "arn:aws:s3:::<your-bucket-name>/*"
+      ]
+    }
+  ]
+}
+----
+
+ .. `aws-secret`という名前のKubernetesシークレットを、{longhorn-product-name}が配置されているネームスペース(`longhorn-system`がデフォルト)に作成します。シークレットは、{longhorn-product-name}がアクセスできるように`longhorn-system`ネームスペースに作成する必要があります:
++
+[subs="+attributes",shell]
+----
+kubectl create secret generic <aws-secret> \
+    --from-literal=AWS_ACCESS_KEY_ID=<your-aws-access-key-id> \
+    --from-literal=AWS_SECRET_ACCESS_KEY=<your-aws-secret-access-key> \
+    -n longhorn-system
+----
+
+* オプション2:AWS STS AssumeRole (kube2iamまたはkiam)を使用してIAM一時認証情報で権限を設定します。
++
+https://github.com/jtblin/kube2iam[kube2iam]または https://github.com/uswitch/kiam[kiam]は、AWSの認証情報を操作するのではなく、アノテーションを介してPodのAWS IAM権限を管理するKubernetesアプリケーションです。kube2iamまたはkiamのGitHubリポジトリの指示に従って、Kubernetesクラスターにインストールします。
+
+ .. 新しいAWS IAMロールをAWS S3サービス用に作成するために、 https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-service.html#roles-creatingrole-service-console[ガイド]に従ってください。以下の権限が設定されています:
++
+[subs="+attributes",json]
+----
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "GrantLonghornBackupstoreAccess0",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:ListBucket",
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::<your-bucket-name>",
+        "arn:aws:s3:::<your-bucket-name>/*"
+      ]
+    }
+  ]
+}
+----
+
+ .. 以下の信頼関係でAWS IAMロールを編集します:
++
+[subs="+attributes",json]
+----
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+          "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    },
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/<AWS_EC2_NODE_INSTANCE_ROLE>"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+----
+
+ .. `aws-secret`という名前のKubernetesシークレットを、Longhornが配置されているネームスペース(`longhorn-system`がデフォルト)に作成します。シークレットは、{longhorn-product-name}がアクセスできるように`longhorn-system`ネームスペースに作成する必要があります:
++
+[subs="+attributes",shell]
+----
+kubectl create secret generic <aws-secret> \
+    --from-literal=AWS_IAM_ROLE_ARN=<your-aws-iam-role-arn> \
+    -n longhorn-system
+----
+
+. {longhorn-product-name} UIで、*バックアップと復元 > バックアップターゲット*に移動し、バックアップターゲットを作成または編集します。
++
+*URL*を次のように設定します:
++
+[subs="+attributes",text]
+----
+ s3://<your-bucket-name>@<your-aws-region>/
+----
++
+最後に`/`があることを確認してください。そうしないとエラーが発生します。サブディレクトリ(プレフィックス)を使用することができます：
++
+[subs="+attributes",text]
+----
+ s3://<your-bucket-name>@<your-aws-region>/mypath/
+----
++
+また、*`<your-aws-region>`をURL*に設定したことを確認してください。
++
+例えば、AWSの場合、リージョンコードは https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html[こちらで見つけることができます。]
++
+Google Cloud Storageの場合、リージョンコードは https://cloud.google.com/storage/docs/locations[こちらで見つけることができます。]
++
+*認証シークレット*を次のように設定します：
++
+----
+aws-secret
+----
++
+これはAWS認証情報またはAWS IAMロールを持つシークレット名です。
+
+*結果:* {longhorn-product-name}はS3にバックアップを保存できます。バックアップを作成するには、xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[このセクション]を参照してください。
+
+NOTE: プロキシの背後で{longhorn-product-name}を操作し、AWS S3をバックアップストアとして使用したい場合は、以下のように{longhorn-product-name}にプロキシに関する情報を提供する必要があります。`aws-secret`
+
+[subs="+attributes",shell]
+----
+kubectl create secret generic <aws-secret> \
+    --from-literal=AWS_ACCESS_KEY_ID=<your-aws-access-key-id> \
+    --from-literal=AWS_SECRET_ACCESS_KEY=<your-aws-secret-access-key> \
+    --from-literal=HTTP_PROXY=<your-proxy-ip-and-port> \
+    --from-literal=HTTPS_PROXY=<your-proxy-ip-and-port> \
+    --from-literal=NO_PROXY=<excluded-ip-list> \
+    -n longhorn-system
+----
+
+`NO_PROXY`には、プロキシの使用から除外すべきネットワークアドレス、ネットワークアドレス範囲、およびドメインが含まれていることを確認してください。{longhorn-product-name}が機能するためには、`NO_PROXY`に対して必要な最小値は次のとおりです：
+
+* localhost
+* 127.0.0.1
+* 0.0.0.0
+* 10.0.0.0/8（K8sコンポーネントのIP）
+* 192.168.0.0/16（クラスター内の内部IP）
+
+== GCP Cloud Storage Backupstoreを設定する
+
+. https://console.cloud.google.com/storage/browser?referrer=search&project=elite-protocol-319303[Google Cloud Storage]に新しいバケットを作成します。
+. https://console.cloud.google.com/iam-admin[IAM & Admin]にGCPサービスアカウントを作成します。
+. GCPサービスアカウントにバケット内のオブジェクトを読み取り、書き込み、削除する権限を付与します。
++
+サービスアカウントは、バケット内のオブジェクトを読み取り、書き込み、削除するために`roles/storage.objectAdmin`ロールが必要です。
++
+サービスアカウントにアクセスを付与するために利用可能なGCP IAMロールの参照は以下の通りです https://cloud.google.com/storage/docs/access-control/iam-roles.。
+
+[NOTE]
+==== 
+このサービスアカウントがオブジェクト管理者アクセスを持つバケットの数を減らすために、IAM条件を作成することを検討してください。Google Cloudコンソールで、*Cloud Storage > Buckets*に移動し、ターゲットバケットを選択します。*バケットの詳細*画面で、*権限*タブに移動し、*アクセスを付与*をクリックして、ターゲットバケットに対してサービスアカウントにストレージオブジェクト管理者権限を付与します。
+====
+
+. https://console.cloud.google.com/storage/browser[クラウドストレージのバケット]に移動し、新しく作成したバケットを選択します。
+. クラウドストレージの設定メニューに移動し、 https://console.cloud.google.com/storage/settings;tab=interoperability[相互運用性タブ]に移動します。
+. _サービスアカウントHMAC_までスクロールし、`+ CREATE A KEY FOR A SERVICE ACCOUNT`を押します。
+. 以前に作成したGCPサービスアカウントを選択し、`CREATE KEY`を押します。
+. _アクセスキー_と_シークレット_を保存します。
++
+相互運用性メニューにいる間に、_ストレージURI_を_リクエストエンドポイント_の下にメモしておいてください。
+
+* アクセスキーは、後で作成するKubernetesシークレットの`AWS_ACCESS_KEY_ID`フィールドにマッピングされます。
+* シークレットは、後で作成するKubernetesシークレットの`AWS_SECRET_ACCESS_KEY`フィールドにマッピングされます。
+* ストレージURIは、後で作成するKubernetesシークレットの`AWS_ENDPOINTS`フィールドにマッピングされます。
+
+. {longhorn-product-name} UIに移動します。上部のナビゲーションバーで、*バックアップと復元/バックアップターゲット*をクリックし、バックアップターゲットを作成または編集します。
++
+*URL*を次のように設定します:
++
+----
+s3://${BUCKET_NAME}@us/
+----
++
+*認証シークレット*を次のように設定します:
++
+----
+longhorn-gcp-backups
+----
+
+. 次の内容で、`longhorn-system`ネームスペースに`longhorn-gcp-backups`という名前のKubernetesシークレットを作成します：
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-gcp-backups
+  namespace: longhorn-system
+type: Opaque
+stringData:
+  AWS_ACCESS_KEY_ID: GOOG1EBYHGDE4WIGH2RDYNZWWWDZ5GMQDRMNSAOTVHRAILWAMIZ2O4URPGOOQ
+  AWS_ENDPOINTS: https://storage.googleapis.com
+  AWS_SECRET_ACCESS_KEY: BKoKpIW021s7vPtraGxDOmsJbkV/0xOVBG73m+8f
+----
+
+NOTE: シークレットは、{longhorn-product-name}の設定と一致する限り、好きな名前を付けることができます。
+
+シークレットが作成され、{longhorn-product-name}の設定が保存されたら、{longhorn-product-name}のバックアップタブに移動します。問題が発生した場合は、トースト通知として表示されるはずです。
+
+エラーメッセージが表示されない場合は、バックアップを作成して、新しいバケットにコンテンツがプッシュされていることを確認してください。
+
+{longhorn-product-name} UIの*バックアップターゲット*画面には、各バックアップターゲットのステータスが表示されます。ステータスが*エラー*で、他の詳細が提供されていない場合は、ブラウザの*検査*機能を使用して`/v1/backuptargets`のレスポンスデータを表示できます。GCPからのエラーは「AWSエラー」とラベル付けされています（例：`AWS Error: AccessDenied`）。詳細については、 https://github.com/longhorn/longhorn/issues/10428[問題 #10428]を参照してください。
+
+== ローカルテストバックアップストアをセットアップします。
+
+{longhorn-product-name}は、テスト目的のためのサンプルバックアップストアサーバーのセットアップを提供します。 `longhorn/deploy/backupstores`フォルダーには、AWS S3（MinIO）、Azure、CIFS、NFSのサンプルがあります。
+
+. `longhorn-system`ネームスペースにバックアップストア用のMinIO S3サーバーを設定します。
++
+[subs="+attributes", console]
+----
+ kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/backupstores/minio-backupstore.yaml
+----
+
+. {longhorn-product-name} UIに移動します。*バックアップと復元/バックアップターゲット*をクリックし、バックアップターゲットを作成または編集します。
++
+*URL*を次のように設定します:
++
+----
+ s3://backupbucket@us-east-1/
+----
++
+*認証シークレット*を次のように設定します:
++
+----
+ minio-secret
+----
++
+`minio-secret` yamlは次のようになります：
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: Secret
+ metadata:
+   name: minio-secret
+   namespace: longhorn-system
+ type: Opaque
+ data:
+   AWS_ACCESS_KEY_ID: bG9uZ2hvcm4tdGVzdC1hY2Nlc3Mta2V5 # longhorn-test-access-key
+   AWS_SECRET_ACCESS_KEY: bG9uZ2hvcm4tdGVzdC1zZWNyZXQta2V5 # longhorn-test-secret-key
+   AWS_ENDPOINTS: aHR0cHM6Ly9taW5pby1zZXJ2aWNlLmRlZmF1bHQ6OTAwMA== # https://minio-service.default:9000
+   AWS_CERT: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURMRENDQWhTZ0F3SUJBZ0lSQU1kbzQycGhUZXlrMTcvYkxyWjVZRHN3RFFZSktvWklodmNOQVFFTEJRQXcKR2pFWU1CWUdBMVVFQ2hNUFRHOXVaMmh2Y200Z0xTQlVaWE4wTUNBWERUSXdNRFF5TnpJek1EQXhNVm9ZRHpJeApNakF3TkRBek1qTXdNREV4V2pBYU1SZ3dGZ1lEVlFRS0V3OU1iMjVuYUc5eWJpQXRJRlJsYzNRd2dnRWlNQTBHCkNTcUdTSWIzRFFFQkFRVUFBNElCRHdBd2dnRUtBb0lCQVFEWHpVdXJnUFpEZ3pUM0RZdWFlYmdld3Fvd2RlQUQKODRWWWF6ZlN1USs3K21Oa2lpUVBvelVVMmZvUWFGL1BxekJiUW1lZ29hT3l5NVhqM1VFeG1GcmV0eDBaRjVOVgpKTi85ZWFJNWRXRk9teHhpMElPUGI2T0RpbE1qcXVEbUVPSXljdjRTaCsvSWo5Zk1nS0tXUDdJZGxDNUJPeThkCncwOVdkckxxaE9WY3BKamNxYjN6K3hISHd5Q05YeGhoRm9tb2xQVnpJbnlUUEJTZkRuSDBuS0lHUXl2bGhCMGsKVHBHSzYxc2prZnFTK3hpNTlJeHVrbHZIRXNQcjFXblRzYU9oaVh6N3lQSlorcTNBMWZoVzBVa1JaRFlnWnNFbQovZ05KM3JwOFhZdURna2kzZ0UrOElXQWRBWHExeWhqRDdSSkI4VFNJYTV0SGpKUUtqZ0NlSG5HekFnTUJBQUdqCmF6QnBNQTRHQTFVZER3RUIvd1FFQXdJQ3BEQVRCZ05WSFNVRUREQUtCZ2dyQmdFRkJRY0RBVEFQQmdOVkhSTUIKQWY4RUJUQURBUUgvTURFR0ExVWRFUVFxTUNpQ0NXeHZZMkZzYUc5emRJSVZiV2x1YVc4dGMyVnlkbWxqWlM1awpaV1poZFd4MGh3Ui9BQUFCTUEwR0NTcUdTSWIzRFFFQkN3VUFBNElCQVFDbUZMMzlNSHVZMzFhMTFEajRwMjVjCnFQRUM0RHZJUWozTk9kU0dWMmQrZjZzZ3pGejFXTDhWcnF2QjFCMVM2cjRKYjJQRXVJQkQ4NFlwVXJIT1JNU2MKd3ViTEppSEtEa0Jmb2U5QWI1cC9VakpyS0tuajM0RGx2c1cvR3AwWTZYc1BWaVdpVWorb1JLbUdWSTI0Q0JIdgpnK0JtVzNDeU5RR1RLajk0eE02czNBV2xHRW95YXFXUGU1eHllVWUzZjFBWkY5N3RDaklKUmVWbENtaENGK0JtCmFUY1RSUWN3cVdvQ3AwYmJZcHlERFlwUmxxOEdQbElFOW8yWjZBc05mTHJVcGFtZ3FYMmtYa2gxa3lzSlEralAKelFadHJSMG1tdHVyM0RuRW0yYmk0TktIQVFIcFc5TXUxNkdRakUxTmJYcVF0VEI4OGpLNzZjdEg5MzRDYWw2VgotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t
+----
++
+秘密を作成する方法の詳細については、 https://kubernetes.io/docs/concepts/configuration/secret/#creating-a-secret-manually[Kubernetesのドキュメントを参照してください。] 秘密は、`longhorn-system` ネームスペースで作成する必要があり、{longhorn-product-name} がアクセスできるようにしてください。
++
+NOTE: base64エンコーディングを生成する際には必ず `echo -n` を使用してください。そうしないと、文字列の末尾に改行が追加され、S3にアクセスする際にエラーが発生します。
+
+. UIの *バックアップ* タブをクリックしてください。エラーなしで空のリストが報告されるべきです。
+
+*結果:* {longhorn-product-name}はS3にバックアップを保存できます。バックアップを作成するには、xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[このセクションを参照してください。]
+
+== S3通信に自己署名のSSL証明書を使用する
+
+自己署名のSSL証明書を使用したい場合は、{longhorn-product-name} に提供したKubernetesシークレットにAWS_CERTを指定できます。<<_set_up_a_local_testing_backupstore,ローカルテストバックアップストアの設定例を参照してください。>>
+証明書はPEM形式である必要があり、自身がCAであることに注意することが重要です。また、CA証明書を含む証明書チェーンを含める必要があります。
+複数の証明書を含めるには、異なる証明書（PEMファイル）を単に連結すればよいです。
+
+== S3互換のバックアップストアに対して、仮想ホストスタイルのアクセスを有効にする
+
+*この新しいアドレッシングアプローチをS3互換のバックアップストアに対して有効にする必要があるかもしれません。*
+
+. 今すぐこの新しいアクセススタイルに切り替えたい場合、 https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/[Amazon S3パスの非推奨計画]について心配する必要がなくなります。
+. 使用しているバックアップストアが仮想ホストスタイルのアクセスのみをサポートしている場合、例えば、Alibaba Cloud(Aliyun) OSSなどです。
+. `MINIO_DOMAIN` 環境変数を https://min.io/docs/minio/linux/administration/object-management.html#path-vs-virtual-host-bucket-access[MinIOサーバーのために仮想ホストスタイルのリクエストを有効にする] ように設定しました。
+. エラー `...... error: AWS Error: SecondLevelDomainForbidden Please use virtual hosted style to access. .....` が発生します。
+
+*仮想ホストスタイルのアクセスを有効にする方法*
+
+. バックアップターゲットの秘密に新しいフィールド `VIRTUAL_HOSTED_STYLE` を値 `true` で追加してください。例：
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: Secret
+ metadata:
+   name: s3-compatible-backup-target-secret
+   namespace: longhorn-system
+ type: Opaque
+ data:
+   AWS_ACCESS_KEY_ID: bG9uZ2hvcm4tdGVzdC1hY2Nlc3Mta2V5
+   AWS_SECRET_ACCESS_KEY: bG9uZ2hvcm4tdGVzdC1zZWNyZXQta2V5
+   AWS_ENDPOINTS: aHR0cHM6Ly9taW5pby1zZXJ2aWNlLmRlZmF1bHQ6OTAwMA==
+   VIRTUAL_HOSTED_STYLE: dHJ1ZQ== # true
+----
+
+. シークレットをデプロイまたは更新してください。
+. 次の詳細を提供して、*バックアップと復元 > バックアップターゲット*に対応するバックアップターゲットを作成します。
+.. *名前*:バックアップターゲットの希望する名前を入力してください。
+.. *URL*:`s3://<bucket-name>@<region>/`の形式を使用してS3 URLを指定してください。
+.. *資格情報シークレット*:資格情報シークレットを選択してください。この例では、`s3-compatible-backup-target-secret`です。
+
+== NFSバックアップストアを設定します。
+
+NFSサーバーがNFSv4をサポートしていることを確認し、ターゲットURLがサービスを指していることを確認してください。
+
+例:
+
+----
+nfs://longhorn-test-nfs-svc.default:/opt/backupstore
+----
+
+デフォルトのマウントオプションは`actimeo=1,soft,timeo=300,retry=2`です。 他のオプションを使用するには、キーワード「nfsOptions」とオプション文字列をターゲットURLに追加してください。
+
+例:
+
+----
+nfs://longhorn-test-nfs-svc.default:/opt/backupstore?nfsOptions=soft,timeo=330,retrans=3
+----
+
+指定したマウントオプションは、デフォルトのオプションを追加するのではなく、置き換えます。
+
+テスト目的のためのNFSバックアップストアの例を https://github.com/longhorn/longhorn/blob/v{patch-version}/deploy/backupstores/nfs-backupstore.yaml[こちら]で見つけることができます。
+
+*結果:* {longhorn-product-name}はNFSにバックアップを保存できます。バックアップを作成するには、xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[このセクションを参照してください。]
+
+== SMB/CIFSバックアップストアを設定します。
+
+SMB/CIFSバックアップストアを構成する前に、バックアップストアのための資格情報シークレットを作成してデプロイできます。
+
+[,shell]
+----
+  #!/bin/bash
+
+  USERNAME=${Username of SMB/CIFS Server}
+  PASSWORD=${Password of SMB/CIFS Server}
+
+  CIFS_USERNAME=`echo -n ${USERNAME} | base64`
+  CIFS_PASSWORD=`echo -n ${PASSWORD} | base64`
+
+  cat <<EOF >>cifs_secret.yml
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    name: cifs-secret
+    namespace: longhorn-system
+  type: Opaque
+  data:
+    CIFS_USERNAME: ${CIFS_USERNAME}
+    CIFS_PASSWORD: ${CIFS_PASSWORD}
+  EOF
+
+  kubectl apply -f cifs_secret.yml
+----
+
+{longhorn-product-name} UIで、*バックアップと復元 > バックアップターゲット*に移動します。
+
+. バックアップターゲットを作成または編集します。
++
+*URL*を次のように設定します:
++
+----
+ cifs://longhorn-test-cifs-svc.default/backupstore
+----
++
+デフォルトのCIFSマウントオプションは「soft」です。 他のオプションを使用するには、キーワード「cifsOptions」とオプション文字列をターゲットURLに追加してください。
++
+例:
++
+----
+ cifs://longhorn-test-cifs-svc.default/backupstore?cifsOptions=rsize=65536,wsize=65536,soft
+----
++
+指定したマウントオプションは、デフォルトのオプションを追加するのではなく、置き換えます。
+
+. *バックアップターゲット資格情報シークレット*を設定します。
++
+*資格情報シークレット*を次のように設定します:
++
+----
+ cifs-secret
+----
++
+これはCIFS資格情報を持つ資格情報シークレットの名前です。
+
+テスト目的のためのCIFSバックアップストアの例は https://github.com/longhorn/longhorn/blob/v{patch-version}/deploy/backupstores/cifs-backupstore.yaml[こちら]で見つけることができます。
+
+*結果:* {longhorn-product-name}はCIFSにバックアップを保存できます。バックアップを作成するには、xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[このセクションを参照してください。]
+
+== Azure Blob Storageバックアップストアを設定します。
+
+. https://portal.azure.com/[Azure Blob Storage]にバックアップストア用のコンテナが存在することを確認します。
+. Azureサービスアカウントにコンテナ内のオブジェクトを読み取り、書き込み、削除する権限を付与します。
++
+詳細については、Microsoftのドキュメントの https://learn.microsoft.com/en-us/azure/storage/blobs/blob-containers-portal[Azureポータルを使用してBlobコンテナを管理する]を参照してください。
+. *ホーム -> `serviceaccount` -> セキュリティ + ネットワーキング -> アクセスキー*に移動します。
+. 次の情報を保存します：
++
+* `Storage account name`:これは、作成するKubernetesシークレットの`AZBLOB_ACCOUNT_NAME`フィールドにマップされます。
+* `Key`:これは、作成するKubernetesシークレットの`AZBLOB_ACCOUNT_KEY`フィールドにマップされます。
++
+. {longhorn-product-name} UIに移動します。上部のナビゲーションバーで、*バックアップと復元/バックアップターゲット*をクリックし、バックアップターゲットを作成または編集します。
++
+*URL*を設定します。ターゲットURLは次のようになります：
++
+[,txt]
+----
+azblob://[your-container-name]@core.windows.net/
+----
++
+最後に`/`があることを確認してください。そうしないとエラーが発生します。サブディレクトリ(プレフィックス)を使用することができます：
++
+[,txt]
+----
+azblob://[your-container-name]@core.windows.net/my-path/
+----
++
+*資格情報シークレット*を設定します。
++
+[,txt]
+----
+longhorn-azblob-secret
+----
+
+. `longhorn-azblob-secret`という名前のKubernetesシークレットを作成します。
++
+このシークレットは、次の内容で{longhorn-product-name}ネームスペース（デフォルト: `longhorn-system`）のバックアップストアにアクセスするために使用されます:
++
+[,shell]
+----
+#!/bin/bash
+cat <<EOF >>longhorn-azblob-secret.yml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-azblob-secret
+  namespace: longhorn-system
+type: Opaque
+stringData:
+  AZBLOB_ACCOUNT_NAME: "<Storage account name>"
+  AZBLOB_ACCOUNT_KEY:  "<Key>"
+  ...
+  # Parameters below are used for the compatible azure server for instance `Azurite` or 
+  # you have a proxy to redirect the requests.
+  #AZBLOB_ENDPOINT: ""
+  #AZBLOB_CERT: ""
+  #HTTP_PROXY: ""
+  #HTTPS_PROXY: ""
+EOF
+kubectl apply -f longhorn-azblob-secret.yml
+----
+
+上記の設定を構成した後、Azure Blobストレージでバックアップを管理できます。詳細についてはxref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[バックアップ作成のハウツー]を参照してください。

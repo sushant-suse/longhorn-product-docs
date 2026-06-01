@@ -1,0 +1,48 @@
+= Identificar cargas de trabajo que utilizan un volumen
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Ahora, los usuarios pueden identificar tanto las cargas de trabajo actuales como el historial de cargas de trabajo de los volúmenes persistentes Longhorn existentes, así como el historial de haber estado vinculados a solicitudes de volúmenes persistentes (PVCs).
+
+Desde la interfaz de usuario de Longhorn, ve a la pestaña *Volúmenes*. Cada volumen de Longhorn está listado en la página. La columna *Adjunto a* muestra el nombre de la carga de trabajo que utiliza el volumen. Si haces clic en el nombre de la carga de trabajo, podrás ver más detalles, incluyendo el tipo de carga de trabajo, el nombre del pod y el estado.
+
+La información de la carga de trabajo también está disponible en la página de detalles del volumen de Longhorn. Para ver los detalles, haz clic en el nombre del volumen:
+
+----
+State: attached
+...
+Namespace:default
+PVC Name:longhorn-volv-pvc
+PV Name:pvc-0edf00f3-1d67-4783-bbce-27d4458f6db7
+PV Status:Bound
+Pod Name:teststatefulset-0
+Pod Status:Running
+Workload Name:teststatefulset
+Workload Type:StatefulSet
+----
+
+== Historial
+
+Después de que la carga de trabajo ya no esté utilizando el volumen de Longhorn, la página de detalles del volumen muestra el estado histórico de la carga de trabajo más reciente que utilizó el volumen:
+
+----
+Last time used by Pod: a few seconds ago
+...
+Last Pod Name: teststatefulset-0
+Last Workload Name: teststatefulset
+Last Workload Type: Statefulset
+----
+
+Si estos campos están configurados, indican que actualmente ninguna carga de trabajo está utilizando este volumen.
+
+Cuando un PVC ya no está vinculado al volumen, se muestra el siguiente estado:
+
+----
+Last time bound with PVC:a few seconds ago
+Last time used by Pod:32 minutes ago
+Last Namespace:default
+Last Bounded PVC Name:longhorn-volv-pvc
+----
+
+Si el campo `Last time bound with PVC` está configurado, indica que actualmente no hay un PVC vinculado a este volumen. Los campos relacionados mostrarán la carga de trabajo más reciente que utiliza este volumen.

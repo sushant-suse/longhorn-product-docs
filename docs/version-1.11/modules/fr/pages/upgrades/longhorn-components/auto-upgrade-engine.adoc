@@ -1,0 +1,43 @@
+= Mettre à niveau automatiquement le Longhorn Engine
+:revdate: 2026-01-08
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} vous permet de mettre automatiquement à niveau les volumes Longhorn vers la nouvelle version par défaut du Longhorn Engine après la mise à niveau du Longhorn Manager. Cette fonctionnalité réduit la quantité de travail manuel que vous devez effectuer lors de la mise à niveau de {longhorn-product-name}. Il existe quelques concepts liés à cette fonctionnalité, comme indiqué ci-dessous{nbsp}:
+
+== 1. Paramètre de limite par nœud pour la mise à niveau automatique simultanée du moteur
+
+C'est un paramètre qui contrôle comment {longhorn-product-name} met automatiquement à niveau les moteurs des volumes vers la nouvelle image de moteur par défaut après la mise à niveau du Longhorn Manager. La valeur de ce paramètre spécifie le nombre maximum de moteurs par nœud qui sont autorisés à se mettre à niveau vers l'image de moteur par défaut en même temps.
+
+Si la valeur est 0, {longhorn-product-name} ne mettra pas automatiquement à niveau les moteurs des volumes vers la version par défaut. Plus cette valeur est grande, plus le processus de mise à niveau du moteur se termine rapidement.
+
+Cependant, donner une valeur plus grande pour ce paramètre consommera plus d'UC et de mémoire du nœud pendant le processus de mise à niveau du moteur. Nous recommandons de définir la valeur à 3 pour laisser une marge d'erreur, mais ne pas submerger le système avec trop de mises à niveau échouées.
+
+== 2. Le comportement de {longhorn-product-name} avec différentes conditions de volume.
+
+Dans les cas suivants, supposons que le paramètre `concurrent automatic engine upgrade per node limit` est supérieur à 0.
+
+. Volumes attachés
++
+Si le volume est dans un état attaché et sain, {longhorn-product-name} effectuera automatiquement une mise à niveau en direct pour le moteur du volume vers la nouvelle image de moteur par défaut.
+
+. Volumes détachés
++
+{longhorn-product-name} effectue automatiquement une mise à niveau hors ligne pour le volume détaché.
+
+. Volumes de reprise après sinistre
++
+{longhorn-product-name} ne met pas automatiquement à niveau xref:data-integrity-recovery/disaster-recovery-volumes.adoc[volumes de reprise après sinistre] vers la nouvelle image de moteur par défaut car cela déclencherait une restauration complète pour les volumes de reprise après sinistre. La restauration complète pourrait affecter les performances d'autres volumes Longhorn en cours d'exécution dans le système. Ainsi, {longhorn-product-name} vous laisse décider du bon moment pour mettre à niveau manuellement le moteur des volumes de reprise après sinistre (par exemple, lorsque le système est inactif ou pendant la période de maintenance).
++
+Cependant, lorsque vous activez le volume de reprise après sinistre, il sera activé puis détaché.
+À ce moment-là, {longhorn-product-name} effectuera automatiquement une mise à niveau hors ligne pour le volume, similaire au cas du volume détaché.
+
+== 3. Que se passe-t-il si la mise à niveau échoue{nbsp}?
+
+Si un volume échoue à mettre à niveau son moteur, l'image du moteur dans la spécification du volume restera différente de l'image du moteur dans l'état du volume. {longhorn-product-name} continuera à essayer de mettre à niveau jusqu'à ce que cela réussisse.
+
+S'il y a trop de volumes qui échouent à se mettre à niveau par nœud (c'est-à-dire plus que le paramètre `concurrent automatic engine upgrade per node limit`), {longhorn-product-name} interrompra la mise à niveau des volumes sur ce nœud.
+
+== 4. Vivacité et nettoyage des anciens pods du gestionnaire d'instances pendant la mise à niveau automatique
+
+Pour la vivacité et le nettoyage des anciens pods du gestionnaire d'instances pendant la mise à niveau en direct, veuillez vous référer à la documentation xref:upgrades/longhorn-components/instance-manager-pods-during-upgrade.adoc[Pods du Gestionnaire d'Instances Pendant la Mise à Niveau].

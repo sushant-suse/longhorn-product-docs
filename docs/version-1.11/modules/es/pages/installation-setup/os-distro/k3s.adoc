@@ -1,0 +1,57 @@
+= K3s
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+https://rancher.com/docs/k3s/latest/en/[K3s] es una distribución de Kubernetes totalmente compatible que es fácil de instalar, utilizando la mitad de la memoria, todo en un binario de menos de 50mb.
+
+== Requisitos
+
+* {longhorn-product-name} v0.7.0 o posterior.
+* `open-iscsi` o `iscsiadm` instalado en el nodo.
+
+== Instrucción
+
+{longhorn-product-name} solo admite K3s v0.10.0 y versiones posteriores por defecto.
+
+Si deseas desplegar {longhorn-product-name} en versiones de K3s anteriores a v0.10.0, necesitas establecer `--kubelet-root-dir` en `<data-dir>/agent/kubelet` para el Deployment `longhorn-driver-deployer` en `longhorn/deploy/longhorn.yaml`.
+
+`data-dir` es un argumento `k3s` y se puede establecer cuando inicias un servidor k3s. Por defecto es `/var/lib/rancher/k3s`.
+
+== Solución de problemas
+
+=== Error al obtener el argumento root-dir: No se puede obtener el directorio raíz de kubelet, no hay proc relacionado para la detección del directorio raíz ...
+
+Este error se debe a que {longhorn-product-name} no puede detectar dónde está configurado el directorio raíz para Kubelet, por lo que la instalación del plugin CSI falló.
+
+Puedes anular la detección del directorio raíz estableciendo la variable de entorno `KUBELET_ROOT_DIR` en https://github.com/longhorn/longhorn/blob/v{patch-version}/deploy/longhorn.yaml[`longhorn.yaml`]. 
+
+=== ¿Cómo encontrar `root-dir`?
+
+*Para K3S anteriores a v0.10.0*
+
+Ejecuta `ps aux | grep k3s` y obtén el argumento `--data-dir` o `-d` en el nodo k3s.
+
+p.ej.
+
+ $ ps uax | grep k3s
+ root      4160  0.0  0.0  51420  3948 pts/0    S+   00:55   0:00 sudo /usr/local/bin/k3s server --data-dir /opt/test/kubelet
+ root      4161 49.0  4.0 259204 164292 pts/0   Sl+  00:55   0:04 /usr/local/bin/k3s server --data-dir /opt/test/kubelet
+
+Encontrarás `data-dir` en la línea de comandos del proc `k3s`. Por defecto no está configurado y se utilizará `/var/lib/rancher/k3s`. Luego, al unir `data-dir` con `/agent/kubelet` obtendrás el `root-dir`. Así que el valor predeterminado `root-dir` para K3S es `/var/lib/rancher/k3s/agent/kubelet`.
+
+Si K3S está utilizando un archivo de configuración, deberías comprobar el archivo de configuración para localizar el parámetro `data-dir`.
+
+*Para K3S v0.10.0+*
+
+Siempre es `/var/lib/kubelet`
+
+== Fondo
+
+=== Las versiones {longhorn-product-name} anteriores a v0.7.0 no funcionan en K3s v0.10.0 o posteriores
+
+K3s ahora establece su directorio kubelet en `/var/lib/kubelet`. Consulta https://github.com/rancher/k3s/releases/tag/v0.10.0[el comentario de la versión de K3S] para más detalles.
+
+== Referencia
+
+https://github.com/kubernetes-csi/driver-registrar

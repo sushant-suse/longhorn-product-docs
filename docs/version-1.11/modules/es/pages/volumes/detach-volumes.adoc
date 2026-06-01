@@ -1,0 +1,71 @@
+= Desacoplar volúmenes
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Apaga todos los Pods de Kubernetes que utilizan volúmenes Longhorn para desacoplar los volúmenes. La forma más fácil de lograr esto es eliminando todas las cargas de trabajo y recreándolas más tarde tras actualizar la versión. Si esto no es deseable, algunas cargas de trabajo pueden ser suspendidas.
+
+Cada carga de trabajo puede ser modificada para apagar sus pods.
+
+== Distribución
+
+Edita la ampliación con `kubectl edit deploy/<name>`.
+
+Establece `.spec.replicas` en `0`.
+
+== StatefulSet
+
+Edita el statefulset con `kubectl edit statefulset/<name>`.
+
+Establece `.spec.replicas` en `0`.
+
+== DaemonSet
+
+Edita el daemonset con `kubectl edit ds/<name>`.
+
+Añade un nodeSelector a la especificación del pod:
+
+[,yaml]
+----
+spec:
+  template:
+    spec:
+      nodeSelector:
+        no-schedule: "true"
+----
+
+== Pod
+
+Elimina el pod con `kubectl delete pod/<name>`.
+
+No hay forma de suspender un pod que no está gestionado por un controlador de carga de trabajo.
+
+== CronJob
+
+Edita el cronjob con `kubectl edit cronjob/<name>`.
+
+Establece `.spec.suspend` en `true`.
+
+Espera a que se completen los trabajos que se están ejecutando actualmente, o termínalos eliminando los pods relevantes.
+
+== Trabajo
+
+Considera permitir que el trabajo de ejecución única se complete.
+
+De lo contrario, elimina el trabajo con `kubectl delete job/<name>`.
+
+== ReplicaSet
+
+Edita el replicaset con `kubectl edit replicaset/<name>`.
+
+Establece `.spec.replicas` en `0`.
+
+== ReplicationController
+
+Edita el replicationcontroller con `kubectl edit rc/<name>`.
+
+Establece `.spec.replicas` en `0`.
+
+Espera a que los volúmenes utilizados por Kubernetes terminen de desacoplarse.
+
+Luego, desacopla todos los volúmenes restantes desde la interfaz de Longhorn. Estos volúmenes probablemente fueron creados y acoplados fuera de Kubernetes a través de la interfaz de Longhorn o la API REST.

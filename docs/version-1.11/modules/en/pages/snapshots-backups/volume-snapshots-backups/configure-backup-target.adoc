@@ -14,7 +14,7 @@ Saving to an object store such as S3 is preferable because it generally offers b
 
 For more information about how the backupstore works in {longhorn-product-name}, see xref:introduction/concepts.adoc#_3_backups_and_secondary_storage[Concepts].
 
-If you don't have access to AWS S3 or want to give the backupstore a try first, we've also provided a way to <<_set_up_a_local_testing_backupstore,setup a local S3 testing backupstore>> using https://minio.io/[MinIO].
+If you don't have access to AWS S3 or want to give the backupstore a try first, we've also provided a way to xref:_set_up_a_local_testing_backupstore[setup a local S3 testing backupstore] using https://minio.io/[MinIO].
 
 {longhorn-product-name} also supports setting up recurring snapshot/backup jobs for volumes, via {longhorn-product-name} UI or Kubernetes Storage Class. See xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[here] for details.
 
@@ -299,6 +299,7 @@ If you don't get any error messages, try creating a backup and confirm the conte
 
 The *Backup Target* screen on the {longhorn-product-name} UI displays the status of each backup target. If the status is *Error* and no other details are provided, you can use your browser's *Inspect* feature to view the response data for `/v1/backuptargets`. Errors from GCP are labeled "AWS Error" (for example, `AWS Error: AccessDenied`). For more information, see https://github.com/longhorn/longhorn/issues/10428[Issue #10428].
 
+[#_set_up_a_local_testing_backupstore]
 == Set up a Local Testing Backupstore
 
 {longhorn-product-name} provides sample backupstore server setups for testing purposes.  You can find samples for AWS S3 (MinIO), Azure, CIFS and NFS in the `longhorn/deploy/backupstores` folder.
@@ -351,7 +352,7 @@ NOTE: Make sure to use `echo -n` when generating the base64 encoding, otherwise 
 
 == Using a self-signed SSL certificate for S3 communication
 
-If you want to use a self-signed SSL certificate, you can specify AWS_CERT in the Kubernetes secret you provided to {longhorn-product-name}. See the example in <<_set_up_a_local_testing_backupstore,Set up a Local Testing Backupstore>>.
+If you want to use a self-signed SSL certificate, you can specify AWS_CERT in the Kubernetes secret you provided to {longhorn-product-name}. See the example in xref:_set_up_a_local_testing_backupstore[Set up a Local Testing Backupstore].
 It's important to note that the certificate needs to be in PEM format, and must be its own CA. Or one must include a certificate chain that contains the CA certificate.
 To include multiple certificates, one can just concatenate the different certificates (PEM files).
 

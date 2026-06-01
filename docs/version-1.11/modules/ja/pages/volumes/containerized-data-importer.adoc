@@ -1,0 +1,74 @@
+= {longhorn-product-name} とCDIインポート
+:revdate: 2025-12-24
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+この文書では、 https://github.com/kubevirt/containerized-data-importer[コンテナ化データインポータ（CDI）]を使用して、RawまたはQCOW2イメージを{longhorn-product-name}にインポートする方法を説明します。再利用可能な*ゴールデンイメージ*を作成し、CSIボリュームクローンを使用して複数のワークロードをプロビジョニングするためのワークフローを説明します。
+
+== 概要
+
+事前に用意されたディスクイメージが必要なKubernetes環境では、CDIは外部イメージを{longhorn-product-name}に基づくPersistentVolumeClaims（PVC）にインポートすることを可能にします。これらのPVCは、後続のワークロードをプロビジョニングするための再利用可能なゴールデンイメージとして機能します。
+
+技術的には、ゴールデンイメージは*ベースイメージPVC*として機能します。{longhorn-product-name}は、CSIボリュームクローンを使用して、各新しいクレームのために*完全で独立したコピー*を作成します。このアプローチは、完全なデータの分離を保証します。各ワークロードは独自の書き込み可能なボリュームを受け取り、元のゴールデンイメージは変更されず、ランタイムでクローンから独立しています。
+
+== のワークフロー
+
+. *インポート*:CDIは外部ソース（HTTP、S3、またはコンテナレジストリ）からイメージを取得し、{longhorn-product-name}に基づくPVCを作成します。
+. *保護*:このPVCはゴールデンイメージとして機能します。将来のクローンの一貫性を確保するために、このPVCを*読み取り専用*または不変として扱うことをお勧めします。
+. *クローン*:ワークロードは、ベースイメージをその`dataSource`として参照する新しいPVCを作成します。{longhorn-product-name}は、ベースイメージから新しいボリュームにデータをコピーします。
+
+=== ベースイメージPVCの作成
+
+DataVolumeマニフェストは、ソースイメージとLonghornストレージクラスを指定します。例えば、以下のマニフェストはHTTPを使用してQCOW2イメージをインポートします：
+
+[,yaml]
+----
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: golden-base-image
+spec:
+  source:
+    http:
+      url: "https://example.com/images/base-image.qcow2"
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
+    storageClassName: longhorn
+----
+
+作成後、CDIはイメージのインポートと変換を処理します。結果として、{longhorn-product-name}に基づくPVCがベースイメージとして機能します。このPVCは不変として扱い、ワークロードからの直接書き込みを避けることをお勧めします。
+
+=== ベースイメージのクローン作成
+
+{longhorn-product-name}でベースイメージPVCをクローンすることは、フルコピー方式で行われます。これにより、各クローンPVCのためにベースイメージの完全で独立したコピーが作成されます。したがって、各ワークロードは独自の隔離されたボリュームを持ち、ランタイム操作のためにベースイメージに依存しません。
+
+以下の例は、クローンPVCを作成する方法を示しています：
+
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloned-pvc-1
+spec:
+  dataSource:
+    name: golden-base-image
+    kind: PersistentVolumeClaim
+    apiGroup: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: longhorn
+----
+
+同じベースイメージから複数のクローンを作成できます。各クローンは完全で独立したコピーであり、ワークロードの隔離を確保します。
+
+== 参考資料
+
+* https://github.com/kubevirt/containerized-data-importer[コンテナ化データインポータ]

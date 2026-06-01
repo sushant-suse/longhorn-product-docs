@@ -1,0 +1,26 @@
+= 将卷用作 iSCSI 目标
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn 支持 iSCSI 目标前端模式。您可以通过任何 iSCSI 客户端连接到它，包括 `open-iscsi`，以及像 KVM 这样的虚拟机超级管理程序，只要它与 Longhorn 系统在同一网络中。
+
+Longhorn CSI 驱动程序不支持 iSCSI 模式。
+
+要以 iSCSI 目标前端模式启动卷，请在 `iSCSI`xref:volumes/create-volumes.adoc[创建卷时选择 作为前端。]
+
+卷附加后，您将在 `endpoint` 字段中看到如下内容：
+
+[subs="+attributes",text]
+----
+iscsi://10.42.0.21:3260/iqn.2014-09.com.rancher:testvolume/1
+----
+
+在此示例中，
+
+* IP 和端口为 `10.42.0.21:3260`。
+* 目标名称为 `iqn.2014-09.com.rancher:testvolume`。
+* 卷名称为 `testvolume`。
+* LUN 编号为 1。Longhorn 始终使用 LUN 1。
+
+上述信息可用于通过 iSCSI 客户端连接到 Longhorn 提供的 iSCSI 目标。

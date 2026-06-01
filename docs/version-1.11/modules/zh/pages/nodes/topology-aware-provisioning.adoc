@@ -1,0 +1,178 @@
+= 拓扑感知配置
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+拓扑感知配置允许您控制 Kubernetes 在创建时写入 PersistentVolume (PV) 的 `nodeAffinity` 规则。当您希望将卷固定到特定可用区或区域时，这非常有用，以便 pod 及其数据始终位于同一故障域。
+
+{longhorn-product-name} 通过两个互补的功能支持这一点：
+
+* *`csi-allowed-topology-keys` 设置*：控制哪些拓扑键（例如，`topology.kubernetes.io/zone`）出现在 PV `nodeAffinity` 中。
+* *`strictTopology` StorageClass 参数*：启用时，将 PV 固定到调度程序选择的确切节点的拓扑，而不是所有匹配的拓扑。
+
+== 先决条件
+
+. 集群中的节点必须标记为您计划使用的拓扑键。Kubernetes 在大多数云环境中会自动应用知名标签 `topology.kubernetes.io/zone`。使用以下命令进行验证：
++
+[source,shell]
+----
+kubectl get nodes --label-columns topology.kubernetes.io/zone
+----
+
+. 在 {longhorn-product-name} 中配置 *CSI 允许的拓扑键* 设置。将值设置为 {longhorn-product-name} 应该直通给 Kubernetes 的以逗号分隔的拓扑键列表。
++
+* *{longhorn-product-name} UI*：转到 *设置 > 常规 > CSI 允许的拓扑键*，并输入，例如，`topology.kubernetes.io/zone`。
+* *Longhorn API / kubectl*：
++
+[source,shell]
+----
+kubectl -n longhorn-system edit settings.longhorn.io csi-allowed-topology-keys
+----
++
+将 `value` 字段设置为 `topology.kubernetes.io/zone`。
++
+[NOTE]
+====
+更改此设置后，您必须手动重启 `longhorn-csi-plugin` DaemonSet 以使更改生效。只有在每个节点上的 CSI 插件 pod 重新启动后，拓扑才会正确应用。
+====
+
+== 工作原理
+
+当 PVC 针对使用 Longhorn CSI 驱动程序的 StorageClass 创建时，多个字段相互作用以确定 `nodeAffinity` 结果 PV 接收的内容：
+
+[cols="1,3"]
+|===
+| 字段 | 角色
+
+| `csi-allowed-topology-keys`（Longhorn 设置）
+| 告诉 CSI 驱动程序要宣传哪些拓扑键。如果为空（默认），则不会将拓扑信息传递给 Kubernetes，PV 不会接收基于拓扑的 `nodeAffinity`。
+
+| `allowedTopologies`（StorageClass字段）
+| 限制哪些拓扑值是合格的。例如，您可以将配置限制在`a`、`b`和`c`中的`a`和`b`区域。
+
+| `volumeBindingMode`（StorageClass字段）
+| `WaitForFirstConsumer`（WFFC）在调度一个pod之前延迟配置，给调度器一个首选节点。`Immediate`立即进行配置。
+
+| `strictTopology`（StorageClass参数）
+| 当`"true"`与`WaitForFirstConsumer`一起使用时，PV仅固定在调度pod的节点所在的区域，而不是所有允许的区域。此设置仅在`csi-allowed-topology-keys`包含相关拓扑键时有效。
+|===
+
+== 示例
+
+以下示例假设一个包含六个节点的集群，分布在三个区域：
+
+[cols="1,1"]
+|===
+| 节点 | 区域
+
+| node2 | a
+| node3 | b
+| node4 | c
+| node5 | a
+| node6 | b
+| node7 | c
+|===
+
+=== 基本区域级亲和性
+
+将`WaitForFirstConsumer`与`allowedTopologies`和`csi-allowed-topology-keys`一起使用，以限制卷到特定区域。
+
+*Longhorn设置*：
+
+----
+csi-allowed-topology-keys = topology.kubernetes.io/zone
+----
+
+*StorageClass*：
+
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-zone-ab
+provisioner: driver.longhorn.io
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  numberOfReplicas: "3"
+allowedTopologies:
+  - matchLabelExpressions:
+      - key: topology.kubernetes.io/zone
+        values:
+          - a
+          - b
+----
+
+*结果*：PV `nodeAffinity` 设置为 `zone in [a, b]`。PV只能附加到`a`或`b`区域中的节点。
+
+=== 严格的拓扑固定
+
+添加 `strictTopology: "true"` 以将 PV 固定到调度出的节点所在的确切区域。
+
+*Longhorn 设置*：
+
+----
+csi-allowed-topology-keys = topology.kubernetes.io/zone
+----
+
+*StorageClass*：
+
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-strict-zone
+provisioner: driver.longhorn.io
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  numberOfReplicas: "3"
+  strictTopology: "true"
+allowedTopologies:
+  - matchLabelExpressions:
+      - key: topology.kubernetes.io/zone
+        values:
+          - a
+          - b
+          - c
+----
+
+*结果*：尽管 `allowedTopologies` 中列出了所有三个区域，但 PV `nodeAffinity` 仅被固定到被调度的 Pod 所在节点的区域（例如，如果 Pod 落在 `node2` 或 `node5`，则为 `zone in [a]`）。
+
+== 行为参考
+
+在下表中，区域 `[a, b, c]` 代表上述示例集群中存在的所有区域。
+
+[cols=">1,2,2,2,1,2"]
+|===
+| # | `volumeBindingMode` | `allowedTopologies` | `csi-allowed-topology-keys` | `strictTopology` | PV `nodeAffinity`
+
+| 1  | 立即 | 无 | `""`（空） | false | 无
+| 2 | 立即 | 无 | `zone` | false | 区域 [a, b, c] 中
+| 3 | 立即 | 区域: [a, b] | `zone` | false | 区域 [a, b] 中
+| 4 | WFFC | 无 | `""`（空） | false | 无
+| 5 | WFFC | 无 | `zone` | false | 区域 [a, b, c] 中
+| 6 | WFFC | 无 | `zone` | true | 区域 [selected] 中
+| 7 | WFFC | 区域: [a] | `zone` | false | 区域 [a] 中
+| 8 | WFFC | 区域: [a, b, c] | `zone` | true | 区域 [selected] 中
+|===
+
+> 在此表中，`zone` 是 `topology.kubernetes.io/zone` 的简写，`[selected]` 表示由 Kubernetes 调度器选择的节点区域。
+
+*关键要点*：
+
+* 没有 `csi-allowed-topology-keys`，不会传递拓扑信息，PVs 不会接收基于拓扑的 `nodeAffinity`（场景 1，4）。
+* `strictTopology` 仅在与 `WaitForFirstConsumer` 一起使用时将 PV 固定到调度 Pod 的拓扑。使用 `Immediate` 时，PV 在 Pod 被调度之前创建，因此其拓扑是随机选择的。
+* `allowedTopologies` 缩小了合格区域的集合；`strictTopology` 进一步缩小到单个选定区域。
+
+== 说明和警告
+
+* 请 **不要** 将 `allowedTopologies` 与 `dataLocality: strict-local` 一起使用。PV `nodeAffinity` 一旦设置后是不可变的，并且会与 {longhorn-product-name} 的严格本地卷固定发生冲突。有关详细信息，请参见 xref:high-availability/data-locality.adoc[数据本地性]。
+* 对于那些 *不*需要拓扑感知配置的用户，最常见的配置是将 `csi-allowed-topology-keys` 留空（场景 1 和 4）。此为默认设置。
+* 对于希望进行拓扑感知配置的用户，推荐的配置是场景 7 和 8 — 将 `WaitForFirstConsumer` 与 `allowedTopologies` 和 `csi-allowed-topology-keys` 一起使用。
+
+== 相关文档
+
+* xref:volumes/storageclass-parameters.adoc[存储类参数]
+* xref:longhorn-system/settings.adoc#_csi_allowed_topology_keys[CSI 允许的拓扑键设置]
+* xref:nodes/scheduling.adoc[安排日程]

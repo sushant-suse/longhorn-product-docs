@@ -1,0 +1,21 @@
+= Suporte ao Autoscaler de Cluster Kubernetes (Experimental)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Por padrão, o Longhorn impede que o Autoscaler de Cluster Kubernetes reduza o número de nós porque:
+
+* O Longhorn cria Orçamentos de Interrupção de Pod para todos os pods de gerenciador de instância de engine e réplica.
+* Os pods do gerenciador de instância do Longhorn têm Orçamentos de Interrupção de Pod rigorosos.
+* Os pods do gerenciador de instância do Longhorn não são suportados por um controlador de carga de trabalho incorporado do Kubernetes.
+* Os pods do Longhorn estão usando montagens de volume de armazenamento local.
+
+Para mais informações, veja https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/FAQ.md#what-types-of-pods-can-prevent-ca-from-removing-a-node[Quais tipos de pods podem impedir o CA de remover um nó?]
+
+Se você quiser desbloquear a escalabilidade do Autoscaler de Cluster Kubernetes, pode definir a configuração xref:longhorn-system/settings.adoc#_kubernetes_cluster_autoscaler_enabled_experimental[Autoscaler de Cluster Kubernetes Habilitado].
+
+Quando essa configuração estiver habilitada, o Longhorn manterá o menor número possível de Orçamentos de Interrupção de Pod para os pods do gerenciador de instância. Cada volume terá pelo menos uma réplica sob a proteção de um Orçamento de Interrupção de Pod do gerenciador de instância, desde que não exista um Orçamento de Interrupção de Pod redundante que bloqueie o Autoscaler de Cluster Kubernetes de reduzir o número de nós.
+
+Quando essa configuração está habilitada, o Longhorn também adicionará a anotação `cluster-autoscaler.kubernetes.io/safe-to-evict` aos workloads do Longhorn que não são suportados por um controlador de carga de trabalho incorporado do Kubernetes ou estão usando montagens de armazenamento local.
+
+WARNING: A reconstrução de réplicas pode ser cara porque nós com réplicas reutilizáveis podem ser removidos pelo Autoscaler de Cluster Kubernetes.

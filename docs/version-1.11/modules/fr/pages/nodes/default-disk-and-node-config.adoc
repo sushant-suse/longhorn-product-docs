@@ -1,0 +1,119 @@
+= Configurer les paramètres par défaut des nœuds et des disques
+:revdate: 2025-07-11
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Cette fonctionnalité permet à l'utilisateur de personnaliser les disques par défaut et la configuration des nœuds dans {longhorn-product-name} pour les nœuds nouvellement ajoutés en utilisant des étiquettes et des annotations Kubernetes au lieu de l'interface utilisateur ou de l'API {longhorn-product-name}.
+
+Personnaliser les configurations par défaut des disques et des nœuds est utile pour faire évoluer le cluster, car cela élimine le besoin de configurer {longhorn-product-name} manuellement pour chaque nouveau nœud si le nœud contient plus d'un disque, ou si la configuration du disque diffère pour les nouveaux nœuds.
+
+{longhorn-product-name} ne synchronisera pas les étiquettes ou les annotations des nœuds avec les disques ou les balises des nœuds Longhorn actuels. De même, {longhorn-product-name} ne synchronisera pas les disques ou les balises des nœuds avec les nœuds, étiquettes et annotations, une fois que les disques ou les balises par défaut auront été créés.
+
+== Ajouter des balises de nœud aux nouveaux nœuds
+
+Lorsqu'un nœud n'a pas de balise, vous pouvez utiliser une annotation de nœud pour définir les balises de nœud, en alternative à l'utilisation de l'interface utilisateur ou de l'API {longhorn-product-name}.
+
+. Augmenter la taille du cluster Kubernetes. Les nœuds nouvellement ajoutés ne contiennent aucune balise de nœud.
+. Ajoutez des annotations aux nouveaux nœuds Kubernetes qui indiquent quelles doivent être les balises de nœud par défaut. Le format de l'annotation est{nbsp}:
++
+[,yaml]
+----
+node.longhorn.io/default-node-tags: <node tag list with JSON string format>
+----
++
+Par exemple :
++
+[,yaml]
+----
+node.longhorn.io/default-node-tags: '["fast","storage"]'
+----
+
+. Attendez que {longhorn-product-name} synchronise automatiquement la balise du nœud. Si la liste des balises du nœud était initialement vide, {longhorn-product-name} met à jour le nœud avec la liste des balises, et vous verrez les balises pour ce nœud mises à jour selon l'annotation. Si le nœud avait déjà des balises, vous ne verrez aucun changement dans la liste des balises.
+
+== Personnaliser les disques par défaut pour les nouveaux nœuds
+
+{longhorn-product-name} utilise le paramètre *Create Default Disk on Labeled Nodes* pour activer la personnalisation des disques par défaut.
+
+Si le paramètre est désactivé, {longhorn-product-name} créera un disque par défaut en utilisant `setting.default-data-path` sur tous les nouveaux nœuds.
+
+Si le paramètre est activé, {longhorn-product-name} décidera de créer ou non les disques par défaut, en fonction de la valeur de l'étiquette du nœud `node.longhorn.io/create-default-disk`.
+
+* Si la valeur de l'étiquette du nœud est `true`, {longhorn-product-name} créera le disque par défaut en utilisant `settings.default-data-path` sur le nœud. Si le nœud a déjà des disques existants, {longhorn-product-name} ne changera rien.
+* Si la valeur de l'étiquette du nœud est `config`, {longhorn-product-name} vérifiera l'annotation `node.longhorn.io/default-disks-config` et créera des disques par défaut en fonction de celle-ci. S'il n'y a pas d'annotation, ou si l'annotation est invalide, ou si la valeur de l'étiquette est invalide, {longhorn-product-name} ne changera rien.
+
+La valeur de l'étiquette ne sera effective que lorsque le paramètre est activé.
+
+Si l'étiquette `create-default-disk` n'est pas définie, le disque par défaut ne sera pas créé automatiquement sur les nouveaux nœuds lorsque le paramètre est activé.
+
+La configuration décrite dans l'annotation n'a d'effet que lorsqu'il n'y a pas de disques ou d'étiquettes existants sur le nœud.
+
+Si l'étiquette ou l'annotation échoue à la validation, l'ensemble de l'annotation est ignoré.
+
+=== Conditions préalables
+
+Le paramètre {longhorn-product-name} *Créer un disque par défaut sur les nœuds étiquetés* doit être activé.
+
+. Ajoutez de nouveaux nœuds au cluster Kubernetes.
+. Ajoutez l'étiquette au nœud. {longhorn-product-name} s'appuie sur l'étiquette pour décider comment personnaliser les disques par défaut{nbsp}:
++
+[,yaml]
+----
+node.longhorn.io/create-default-disk: 'config'
+----
+
+. Ensuite, ajoutez une annotation au nœud. L'annotation est utilisée pour spécifier la configuration des disques par défaut. Le format est le suivant :
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config: <disks configuration with JSON string format>
+----
++
+Par exemple, la configuration de disque suivante peut être spécifiée dans l'annotation{nbsp}:
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config:
+'[
+    {
+        "path":"/mnt/disk1",
+        "allowScheduling":true
+    },
+    {
+        "name":"fast-ssd-disk",
+        "path":"/mnt/disk2",
+        "allowScheduling":false,
+        "storageReserved":10485760,
+        "tags":[
+            "ssd",
+            "fast"
+        ]
+    }
+]'
+----
++
+[NOTE]
+====
+Si le même nom est spécifié pour différents disques, la configuration sera considérée comme invalide.
+====
+
+. Attendez que {longhorn-product-name} crée automatiquement les disques par défaut personnalisés, selon l'annotation.
+
+== Lancez {longhorn-product-name} avec plusieurs disques.
+
+. Ajoutez l'étiquette à tous les nœuds avant de lancer {longhorn-product-name}.
++
+[,yaml]
+----
+node.longhorn.io/create-default-disk: 'config'
+----
+
+. Ensuite, ajoutez l'annotation de configuration de disque à tous les nœuds{nbsp}:
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config: '[ { "path":"/var/lib/longhorn", "allowScheduling":true
+  }, { "name":"fast-ssd-disk", "path":"/mnt/extra", "allowScheduling":false, "storageReserved":10485760,
+  "tags":[ "ssd", "fast" ] }]'
+----
+
+. Déployez {longhorn-product-name} avec `create-default-disk-labeled-nodes: true`, consultez xref:longhorn-system//customize-default-settings.adoc[ici] pour personnaliser les paramètres par défaut de {longhorn-product-name}.

@@ -1,0 +1,117 @@
+= 备份映像的备份
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn 支持对备份映像进行备份。
+
+== 先决条件
+
+您必须首先xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[设置备份目标]。如果您跳过此关键步骤，缺失的备份目标将阻止Longhorn创建备份映像的备份。
+
+== 创建备份映像的备份
+
+由于备份映像在Longhorn系统中是全局唯一的，因此相应的备份也是全局唯一的，并使用相同的名称进行识别。
+
+=== 使用YAML创建备份
+
+备份映像示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-backup
+  namespace: longhorn-system
+spec:
+  backingImage: parrot
+  backupTargetName: default
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+用于为示例备份映像创建备份的 YAML 代码示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackupBackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  userCreated: true
+  labels:
+    usecase: test
+    type: raw
+----
+
+* `name`：如果名称不唯一，Longhorn将无法创建备份映像的备份。
+* `backingImage`：备份的备份映像
+* `backupTargetName`：用于在备份存储中存储和访问备份的端点。
+* `userCreated`：将值设置为`true`，以指示您已创建备份自定义资源，从而启用在备份存储中创建备份。值 `false` 表示备份自定义资源是从备份存储同步过来的。
+* `labels`：您可以为备份映像备份添加标签。
+
+=== 使用Longhorn UI创建备份
+
+. 转到*设置->备份映像*。
+. 选择您要备份的备份映像，然后在*操作*菜单中单击*备份*。
+
+Longhorn创建备份并将详细信息添加到*备份映像备份*列表中。
+
+image::screenshots/backing-image/backup.png[映像]
+
+== 从备份恢复备份映像
+
+在备份存储中创建备份后，您可以在另一个集群中恢复备份映像。
+
+用于恢复备份映像的 YAML 代码示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+    name: parrot-restore
+    namespace: longhorn-system
+spec:
+    sourceType: restore
+    sourceParameters:
+        # change to your backup URL
+        # backup-url: nfs://longhorn-test-nfs-svc.default:/opt/backupstore?backingImage=parrot
+        backup-url: s3://backupbucket@us-east-1/?backingImage=parrot
+        concurrent-limit: "2"
+    checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+[IMPORTANT]
+====
+* `sourceType`：将值设置为 `restore`。
+* `sourceParameters`：配置以下参数：
+ ** `backup-url`：备份存储中备份映像资源的 URL。您可以在备份自定义资源 `.Status.URL` 的状态中找到此信息。
+ ** `concurrent-limit`：每个恢复操作可以并发运行的最大工作线程数。未指定时，Longhorn 使用默认值。
+* `checksum`：您可以指定备份映像文件的预期 SHA-512 校验和，Longhorn 用于验证恢复的文件。未指定时，Longhorn 将恢复文件的校验和作为真实值。
+====
+
+=== 使用 Longhorn UI 从备份恢复
+
+. 转到*设置->备份映像*。
+. 选择您要使用的备份，然后在*操作*菜单中单击*恢复*。
+. 如果您正在恢复加密的备份映像，请指定 `Secret` 和 `Secret Namespace`。
+. 单击 *确定*。
+
+image::screenshots/backing-image/restore.png[映像]
+
+[IMPORTANT]
+====
+Longhorn 目前不在备份映像备份中存储与密钥相关的信息。恢复加密备份映像时，您必须指定密钥和其名称空间。这一问题将在将来的版本中解决。
+====
+
+== 带有备份映像的卷
+
+当您为卷创建备份时，Longhorn 会自动为其备份映像创建备份。
+
+您可以恢复带有备份映像的卷。如果映像已经存在于集群中，Longhorn 将直接使用该映像。如果映像存在于备份存储中但不在集群中，Longhorn 会自动恢复备份映像。

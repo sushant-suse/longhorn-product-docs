@@ -1,0 +1,123 @@
+= Vários discos
+:revdate: 2025-07-04
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} suporta o uso de mais de um disco nos nós para armazenar os dados do volume.
+
+Por padrão, {longhorn-product-name} armazena os dados do volume no diretório `/var/lib/longhorn` no host. Para usar um disco diferente para armazenamento, você pode adicionar um novo disco e desativar o agendamento para o diretório padrão. Essa abordagem oferece flexibilidade para gerenciar o armazenamento com base em suas necessidades específicas.
+
+== Adicionar um disco
+
+Antes de adicionar um disco ao {longhorn-product-name}, monte-o em um ponto de montagem no host do nó Longhorn.
+
+. **Escolha um disco**: Selecione o disco físico ou virtual para armazenamento Longhorn e formate-o com um sistema de arquivos baseado em extensão (por exemplo, ext4 ou XFS).
+. **Monte o disco**: Monte o disco em um diretório no host, como `/mnt/example-disk`. Certifique-se de que o diretório seja acessível e esteja corretamente configurado.
+
+Após o disco ser montado, você pode adicioná-lo ao {longhorn-product-name} usando a interface gráfica ou a ferramenta de linha de comando `kubectl`.
+
+*Usando a interface {longhorn-product-name}*
+
+. Vá para a aba *Nós*, selecione um nó e escolha *Editar discos* no menu suspenso.
+. Adicione o caminho de montagem do disco à lista de discos.
+
+*Usando `kubectl`*
+
+. Execute `kubectl edit node.longhorn.io <node-name>` para modificar o recurso do nó Longhorn.
+. Adicione o caminho do disco ao `spec.disks`. Por exemplo:
++
+[,yaml]
+----
+...
+spec:
+  ...
+  disks:
+    ...
+    example-disk:
+      allowScheduling: true
+      diskDriver: ""
+      diskType: filesystem
+      evictionRequested: false
+      path: /mnt/example-disk
+      storageReserved: 0
+      tags: []
+...
+----
++
+. Grave e saia do editor.
+
+Uma vez que um disco é adicionado:
+
+* {longhorn-product-name} detecta automaticamente os detalhes de armazenamento do disco, como capacidade máxima e disponível.
+* Se o disco for adequado para armazenar dados de volume, {longhorn-product-name} começa a agendar volumes para ele.
+
+[NOTE]
+====
+. Você não pode adicionar um caminho de disco que outro disco {longhorn-product-name} já utiliza.
+. {longhorn-product-name} usa o ID do sistema de arquivos para detectar montagens duplicadas. Portanto, você não pode adicionar um disco com o *mesmo ID de sistema de arquivos* que outro disco no mesmo nó.
++
+Para mais informações, consulte o problema https://github.com/longhorn/longhorn/issues/2477[#2477].
+====
+
+=== Reserva de Disco Raiz
+
+Opcionalmente, você pode usar o campo *Espaço Reservado* na interface ou `spec.disks.<disk-name>.storageReserved` para reservar uma parte do espaço em disco (em bytes) para outros fins. {longhorn-product-name} não usará esse espaço reservado para dados de volume.
+
+Para manter a estabilidade do nó quando os recursos de computação (por exemplo, memória ou disco) estão sob pressão, `kubelet` requer que algum espaço permaneça livre. Se esses recursos críticos forem esgotados, isso pode levar à instabilidade do nó.
+
+Por padrão, {longhorn-product-name} reserva 30% do espaço do disco raiz (`/var/lib/longhorn`) para evitar problemas como condições de `DiskPressure` de `kubelet`, especialmente após agendar múltiplos volumes. A configuração `storage-reserved-percentage-for-default-disk` controla esse comportamento.
+
+=== Usar um Caminho Alternativo para um Disco no Nó
+
+Se você preferir usar um caminho diferente para um disco (em vez do ponto de montagem original), pode usar `mount --bind` para criar um caminho alternativo. Não *use* um link simbólico (`ln -s`), pois links simbólicos não são resolvidos corretamente dentro dos pods do Longhorn.
+
+Certifique-se de que o caminho alternativo seja remontado após uma reinicialização do nó, por exemplo, adicionando-o a `/etc/fstab`.
+
+== Remover Disco
+
+Nós e discos podem ser excluídos de agendamentos futuros. Observe que qualquer armazenamento já agendado em um nó não será liberado automaticamente quando o agendamento for desativado para esse nó.
+
+Para remover um disco:
+
+. Desative o agendamento para o disco.
+. Certifique-se de que não restem réplicas ou imagens de backup no disco, incluindo quaisquer em estado de erro. Para instruções sobre como expulsar réplicas de discos desativados, veja xref:nodes/disks-or-nodes-eviction.adoc#_select_disks_or_nodes_for_eviction[Selecionar Discos ou Nós para Expulsão].
+
+Uma vez que o disco esteja vazio e o agendamento esteja desativado, você pode removê-lo com segurança da configuração do nó.
+
+== Configuração
+
+Duas configurações globais afetam o agendamento de volumes:
+
+* `StorageOverProvisioningPercentage` define o armazenamento total máximo que pode ser *agendado* em um disco, em relação à sua capacidade utilizável. A fórmula é:
+
+[,text]
+----
+ScheduledStorage / (MaximumStorage - ReservedStorage)
+----
+
+Por padrão, essa configuração é `100`%.
+
+Por exemplo, em um disco de 200 GiB com 50 GiB reservados, {longhorn-product-name} considera 150 GiB de espaço utilizável. Com a configuração padrão, {longhorn-product-name} pode agendar até 150 GiB de dados de volume.
+
+Como as cargas de trabalho normalmente não consomem todo o tamanho do volume alocado, e {longhorn-product-name} usa arquivos esparsos para armazenar dados, aumentar essa configuração é geralmente seguro e pode ajudar a otimizar a utilização do disco.
+
+* `StorageMinimalAvailablePercentage` especifica a porcentagem mínima de espaço livre que deve permanecer em um disco para agendar novas réplicas. A fórmula é:
+
+[,text]
+----
+AvailableStorage / MaximumStorage
+----
+
+Por padrão, essa configuração é `25`%.
+
+Por exemplo, para um disco de 200 GiB com 50 GiB reservados, {longhorn-product-name} para de agendar novas réplicas se o espaço disponível cair abaixo de 37,5 GiB (25% de 150 GiB). Um novo volume também não será agendado se seu tamanho empurrar o espaço disponível abaixo desse limite.
+
+Essa configuração ajuda a evitar que os discos fiquem muito cheios, o que poderia levar a falhas de agendamento ou problemas de operação do volume.
+
+[WARNING]
+====
+{longhorn-product-name} atualmente não pode impor totalmente o limite `StorageMinimalAvailablePercentage` em todos os cenários porque:
+
+. Os volumes do Longhorn podem usar mais espaço do que seu tamanho solicitado, especialmente quando são tirados instantâneos.
+. {longhorn-product-name} permite sobreprovisionamento por padrão.
+====

@@ -1,0 +1,50 @@
+= Stellen Sie das SUSE® Storage System mit einem Rancher-Snapshot in einem Cluster wieder her.
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Annahmen:
+
+* *Die meisten Daten und die zugrunde liegenden Festplatten existieren noch* im Cluster vor der Wiederherstellung und können dann direkt wiederverwendet werden.
+* Es gibt einen Sicherungsspeicher, der alle Volumendaten enthält.
+* Die Einstellung xref:longhorn-system/settings.adoc#_disable_revision_counter[`Disable Revision Counter`] ist falsch. (Standardmäßig ist dies falsch.) Andernfalls müssen die Benutzer manuell überprüfen, ob die Daten zwischen den Volumen-Replikaten konsistent sind oder die Volumen direkt aus der Sicherung wiederherstellen.
+
+== Erwartung:
+
+* Alle Einstellungen sowie die Konfigurationen von Knoten und Festplatten werden wiederhergestellt.
+* Solange die gültigen Daten noch vorhanden sind, können die Volumen ohne Verwendung einer Sicherung wiederhergestellt werden. Mit anderen Worten, wir werden versuchen, die Wiederherstellung von Sicherungen zu vermeiden, was helfen kann, die Wiederherstellungszeit (RTO) zu reduzieren und Bandbreite zu sparen.
+* Erkennen Sie die ungültigen oder nicht synchronisierten Replikate, solange das zugehörige Volumen nach der Wiederherstellung noch ein gültiges Replikat enthält.
+
+== Verhalten und Anforderungen der Rancher-Wiederherstellung
+
+* Sie müssen die Kubernetes-Komponenten auf allen Knoten neu starten. Andernfalls wird es viele Konflikte bei der Aktualisierung von Ressourcen in Longhorn geben.
+
+== Aktionen nach der Wiederherstellung
+
+* Starten Sie alle Kubernetes-Komponenten für alle Knoten neu. Siehe den obigen Link für weitere Details.
+* Beenden Sie alle Longhorn-Manager-Pods, dann wird Kubernetes sie automatisch neu starten. Warten Sie, bis die Konflikte in den Longhorn-Manager-Pods verschwunden sind.
+* Alle Volumen können wieder angeschlossen werden. Wenn ein Longhorn-Volumen von einem einzelnen Pod verwendet wird, müssen die Benutzer es herunterfahren und dann neu erstellen. Für Deployments oder Statefulsets wird Longhorn automatisch die zugehörigen Pods beenden und dann neu starten.
+* Wenn Folgendes nach dem Snapshot und vor der Cluster-Wiederherstellung passiert:
+ ** Ein Volumen bleibt unverändert: Die Benutzer müssen nichts tun.
+ ** Die Daten werden aktualisiert: Die Benutzer müssen normalerweise nichts tun. Longhorn markiert automatisch die Replikate als fehlerhaft, die nicht die neuesten Daten enthalten.
+ ** Ein neues Volumen wird erstellt: Dieses Volumen wird nach der Wiederherstellung verschwinden. Die Benutzer müssen ein neues Volumen neu erstellen, xref:data-integrity-recovery/data-recovery/retrieve-volume-data-from-replica.adoc[ein einzelnes Replikat-Volumen] basierend auf der Replik des verschwundenen Volumens starten und dann die Daten auf das neue Volumen übertragen.
+ ** Ein Volumen wird gelöscht: Da die Daten beim Entfernen des Volumens bereinigt werden, enthält das wiederhergestellte Volumen keine Daten. Die Benutzer müssen es möglicherweise erneut löschen.
+ ** Für DR-Volumen: Die Benutzer müssen nichts tun. Longhorn wird eine vollständige Wiederherstellung erneut durchführen.
+ ** Einige Operationen werden für ein Volumen angewendet:
+  *** Sicherung: Die Sicherungsinformationen des Volumens sollten automatisch synchronisiert werden.
+  *** Momentaufnahme: Die Snapshot-Informationen des Volumens sollten synchronisiert werden, sobald das Volumen angeschlossen ist.
+  *** Replikatwiederherstellung & Replikatentfernung:
+   **** Wenn neue Replikate wiederhergestellt werden, verschwinden diese Replikate nach der Wiederherstellung aus dem Longhorn-System. Benutzer müssen die Replikatdaten manuell bereinigen oder die Datenverzeichnisse dieser Replikate verwenden, um ein einzelnes Replikatvolumen zu exportieren und dann gegebenenfalls eine Datenwiederherstellung durchzuführen.
+   **** Wenn es einige fehlgeschlagene oder entfernte Replikate gibt und mindestens ein Replikat gesund bleibt, tauchen diese fehlgeschlagenen oder entfernten Replikate nach der Wiederherstellung wieder auf. Dann kann Longhorn erkennen, dass diese wiederhergestellten Replikate keine Daten enthalten, und die neuesten Daten vom gesunden Replikat auf diese Replikate kopieren.
+   **** Wenn alle Replikate nach dem Snapshot durch neue Replikate ersetzt werden, enthält das Volumen nach der Wiederherstellung nur ungültige Replikate. Dann müssen Benutzer xref:data-integrity-recovery/data-recovery/retrieve-volume-data-from-replica.adoc[ein einzelnes Replikatvolumen] für die Datenwiederherstellung exportieren.
+  *** Engine-Image-Upgrade: Benutzer müssen das Upgrade erneut durchführen.
+  *** Erweiterung: Die Spezifikationsgröße des Volumens wird kleiner sein als die aktuelle Größe. Das ist wie jemand, der eine Volumensverkleinerung anfordert, aber tatsächlich wird Longhorn sich weigern, dies intern zu bearbeiten. Um das Volumen wiederherzustellen, müssen die Benutzer die Arbeitslasten reduzieren und die Erweiterung erneut durchführen.
+ ** *Hinweis*: Wenn Benutzer nicht wissen, wie sie ein problematisches Volumen wiederherstellen können, ist der einfachste Weg immer, ein neues Volumen aus der Sicherung wiederherzustellen.
+* Wenn das Longhorn-System nach dem Snapshot aktualisiert wird, verschwinden die neuen Einstellungen und die Änderungen an der Knotenkonfiguration. Benutzer müssen das Upgrade erneut durchführen und dann die Einstellungen und Knotenkonfigurationen erneut ändern.
+* Wenn ein Knoten nach dem Snapshot aus dem Longhorn-System gelöscht wird, wird der Knoten nicht zurückkehren, aber die Pods auf dem entfernten Knoten werden wiederhergestellt. Benutzer müssen diese manuell bereinigen, da diese Pods möglicherweise im Zustand `Terminating` stecken bleiben.
+* Wenn ein Knoten nach dem Snapshot zum Longhorn-System hinzugefügt wird, sollte Longhorn alle notwendigen Arbeitslasten auf dem Knoten nach der Clusterwiederherstellung automatisch neu starten. Die Benutzer sollten sich jedoch bewusst sein, dass alle neuen Replikate oder Engines auf diesem Knoten nach der Wiederherstellung verschwunden sein werden.
+
+== Hinweise
+
+* Das zugehörige GitHub-Problem ist https://github.com/longhorn/longhorn/issues/2228.
+In diesem GitHub-Beitrag bietet ein Benutzer eine Möglichkeit, Longhorn in einen neuen Cluster wiederherzustellen, der keine Daten enthält.

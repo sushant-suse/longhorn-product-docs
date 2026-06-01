@@ -1,0 +1,220 @@
+= {longhorn-product-name} ボリュームアタッチメント
+:revdate: 2025-07-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+この文書は、`VolumeAttachment` カスタムリソースの詳細な概要を提供し、{longhorn-product-name} との統合、Kubernetes のネイティブ `VolumeAttachment`、運用フロー、および一般的なトラブルシューティングシナリオについて説明します。
+
+== Kubernetes と {longhorn-product-name} `VolumeAttachment`
+
+{longhorn-product-name} におけるボリュームアタッチメントの動作を理解するためには、Kubernetes の `VolumeAttachment` と {longhorn-product-name} のカスタム `VolumeAttachment` を区別することが重要です。
+
+* **Kubernetes `VolumeAttachment`**：これは、コンテナストレージインターフェース (CSI) 仕様の一部であるネイティブ Kubernetes API リソースです。その主な役割は、特定のノードにボリュームをアタッチする必要があることを CSI ドライバーに通知することです。
+* **{longhorn-product-name} `VolumeAttachment`**：これは、{longhorn-product-name} によって定義されたカスタムリソース (CR) で、正式名称は `volumeattachment.longhorn.io` です。この内部 {longhorn-product-name} リソースは、Longhorn Manager によってボリュームのすべてのアタッチメントリクエストを追跡および管理するために使用されます。
+
+== {longhorn-product-name} `VolumeAttachment`
+
+=== `VolumeAttachment` CR
+
+{longhorn-product-name} `VolumeAttachment` CR を取得するには、次のコマンドを使用します：
+
+[,shell]
+----
+kubectl -n longhorn-system get volumeattachment.longhorn.io <volume-name> -o yaml
+----
+
+出力の例：
+
+[,yaml]
+----
+apiVersion: v1
+...
+  spec:
+    attachmentTickets:
+      csi-f0471a334f0b249f964cd1dec461a5eb94c8d268cbbc904c1a8e9a37e2045208:
+        generation: 0
+        id: csi-f0471a334f0b249f964cd1dec461a5eb94c8d268cbbc904c1a8e9a37e2045208
+        nodeID: rancher60-master
+        parameters:
+          disableFrontend: "false"
+          lastAttachedBy: ""
+        type: csi-attacher
+    volume: pvc-b26e9514-aafd-46e0-b70c-4e3f187c7977
+  status:
+    attachmentTicketStatuses:
+      csi-f0471a334f0b249f964cd1dec461a5eb94c8d268cbbc904c1a8e9a37e2045208:
+        conditions:
+        - lastProbeTime: ""
+          lastTransitionTime: "2025-07-05T09:17:27Z"
+          message: ""
+          reason: ""
+          status: "True"
+          type: Satisfied
+        generation: 0
+        id: csi-f0471a334f0b249f964cd1dec461a5eb94c8d268cbbc904c1a8e9a37e2045208
+        satisfied: true
+...
+----
+
+* `spec.attachmentTickets`:すべてのアクティブなアタッチメントリクエストを含むマップで、**チケット** とも呼ばれます。各チケットには次の情報が含まれます：
+ ** `id`:添付チケットの一意の識別子。
+ ** `nodeID`:ボリュームをアタッチするノードの ID。
+ ** `parameters`:アタッチメントのオプションのパラメータ、例えば `disableFrontend` と `lastAttachedBy`。
+ ** `type`:アタッチャータイプ、アタッチメントリクエストのソースを示します。
+
+* `status.attachmentTicketStatuses`:各アクティブなアタッチメントチケットまたはリクエストの現在のステータスを含むマップ。各エントリには次の情報が含まれます：
+ ** `conditions`:チケットの現在の状態（リクエストが満たされているかどうかを含む）。
+ ** `satisfied`:アタッチメントリクエストが満たされたかどうかを示すブール値。
+ ** `generation`:チケットの世代番号で、更新を追跡するために使用されます。
+
+=== 添付チケットの理解
+
+{longhorn-product-name} `VolumeAttachment` カスタムリソース（CR）は、さまざまな内部 {longhorn-product-name} システムコントローラーからの添付リクエストを管理します。各リクエストは、CR内の**添付チケット**として表されます。
+
+すべてのアクティブなチケットは、`spec.attachmentTickets` マップに保存されます。各チケットの`type` フィールド（**AttacherType**と呼ばれる）は、リクエストのソースを特定します。一般的な`AttacherType`値には次のものが含まれます：
+
+* `csi-attacher`:最も一般的なタイプで、Kubernetes CSIプラグインからの標準添付リクエストを処理します。通常、ポッドにボリュームをマウントする際に使用されます。
+* `longhorn-api`:ユーザーが{longhorn-product-name} UIまたはAPIを通じて開始した手動添付リクエストを表します。
+* `snapshot-controller`:スナップショットを作成または復元するためにボリュームを添付する際に使用されます。
+* `backup-controller`:バックアップを実行するためにボリュームを添付する際に使用されます。
+* `volume-restore-controller`:復元操作中にボリュームを添付する際に使用されます。
+* `volume-clone-controller`:既存のボリュームからクローンを作成するためにボリュームを添付する際に使用されます。
+* `share-manager-controller`:ReadWriteMany（RWX）ボリュームのバックエンドボリューム添付を管理し、シェアマネージャーポッドに添付します。
+* `volume-expansion-controller`:オンラインボリューム拡張に必要な添付を処理します。
+* `volume-rebuilding-controller`:劣化または欠落したレプリカを再構築するためにボリュームを添付する際に使用されます。
+* `salvage-controller`:{longhorn-product-name}が問題のあるボリュームを回復して再アタッチしようとする際の救助プロセス中に使用されます。
+* `volume-eviction-controller`:ノードからレプリカを追い出す際に関与する添付を処理します。
+* `bim-ds-controller`:バックイメージからボリュームを作成する際に、バックイメージデータソースコントローラーによって使用されます。
+
+== CSIアタッチおよびデタッチワークフロー
+
+{longhorn-product-name}がKubernetesと統合される方法を理解するためには、ネイティブKubernetesの`VolumeAttachment`リソースと{longhorn-product-name}カスタム`VolumeAttachment`CRがCSIインターフェースを通じてどのように相互作用するかを検討することが重要です。
+
+=== ワークフローのコアコンポーネント
+
+Kubernetesおよび{longhorn-product-name} `VolumeAttachment`オブジェクトに加えて、ボリュームのアタッチとデタッチを管理するためにいくつかの重要なコンポーネントが連携しています：
+
+* `external-attacher`:Kubernetesの`VolumeAttachment`オブジェクトを監視し、Longhorn CSIドライバーに`ControllerPublishVolume`または`ControllerUnpublishVolume`のgRPCコールをトリガーするCSIサイドカーコンテナ。
+* `longhorn-csi-plugin`:必要なCSI gRPCサービスを実装するLonghorn CSIドライバー。
+* `longhorn-manager`:Longhornボリュームのライフサイクル全体を管理する{longhorn-product-name}の中央コントローラー。ボリュームアタッチメントロジックを含むさまざまなサブコントローラーが含まれています。
+* `longhorn-volume-attachment-controller`:`longhorn-manager`内のサブコントローラーで、{longhorn-product-name} `VolumeAttachment` CRを監視し、その仕様に基づいてアタッチまたはデタッチ操作を実行します。
+
+=== CSIボリュームアタッチフロー
+
+Longhorn PersistentVolumeClaim (PVC)を使用するポッドがノードにスケジュールされると、CSIボリュームアタッチワークフローが開始されます。
+
+. **Kubeletリクエスト**:ターゲットノードのkubeletは、Longhornボリュームをマウントする必要があることを検出し、Kubernetesの`attach-detach-controller`に通知します。
+. **Kubernetes `VolumeAttachment`作成**:`attach-detach-controller`は、Longhorn CSIドライバー(`driver.longhorn.io`)、ターゲットノード名、および永続ボリューム名を指定してKubernetesの`VolumeAttachment`オブジェクトを作成します。
+. **`external-attacher` CSIコールをトリガー**:`external-attacher`サイドカーコンテナは、新しいKubernetesの`VolumeAttachment`オブジェクトを観察し、`ControllerPublishVolume`のgRPCコールを`longhorn-csi-plugin`に発行します。
+. **Longhorn `VolumeAttachment` CR作成**:ボリュームを直接アタッチするのではなく、`longhorn-csi-plugin`はLonghorn `VolumeAttachment`カスタムリソース(CR)を作成します。CRの仕様に**添付チケット**を追加して、添付リクエストを表現します。
+. **Longhornコントローラーの調整**:`longhorn-volume-attachment-controller`は`longhorn-manager`内のサブコントローラーであり、新しいチケットを検出して調整を開始します。ボリュームが利用可能であることを確認し、対応するボリュームCRの`spec.nodeID`フィールドをターゲットノード名で更新します。
+. **`longhorn-manager` 添付を実行**:`spec.nodeID`が設定されていることを検出した後、`longhorn-manager`は指定されたノードでLonghorn Engineを起動して添付を完了します。
+. **ボリューム添付完了**:
+* `longhorn-manager`はボリュームCRのステータスを更新して、ボリュームが添付されていることを反映します。
+* `longhorn-volume-attachment-controller`はLonghorn `VolumeAttachment` CRのステータスを更新して成功を示します。
+* `longhorn-csi-plugin`は成功のステータスを受け取り、`external-attacher`に応答します。
+* 最後に、`external-attacher`はKubernetes `status.attached`オブジェクトの`VolumeAttachment`フィールドを`true`としてマークします。
+. **kubeletがボリュームをマウント**:ボリュームが添付されているとマークされると、kubeletはポッドのコンテナにボリュームをマウントするために`NodeStageVolume`および`NodePublishVolume`のCSI呼び出しを進めます。
+
+=== CSIボリュームデタッチフロー
+
+Longhornボリュームを使用しているポッドが削除または再スケジュールされると、CSIデタッチワークフローが開始されます。
+
+. **Kubeletリクエスト**:kubeletは、ボリュームがノードでもはや必要ないことをKubernetes `attach-detach-controller`に通知します。
+. **Kubernetes `VolumeAttachment` 削除**:`attach-detach-controller`は対応するKubernetes `VolumeAttachment`オブジェクトを削除します。
+. **`external-attacher` CSIコールをトリガー**:`external-attacher`は削除を観察し、`longhorn-csi-plugin`に対して`ControllerUnpublishVolume`のgRPC呼び出しを開始します。
+. **添付チケットの削除**:`longhorn-csi-plugin`は、関連する添付チケットを削除するために{longhorn-product-name} `VolumeAttachment` CRを更新することによってリクエストを処理します。
+. **Longhornコントローラーの調整**:`longhorn-volume-attachment-controller`は、チケットが削除されたことを検出します。ボリュームに他のチケットが存在しない場合、Longhorn Volume CRの`spec.nodeID`フィールドをクリアします。
+. **`longhorn-manager` デタッチメントの実行**:`spec.nodeID`がクリアされた状態で、`longhorn-manager`はノード上のLonghorn Engineを停止することによってデタッチメント処理を開始します。
+. **ボリュームのデタッチ完了**:
+* `longhorn-manager`は、ボリュームがデタッチされたことを示すためにVolume CRのステータスを更新します。
+* `longhorn-csi-plugin`は確認を受け取り、`external-attacher`に成功と応答します。
+* `external-attacher`はKubernetes `VolumeAttachment`オブジェクトからファイナライザーを削除し、APIサーバーが完全に削除できるようにします。
+
+=== ワークフローの概要
+
+{longhorn-product-name}は、カスタム `VolumeAttachment` CRを導入することにより、Kubernetesのネイティブボリュームアタッチメントメカニズムを拡張します。この設計は、いくつかの利点を提供します：
+
+* **デカップリングと抽象化**:カスタムリソースは、{longhorn-product-name}内に複雑なアタッチまたはデタッチのロジックをカプセル化し、`longhorn-csi-plugin`の責任を軽減します。
+* **細かい制御**:アタッチメントチケットシステムは、{longhorn-product-name}が複数のソース（例えば、ポッド、スナップショット、バックアップ）からのリクエストを処理できるようにし、同時にボリュームごとに1つの有効なアタッチメントのみを保証します。
+* **監視とトラブルシューティング**:CRは、ボリュームのアタッチメント状態と履歴を明確に可視化し、監視とトラブルシューティングを簡素化します。
+
+要約すると、Kubernetes `VolumeAttachment`オブジェクトはアタッチメントまたはデタッチメントプロセスを開始し、{longhorn-product-name}のカスタム`VolumeAttachment` CRが内部で実際の操作を調整および管理します。
+
+== ボリュームアタッチメントの問題のトラブルシューティング
+
+このセクションでは、ボリュームのアタッチメントに関連する一般的な問題を概説し、推奨される解決手順を提供します。変更を加える前に、システムログと関連するカスタムリソースを慎重に確認し、アクティブなワークロードを中断しないようにしてください。
+
+=== ボリュームが`Attaching`または`Detaching`の状態に固まっています
+
+ボリュームが`Attaching`または`Detaching`の状態に長時間留まる場合、その原因は通常、{longhorn-product-name} `VolumeAttachment` CR内の古いまたは競合するアタッチメントチケットに関連しています。
+
+==== 考えられる原因
+
+* **古いまたは孤児のチケット**:以前のワークロード（例えば、削除されたポッドや完了したバックアップジョブ）からのチケットが適切に削除されず、`spec.attachmentTickets`の下にまだ存在しています。
+* **競合するチケット**:既存のチケット（例えば、CSIアタッチャーからのもの）が新しいリクエスト（例えば、手動でのデタッチや別のノードへの移動）をブロックしています。
+
+==== 解決手順
+
+. **{longhorn-product-name} `VolumeAttachment` CRを確認する**:以下のコマンドを使用してアタッチメントチケットを表示します:
++
+[,shell]
+----
+kubectl -n longhorn-system get volumeattachment.longhorn.io <volume-name> -o yaml
+----
++
+. **チケットのソースを分析する**:`spec.attachmentTickets`の下を確認し、各チケットの`type`フィールドをチェックしてそのソースを特定します（例えば、`csi-attacher`、`backup-controller`など）。
+. **無効なチケットを慎重に削除する**:チケットがもはや必要ないことを確認した場合（例えば、対応するポッドが削除された場合）、CRを編集して削除することができます。
++
+[WARNING]
+====
+アクティブなチケットを削除すると、深刻な中断を引き起こす可能性があります。実行中のワークロードによってまだ必要とされているチケットを削除すると、{longhorn-product-name}はこれをデタッチリクエストとして解釈します:
+
+* ボリュームエンジンはノード上で停止し、ポッドはストレージアクセスを失い、入出力エラーが発生し、ポッドがクラッシュする可能性があります。
+* Kubernetes CSIは最終的に問題を検出し、ボリュームを再アタッチし、チケットを再作成しますが、これによりダウンタイムが発生し、手動でポッドを再起動する必要があるかもしれません。
+
+チケットに関連する作業負荷が非アクティブであることを確認してから、削除してください。
+====
++
+. **状態を確認してください**:無効なチケットを削除した後、{longhorn-product-name}はアタッチまたはデタッチ操作を正常に完了できるはずです。
+
+=== ケーススタディ
+
+==== ケース 1:予期しない `longhorn-ui` アタッチメントチケットによるボリュームのアタッチ失敗
+
+* **問題**: https://github.com/longhorn/longhorn/issues/8339[#8339]
+* **症状**:
+ ** 影響を受けたボリュームを使用している作業負荷は、`Pending`状態のまま動かなくなっています。
+ ** {longhorn-product-name} `VolumeAttachment` CRには、`longhorn-ui`からの予期しないチケットが含まれています。
+* **解決策**:
+ ** `VolumeAttachment` CRを確認してください:
++
+[,shell]
+----
+kubectl -n longhorn-system get volumeattachment.longhorn.io <volume-name> -o yaml
+----
++
+ ** `longhorn-ui` アタッチメントチケットが見つかった場合は、CRからチケットブロック全体を削除してください。
+
+==== ケース2:ボリュームが新しいノードにアタッチできないのは、バックアップジョブが保留状態に留まっているためです。
+
+* **問題**: https://github.com/longhorn/longhorn/issues/10090[#10090]
+* **症状**:
+ ** 作業負荷が別のノードに再スケジュールされると、ボリュームが追従できません。
+ ** 存在しないスナップショットを参照しているバックアップジョブは、`Pending`状態のまま動かなくなり、`status.message`には `failed to get the snapshot ... not found`が含まれています。
+ ** これらの詰まったバックアップジョブはボリュームを保持しており、デタッチまたは再アタッチをブロックしています。
+* **解決策**:
+. ボリュームをロックしているチケットがあるかどうか、{longhorn-product-name} `VolumeAttachment` CRを確認してください:
++
+[,shell]
+----
+kubectl -n longhorn-system get volumeattachment.longhorn.io <volume-name> -o yaml
+----
++
+. バックアップコントローラーからのチケットが表示された場合、バックアップジョブがボリュームをロックしています。
+. **アタッチメント`backup-*`チケットを直接削除しないでください**、{longhorn-product-name}が再作成します。
+. 代わりに、スタックしたバックアップジョブを解決するには、`Backup` CRを削除してください（方法：）。
+ ** `status.state = pending`
+ ** `status.message`に`Failed to get the Snapshot...`を含む
++
+これにより、ボリュームが解放され、再アタッチできるようになります。

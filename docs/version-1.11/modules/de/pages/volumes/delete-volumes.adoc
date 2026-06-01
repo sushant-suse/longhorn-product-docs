@@ -1,0 +1,22 @@
+= Löschen von Volumes
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Sobald Sie ein Longhorn-Volume für die Speicherung genutzt haben, gibt es mehrere Möglichkeiten, das Volume zu löschen, abhängig davon, wie Sie das Volume verwendet haben.
+
+== Volumes über Kubernetes löschen
+
+NOTE: Diese Methode funktioniert nur, wenn das Volume von einer StorageClass bereitgestellt wurde und das PersistentVolume für das Longhorn-Volume die Reclaim-Richtlinie auf Löschen gesetzt hat.
+
+Sie können ein Volume über Kubernetes löschen, indem Sie den PersistentVolumeClaim löschen, der das bereitgestellte Longhorn-Volume verwendet. Dies führt dazu, dass Kubernetes das PersistentVolume bereinigt und dann das Volume in Longhorn löscht.
+
+== Volumes über Longhorn löschen
+
+Alle Longhorn-Volumes, unabhängig davon, wie sie erstellt wurden, können über die Longhorn-Benutzeroberfläche gelöscht werden.
+
+Um ein einzelnes Volume zu löschen, gehen Sie zur Seite Volumes in der Benutzeroberfläche. Wählen Sie im Dropdown-Menü Operation die Option Löschen aus. Sie werden vor dem Löschen des Volumes um eine Bestätigung gebeten.
+
+Um mehrere Volumes gleichzeitig zu löschen, können Sie mehrere Volumes auf der Seite Volumes auswählen und oben Löschen wählen.
+
+NOTE: Wenn Longhorn erkennt, dass ein Volume an ein PersistentVolume oder PersistentVolumeClaim gebunden ist, werden diese Ressourcen ebenfalls gelöscht, sobald Sie das Volume löschen. Sie werden in der Benutzeroberfläche vor diesem Vorgang gewarnt, bevor Sie mit dem Löschen fortfahren. Longhorn wird Sie auch warnen, wenn Sie ein angehängtes Volume löschen, da es möglicherweise in Verwendung ist.

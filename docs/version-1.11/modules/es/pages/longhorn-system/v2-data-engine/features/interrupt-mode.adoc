@@ -1,0 +1,94 @@
+= Modo de interrupción
+:revdate: 2025-11-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+A partir de la v1.10.0, {longhorn-product-name} admite *modo de interrupción SPDK* para volúmenes del motor de datos V2. El modo de interrupción proporciona una alternativa al *modo de sondeo* predeterminado, ofreciendo una mejor eficiencia de CPU en ciertos entornos.
+
+El modo de interrupción es particularmente adecuado para clústeres con recursos de CPU limitados y un número relativamente pequeño de volúmenes. Mientras que el modo de sondeo maximiza el rendimiento manteniendo la utilización de la CPU cerca del 100% en los núcleos asignados, el modo de interrupción reduce el uso de la CPU permitiendo que el reactor SPDK ajuste su uso dinámicamente en lugar de sondear continuamente.
+
+== Descripción general
+
+=== Modo de sondeo vs. Modo de interrupción
+
+* *Modo de Sondeo (Predeterminado)*:
+** Sondea continuamente las operaciones de E/S.
+** Proporciona la latencia más baja.
+** Consume ~100% del núcleo de CPU asignado en todo momento.
+** Es más adecuado para cargas de trabajo de alto rendimiento con E/S frecuente.
+* *Modo de Interrupción*:
+** Utiliza un manejo de E/S basado en interrupciones.
+** El consumo de CPU escala con el número de volúmenes conectados.
+** Es más adecuado para entornos con recursos limitados.
+
+== Requisitos previos
+
+* {longhorn-product-name} v1.10.0 o posterior
+* Motor de datos V2 habilitado
+* No hay volúmenes v2 conectados al cambiar la configuración
+* Para los discos NVMe, IOMMU debe estar habilitado. Para verificar:
++
+[,bash]
+----
+find /sys/kernel/iommu_groups/ -type l
+----
++
+Ejemplo de salida (IOMMU habilitado):
++
+[,bash]
+----
+/sys/kernel/iommu_groups/0/devices/0000:e6:0b.1
+/sys/kernel/iommu_groups/1/devices/0000:34:0a.6
+/sys/kernel/iommu_groups/2/devices/0000:a0:00.0
+----
++
+Si el comando no devuelve salida, IOMMU no está habilitado.
++
+[NOTE]
+====
+El soporte de IOMMU puede no estar expuesto en instancias virtualizadas. Si no está seguro, considere utilizar una instancia de equipo sin sistema operativo, o consulte la documentación o el equipo de soporte de su proveedor de nube.
+====
++
+Para obtener más información, consulte la https://spdk.io/doc/system_configuration.html[documentación oficial de SPDK].
+
+== Configuración
+
+=== Configuración global
+
+Para habilitar el modo de interrupción globalmente, actualice la configuración xref:longhorn-system/settings.adoc#_data_engine_interrupt_mode_enabled[data-engine-interrupt-mode-enabled].
+
+=== Consideraciones importantes
+
+* *Requisito del Estado del Volumen*: La configuración solo se puede cambiar cuando no hay volúmenes V2 adjuntos. {longhorn-product-name} bloquea las actualizaciones si algún volumen V2 está activo.
+* *Efecto Global*: La configuración se aplica a todos los volúmenes V2.
+
+== Características de rendimiento
+
+=== Casos de uso recomendados
+
+Habilitar el modo de interrupción para estos casos:
+
+* Está ejecutando en clústeres con recursos limitados.
+* Está gestionando un pequeño número de volúmenes.
+* Los recursos de CPU son limitados o compartidos con otras cargas de trabajo.
+* Los patrones de E/S son esporádicos en lugar de continuos.
+* La eficiencia energética es una prioridad.
+
+== limitaciones
+
+=== Implementación híbrida
+
+El modo de interrupción de volumen V2 actual utiliza un enfoque híbrido para el transporte NVMe/TCP:
+
+* *Operaciones de Cola de Administración*: Aún se basa en sondeos periódicos para el mantenimiento de conexión y la recuperación del controlador.
+* *Finalización de Cola de E/S* Utiliza sondeos para la finalización de comandos.
+* *Uso residual de CPU*: Resulta en una carga de CPU pequeña pero constante, incluso cuando los volúmenes adjuntos están inactivos.
+
+=== Compensaciones de rendimiento
+
+* *Latencia*: Es ligeramente superior al modo de sondeo.
+
+=== Restricciones operativas
+
+* *Cambios de configuración*: No se puede modificar mientras los volúmenes V2 están adjuntos.
+* *Ámbito global*: Se aplica globalmente; no hay anulación por volumen disponible.

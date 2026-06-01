@@ -1,0 +1,129 @@
+= 恢复 SUSE® Storage 系统
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Longhorn系统恢复发布
+
+* Longhorn 从 xref:snapshots-backups/system-backups/create-system-backup.adoc#_longhorn_system_backup_bundle[Longhorn 系统备份包] 恢复资源。
+* Longhorn 不恢复现有的 `Volumes` 及其相关的 `PersistentVolume` 和 `PersistentVolumeClaim`。
+* Longhorn 自动从其最新备份中恢复 `Volume`。
+* 为了防止覆盖合格的设置，Longhorn 不恢复 `ConfigMap/longhorn-default-setting`。
+* Longhorn 不恢复 <<_configurable_settings,可配置设置>>。
+* 由于 Longhorn 不备份 V2 数据引擎的后端镜像，您必须确保在恢复 Longhorn 系统之前，这些镜像在集群中可用。这使 Longhorn 能够恢复使用 V2 数据引擎后端镜像的卷。
+
+== 局限性
+
+=== 恢复路径
+
+Longhorn 不支持跨主要/次要版本的系统恢复，除非是升级故障，例如：1.4.x \-> 1.5。
+
+== 创建 Longhorn 系统恢复
+
+您可以使用 Longhorn UI 恢复 Longhorn 系统。或者使用 `kubectl` 命令。
+
+=== 先决条件
+
+* 一个正在运行的 Longhorn 集群，以便 Longhorn 在系统备份包中发布资源。
+* 为 `Nodes` 设置 `StorageClass` 和磁盘标签。
+* 拥有一个 Longhorn 系统备份。
++
+请参见 xref:snapshots-backups/system-backups/create-system-backup.adoc#_create_longhorn_system_backup[备份 Longhorn 系统 - 创建 Longhorn 系统备份] 以获取说明。
+
+* 所有现有的 `Volumes` 都已分离。
+
+=== 使用 Longhorn UI
+
+. 前往 `System Backups` 中的 `Backup and Restore` 页面。
+. 选择一个系统备份进行恢复。
+. 在 `Restore` 下拉菜单中点击 `Operation`。
+. 为系统恢复提供一个 `Name`。
+. 系统恢复开始，完成时显示 `Completed` 状态。
+
+== 使用 `kubectl` 命令
+
+. 找到要恢复的 Longhorn `SystemBackup`。
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME     VERSION   STATE   CREATED
+demo     v1.4.0    Ready   2022-11-24T04:23:24Z
+demo-2   v1.4.0    Ready   2022-11-24T05:00:59Z
+----
+
+. 执行 `kubectl create` 以创建 `SystemBackup` 的 Longhorn `SystemRestore`。
++
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: SystemRestore
+metadata:
+  name: restore-demo
+  namespace: longhorn-system
+spec:
+  systemBackup: demo
+----
+
+. 系统恢复开始。
+. 完成时，`SystemRestore` 状态变为 `Completed`。
++
+----
+> kubectl -n longhorn-system get systemrestore
+NAME           STATE       AGE
+restore-demo   Completed   59s
+----
+
+== 删除 Longhorn 系统恢复
+
+WARNING: 删除系统恢复也会删除相关的任务，并中止剩余的资源发布。您可以 <<_restart_longhorn_system_restore,重新启动 Longhorn 系统恢复>> 以发布剩余资源。
+
+您可以使用 Longhorn UI 中止或删除已完成的 Longhorn 系统恢复。或者使用 `kubectl` 命令。
+
+=== 使用 Longhorn UI
+
+. 前往 `System Backups` 中的 `Backup and Restore` 页面。
+. 在系统恢复旁边的 `Operation` 下拉菜单中删除单个系统恢复。或使用 `Delete` 按钮批量删除。
+
+=== 使用 `kubectl` 命令
+
+. 执行 `kubectl delete` 以删除 Longhorn `SystemRestore`。
++
+----
+> kubectl -n longhorn-system get systemrestore
+NAME           STATE       AGE
+restore-demo   Completed   2m37s
+
+> kubectl -n longhorn-system delete systemrestore/restore-demo
+systemrestore.longhorn.io "restore-demo" deleted
+----
+
+== 重新启动 Longhorn 系统恢复。
+
+. <<_delete_longhorn_system_restore,删除正在进行的 Longhorn 系统恢复>>。
+. <<_create_longhorn_system_restore,创建 Longhorn 系统恢复>>。
+
+== 可配置设置
+
+在 Longhorn 系统恢复之前，一些设置被排除在可配置之外。
+
+* xref:longhorn-system/settings.adoc#_concurrent_volume_backup_restore_per_node_limit[每个节点的并发卷备份还原限制]
+* xref:longhorn-system/settings.adoc#_concurrent_replica_rebuild_per_node_limit[每个节点的并发副本重建限制]
+* xref:longhorn-system/settings.adoc#_backup_target[备份目标]
+* xref:longhorn-system/settings.adoc#_backup_target_credential_secret[备份目标凭证密钥]
+
+== 故障排除
+
+=== 系统恢复卡住。
+
+. 检查 longhorn-system-rollout Pod 日志以查找任何错误。
++
+----
+> kubectl -n longhorn-system logs --selector=job-name=longhorn-system-rollout-<SYSTEM-RESTORE-NAME>
+----
+
+. 如果问题可识别，请解决，例如：去除有问题的还原资源。
+. <<_restart_longhorn_system_restore,重启 Longhorn 系统恢复>>。
+
+== 历史记录
+
+https://github.com/longhorn/longhorn/issues/1455[原始功能请求]

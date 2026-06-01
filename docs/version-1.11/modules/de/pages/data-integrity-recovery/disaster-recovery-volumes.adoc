@@ -1,0 +1,120 @@
+= Disaster-Recovery-Volumen
+:revdate: 2025-07-04
+:page-revdate: {revdate}
+:description: Hilfe und potenzielle Probleme im Zusammenhang mit bestimmten Cloud-Anbietern.
+:current-version: {page-component-version}
+
+Die Gewährleistung der Datenresilienz ist wichtig, wenn man mit containerisierten Anwendungen arbeitet. Ein *Longhorn Disaster Recovery (DR)-Volumen* ist ein spezieller Volumentyp, der dazu entworfen wurde, eine Standby-Kopie der Daten in einem sekundären Kubernetes-Cluster zu halten. Es wird aus Sicherungen eines primären Volumens erstellt und synchron gehalten, um eine schnelle Wiederherstellung zu ermöglichen, falls der primäre Cluster nicht verfügbar wird.
+
+Das DR-Volumen speichert eine geografisch getrennte Kopie der Daten. Die Sicherungshäufigkeit bestimmt, wie aktuell das DR-Volumen ist und folglich auch den potenziellen Datenverlust im Falle eines Standortausfalls.
+
+== Funktionsweise
+
+Die Funktionalität der DR-Volumen beruht auf asynchroner Replikation über einen gemeinsamen Sicherungsspeicher.
+
+*Gemeinsames Sicherungsziel*
+
+Ihre primären und sekundären Kubernetes-Cluster müssen so konfiguriert sein, dass sie dasselbe externe Sicherungsziel verwenden (zum Beispiel einen S3-kompatiblen Objektspeicher oder einen NFS-Share).
+
+*Inkrementelle Sicherung und Wiederherstellung*
+
+Ein DR-Volumen wird aus einer vorhandenen Sicherung erstellt. Es fragt kontinuierlich das Sicherungsziel nach neueren Sicherungen des Quellvolumens ab und stellt diese inkrementell wieder her. Das *Letzte Sicherung* Feld in der Benutzeroberfläche zeigt die zuletzt wiederhergestellte Sicherung an.
+
+Um das DR-Volumen aktuell zu halten, konfigurieren Sie wiederkehrende Aufgaben auf dem Quellvolumen, um regelmäßige inkrementelle Sicherungen durchzuführen. Diese wiederkehrenden Sicherungen versorgen das DR-Volumen mit neuen Sicherungen zur Wiederherstellung, was hilft, minimalen Datenverlust im Falle einer Katastrophe zu gewährleisten.
+
+*Standby-Zustand*
+
+Das DR-Volumen bleibt in einem passiven Standby-Zustand. Es ist nicht gemountet oder für Arbeitslasten zugänglich, was Dateninkonsistenzen verhindert. Die Benutzeroberfläche zeigt den Status des Volumens mit einem Symbol an:
+
+* Graues Symbol: Das Volumen stellt gerade Daten wieder her und kann daher nicht aktiviert werden.
+* Blaues Symbol: Das Volumen ist vollständig synchronisiert und bereit zur Aktivierung.
+
+*Aktivierung*
+
+In einem Notfall aktivieren Sie manuell das DR-Volumen. Dieser Prozess wandelt es in ein standardmäßiges, beschreibbares Longhorn-Volumen um, das Sie an Ihre Anwendungen im Wiederherstellungscluster anhängen können.
+
+== Erstellen eines DR-Volumens
+
+Sie können ein DR-Volumen entweder über die {longhorn-product-name} Benutzeroberfläche oder `kubectl` erstellen.
+
+[IMPORTANT]
+====
+Richten Sie zwei Kubernetes-Cluster ein, die als Cluster A und Cluster B bezeichnet werden. Installieren Sie {longhorn-product-name} auf beiden Clustern und konfigurieren Sie dasselbe Sicherungsziel auf beiden. Für Unterstützung bei der Einrichtung des Sicherungsziels verweisen Sie auf die xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[Seite zur Konfiguration des Sicherungsziels].
+====
+
+=== Verwendung der {longhorn-product-name} Benutzeroberfläche
+
+. Stellen Sie in Ihrem primären Cluster sicher, dass das Quellvolumen mindestens eine Sicherung hat.
+. Navigieren Sie in der {longhorn-product-name} Benutzeroberfläche Ihres sekundären (Wiederherstellungs-) Clusters zur *Sicherung* Seite.
+. Wählen Sie die gewünschte Sicherung aus der Liste aus und wählen Sie *Disaster-Recovery-Volumen erstellen*. Wir empfehlen, denselben Namen wie das ursprüngliche Volumen zu verwenden.
+. {longhorn-product-name} wird das Volumen erstellen, das auf der *Volumen* Seite mit dem Status Standby angezeigt wird.
+
+=== Verwendung des `kubectl` Befehls
+
+. **Holen Sie sich die Backup-URL:** Zuerst kopieren Sie die vollständige URL der Quell-Sicherung von der *Backup* Seite in der {longhorn-product-name} Benutzeroberfläche. Das Format dieser URL hängt von Ihrem konfigurierten Backup-Ziel ab (zum Beispiel S3 oder NFS).
+
+. **Erstellen Sie ein YAML-Manifest:** Erstellen Sie eine Datei (zum Beispiel `dr-volume.yaml`) mit folgendem Inhalt. Ersetzen Sie die Platzhalter-URL und passen Sie den Namen, die Größe, `accessMode` usw. an, um mit Ihrem Quellvolumen übereinzustimmen. In dieser Datei definiert das Feld `standby: true` das Volumen als DR-Standby-Volumen.
+
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  name: example-dr-volume
+  namespace: longhorn-system
+spec:
+  size: "2147483648"
+  accessMode: rwo
+  numberOfReplicas: 3
+  fromBackup: "nfs://longhorn-nfs-server.example.com:/opt/backupstore?backup=backup-b69a1249e97f4a27&volume=pvc-33509786-92d7-427c-9b5a-b6d61d56b063"
+  # This flag is essential to create a standby volume
+  Standby: true
+----
+
+. **Anwenden des Manifests:** Wenden Sie das Manifest auf Ihren sekundären Cluster an, um das Volumen zu erstellen.
+
+== Aktivierung eines DR-Volumens
+
+Wenn ein Failover erforderlich ist, aktivieren Sie das DR-Volumen, um es beschreibbar zu machen.
+
+{longhorn-product-name} unterstützt die Aktivierung unter den folgenden Bedingungen:
+
+* Das Volumen ist gesund, was darauf hinweist, dass alle Replikate in einem gesunden Zustand sind.
+* Das Volumen ist degradiert (einige Replikate sind ausgefallen), aber nur, wenn die globale Einstellung xref:longhorn-system/settings.adoc#_allow_volume_creation_with_degraded_availability[`Allow Volume Creation with Degraded Availability`] aktiviert ist.
+
+[IMPORTANT]
+====
+Wenn die Einstellung `Allow Volume Creation with Degraded Availability` deaktiviert ist, führt der Versuch, ein degradiertes DR-Volumen zu aktivieren, dazu, dass das Volumen im Zustand `Attached` stecken bleibt.
+
+Nach Aktivierung der Einstellung wird das DR-Volumen aktiviert und in ein normales Volumen umgewandelt, wobei es im Zustand `Detached` bleibt.
+====
+
+=== Verwendung der {longhorn-product-name} Benutzeroberfläche
+
+. Gehen Sie zur Seite *Volumen* in der {longhorn-product-name} UI Ihres sekundären Clusters.
+. Wählen Sie das DR-Volumen aus, das Sie aktivieren möchten.
+. Klicken Sie auf die Schaltfläche *DR-Volumen aktivieren* im Dropdown-Menü *Operation*.
+. Das Volumen wechselt in den Zustand `Detached` und Sie können es mit Ihren Workloads anhängen.
+
+=== Verwendung des `kubectl` Befehls
+
+. Führen Sie den folgenden Befehl aus, um das DR-Volumen zu aktivieren und das Frontend zu aktualisieren:
+
+[,bash]
+----
+kubectl patch volume example-dr-volume1 -n longhorn-system --type='json' -p='[
+  {"op": "replace", "path": "/spec/Standby", "value": false},
+  {"op": "replace", "path": "/spec/frontend", "value": "blockdev"}
+]'
+----
+
+. Das Volumen wechselt in den Zustand `Detached` und Sie können es mit Ihren Workloads anhängen.
+
+== Nutzungsbeschränkungen
+
+Da der Hauptzweck eines DR-Volumens darin besteht, Daten aus Backups wiederherzustellen, werden die folgenden Aktionen nicht unterstützt, bis das Volumen aktiviert ist:
+
+* Snapshots erstellen, löschen oder zurücksetzen
+* Erstellen von Sicherungen
+* Persistente Volumes (PVs) erstellen
+* Persistente Volume-Claims (PVCs) erstellen

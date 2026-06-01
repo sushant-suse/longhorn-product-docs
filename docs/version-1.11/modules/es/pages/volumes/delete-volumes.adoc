@@ -1,0 +1,22 @@
+= Eliminar volúmenes
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Una vez que hayas terminado de utilizar un volumen de Longhorn para almacenamiento, hay varias formas de eliminar el volumen, dependiendo de cómo hayas utilizado el volumen.
+
+== Eliminar volúmenes a través de Kubernetes
+
+NOTE: Este método solo funciona si el volumen fue aprovisionado mediante una StorageClass y el PersistentVolume para el volumen de Longhorn tiene configurada la directiva de recuperación en 'Eliminar'.
+
+Puedes eliminar un volumen a través de Kubernetes eliminando el PersistentVolumeClaim que utiliza el volumen de Longhorn aprovisionado. Esto hará que Kubernetes limpie el PersistentVolume y luego elimine el volumen en Longhorn.
+
+== Eliminar volúmenes a través de Longhorn
+
+Todos los volúmenes de Longhorn, independientemente de cómo se hayan creado, pueden ser eliminados a través de la interfaz de usuario de Longhorn.
+
+Para eliminar un solo volumen, ve a la página de Volúmenes en la interfaz de usuario. En el menú desplegable de Operación, selecciona Eliminar. Se te pedirá una confirmación antes de eliminar el volumen.
+
+Para eliminar múltiples volúmenes al mismo tiempo, puedes marcar varios volúmenes en la página de Volúmenes y seleccionar Eliminar en la parte superior.
+
+NOTE: Si Longhorn detecta que un volumen está vinculado a un PersistentVolume o PersistentVolumeClaim, entonces estos recursos también se eliminarán una vez que elimines el volumen. Se te advertirá en la interfaz de usuario sobre esto antes de proceder con la eliminación. Longhorn también te advertirá al eliminar un volumen adjunto, ya que puede estar en uso.

@@ -11,7 +11,7 @@ During replica creation, {longhorn-product-name} will create a `revision.counter
 
 The {longhorn-product-name} engine uses these counters as a heuristic for achieving best-effort consistency among replicas during startup. Note that because the write IOs in {longhorn-product-name} are parallel, enabling the revision counter does not guarantee data consistency. {longhorn-product-name} also uses these counters during auto-salvage to identify the replica with the latest update.
 
-Disable Revision Counter is an option in which every write on replicas is not tracked. When this setting is used, performance is improved. This option can be helpful if you prefer higher performance and have a stable network infrastructure (e.g. an internal network) with enough CPU resources. When the revision counter is disabled, the Longhorn Engine skips checking the revision counter for all replicas at startup. However, auto-salvage still functions because {longhorn-product-name} can use the replica's head file stat to identify the replica to be used for recovery. For more information about how auto-salvage functions without the revision counter, see <<_auto_salvage_support_with_revision_counter_disabled,Auto-Salvage Support with Revision Counter Disabled>>.
+Disable Revision Counter is an option in which every write on replicas is not tracked. When this setting is used, performance is improved. This option can be helpful if you prefer higher performance and have a stable network infrastructure (e.g. an internal network) with enough CPU resources. When the revision counter is disabled, the Longhorn Engine skips checking the revision counter for all replicas at startup. However, auto-salvage still functions because {longhorn-product-name} can use the replica's head file stat to identify the replica to be used for recovery. For more information about how auto-salvage functions without the revision counter, see xref:_auto_salvage_support_with_revision_counter_disabledp[Auto-Salvage Support with Revision Counter Disabled].
 
 By default, the revision counter is disabled.
 
@@ -51,6 +51,7 @@ parameters:
   fromBackup: ""
 ----
 
+[#_auto_salvage_support_with_revision_counter_disabledp]
 == Auto-Salvage Support with Revision Counter Disabled
 
 The logic for auto-salvage is different when the revision counter is disabled.

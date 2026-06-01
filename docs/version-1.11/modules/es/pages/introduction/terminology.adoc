@@ -1,0 +1,176 @@
+= terminología
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+
+== Adjuntar/Volver a adjuntar
+
+Adjuntar un dispositivo de almacenamiento en bloques es hacerlo aparecer en el nodo de Linux, por ejemplo, `/dev/longhorn/testvol`
+
+Si el motor de volumen falla inesperadamente, {longhorn-product-name} volverá a adjuntar el volumen.
+
+== Copia de seguridad
+
+Una copia de seguridad es un objeto en el backupstore. El backupstore puede contener copias de seguridad de volúmenes y copias de seguridad del sistema.
+
+== Backupstore
+
+Las copias de seguridad de {longhorn-product-name} se guardan en el backupstore, que es externo al clúster de Kubernetes. El backupstore puede ser ya sea comparticiones NFS o un servidor compatible con S3.
+
+{longhorn-product-name} accede al backupstore en el punto final configurado en el objetivo de copia de seguridad.
+
+== Objetivo de copia de seguridad
+
+Un objetivo de copia de seguridad es el punto final utilizado para acceder a un backupstore en {longhorn-product-name}.
+
+== Volumen de copia de seguridad
+
+Un volumen de copia de seguridad es la copia de seguridad que se asigna a un volumen original y se encuentra en el backupstore. Los volúmenes de copia de seguridad se pueden ver en la página *Backup* en la interfaz de usuario. El volumen de copia de seguridad contendrá múltiples copias de seguridad para el mismo volumen.
+
+Las copias de seguridad se pueden crear a partir de instantáneas. Contienen el estado del volumen en el momento en que se creó la instantánea, pero no contienen instantáneas, por lo que no contienen el historial de cambios en los datos del volumen. Mientras que las copias de seguridad se componen de archivos de 2 MB, las instantáneas pueden alcanzar tamaños de terabytes.
+
+Las copias de seguridad se componen de bloques de 2 MB en un almacenamiento de objetos.
+
+Para una explicación más larga sobre cómo funcionan las instantáneas y las copias de seguridad, consulta la xref:introduction/concepts.adoc#_2_4_1_how_snapshots_work[documentación conceptual.]
+
+== Almacenamiento en bloques
+
+Un enfoque de almacenamiento en el que los datos se almacenan en bloques de tamaño fijo. Cada bloque se distingue en función de una dirección de memoria.
+
+== CRD
+
+Una https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/[definición de recurso personalizado de Kubernetes.]
+
+== Controlador CSI
+
+El controlador CSI de Longhorn es una https://kubernetes-csi.github.io/docs/drivers.html[interfaz de almacenamiento de contenedores] que se puede utilizar con Kubernetes. El controlador CSI para los volúmenes {longhorn-product-name} se llama `driver.longhorn.io`.
+
+== Volúmenes de recuperación ante desastres (volumen DR)
+
+Un volumen DR es un volumen especial que almacena datos en un clúster de copia de seguridad en caso de que todo el clúster principal se caiga. Los volúmenes DR se utilizan para aumentar la resiliencia de los volúmenes {longhorn-product-name}.
+
+Cada volumen de copia de seguridad en el backupstore se asigna a un volumen original en el clúster de Kubernetes. Del mismo modo, cada volumen DR se asigna a un volumen de copia de seguridad en el backupstore.
+
+Se pueden crear volúmenes DR para reflejar con precisión las copias de seguridad de un volumen {longhorn-product-name}, pero no se pueden utilizar como un volumen {longhorn-product-name} normal hasta que se activen.
+
+== ext4
+
+Un sistema de archivos para Linux. {longhorn-product-name} admite ext4 para almacenamiento.
+
+== Expansión del frontend
+
+El frontend aquí se refiere al dispositivo de bloque expuesto por el {longhorn-product-name} volumen.
+
+== Gestor de instancias
+
+El componente para la gestión del ciclo de vida de instancias de controlador/réplica.
+
+== {longhorn-product-name} volumen
+
+Un {longhorn-product-name} volumen es un volumen de Kubernetes que está replicado y gestionado por el Longhorn Manager. Para cada volumen, el Longhorn Manager también crea:
+
+* Una instancia del Longhorn Engine
+* Réplicas del volumen, donde cada réplica consiste en una serie de instantáneas del volumen
+
+Cada réplica contiene una cadena de instantáneas, que registran los cambios en la historia del volumen. Se crean tres réplicas por defecto, y suelen almacenarse en nodos separados para alta disponibilidad.
+
+== Montar
+
+Un comando de Linux para montar el dispositivo de bloque en un directorio determinado en el nodo, p. ej. `mount /dev/longhorn/testvol /mnt`
+
+== NFS
+
+Un https://en.wikipedia.org/wiki/Network_File_System[protocolo de sistema de archivos distribuido] que permite acceder a archivos a través de una red de computadoras, similar a la forma en que se accede al almacenamiento local. {longhorn-product-name} admite el uso de NFS como backupstore para almacenamiento secundario.
+
+== Almacenamiento de objetos
+
+Arquitectura de almacenamiento de datos que gestiona los datos como objetos. Cada objeto incluye, de manera típica, los datos en sí, una cantidad variable de metadatos y un identificador único global. Los {longhorn-product-name} volúmenes se pueden respaldar en un almacenamiento de objetos compatible con S3.
+
+== Expansión fuera de línea
+
+En una expansión de volumen fuera de línea, el volumen está desacoplado.
+
+== Sobredimensionamiento
+
+El sobredimensionamiento permite que un servidor vea más capacidad de almacenamiento de la que ha sido reservada físicamente. Eso significa que podemos programar un total de 750 GiB {longhorn-product-name} volúmenes en un disco de 200 GiB, con 50 G reservados para el sistema de archivos root. El *Porcentaje de Sobredimensionamiento de Almacenamiento* se puede configurar en la xref:longhorn-system/settings.adoc[configuración.]
+
+== PersistentVolume
+
+Un PersistentVolume (PV) es un recurso de Kubernetes que representa una parte de almacenamiento en el clúster que ha sido provisionada por un administrador o provisionada dinámicamente utilizando Clases de Almacenamiento. Es un recurso a nivel de clúster y es necesario para que los pods utilicen almacenamiento persistente que es independiente del ciclo de vida de cualquier pod individual. Para más información, consulta la https://kubernetes.io/docs/concepts/storage/persistent-volumes/[documentación oficial de Kubernetes sobre volúmenes persistentes.]
+
+== PersistentVolumeClaim
+
+Un PersistentVolumeClaim (PVC) es una solicitud de almacenamiento por parte de un usuario. Los pods pueden solicitar niveles específicos de recursos (CPU y Memoria) utilizando un PVC para almacenamiento. Las reclamaciones pueden solicitar tamaños específicos y modos de acceso (por ejemplo, pueden montarse una vez en modo lectura/escritura o muchas veces en modo solo lectura).
+
+Para más información, consulta la https://kubernetes.io/docs/concepts/storage/persistent-volumes/[documentación oficial de Kubernetes.]
+
+== Copias de seguridad primarias
+
+Las réplicas de cada {longhorn-product-name} volumen en un clúster de Kubernetes pueden considerarse copias de seguridad primarias.
+
+== Remontar
+
+En un remontaje, {longhorn-product-name} detectará y montará el sistema de archivos del volumen después de volver a adjuntarlo.
+
+== Réplica
+
+Una réplica consiste en una cadena de instantáneas, mostrando un historial de los cambios en los datos dentro de un volumen.
+
+== S3
+
+https://aws.amazon.com/s3/[Amazon S3] es un servicio de almacenamiento de objetos.
+
+== Recuperar un volumen
+
+La operación de recuperación es necesaria cuando todas las réplicas se vuelven defectuosas, por ejemplo, debido a una desconexión de red.
+
+Al recuperar un volumen, {longhorn-product-name} intentará averiguar qué réplica(s) son utilizables, y luego las utilizará para recuperar el volumen.
+
+== Copias de seguridad secundarias
+
+Copias de seguridad externas al clúster de Kubernetes, en S3 o NFS.
+
+== Instantánea
+
+Una instantánea captura el estado de un volumen en el momento en que se crea la instantánea. Cada instantánea solo captura los cambios que sobrescriben datos de instantáneas anteriores, por lo que se necesita una secuencia de instantáneas para representar completamente el estado total del volumen. Los volúmenes se pueden restaurar a partir de una instantánea. Para una explicación más larga sobre las instantáneas, consulta la xref:introduction/concepts.adoc[documentación conceptual.]
+
+== Identidad estable
+
+Los https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[StatefulSets] tienen una identidad estable, lo que significa que Kubernetes no eliminará forzosamente el Pod para el usuario.
+
+== StatefulSet
+
+Un https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[recurso de Kubernetes] utilizado para gestionar aplicaciones con estado.
+
+== StorageClass
+
+Un recurso de Kubernetes que se puede utilizar para aprovisionar automáticamente un PersistentVolume para un pod. Para más información, consulta la https://kubernetes.io/docs/concepts/storage/storage-classes/#the-storageclass-resource[documentación de Kubernetes.]
+
+== Copia de seguridad del sistema
+
+{longhorn-product-name} sube la copia de seguridad del sistema al backupstore. Cada copia de seguridad del sistema contiene el paquete de recursos de copia de seguridad del sistema {longhorn-product-name}.
+
+Consulta xref:snapshots-backups/system-backups/create-system-backup.adoc#_longhorn_system_backup_bundle[Paquete de copia de seguridad del sistema] para más detalles.
+
+== Aprovisionamiento flexible
+
+{longhorn-product-name} es un sistema de almacenamiento con aprovisionamiento flexible. Eso significa que un {longhorn-product-name} volumen solo ocupará el espacio que necesite en ese momento. Por ejemplo, si has asignado un volumen de 20 GB pero solo utilizas 1 GB de él, el tamaño real de los datos en tu disco sería de 1 GB. 
+
+== Umount
+
+Un https://linux.die.net/man/8/umount[comando de Linux] que desmonta el sistema de archivos de la jerarquía de archivos.
+
+== Volúmenes (concepto de Kubernetes)
+
+Un volumen en Kubernetes permite a un pod almacenar archivos durante la vida del pod.
+
+Estos archivos seguirán estando disponibles después de que un contenedor falle, pero no estarán disponibles más allá de la vida de un pod. Para obtener almacenamiento que siga estando disponible después de la vida de un pod, se requiere un https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes[PersistentVolume (PV)].
+
+Para más información, consulta la documentación de Kubernetes sobre https://kubernetes.io/docs/concepts/storage/volumes/[volúmenes.]
+
+== XFS
+
+Un https://en.wikipedia.org/wiki/XFS[sistema de archivos] compatible con la mayoría de las distribuciones de Linux. {longhorn-product-name} admite XFS para almacenamiento.
+
+== SMB/CIFS
+
+Un https://en.wikipedia.org/wiki/Network_File_System[protocolo de sistema de archivos de red] que te permite acceder a archivos a través de una red de computadoras, de manera similar a como se accede al almacenamiento local. {longhorn-product-name} admite el uso de SMB/CIFS como backupstore para almacenamiento secundario.

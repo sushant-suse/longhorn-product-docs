@@ -1,0 +1,30 @@
+= Pods del gestor de instancias durante la actualización de versión
+:revdate: 2026-01-08
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Después de una actualización de versión en vivo, puede que notes que algunos *pods del gestor de instancias antiguos* siguen en ejecución. Este comportamiento es esperado y *no es un error*.
+
+== Por qué ocurre esto
+
+{longhorn-product-name} utiliza la siguiente estrategia para gestionar los pods del gestor de instancias durante una actualización de versión en vivo:
+
+* Los pods del gestor de instancias antiguos se eliminan inmediatamente una vez que no hay procesos de motor o réplica en ellos.
+* Durante una *actualización de versión en vivo del motor* de un volumen:
+** Los procesos de réplica se recrean en nuevos pods del gestor de instancias utilizando la imagen del motor actualizado.
+** Para evitar interrumpir la E/S, {longhorn-product-name} no puede iniciar un nuevo proceso de motor utilizando la imagen del motor actualizado en un nuevo pod del gestor de instancias mientras el volumen esté adjunto. En su lugar, el pod del gestor de instancias antiguo continúa gestionando el ciclo de vida del nuevo proceso de motor hasta que el volumen se desadjunte. Como resultado, el nuevo proceso de motor se ejecuta en el pod del gestor de instancias antiguo.
+
+Como resultado, un pod del gestor de instancias antiguo permanece en ejecución mientras alberga un proceso de motor activo. Una vez que el volumen se desadjunta y no quedan procesos de motor o réplica, {longhorn-product-name} eliminará automáticamente el pod del gestor de instancias antiguo.
+
+== Cómo Comprobar Qué Volúmenes Están Usando Pods Antiguos del Gestor de Instancias
+
+Puedes comprobar qué volúmenes siguen utilizando los pods antiguos del gestor de instancias desde la interfaz de usuario de {longhorn-product-name}:
+
+* Navega a *Volumen* > *Nombre* > *Detalles del Volumen* > *Gestor de Instancias*.
+
+== Cómo eliminar completamente los pods antiguos del gestor de instancias
+
+Para permitir que {longhorn-product-name} elimine todos los pods antiguos del gestor de instancias:
+
+. Desadjunta todos los volúmenes que aún están utilizando pods antiguos del gestor de instancias.
+. Una vez que no queden procesos de motor o réplica, {longhorn-product-name} eliminará automáticamente los pods antiguos del gestor de instancias.

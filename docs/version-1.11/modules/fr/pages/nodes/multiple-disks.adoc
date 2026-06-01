@@ -1,0 +1,123 @@
+= Disques multiples
+:revdate: 2025-07-04
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} prend en charge l'utilisation de plusieurs disques sur les nœuds pour stocker les données de volume.
+
+Par défaut, {longhorn-product-name} stocke les données de volume dans le répertoire `/var/lib/longhorn` sur l'hôte. Pour utiliser un disque différent pour le stockage, vous pouvez ajouter un nouveau disque et désactiver la planification pour le répertoire par défaut. Cette approche offre la flexibilité de gérer le stockage en fonction de vos besoins spécifiques.
+
+== Ajouter un disque
+
+Avant d'ajouter un disque à {longhorn-product-name}, montez-le sur un répertoire sur l'hôte du nœud Longhorn.
+
+. **Choisissez un disque**: Sélectionnez le disque physique ou virtuel pour le stockage Longhorn et formatez-le avec un système de fichiers basé sur des étendues (par exemple, ext4 ou XFS).
+. **Montez le disque**: Montez le disque dans un répertoire sur l'hôte, tel que `/mnt/example-disk`. Assurez-vous que le répertoire est accessible et correctement configuré.
+
+Après que le disque soit monté, vous pouvez l'ajouter à {longhorn-product-name} en utilisant soit l'interface utilisateur, soit l'outil en ligne de commande `kubectl`.
+
+*Utilisation de l'interface {longhorn-product-name}*
+
+. Allez dans l'onglet *Nodes*, sélectionnez un nœud et choisissez *Edit Disks* dans le menu déroulant.
+. Ajoutez le chemin de montage du disque à la liste des disques.
+
+*Utilisation de `kubectl`*
+
+. Exécutez `kubectl edit node.longhorn.io <node-name>` pour modifier la ressource du nœud Longhorn.
+. Ajoutez le chemin du disque à `spec.disks`. Par exemple :
++
+[,yaml]
+----
+...
+spec:
+  ...
+  disks:
+    ...
+    example-disk:
+      allowScheduling: true
+      diskDriver: ""
+      diskType: filesystem
+      evictionRequested: false
+      path: /mnt/example-disk
+      storageReserved: 0
+      tags: []
+...
+----
++
+. Enregistrez et quittez l'éditeur.
+
+Une fois qu'un disque est ajouté{nbsp}:
+
+* {longhorn-product-name} détecte automatiquement les détails de stockage du disque, tels que la capacité maximale et disponible.
+* Si le disque est adapté au stockage des données de volume, {longhorn-product-name} commence à planifier des volumes sur celui-ci.
+
+[NOTE]
+====
+. Vous ne pouvez pas ajouter un chemin de disque déjà utilisé par un autre disque {longhorn-product-name}.
+. {longhorn-product-name} utilise l'ID du système de fichiers pour détecter les montages en double. Par conséquent, vous ne pouvez pas ajouter un disque avec le *même ID de système de fichiers* qu'un autre disque sur le même nœud.
++
+Pour plus d'informations, consultez le problème https://github.com/longhorn/longhorn/issues/2477[#2477].
+====
+
+=== Réservation du disque racine
+
+En option, vous pouvez utiliser le champ *Espace réservé* dans l'interface utilisateur ou `spec.disks.<disk-name>.storageReserved` pour réserver une partie de l'espace disque (en octets) à d'autres fins. {longhorn-product-name} n'utilisera pas cet espace réservé pour les données de volume.
+
+Pour maintenir la stabilité du nœud lorsque les ressources de calcul (par exemple, la mémoire ou le disque) sont sous pression, `kubelet` nécessite un certain espace pour rester libre. Si ces ressources critiques sont épuisées, cela peut entraîner une instabilité du nœud.
+
+Par défaut, {longhorn-product-name} réserve 30 % de l'espace disque racine (`/var/lib/longhorn`) pour éviter des problèmes tels que des conditions `DiskPressure` de `kubelet`, en particulier après avoir planifié plusieurs volumes. Le paramètre `storage-reserved-percentage-for-default-disk` contrôle ce comportement.
+
+=== Utiliser un chemin alternatif pour un disque sur le nœud
+
+Si vous préférez utiliser un chemin différent pour un disque (plutôt que le point de montage d'origine), vous pouvez utiliser `mount --bind` pour créer un chemin alternatif. Ne *pas* utiliser de lien symbolique (`ln -s`), car les liens symboliques ne sont pas correctement résolus à l'intérieur des pods Longhorn.
+
+Assurez-vous que le chemin alternatif est remonté après un redémarrage du nœud, par exemple, en l'ajoutant à `/etc/fstab`.
+
+== Supprimer un disque
+
+Les nœuds et les disques peuvent être exclus de la planification future. Notez que tout stockage déjà programmé sur un nœud ne sera pas automatiquement libéré lorsque la planification est désactivée pour ce nœud.
+
+Pour supprimer un disque{nbsp}:
+
+. Désactivez la planification pour le disque.
+. Assurez-vous qu'aucune réplique ou image de sauvegarde ne reste sur le disque, y compris celles dans un état d'erreur. Pour des instructions sur la façon d'expulser les répliques des disques désactivés, voir xref:nodes/disks-or-nodes-eviction.adoc#_select_disks_or_nodes_for_eviction[Sélectionner des disques ou des nœuds pour l'expulsion].
+
+Une fois le disque vide et la planification désactivée, vous pouvez le retirer en toute sécurité de la configuration du nœud.
+
+== Configuration
+
+Deux paramètres globaux affectent la planification des volumes{nbsp}:
+
+* `StorageOverProvisioningPercentage` définit la capacité totale de stockage maximale qui peut être *planifiée* sur un disque, par rapport à sa capacité utilisable. La formule est{nbsp}:
+
+[,text]
+----
+ScheduledStorage / (MaximumStorage - ReservedStorage)
+----
+
+Par défaut, ce paramètre est `100` %.
+
+Par exemple, sur un disque de 200 GiB avec 50 GiB réservés, {longhorn-product-name} considère 150 GiB d'espace utilisable. Avec le paramètre par défaut, {longhorn-product-name} peut planifier jusqu'à 150 GiB de données de volume.
+
+Parce que les charges de travail ne consomment généralement pas la taille totale du volume alloué, et que {longhorn-product-name} utilise des fichiers épars pour stocker des données, augmenter ce paramètre est généralement sûr et peut aider à optimiser l'utilisation du disque.
+
+* `StorageMinimalAvailablePercentage` spécifie le pourcentage minimum d'espace libre qui doit rester sur un disque pour programmer de nouvelles répliques. La formule est{nbsp}:
+
+[,text]
+----
+AvailableStorage / MaximumStorage
+----
+
+Par défaut, ce paramètre est `25` %.
+
+Par exemple, pour un disque de 200 GiB avec 50 GiB réservés, {longhorn-product-name} arrête la planification de nouvelles répliques si l'espace disponible tombe en dessous de 37,5 GiB (25 % de 150 GiB). Un nouveau volume ne sera également pas planifié si sa taille ferait tomber l'espace disponible en dessous de cette limite.
+
+Ce paramètre aide à empêcher les disques de devenir trop pleins, ce qui pourrait entraîner des échecs de planification ou des problèmes d'opération de volume.
+
+[WARNING]
+====
+{longhorn-product-name} ne peut actuellement pas appliquer pleinement la limite `StorageMinimalAvailablePercentage` dans tous les scénarios car{nbsp}:
+
+. Les volumes Longhorn peuvent utiliser plus d'espace que leur taille demandée, surtout lorsque des instantanés sont pris.
+. {longhorn-product-name} permet la surallocation par défaut.
+====

@@ -9,7 +9,7 @@
 * Longhorn does not restore existing `Volumes` and their associated `PersistentVolume` and `PersistentVolumeClaim`.
 * Longhorn automatically restores a `Volume` from its latest backup.
 * To prevent overwriting eligible settings, Longhorn does not restore the `ConfigMap/longhorn-default-setting`.
-* Longhorn does not restore <<_configurable_settings,configurable settings>>.
+* Longhorn does not restore xref:_configurable_settings[configurable settings].
 * Since Longhorn does not back up V2 Data Engine backing images, you must ensure that those images are available in the cluster before you restore the Longhorn system. This allows Longhorn to restore volumes that use V2 Data Engine backing images.
 
 == Limitations
@@ -18,6 +18,7 @@
 
 Longhorn does not support cross-major/minor version system restore except for upgrade failures, ex: 1.4.x \-> 1.5.
 
+[#_create_longhorn_system_restore]
 == Create Longhorn System Restore
 
 You can restore the Longhorn system using Longhorn UI. Or with the `kubectl` command.
@@ -73,9 +74,10 @@ NAME           STATE       AGE
 restore-demo   Completed   59s
 ----
 
+[#_delete_longhorn_system_restore]
 == Delete Longhorn System Restore
 
-WARNING: Deleting the SystemRestore also deletes the associated job and will abort the remaining resource rollouts. You can <<_restart_longhorn_system_restore,Restart the Longhorn System Restore>> to roll out the remaining resources.
+WARNING: Deleting the SystemRestore also deletes the associated job and will abort the remaining resource rollouts. You can xref:_restart_longhorn_system_restore[Restart the Longhorn System Restore] to roll out the remaining resources.
 
 You can abort or remove a completed Longhorn system restore using Longhorn UI. Or with the `kubectl` command.
 
@@ -97,11 +99,13 @@ restore-demo   Completed   2m37s
 systemrestore.longhorn.io "restore-demo" deleted
 ----
 
+[#_restart_longhorn_system_restore]
 == Restart Longhorn System Restore
 
-. <<_delete_longhorn_system_restore,Delete Longhorn System Restore>> that is in progress.
-. <<_create_longhorn_system_restore,Create Longhorn System Restore>>.
+. xref:_delete_longhorn_system_restore[Delete Longhorn System Restore] that is in progress.
+. xref:_create_longhorn_system_restore[Create Longhorn System Restore].
 
+[#_configurable_settings]
 == Configurable Settings
 
 Some settings are excluded as configurable before the Longhorn system restore.
@@ -122,7 +126,7 @@ Some settings are excluded as configurable before the Longhorn system restore.
 ----
 
 . Resolve if the issue is identifiable, ex: remove the problematic restoring resource.
-. <<_restart_longhorn_system_restore,Restart the Longhorn system restore>>.
+. xref:_restart_longhorn_system_restore[Restart the Longhorn system restore].
 
 == History
 

@@ -1,0 +1,52 @@
+= Classe de priorité
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+Le paramètre de classe de priorité peut être utilisé pour définir une priorité plus élevée sur les charges de travail {longhorn-product-name} dans le cluster, les empêchant d'être les premiers à être évincés lors de situations de pression sur les nœuds.
+
+Pour plus d'informations sur le fonctionnement de la priorité des pods, consultez la https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/[documentation officielle de Kubernetes].
+
+== Définir la classe de priorité
+
+{longhorn-product-name} se compose de composants déployés par l'utilisateur (par exemple, Longhorn Manager, Longhorn Driver et {longhorn-product-name} UI) et de composants gérés par le système (par exemple, Instance Manager, CSI Driver et images Engine).
+Vous devez définir la classe de priorité pour les deux types de composants. Voir plus de détails ci-dessous.
+
+[discrete]
+=== Définir la classe de priorité lors de l'installation de {longhorn-product-name}
+
+{longhorn-product-name} crée une classe de priorité `longhorn-critical` et la définit par défaut pour ses composants déployés par l'utilisateur ou gérés par le système si les actions suivantes ne sont pas effectuées.
+
+. Définir la classe de priorité de taint pour les composants gérés par le système{nbsp}: suivez le xref:longhorn-system/customize-default-settings.adoc[Personnaliser les paramètres par défaut] pour définir la classe de priorité en modifiant la valeur du paramètre par défaut `priority-class`.
+. Définir la classe de priorité de taint pour les composants déployés par l'utilisateur{nbsp}: modifiez le Helm chart ou le fichier YAML de déploiement en fonction de la manière dont vous déployez {longhorn-product-name}.
+
+WARNING: {longhorn-product-name} ne démarrera pas si le paramètre de classe de priorité est invalide (par exemple, si la classe de priorité n'existe pas).
+Vous pouvez vérifier si c'est le cas en consultant l'état du DaemonSet longhorn-manager avec `kubectl -n longhorn-system describe daemonset.apps/longhorn-manager`.
+Vous devrez désinstaller {longhorn-product-name} et redémarrer l'installation si c'est le cas.
+
+[discrete]
+=== Définir la classe de priorité après l'installation de {longhorn-product-name}
+
+. Définir la classe de priorité de taint pour les composants gérés par le système{nbsp}: Le paramètre de classe de priorité se trouve dans le UI {longhorn-product-name} en cliquant sur menu:Paramètres[Classe de priorité].
+. Définir la classe de priorité de taint pour les composants déployés par l'utilisateur{nbsp}: modifiez le Helm chart ou le fichier YAML de déploiement en fonction de la manière dont vous déployez {longhorn-product-name}.
+
+Les utilisateurs peuvent mettre à jour ou supprimer la classe de priorité ici, mais notez que cela entraînera la recréation de tous les composants système {longhorn-product-name}.
+Le paramètre de classe de priorité rejettera les valeurs qui semblent être des classes de priorité invalides.
+
+== Syntaxe
+
+Pour garantir que vos paramètres de classe de priorité préférés sont immédiatement appliqués, arrêtez toutes les charges de travail et détachez tous les volumes Longhorn avant de configurer les paramètres.
+
+{longhorn-product-name} devient temporairement indisponible lorsque tous les composants sont redémarrés.
+Ne faites pas fonctionner le système Longhorn après avoir modifié le paramètre de classe de priorité, car les composants Longhorn seront en cours de redémarrage.
+
+Lorsque tous les volumes Longhorn sont détachés, le paramètre personnalisé est immédiatement appliqué aux composants gérés par le système.
+Lorsque un ou plusieurs volumes Longhorn sont encore attachés, le paramètre personnalisé est appliqué au gestionnaire d'instances uniquement lorsque aucun moteur et aucune instance de réplique ne sont en cours d'exécution. Vous devez reconfigurer le paramètre après avoir détaché les volumes restants. Alternativement, vous pouvez attendre la prochaine synchronisation des paramètres, qui aura lieu dans une heure.
+
+Ne supprimez pas la classe de priorité utilisée par {longhorn-product-name}, car cela peut entraîner l'échec de nouvelles charges de travail {longhorn-product-name} à se mettre en ligne.
+
+== History
+
+https://github.com/longhorn/longhorn/issues/1487[Demande de fonctionnalité initiale]

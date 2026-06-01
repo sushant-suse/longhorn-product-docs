@@ -1,0 +1,53 @@
+= Rancher Windows Cluster
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Rancher kann einen Windows-Cluster mit einer Kombination aus Linux-Arbeitsknoten und Windows-Arbeitsknoten bereitstellen.
+Für weitere Informationen zum Rancher Windows-Cluster siehe die offizielle https://documentation.suse.com/cloudnative/rancher-manager/latest/en/cluster-deployment/custom-clusters/windows/use-windows-clusters.html[Rancher-Dokumentation].
+
+In einem Rancher Windows-Cluster sind alle Linux-Arbeitsknoten:
+
+* Mit dem Taint `cattle.io/os=linux:NoSchedule` versehen
+* Mit `kubernetes.io/os:linux` beschriftet
+
+[NOTE]
+====
+Nachdem {longhorn-product-name} bereitgestellt wurde, können Sie Workloads starten, die nur auf Linux-Knoten {longhorn-product-name} Volumes verwenden.
+====
+
+== {longhorn-product-name} mit unterstütztem Helm-Chart bereitstellen
+
+Sie können den Helm-Wert `global.cattle.windowsCluster.enabled` aktualisieren, um die Installation von {longhorn-product-name} im Rancher Windows-Cluster zu ermöglichen.
+
+Wenn dieser Wert auf `true` gesetzt ist, erkennt {longhorn-product-name} den Rancher Windows-Cluster und stellt dann {longhorn-product-name} Komponenten mit dem richtigen Knotenauswähler und Tolerierungen bereit, sodass alle {longhorn-product-name} Workloads nur auf Linux-Knoten gestartet werden können.
+
+Im Rancher-Marktplatz kann die Einstellung in `customize Helm options` vor der Installation angepasst werden: +
+`Edit Options` > `Other Settings` > `Rancher Windows Cluster`
+
+Auch in: +
+`Edit YAML`
+
+----
+global:
+  cattle:
+    systemDefaultRegistry: ""
+    windowsCluster:
+      # Enable this to allow Longhorn to run on the Rancher deployed Windows cluster
+      enabled: true
+----
+
+== {longhorn-product-name} Komponenten für bestehende {longhorn-product-name} Implementierung einrichten
+
+Sie können das bestehende {longhorn-product-name} einrichten, wenn es nicht mit dem unterstützten Helm-Chart bereitgestellt wurde.
+
+* Da {longhorn-product-name} Komponenten nur auf Linux-Knoten ausgeführt werden können, müssen Sie den Knotenauswähler `kubernetes.io/os:linux` für {longhorn-product-name} festlegen, um die Linux-Knoten auszuwählen. Für weitere Informationen siehe xref:nodes/node-selector.adoc[Knotenauswähler].
++
+* Da alle Linux-Arbeitsknoten in einem Rancher Windows-Cluster den Taint `cattle.io/os=linux:NoSchedule` haben, müssen Sie die Tolerierung `cattle.io/os=linux:NoSchedule` festlegen, um {longhorn-product-name} auf diesen Knoten auszuführen. Für weitere Informationen siehe xref:nodes/taints-tolerations.adoc[Taint-Tolerierung].
+
+
+
+[NOTE]
+====
+{longhorn-product-name} kann effektiv auf Clustern bereitgestellt werden, die sowohl Windows- als auch Linux-Knoten umfassen, und bietet eine vielseitige Lösung für unterschiedliche Infrastrukturbedürfnisse. Um die Installation von Rancher zu erleichtern, sollten die Benutzer zunächst das AppCo OCI-Registry als Rancher-App-Repository hinzufügen. Detaillierte Anweisungen für diesen Prozess finden Sie in der https://docs.apps.rancher.io/howto-guides/integrate-with-rancher-manager/[Rancher-Dokumentation: Integrieren mit Rancher Manager].
+====

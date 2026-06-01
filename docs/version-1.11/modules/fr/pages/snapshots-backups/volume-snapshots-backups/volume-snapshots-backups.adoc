@@ -1,0 +1,24 @@
+= Instantanés de volumes et sauvegardes
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+____
+Dans les versions antérieures, Longhorn utilisait une méthode de communication "bloquante" avec la cible de sauvegarde distante. Par conséquent, il existe certains facteurs involontaires impactant les fonctions reposant sur la cible de sauvegarde distante. Par exemple, la latence plus faible, l'énumération des sauvegardes ou encore la provocation d'autres problèmes en cascade après l'opération de la cible de sauvegarde.
+____
+
+____
+Dans les versions actuelles, Longhorn a commencé à utiliser des opérations de sauvegarde asynchrones pour résoudre les problèmes mentionnés dans la version précédente.
+
+* Pour ce faire, créez d'abord les ressources personnalisées du cluster de sauvegarde, puis effectuez les opérations d'instantané et de sauvegarde suivantes vers la cible de sauvegarde distante.
+* Une fois la création de la sauvegarde terminée, récupérez de manière asynchrone l'état des volumes de sauvegarde et des sauvegardes depuis la cible de sauvegarde distante. Ensuite, mettez à jour le statut des ressources personnalisées du cluster correspondantes.
+
+Cette amélioration est évolutive pour la requête de sauvegarde afin d'aider à résoudre les ressources coûteuses causées par la méthode bloquante. C'était parce que toutes les sauvegardes sont enregistrées en tant que ressources personnalisées au lieu d'être interrogées directement depuis la cible distante.
+
+NOTE: Après la mise à niveau de Longhorn, si un volume n'a pas été mis à niveau vers le dernier Longhorn Engine (≥v1.2.0). Lors de la création d'une sauvegarde, elle aura l'état de transition intermédiaire du nom de la sauvegarde créée (en raison du traitement différent des noms de sauvegarde dans la dernière version de Longhorn ≥ v1.2.0). Longhorn s'assurera ensuite que la sauvegarde est synchronisée avec la cible de sauvegarde distante et que celle-ci sera mise à jour vers son état final, la cible de sauvegarde distante étant la seule source de vérité. Pour mettre à niveau le Longhorn Engine, référez-vous à xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[] ou xref:upgrades/longhorn-components/auto-upgrade-engine.adoc[].
+____
+
+* xref:/snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[Configurer une cible de sauvegarde]
+* xref:/snapshots-backups/volume-snapshots-backups/create-backup.adoc[Créer une sauvegarde]
+* xref:/snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[Restaurer depuis une sauvegarde]
+* xref:/snapshots-backups/volume-snapshots-backups/restore-volume-statefulset.adoc[Restaurer des volumes pour les StatefulSets Kubernetes]

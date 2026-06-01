@@ -1,0 +1,79 @@
+= ストレージタグ
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 概要
+
+ストレージタグ機能を使うと、特定のノードやディスクだけをLonghornボリュームデータの保存に利用できます。例えば、高パフォーマンスを必要とするデータは、`fast`、`ssd`、または`nvme`のタグが付けられた高性能ディスク、または`baremetal`のタグが付けられた高性能ノードのみを使用できます。
+
+この機能はディスクとノードの両方をサポートします。
+
+== セットアップ
+
+タグはLonghorn UIを使用して設定できます：
+
+. _ノード \-> ノードを選択 \-> ノードとディスクを編集_
+. `+New Node Tag` または `+New Disk Tag` をクリックして新しいタグを追加します。
+
+ノードまたはディスク上の既存のスケジュール済みレプリカは、新しいタグの影響を受けません。
+
+== 使用方法
+
+ボリュームに複数のタグが指定されている場合、ディスクおよびそのディスクが属するノードは、すべての指定されたタグを持っている必要があります。
+
+=== UI
+
+ボリューム作成時に、UIでディスクタグとノードタグを指定してください。
+
+=== Kubernetes
+
+Kubernetes StorageClass パラメータを使用してタグを指定します。
+
+デフォルトのLonghorn StorageClassにタグを指定するには、ConfigMap名`longhorn-storageclass`にパラメータ`nodeSelector: "storage,fast"`を追加します。
+次に例を示します。
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: ConfigMap
+data:
+  storageclass.yaml: |
+    kind: StorageClass
+    apiVersion: storage.k8s.io/v1
+    metadata:
+      name: longhorn
+      annotations:
+        storageclass.kubernetes.io/is-default-class: "true"
+    provisioner: driver.longhorn.io
+    allowVolumeExpansion: true
+    reclaimPolicy: "Delete"
+    volumeBindingMode: Immediate
+    parameters:
+      numberOfReplicas: "3"
+      staleReplicaTimeout: "480"
+      diskSelector: "ssd"
+      nodeSelector: "storage,fast"
+----
+
+LonghornがHelm経由でインストールされている場合は、 https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[`values.yaml`]内の`persistence.defaultNodeSelector`を編集することで実現できます。
+
+また、カスタムストレージクラス設定を使用することもできます。例：
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-fast
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "480" # 8 hours in minutes
+  diskSelector: "ssd"
+  nodeSelector: "storage,fast"
+----
+
+== 履歴
+
+* https://github.com/longhorn/longhorn/issues/311[元の機能リクエスト]

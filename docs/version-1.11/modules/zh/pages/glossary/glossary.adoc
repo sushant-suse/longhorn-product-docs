@@ -1,0 +1,349 @@
+= 术语表/术语
+:revdate: 2025-12-26
+:page-revdate: {revdate}
+
+* <<attachreattach,附加/重新附加>>
+* <<backup,备份>>
+* <<backupstore,备份存储>>
+* <<backup-target,备份目标>>
+* <<backup-volume,备份卷>>
+* <<block-storage,块存储>>
+* <<block-type-disks,块类型磁盘>>
+* <<crd,自定义资源定义（CRD）>>
+* <<cross-cluster-disaster-recovery,跨集群灾难恢复>>
+* <<csi-driver,CSI 驱动程序>>
+* <<disaster-recovery-volumes-dr-volume,灾难恢复卷（DR 卷）>>
+* <<ext4,Ext4>>
+* <<filesystem-type-disks,文件系统类型磁盘>>
+* <<frontend,前端>>
+* <<instance-manager,实例管理器>>
+* <<longhorn-engine,Longhorn Engine>>
+* <<longhorn-manager,Longhorn Manager>>
+* <<longhorn-volume,Longhorn 卷>>
+* <<maintenance-mode,维护模式>>
+* <<mount,挂载>>
+* <<nfs,NFS>>
+* <<object-storage,对象存储>>
+* <<offline-expansion,离线扩展>>
+* <<overprovisioning,超额配置>>
+* <<persistentvolume,PersistentVolume>>
+* <<persistentvolumeclaim,PersistentVolumeClaim>>
+* <<primary-backups,主备份>>
+* <<read-index,读取索引>>
+* <<recurring-snapshots,定期快照>>
+* <<remount,重新装入>>
+* <<replica,复本>>
+* <<s3,S3>>
+* <<salvage-a-volume,恢复卷>>
+* <<secondary-backups,二级备份>>
+* <<smbcifs,SMB/CIFS>>
+* <<snapshot,快照>>
+* <<snapshot-data-integrity,快照数据完整性>>
+* <<stable-identity,稳定身份>>
+* <<statefulset,有状态集>>
+* <<storageclass,StorageClass>>
+* <<system-backup,系统备份>>
+* <<thin-provisioning,精简配置>>
+* <<umount,卸载>>
+* <<v1-data-engine,V1 Data Engine>>
+* <<v2-data-engine,V2 数据引擎>>
+* <<volumes-kubernetes-concept,卷（Kubernetes 概念）>>
+* <<xfs,XFS>>
+
+[[attachreattach]]
+== 附加/重新附加
+
+附加块设备是使其在 Linux 节点上显示（例如，`/dev/longhorn/testvol`）。
+如果卷引擎意外停止，{longhorn-product-name} 会自动重新附加卷。
+
+[[backup]]
+== 备份
+
+备份是存储在备份存储中的对象。备份存储可能包含卷备份和系统备份。
+
+[[backupstore]]
+== 备份存储
+
+备份存储是用于保存{longhorn-product-name}备份的外部存储位置。
+它可以是 NFS 共享、CIFS 共享或 S3 兼容的对象存储。{longhorn-product-name} 通过配置的备份目标连接到备份存储。
+
+[[backup-target]]
+== 备份目标
+
+备份目标是用于访问{longhorn-product-name}中的备份存储的端点。
+
+[[backup-volume]]
+== 备份卷
+
+备份卷表示与单个原始Longhorn卷相关联的所有备份。
+它存储在备份存储中，并在{longhorn-product-name} UI 的*备份*页面上可见。
+
+备份卷包含同一卷的多个备份。
+备份是从快照创建的，并捕获快照拍摄时卷的状态。
+它们不包括快照链或更改历史。
+
+备份默认以2 MiB块存储在对象存储中。
+
+有关快照和备份工作原理的更多详细信息，请参见概念文档-xref:introduction/concepts.adoc#_3_1_how_backups_work[备份工作原理]。
+
+[[block-storage]]
+== 块存储
+
+一种存储方法，其中数据存储在固定大小的块中，每个块由内存地址标识。
+
+[[block-type-disks]]
+== 块类型磁盘
+
+块类型磁盘是未格式化的块设备，{longhorn-product-name}直接用于V2数据引擎卷。
+
+[[crd]]
+== CRD
+
+Kubernetes https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/[自定义资源定义]。
+
+[[cross-cluster-disaster-recovery]]
+== 跨集群灾难恢复
+
+跨集群灾难恢复允许通过备份将主 Kubernetes 集群的数据恢复到另一个独立的集群上。
+
+[[csi-driver]]
+== CSI驱动程序
+
+Longhorn CSI驱动程序是一个 https://kubernetes-csi.github.io/docs/drivers.html[容器存储接口]，可以与Kubernetes一起使用。
+用于Longhorn卷的CSI驱动程序名为`driver.longhorn.io`。
+
+[[disaster-recovery-volumes-dr-volume]]
+== 灾难恢复卷（DR卷）
+
+DR卷是一个特殊卷，用于在备份集群中维护数据副本，以便在主集群不可用时工作负载可以恢复。
+DR卷用于提高Longhorn卷的弹性。
+
+备份存储中的每个备份卷对应一个原始卷，每个DR卷对应一个备份卷。
+
+可以创建DR卷以准确反映Longhorn卷的备份，但在激活之前，它们不能作为正常的Longhorn卷使用。
+
+[[ext4]]
+== Ext4
+
+由{longhorn-product-name}支持的用于存储的Linux文件系统。
+
+[[filesystem-type-disks]]
+== 文件系统类型磁盘
+
+文件系统类型磁盘是一个块设备，格式化为基于区块的文件系统（例如`ext4`或XFS）。{longhorn-product-name}挂载它并存储V1数据引擎副本数据。
+
+[[frontend]]
+== 前端
+
+前端是指由Longhorn卷暴露的块设备。
+
+[[instance-manager]]
+== 实例管理器
+
+{longhorn-product-name}组件负责管理引擎和副本实例的生命周期。
+
+[[longhorn-engine]]
+== Longhorn Engine
+
+Longhorn Engine 是{longhorn-product-name}的数据平面组件。
+它是一个每卷存储控制器，负责将数据同步复制到卷副本。
+
+[[longhorn-manager]]
+== Longhorn Manager
+
+Longhorn Manager 是{longhorn-product-name}的控制平面组件。
+它作为 Kubernetes DaemonSet 运行，负责管理卷、处理 API 请求，并协调 Longhorn Engine、副本和其他自定义资源。
+
+[[longhorn-volume]]
+== Longhorn卷
+
+Longhorn卷是由{longhorn-product-name}管理和复制的Kubernetes卷。
+
+对于每个卷，Longhorn Manager 创建：
+
+* 一个 Longhorn Engine 实例
+* 多个副本，每个副本包含一个快照链，表示卷的历史
+
+默认情况下，创建三个副本并分布在不同节点上，以确保高可用性。
+
+[[maintenance-mode]]
+== 维护模式
+
+一种卷附加模式，在不启用前端的情况下附加卷，主要用于从快照恢复卷。
+
+[[mount]]
+== 挂载
+
+用于将块设备附加到节点上目录的 Linux 命令（例如，`mount /dev/longhorn/testvol/mnt`）。
+
+[[nfs]]
+== NFS
+
+一种 https://en.wikipedia.org/wiki/Network_File_System[分布式文件系统协议]，提供基于网络的文件访问。
+
+{longhorn-product-name} 支持在以下情况下使用 NFS：
+
+* 作为二级存储的备份存储。
+* 作为 RWX 卷的底层文件系统。
+
+[[object-storage]]
+== 对象存储
+
+一种数据存储架构，将数据管理为对象，每个对象包含数据、可变数量的元数据和一个全球唯一的标识符。{longhorn-product-name} 支持将卷备份到 S3 兼容的对象存储。
+
+[[offline-expansion]]
+== 离线扩展
+
+在卷未连接时进行的卷扩展。
+
+[[overprovisioning]]
+== 超额配置
+
+超额配置允许分配的逻辑存储超过可用的物理容量。
+
+例如，一个具有 200 GiB 磁盘空间的节点（保留 50 GiB 用于操作系统）可以配置 750 GiB 的 Longhorn 卷。
+
+*存储过度配置百分比*可以在{longhorn-product-name}设置中进行配置。有关更多详细信息，请参见xref:longhorn-system/settings.adoc[设置]。
+
+[[persistentvolume]]
+== PersistentVolume
+
+PersistentVolume（PV）是一个Kubernetes资源，表示集群中的一块存储。
+它可以通过手动或动态使用StorageClasses进行配置。
+
+它是一个集群级别的资源，要求Pods使用与Pod生命周期无关的持久存储。
+
+有关更多信息，请参见Kubernetes文档中的 https://kubernetes.io/docs/concepts/storage/persistent-volumes/[持久性卷]。
+
+[[persistentvolumeclaim]]
+== PersistentVolumeClaim
+
+PersistentVolumeClaim（PVC）是用户对存储的请求。
+声明指定所需的大小和访问模式（例如，ReadWriteOnce或ReadOnlyMany）。
+
+Pods使用PVC来获取持久存储。
+
+请参见官方Kubernetes文档中的 https://kubernetes.io/docs/concepts/storage/persistent-volumes/[持久性卷]。
+
+[[primary-backups]]
+== 主备份
+
+Kubernetes集群中Longhorn卷的副本可以视为主备份。
+
+[[read-index]]
+== 读取索引
+
+读取索引是每个副本使用的内存数据结构，用于提高读取性能。
+它记录哪个差异磁盘（快照）包含每个4K块的有效数据。
+
+[[recurring-snapshots]]
+== 定期快照
+
+定期快照允许{longhorn-product-name}以指定的频率（例如，每小时或每天）自动创建和保留快照。
+
+[[remount]]
+== 重新装入
+
+重新附加后，{longhorn-product-name}会自动检测并挂载卷的文件系统。
+
+[[replica]]
+== 复本
+
+副本是一个Longhorn卷数据存储，包含卷内数据变化的历史记录。
+
+[[s3]]
+== S3
+
+https://aws.amazon.com/s3/[亚马逊 S3] 是一种对象存储服务。
+
+[[salvage-a-volume]]
+== 恢复卷
+
+当所有副本出现故障（例如，由于网络断开）时，需要进行恢复操作。
+在恢复过程中，{longhorn-product-name} 尝试识别任何可用的副本，然后使用它们来恢复卷。
+
+[[secondary-backups]]
+== 二级备份
+
+存储在 Kubernetes 集群外部的备份，位于 S3、NFS 或 CIFS 上。
+
+[[smbcifs]]
+== SMB/CIFS
+
+一种 https://en.wikipedia.org/wiki/Server_Message_Block[网络文件共享协议]，提供类似于本地存储的远程文件访问。{longhorn-product-name} 支持将 SMB/CIFS 用作二级存储的备份存储。
+
+[[snapshot]]
+== 快照
+
+快照捕捉了卷在快照创建时的状态。
+每个快照仅存储覆盖早期数据的更改，因此需要一系列快照来表示完整状态。
+
+可以从快照中恢复卷。
+
+请参阅概念文档 - xref:introduction/concepts.adoc#_2_4_1_how_snapshots_work[快照工作原理]。
+
+[[snapshot-data-integrity]]
+== 快照数据完整性
+
+快照数据完整性是一个 {longhorn-product-name} 功能，它对快照磁盘文件进行哈希校验，并定期检查其完整性，以检测文件系统无法感知的损坏，例如数据位衰退。
+
+[[stable-identity]]
+== 稳定身份
+
+https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[有状态集] 具有稳定的身份，这意味着 Kubernetes 不会强制删除 Pod。
+
+[[statefulset]]
+== 有状态集
+
+一种 https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[Kubernetes 资源]，用于管理有状态应用程序。
+
+[[storageclass]]
+== StorageClass
+
+一种 https://kubernetes.io/docs/concepts/storage/storage-classes/#the-storageclass-resource[Kubernetes 资源]，用于自动为 Pod 提供持久卷。
+
+[[system-backup]]
+== 系统备份
+
+系统备份包含一组 Longhorn 系统资源，并存储在备份存储中。
+
+有关系统备份中包含的资源的更多详细信息，请参阅 Longhorn xref:snapshots-backups/system-backups/create-system-backup.adoc[系统备份包文档]。
+
+[[thin-provisioning]]
+== 精简配置
+
+{longhorn-product-name} 是一个薄配置存储系统。{longhorn-product-name} 卷仅使用在特定时间所需的空间。
+
+例如，一个存储 1 GiB 数据的 20 GiB 卷仅使用 1 GiB 的磁盘空间。
+
+[[umount]]
+== 卸载
+
+一个 https://linux.die.net/man/8/umount[Linux 命令]，用于从文件层次结构中分离文件系统。
+
+[[v1-data-engine]]
+== V1 数据引擎
+
+V1 数据引擎是 {longhorn-product-name} 的原始数据平面组件。
+它使用主机文件系统稀疏文件进行薄配置，卷由副本组成，支持快照和备份。
+
+[[v2-data-engine]]
+== V2 数据引擎
+
+V2 数据引擎是 Longhorn 数据平面。
+它使用 SPDK 和大页，以及块设备以提供更高的性能。
+
+[[volumes-kubernetes-concept]]
+== 卷（Kubernetes 概念）
+
+Kubernetes 卷允许 Pod 在其生命周期内存储文件。
+这些文件在容器重启期间保持，但在 Pod 被删除时不会保留。
+
+要在 Pod 生命周期之外保留存储，需要一个 https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes[持久卷]。
+
+有关更多详细信息，请参阅 Kubernetes 文档中的 https://kubernetes.io/docs/concepts/storage/volumes/[卷]。
+
+[[xfs]]
+== XFS
+
+一种被大多数 Linux 发行套件支持的 https://en.wikipedia.org/wiki/XFS[文件系统]。{longhorn-product-name} 支持 XFS 用作存储。

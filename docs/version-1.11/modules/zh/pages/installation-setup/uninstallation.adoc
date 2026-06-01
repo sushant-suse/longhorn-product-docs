@@ -1,0 +1,78 @@
+= 卸装
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+
+== 先决条件
+
+为了防止 {longhorn-product-name} 被意外卸载（这会导致数据丢失），新增了一个设置，xref:longhorn-system/settings.adoc#_deleting_confirmation_flag[deleting-confirmation-flag]。如果该标志为 `false`，则卸载操作将失败。将该标志设置为 `true` 以允许卸载。您可以在 {longhorn-product-name} UI 的设置页面或 `kubectl -n longhorn-system patch -p '{"value": "true"}' --type=merge lhs deleting-confirmation-flag` 中设置该标志。
+
+为了防止对 Kubernetes 集群造成损害，建议使用 {longhorn-product-name} 卷删除所有 Kubernetes 工作负载（包括 PersistentVolume、PersistentVolumeClaim、StorageClass、Deployment、StatefulSet、DaemonSet 等）。
+
+== 完全去除 {longhorn-product-name}
+
+要从您的 Kubernetes 集群中完全去除 {longhorn-product-name} 部署，请使用 `helm uninstall` 命令。
+
+[,shell]
+----
+helm uninstall longhorn --namespace longhorn-system
+----
+
+== 从 Rancher UI 卸载 {longhorn-product-name}
+
+在 Rancher UI 中，导航到 `Catalog Apps` 标签并删除 {longhorn-product-name} APP。
+
+== 使用 Helm 卸载 {longhorn-product-name}
+
+运行以下命令：
+
+[,shell]
+----
+helm uninstall longhorn -n longhorn-system
+----
+
+== 使用 Helm 控制器卸载 {longhorn-product-name}
+
+运行以下命令：
+
+[,shell]
+----
+kubectl delete helmchart <HelmChart name> -n <HelmChart namespace>
+----
+
+== 使用 Helm 控制器卸载 {longhorn-product-name}
+
+运行以下命令：
+
+[,shell]
+----
+kubectl delete helmchart <HelmChart name> -n <HelmChart namespace>
+----
+
+== 使用 Fleet 卸载 {longhorn-product-name}
+
+运行以下命令：
+
+[,shell]
+----
+kubectl delete GitRepo longhorn -n fleet-local
+----
+
+在 `longhorn-uninstall` 任务完成后，运行以下命令：
+
+[subs="+attributes",shell]
+----
+kubectl delete -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml
+----
+
+== 使用 Flux 卸载 {longhorn-product-name}
+
+运行以下命令：
+
+[,shell]
+----
+flux delete helmrelease longhorn-release -n longhorn-system
+----
+
+== 使用 Argo CD 卸载 {longhorn-product-name}
+
+Argo CD 目前不支持 PreDelete 资源钩子。您必须使用 `argocd app delete longhorn` 卸载 {longhorn-product-name}，而不是直接运行 `kubectl`，以防止 `longhorn-system` 名称空间中残留悬挂资源。

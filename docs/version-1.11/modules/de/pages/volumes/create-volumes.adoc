@@ -1,0 +1,197 @@
+= Volumes anlegen
+:revdate: 2025-12-09
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Sie können Kubernetes-Persistent-Speicherressourcen in Form von Persistent Volumes (PVs) und Persistent Volume Claims (PVCs) erstellen, die den Longhorn-Volumes entsprechen. Sie werden kubectl verwenden, um Speicher für Workloads mit einer Longhorn StorageClass dynamisch bereitzustellen. Für Hilfe beim Erstellen von Volumes über die {longhorn-product-name} Benutzeroberfläche, siehe <<_creating_longhorn_volumes_with_the_longhorn_ui,dieser Abschnitt>>.
+
+____
+Dieser Abschnitt setzt voraus, dass Sie verstehen, wie Kubernetes-Persistent-Speicher funktioniert. Für weitere Informationen siehe die https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetes-Dokumentation].
+____
+
+== Zugriffsmodi
+
+{longhorn-product-name} unterstützt die folgenden Kubernetes PersistentVolume-Zugriffsmodi:
+
+* *ReadWriteOnce (RWO)*: Das Volume kann von einem einzelnen Knoten im Lese/Schreib-Modus gemountet werden. Mehrere Pods auf demselben Knoten können auf das Volume zugreifen. Dies ist der Standard- und häufigste Zugriffsmodus.
+* *ReadWriteOncePod (RWOP)*: Das Volume kann von einem einzelnen Pod im Cluster im Lese/Schreib-Modus gemountet werden. Dieser Modus bietet die stärkste Isolation und stellt sicher, dass nur ein Pod zu einem bestimmten Zeitpunkt auf das Volume zugreifen kann. Er wird für zustandsbehaftete Workloads empfohlen, die einen Einzel-Schreiber-Zugriff erfordern.
+* *ReadWriteMany (RWX)*: Das Volume kann von vielen Knoten gleichzeitig im Lese/Schreib-Modus gemountet werden, was den gemeinsamen Zugriff über mehrere Pods ermöglicht. Für weitere Informationen siehe xref:volumes/rwx-volumes.adoc[ReadWriteMany (RWX) Volumes].
+
+[NOTE]
+====
+ReadOnlyMany (ROX) wird nicht unterstützt. Für den schreibgeschützten Zugriff von mehreren Pods verwenden Sie ReadWriteMany mit schreibgeschützten Montageoptionen in der Pod-Spezifikation.
+====
+
+== Erstellen von Longhorn-Volumes mit kubectl
+
+Zuerst müssen Sie eine Longhorn StorageClass erstellen. Die Longhorn StorageClass enthält die Parameter zur Bereitstellung von PVs.
+
+Als Nächstes wird ein PersistentVolumeClaim erstellt, der auf die StorageClass verweist. Schließlich wird der PersistentVolumeClaim als Volume innerhalb eines Pods gemountet.
+
+Wenn der Pod bereitgestellt wird, überprüft der Kubernetes-Master den PersistentVolumeClaim, um sicherzustellen, dass die Ressourcenanforderung erfüllt werden kann. Wenn Speicher verfügbar ist, erstellt der Kubernetes-Master das Longhorn-Volume und bindet es an den Pod.
+
+. Verwenden Sie den folgenden Befehl, um eine StorageClass mit dem Namen `longhorn` zu erstellen:
++
+[subs="+attributes", console]
+----
+kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/storageclass.yaml
+----
++
+Die folgende Beispiel-StorageClass wird erstellt:
++
+[subs="+attributes", yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  fsType: "ext4"
+#  backupTargetName: "default"
+#  mkfsParams: "-I 256 -b 4096 -O ^metadata_csum,^64bit"
+#  diskSelector: "ssd,fast"
+#  nodeSelector: "storage,fast"
+#  recurringJobSelector: '[
+#   {
+#     "name":"snap",
+#     "isGroup":true,
+#   },
+#   {
+#     "name":"backup",
+#     "isGroup":false,
+#   }
+#  ]'
+----
++
+Der Parameter `mkfsParams` kann verwendet werden, um Dateisystemformatoptionen für jede StorageClass anzugeben.
++
+Der Parameter `backupTargetName` kann verwendet werden, um das Sicherungsziel anzugeben. Der Name des Standard-Sicherungsziels (`default`) wird verwendet, wenn `backupTargetName` nicht angegeben ist.
++
+Parameter können in der Spezifikation der StorageClass weggelassen werden. Wenn die StorageClass verwendet wird, um ein PV und ein Volume zu erstellen, werden nicht angegebene Parameter in der Regel mit einem Standardwert aus den globalen Einstellungen festgelegt. Für die vollständige Liste der globalen Einstellungen siehe: xref:volumes/storageclass-parameters.adoc[StorageClass Parameters] und xref:longhorn-system/settings.adoc[Einstellungen].
+
+. Erstellen Sie einen Pod, der Longhorn-Volumes verwendet, indem Sie diesen Befehl ausführen:
++
+[subs="+attributes", console]
+----
+kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/pod_with_pvc.yaml
+----
++
+Ein Pod mit dem Namen `volume-test` wird gestartet, zusammen mit einem PersistentVolumeClaim mit dem Namen `longhorn-volv-pvc`. Der PersistentVolumeClaim verweist auf die Longhorn StorageClass:
++
+[subs="+attributes", yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: longhorn-volv-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi
+----
++
+Der persistentVolumeClaim wird im Pod als Volume gemountet:
++
+[subs="+attributes", yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: volume-test
+  namespace: default
+spec:
+  containers:
+  - name: volume-test
+    image: nginx:stable-alpine
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+    - name: volv
+      mountPath: /data
+    ports:
+    - containerPort: 80
+  volumes:
+  - name: volv
+    persistentVolumeClaim:
+      claimName: longhorn-volv-pvc
+----
++
+Weitere Beispiele sind xref:longhorn-system/examples-resources.adoc[hier] verfügbar.
+
+== Bindung von Workloads an PVs ohne eine Kubernetes StorageClass.
+
+Es ist möglich, eine Longhorn StorageClass zu verwenden, um einen Workload mit einem PV zu verbinden, ohne ein StorageClass-Objekt in Kubernetes zu erstellen.
+
+Da die StorageClass auch ein Feld ist, das verwendet wird, um ein PVC mit einem PV abzugleichen, das nicht von einem Provisioner erstellt werden muss, können Sie ein PV manuell mit einem benutzerdefinierten StorageClass-Namen erstellen und dann ein PVC erstellen, das denselben StorageClass-Namen anfordert.
+
+Wenn ein PVC eine StorageClass anfordert, die nicht als Kubernetes-Ressource existiert, wird Kubernetes versuchen, Ihr PVC an ein PV mit demselben StorageClass-Namen zu binden. Die StorageClass wird wie ein Label verwendet, um das übereinstimmende PV zu finden, und es werden nur vorhandene PVs mit dem entsprechenden StorageClass-Namen verwendet.
+
+Wenn das PVC eine StorageClass benennt, wird Kubernetes:
+
+. Nach einem vorhandenen PV suchen, das das Label hat, das mit der StorageClass übereinstimmt.
+. Nach einer vorhandenen StorageClass-Kubernetes-Ressource suchen. Wenn die StorageClass existiert, wird sie verwendet, um ein PV zu erstellen.
+
+== Erstellen von Longhorn-Volumes mit der Longhorn-Benutzeroberfläche.
+
+Da das Longhorn-Volume bereits existiert, während PV/PVC erstellt werden, ist eine StorageClass für die dynamische Bereitstellung von Longhorn-Volumes nicht erforderlich. Das Feld `storageClassName` sollte jedoch im PVC/PV gesetzt werden, um für die PVC-Bindungszwecke verwendet zu werden. Es ist nicht erforderlich, dass Benutzer das zugehörige StorageClass-Objekt erstellen.
+
+Standardmäßig ist die StorageClass für von Longhorn erstellte PV/PVC `longhorn-static`. Benutzer können es in `Setting - General - Default Longhorn Static StorageClass Name` nach Bedarf ändern.
+
+Benutzer müssen PVC und PV, die von {longhorn-product-name} erstellt wurden, manuell löschen.
+
+== PV/PVC-Erstellung für vorhandenes Longhorn-Volume.
+
+Jetzt können Benutzer PV/PVC über unsere Longhorn-Benutzeroberfläche für die vorhandenen Longhorn-Volumes erstellen.
+Nur ein abgetrenntes Volume kann von einem neu erstellten Pod verwendet werden.
+
+== Der Fehler bei der Erstellung des Longhorn-Volumes
+
+Die Erstellung eines Longhorn-Volumes kann aus verschiedenen Gründen scheitern. Die Probleme sind wie folgt kategorisiert:
+
+* unzureichender Speicherplatz
+* Festplatte nicht gefunden
+* Festplatten sind nicht verfügbar
+* Tags nicht erfüllt
+* Knoten nicht gefunden
+* Knoten sind nicht verfügbar
+* Keiner der Knoten-Kandidaten enthält ein bereitgestelltes Engine-Image
+* harte Affinität kann nicht erfüllt werden
+* Replica-Planung fehlgeschlagen
+* Nicht verwendete fehlgeschlagene Replica wird nicht unterstützt
+* Replica bereits geplant
+* Longhorn-Client-Operation fehlgeschlagen
+* Inkompatible Volumengröße
+
+Der Fehler führt dazu, dass die Arbeitslast das bereitgestellte PV nicht nutzen kann und eine Warnmeldung angezeigt wird.
+
+[subs="+attributes", console]
+----
+# kubectl describe pod workload-test
+
+Events:
+  Type     Reason              Age                From                     Message
+  ----     ------              ----               ----                     -------
+  Warning  FailedAttachVolume  14s (x8 over 82s)  attachdetach-controller  AttachVolume.Attach
+  failed for volume "pvc-e130e369-274d-472d-98d1-f6074d2725e8" : rpc error: code = Aborted
+  desc = volume pvc-e130e369-274d-472d-98d1-f6074d2725e8 is not ready for workloads
+----
+
+Um den Benutzern zu helfen, die Fehlerursachen zu verstehen, fasst {longhorn-product-name} diese in der PV-Anmerkung `longhorn.io/volume-scheduling-error` zusammen. Fehler werden in dieser Anmerkung zusammengefasst und durch ein Semikolon getrennt, zum Beispiel `longhorn.io/volume-scheduling-error: insufficient storage;disks are unavailable`. Die Anmerkung kann mit `kubectl describe pv <pvc name>` überprüft werden.
+
+[subs="+attributes", console]
+----
+# kubectl describe pv pvc-e130e369-274d-472d-98d1-f6074d2725e8
+Name:            pvc-e130e369-274d-472d-98d1-f6074d2725e8
+Labels:          <none>
+Annotations:     longhorn.io/volume-scheduling-error: insufficient storage
+                 pv.kubernetes.io/provisioned-by: driver.longhorn.io
+
+...
+----

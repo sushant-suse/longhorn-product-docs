@@ -1,0 +1,213 @@
+= Netzwerke
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Übersicht
+
+Sie können die folgenden Informationen verwenden, um eine Kubernetes NetworkPolicy zu schreiben, um den eingehenden/ausgehenden Datenverkehr zwischen Longhorn-Komponenten zu steuern. Dies hilft, den Schaden zu reduzieren, wenn ein bösartiger Pod in das Cluster-Netzwerk eindringt.
+
+Das Helm-Chart installiert NetworkPolicy-Objekte, wenn der https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[networkPolicies.enabled Wert] auf `true` gesetzt ist.
+Die Manifeste dieser Objekte können im https://github.com/longhorn/longhorn/tree/v{patch-version}/chart/templates/network-policies[Git-Repository] eingesehen werden.
+Bitte beachten Sie, dass je nach dem bereitgestellten https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/[CNI] nicht alle Kubernetes-Cluster NetworkPolicy unterstützen.
+Siehe die https://kubernetes.io/docs/concepts/services-networking/network-policies/[Kubernetes-Dokumentation] für Details.
+
+NOTE: Wenn Sie Netzwerkrichtlinien schreiben, besuchen Sie bitte diese Seite erneut, bevor Sie Longhorn aktualisieren, um die notwendigen Anpassungen an Ihren Netzwerkrichtlinien vorzunehmen.
+Hinweis: Je nach Ihrem CNI für das Cluster-Netzwerk kann es zu Verzögerungen kommen, wenn Kubernetes die Netzwerkrichtlinien auf den Pod anwendet. Diese Verzögerung kann dazu führen, dass der wiederkehrende Job von Longhorn zum Erstellen eines Snapshots oder einer Sicherung des Volumes fehlschlägt, da er zu Beginn nicht auf den longhorn-manager zugreifen kann. Dies ist ein bekanntes Problem, das in K3s mit Traefik auftritt und außerhalb der Kontrolle von Longhorn liegt.
+
+== Longhorn Manager
+
+=== Ingress:
+
+Von | Port | Protokoll
+-- | -- | --
+`Other Longhorn Manager` | 9500 | TCP
+`UI` | 9500 | TCP
+`Longhorn CSI plugin` | 9500 | TCP
+`Backup/Snapshot Recurring Job Pod` | 9500 | TCP
+`Longhorn Driver Deployer` | 9500 | TCP
+`Conversion Webhook Server` | 9501 | TCP
+`Admission Webhook Server` | 9502 | TCP
+`Recovery Backend Server` | 9503 | TCP
+
+=== Egress:
+
+Zu | Port | Protokoll
+-- | -- | --
+`Other Longhorn Manager` | 9500 | TCP
+`Instance Manager` | 8500 (Prozess-Manager-Dienst); 8501 (Proxy-Dienst); 8502 (Festplattendienst); 8503 (Instanzdienst); 8504 (spdk-Dienst) | TCP
+`Backing Image Manager` | 8000 | TCP
+`Backing Image Data Source` | 8000 | TCP
+`External Backupstore` | Benutzerdefiniert | TCP
+`Kubernetes API server` | `Kubernetes API server port` | TCP
+
+== UI
+
+=== ingress:
+
+Benutzerdefiniert
+
+=== egress:
+
+Zu | Port | Protokoll
+-- | -- | --
+`Longhorn Manager` | 9500 | TCP
+
+== Instance Manager
+
+=== ingress
+
+Von | Port | Protokoll
+-- | -- | --
+`Longhorn Manager` | 8500 (Prozess-Manager-Dienst); 8501 (Proxy-Dienst); 8502 (Festplattendienst); 8503 (Instanzdienst); 8504 (spdk-Dienst) | TCP
+`Other Instance Manager` | 10000-30000 | TCP
+`Node in the Cluster` | 3260 | TCP
+`Backing Image Data Source` | 10000-30000 | TCP
+
+=== egress:
+
+Zu | Port | Protokoll
+-- | -- | --
+`Other Instance Manager` | 10000-30000 | TCP
+`Backing Image Data Source` | 8002 | TCP
+`External Backupstore` | Benutzerdefiniert | TCP
+
+== Longhorn CSI-Plugin
+
+=== ingress
+
+Keine
+
+=== egress:
+
+Zu | Port | Protokoll
+-- | -- | --
+`Longhorn Manager` | 9500 | TCP
+
+=== Zusatzinformationen
+
+`Longhorn CSI plugin` Pods kommunizieren mit `CSI sidecar` Pods über den Unix-Domain-Socket bei `<Kuberlet-Directory>/plugins/driver.longhorn.io/csi.sock`
+
+== CSI-Sidecar (csi-attacher, csi-provisioner, csi-resizer, csi-snapshotter)
+
+=== ingress:
+
+Keine
+
+=== egress:
+
+Zu | Port | Protokoll
+-- | -- | --
+`Kubernetes API server` | `Kubernetes API server port` | TCP
+
+=== Zusatzinformationen
+
+`CSI sidecar` Pods kommunizieren mit `Longhorn CSI plugin` Pods über den Unix-Domain-Socket bei `<Kuberlet-Directory>/plugins/driver.longhorn.io/csi.sock`
+
+== Treiber-Deployer
+
+=== ingress:
+
+Keine
+
+=== egress:
+
+Zu | Port | Protokoll
+-- | -- | --
+`Longhorn Manager` | 9500 | TCP
+`Kubernetes API server` | `Kubernetes API server port` | TCP
+
+== Engine-Image
+
+=== ingress:
+
+Keine
+
+=== egress:
+
+Keine
+
+== Backing Image Manager
+
+=== ingress:
+
+Von | Port | Protokoll
+-- | -- | --
+`Longhorn Manager` | 8000 | TCP
+`Other Backing Image Manager` | 30001-31000 | TCP
+
+=== egress:
+
+Zu | Port | Protokoll
+-- | -- | --
+`Instance Manager` | 10000-30000 | TCP
+`Other Backing Image Manager` | 30001-31000 | TCP
+`Backing Image Data Source` | 8000 | TCP
+
+== Backing Image Datenquelle
+
+=== ingress:
+
+Von | Port | Protokoll
+-- | -- | --
+`Longhorn Manager` | 8000 | TCP
+`Instance Manager` | 8002 | TCP
+`Backing Image Manager` | 8000 | TCP
+
+=== egress:
+
+Zu | Port | Protokoll
+-- | -- | --
+`Instance Manager` | 10000-30000 | TCP
+`User provided server IP to download the images from` | Benutzerdefiniert | TCP
+
+== Share-Manager
+
+=== ingress
+
+Von | Port | Protokoll
+-- | -- | --
+`Node in the cluster` | 2049 | TCP
+
+=== egress:
+
+Keine
+
+== Sicherung/Snapshot Wiederkehrender Job Pod
+
+=== ingress:
+
+Keine
+
+=== egress:
+
+Zu | Port | Protokoll
+-- | -- | --
+`Longhorn Manager` | 9500  | TCP
+
+== Uninstaller
+
+=== ingress:
+
+Keine
+
+=== egress:
+
+Zu | Port | Protokoll
+-- | -- | --
+`Kubernetes API server` | `Kubernetes API server port` | TCP
+
+== Proc Kubelet Cmdline ermitteln
+
+=== ingress:
+
+Keine
+
+=== egress:
+
+Keine
+
+'''
+
+Ursprüngliches GitHub-Problem:
+https://github.com/longhorn/longhorn/issues/1805

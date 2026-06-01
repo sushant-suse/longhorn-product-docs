@@ -1,0 +1,21 @@
+= Restaurar um Volume de um Backup
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn pode facilmente restaurar backups para um volume.
+
+Para mais informações sobre como os backups funcionam, consulte a seção xref:introduction/concepts.adoc#_3_backups_and_secondary_storage[Conceitos].
+
+Ao restaurar um backup, ele cria um volume do mesmo nome por padrão. Se um volume com o mesmo nome do backup já existir, o backup não será restaurado.
+
+Para restaurar um backup,
+
+. Navegue até o menu *Backup.*
+. Selecione o(s) backup(s) que deseja restaurar e clique em *Restaurar Último Backup.*
+. No campo *Nome*, selecione o volume que deseja restaurar.
+. Clique em *OK.*
+
+Você pode então criar o PV/PVC a partir do volume restaurado de um backup. Aqui você pode especificar o `storageClassName` ou deixá-lo vazio para usar o `storageClassName` herdado do PVC do volume de backup. O `StorageClass` deve já estar no cluster para evitar qualquer problema adicional.
+
+*Resultado:* O volume restaurado está disponível na página *Volume*.

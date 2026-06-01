@@ -1,0 +1,43 @@
+= Actualizar automáticamente el Longhorn Engine
+:revdate: 2026-01-08
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} te permite actualizar automáticamente los volúmenes Longhorn a la nueva versión del Longhorn Engine por defecto tras actualizar Longhorn Manager. Esta función reduce la cantidad de trabajo manual que tienes que hacer al actualizar {longhorn-product-name}. Hay algunos conceptos relacionados con esta función que se enumeran a continuación:
+
+== 1. Configuración del límite de actualización automática del Longhorn Engine por nodo concurrente
+
+Esta es una configuración que controla cómo {longhorn-product-name} actualiza automáticamente los Longhorn Engine de los volúmenes a la nueva imagen del Longhorn Engine por defecto tras actualizar Longhorn Manager. El valor de esta configuración especifica el número máximo de Longhorn Engine por nodo que se permiten actualizar a la imagen del Longhorn Engine por defecto al mismo tiempo.
+
+Si el valor es 0, {longhorn-product-name} no actualizará automáticamente los Longhorn Engine de los volúmenes a la versión por defecto. Cuanto mayor sea este valor, más rápido finalizará el proceso de actualización del Longhorn Engine.
+
+Sin embargo, dar un valor mayor para esta configuración consumirá más CPU y memoria del nodo durante el proceso de actualización del Longhorn Engine. Recomendamos establecer el valor en 3 para dejar margen de error, pero no abrumar al sistema con demasiadas actualizaciones fallidas.
+
+== 2. El comportamiento de {longhorn-product-name} con diferentes condiciones de volumen.
+
+En los siguientes casos, asume que la configuración de `concurrent automatic engine upgrade per node limit` es mayor que 0.
+
+. Volúmenes adjuntos
++
+Si el volumen está en estado adjunto y saludable, {longhorn-product-name} realizará automáticamente una actualización en vivo del Longhorn Engine del volumen a la nueva imagen del Longhorn Engine por defecto.
+
+. Volúmenes desacoplados
++
+{longhorn-product-name} realiza automáticamente una actualización fuera de línea para el volumen desacoplado.
+
+. Volúmenes de recuperación ante desastres
++
+{longhorn-product-name} no actualiza automáticamente xref:data-integrity-recovery/disaster-recovery-volumes.adoc[volúmenes de recuperación ante desastres] a la nueva imagen del Longhorn Engine por defecto porque desencadenaría una restauración completa para los volúmenes de recuperación ante desastres. La restauración completa podría afectar el rendimiento de otros volúmenes Longhorn en funcionamiento en el sistema. Así que, {longhorn-product-name} te deja decidir cuándo es el buen momento para actualizar manualmente el Longhorn Engine para los volúmenes de recuperación ante desastres (por ejemplo, cuando el sistema está inactivo o durante el tiempo de mantenimiento).
++
+Sin embargo, cuando activas el volumen de recuperación ante desastres, se activará y luego se desacoplará.
+En este momento, {longhorn-product-name} realizará automáticamente una actualización fuera de línea para el volumen, similar al caso del volumen desacoplado.
+
+== 3. ¿Qué Sucede Si La Actualización Falla?
+
+Si un volumen no logra actualizar su Longhorn Engine, la imagen del Longhorn Engine en la especificación del volumen seguirá siendo diferente de la imagen del Longhorn Engine en el estado del volumen. {longhorn-product-name} intentará continuamente actualizar hasta que tenga éxito.
+
+Si hay demasiados volúmenes que fallan al actualizar por nodo (es decir, más de la configuración de `concurrent automatic engine upgrade per node limit`), {longhorn-product-name} dejará de actualizar volúmenes en ese nodo.
+
+== 4. Vivacidad y Limpieza de Antiguos Pods del Gestor de Instancias Durante la Actualización Automática
+
+Para la vivacidad y limpieza de antiguos pods del gestor de instancias durante la actualización en vivo, consulta la documentación de xref:upgrades/longhorn-components/instance-manager-pods-during-upgrade.adoc[Pods del Gestor de Instancias Durante la Actualización].

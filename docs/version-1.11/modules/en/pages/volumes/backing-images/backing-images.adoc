@@ -102,6 +102,7 @@ spec:
     export-type: qcow2
 ----
 
+[#_create_a_backing_image_using_a_storageclass_and_pvc]
 ==== Create a Backing Image Using a StorageClass and PVC
 
 . In a Longhorn StorageClass.
@@ -167,28 +168,25 @@ parameters:
 
 == Use a Backing Image in a Volume
 
-Users can <<Create a Backing Image Using a StorageClass and PVC, directly create then immediately use a backing image via StorageClass>> or utilize an existing backing image as mentioned below.
+Users can xref:_create_a_backing_image_using_a_storageclass_and_pvc[Create a Backing Image Using a StorageClass and PVC], directly create then immediately use a backing image via StorageClass or utilize an existing backing image as mentioned below.
 
-[discrete]
-==== Use an Existing Backing Image
+=== Use an Existing Backing Image
 
-[discrete]
-===== Use an Existing Backing Image During Volume Creation
+==== Use an Existing Backing Image During Volume Creation
 
 . Click menu:Advanced[Backing Images] in the {longhorn-product-name} UI.
 . Click *Create Backing Image* to create a backing image with a unique name and a valid URL.
 . Select a backing image from the list. The volume and the backing image must use the same data engine.
 . {longhorn-product-name} starts to download the backing image to disks for the replicas when a volume using the backing image is attached to a node.
 
-[discrete]
-===== Use an Existing Backing Image During Volume Restoration
+==== Use an Existing Backing Image During Volume Restoration
 
 . Click `Backup` and pick up a backup volume for the restore.
 . As long as the backing image is already set for the backup volume, {longhorn-product-name} will automatically choose the backing image during the restore.
 . {longhorn-product-name} allows you to re-specify or override the backing image during the restore.
 
-[discrete]
-==== Download a Backing Image File
+[#_download_a_backing_image_file]
+=== Download a Backing Image File
 
 Since v1.3.0, users can download existing backing image files to the local machine via UI.
 
@@ -228,15 +226,15 @@ You can prepare a V2 Data Engine backing image using any of the supported data s
 
 == Clean Up Backing Images
 
-[discrete]
-==== Clean Up Backing Images in Disks
+[#_clean_up_backing_images_in_disks]
+=== Clean Up Backing Images in Disks
 
 * {longhorn-product-name} automatically cleans up the unused backing image files on the disks based on xref:longhorn-system/settings.adoc#_backing_image_cleanup_wait_interval[the setting `Backing Image Cleanup Wait Interval`]. But {longhorn-product-name} will retain at least one file on a disk for each backing image.
 * You can manually remove backing images from disks using the {longhorn-product-name} UI. Go to *Setting* > *Backing Image*, and then click the name of a specific backing image. In the window that opens, select one or more disks and then click *Clean Up*.
 * Once there is one replica in a disk using a backing image, no matter what the replica's current state is, the backing image file in this disk cannot be cleaned up.
 
 [discrete]
-==== Delete Backing Images
+=== Delete Backing Images
 
 * The backing image can be deleted only when there is no volume using it.
 
@@ -261,7 +259,7 @@ You can prepare a V2 Data Engine backing image using any of the supported data s
 . Once a backing image file is prepared by the backing image manager for a disk, the file will be shared among all volume replicas in this disk.
 . When a backing image is created, {longhorn-product-name} launches a backing image data source pod to prepare the initial file. The file data comes from a source specified by the user—such as a download from a remote location, an upload from a local file, or an export from an existing volume. Once preparation is done, the backing image manager pod on the same disk takes over the file, and {longhorn-product-name} stops the data source pod.
 . Once a new backing image is used by a volume, the backing image manager pods in the disks that the volume replicas reside on will be asked to sync the file from the backing image manager pods that already contain the file.
-. As mentioned in the section <<_clean_up_backing_images_in_disks,#clean_up_backing_images_in_disks>>, the file will be cleaned up automatically if all replicas in one disk do not use one backing image file.
+. As mentioned in the section xref:_clean_up_backing_images_in_disks[Clean Up Backing Images in Disks], the file will be cleaned up automatically if all replicas in one disk do not use one backing image file.
 
 == Concurrent Limit of Backing Image Syncing
 
@@ -271,7 +269,7 @@ You can prepare a V2 Data Engine backing image using any of the supported data s
 == Warning
 
 * The download URL of the backing image should be public. We will improve this part in the future.
-* If there is high memory usage of one backing image manager pod after <<_download_a_backing_image_file,file download>>, this is caused by the system cache/buffer. The memory usage will decrease automatically hence you do not need to worry about it. See https://github.com/longhorn/longhorn/issues/4055[the GitHub ticket] for more details.
+* If there is high memory usage of one backing image manager pod after xref:_download_a_backing_image_file[file download] this is caused by the system cache/buffer. The memory usage will decrease automatically hence you do not need to worry about it. See https://github.com/longhorn/longhorn/issues/4055[the GitHub ticket] for more details.
 
 == History
 

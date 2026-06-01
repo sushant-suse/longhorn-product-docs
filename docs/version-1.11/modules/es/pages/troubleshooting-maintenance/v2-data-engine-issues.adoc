@@ -1,0 +1,60 @@
+= Solución de problemas
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/troubleshooting.md"]
+:current-version: {page-component-version}
+
+== Instalación
+
+=== Error "El paquete 'linux-modules-extra-x.x.x-x-generic' no tiene candidato a instalación" durante la instalación en máquinas Debian
+
+Para máquinas Debian, si encuentras errores similares a los siguientes al instalar módulos adicionales del kernel de Linux, necesitas encontrar una versión disponible en los sitios web de la colección de paquetes, como https://pkgs.org/search/?q=linux-modules-extra[esto], en lugar de depender directamente de `uname -r`:
+
+[subs="+attributes",log]
+----
+apt install -y linux-modules-extra-`uname -r`
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+Package linux-modules-extra-5.15.0-67-generic is not available, but is referred to by another package.
+This may mean that the package is missing, has been obsoleted, or
+is only available from another source
+
+E: Package 'linux-modules-extra-5.15.0-67-generic' has no installation candidate
+----
+
+Por ejemplo, para Ubuntu 22.04, una versión válida es `linux-modules-extra-5.15.0-76-generic`:
+
+[subs="+attributes",shell]
+----
+apt update -y
+apt install -y linux-modules-extra-5.15.0-76-generic
+----
+
+== Disco
+
+=== Error "Argumento no válido" en el estado del disco después de añadir un disco de tipo bloque
+
+Después de añadir un disco de tipo bloque, el estado del disco muestra mensajes de error:
+
+----
+Disk disk-1(/dev/nvme1n1) on node dereksu-ubuntu-pool1-bf77ed93-2d2p9 is not ready:
+failed to generate disk config: error: rpc error: code = Internal desc = rpc error: code = Internal
+desc = failed to add block device: failed to create AIO bdev: error sending message, id 10441,
+method bdev_aio_create, params {disk-1 /host/dev/nvme1n1 4096}: {"code": -22,"message": "Invalid argument"}
+----
+
+A continuación, inspecciona el mensaje de registro del pod del gestor de instancias en el mismo nodo. Si el registro revela lo siguiente:
+
+----
+[2023-06-29 08:51:53.762597] bdev_aio.c: 762:create_aio_bdev: *WARNING*: Specified block size 4096 does not match auto-detected block size 512
+[2023-06-29 08:51:53.762640] bdev_aio.c: 788:create_aio_bdev: *ERROR*: Disk size 100000000000 is not a multiple of block size 4096
+----
+
+Estos mensajes indican que el tamaño de tu disco no es un múltiplo del tamaño del bloque 4096 y no es compatible con el sistema Longhorn.
+
+Para resolver este problema, puedes seguir los pasos
+
+. Elimina el disco de tipo bloque recién añadido del nodo.
+. Particiona el disco de tipo bloque utilizando la utilidad `fdisk` y asegúrate de que el tamaño de la partición sea un múltiplo del tamaño del bloque 4096.
+. Añade el disco particionado al nodo Longhorn.

@@ -1,0 +1,62 @@
+= クラスター上でCSIスナップショットの作成を有効にします。
+:revdate: 2026-03-16
+:page-revdate: {revdate}
+:description: プログラムによるSUSE® Storageスナップショット/バックアップの作成のためにCSIスナップショットサポートを有効にします。
+:current-version: {page-component-version}
+
+== 前提条件
+
+スナップショットコントローラーおよび関連するカスタムリソース定義をデプロイするのはKubernetesディストリビューションの責任です。
+
+詳細については、 https://kubernetes.io/docs/concepts/storage/volume-snapshots/[CSIボリュームスナップショット]を参照してください。
+
+== Kubernetesディストリビューションがスナップショットコントローラーをバンドルしていない場合
+
+これらのコンポーネントを手動でインストールすることができます。
+
+=== 前提条件
+
+スナップショットCRDとスナップショットコントローラーの同じリリースバージョンをインストールして、CRDバージョンがスナップショットコントローラーと互換性があることを確認してください。
+
+一般的な使用のために、インストール前に適切な*ネームスペース*でスナップショットコントローラーのYAMLを更新してください。
+
+例えば、バニラKubernetesクラスターでは、`kubectl create`コマンドを発行する前に、ネームスペースを`default`から`kube-system`に更新します。
+
+=== スナップショットCRDをインストールします。
+
+. https://github.com/kubernetes-csi/external-snapshotter/tree/v8.5.0/client/config/crdからファイルをダウンロードしてください。
+なぜなら{longhorn-product-name} v{patch-version}は https://kubernetes-csi.github.io/docs/external-snapshotter.html[CSI external-snapshotter] v8.5.0を使用しているからです。
+. `kubectl create -k client/config/crd`を実行します。
+. クラスターごとに一度これを行ってください。
+
+=== 共通スナップショットコントローラーをインストールします。
+
+. https://github.com/kubernetes-csi/external-snapshotter/tree/v8.5.0/deploy/kubernetes/snapshot-controllerからファイルをダウンロードしてください（v{patch-version}を希望する{longhorn-product-name}バージョンに置き換えることができます）。なぜなら{longhorn-product-name} v{patch-version}は https://kubernetes-csi.github.io/docs/external-snapshotter.html[CSI external-snapshotter] v8.5.0を使用しているからです。
+. ネームスペースを環境に適した値（例えば、`kube-system`）に更新してください。
+. `kubectl create -k deploy/kubernetes/snapshot-controller`を実行します。
+. クラスターごとに一度これを行ってください。
++
+[NOTE]
+====
+以前は、スナップショットコントローラーのYAMLファイルはデフォルトで`default`ネームスペースにデプロイされていました。
+更新されたYAMLファイルはデフォルトで`kube-system`ネームスペースにデプロイされています。
+したがって、複数のスナップショットコントローラーが存在しないように、`default`ネームスペースの以前のスナップショットコントローラーを削除することをお勧めします。
+====
+
+追加情報については、kubernetes
+external-snapshotter gitリポジトリの https://github.com/kubernetes-csi/external-snapshotter#usage[使用法]セクションを参照してください。
+
+== デフォルトの`VolumeSnapshotClass`を追加します。
+
+スナップショットCRDの利用可能性を確保してください。その後、デフォルトの`VolumeSnapshotClass`を作成してください。
+
+[subs="+attributes",yaml]
+----
+# Use v1 as an example
+kind: VolumeSnapshotClass
+apiVersion: snapshot.storage.k8s.io/v1
+metadata:
+  name: longhorn
+driver: driver.longhorn.io
+deletionPolicy: Delete
+----

@@ -1,0 +1,21 @@
+= Support du Kubernetes Cluster Autoscaler (Expérimental)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Par défaut, Longhorn empêche le Kubernetes Cluster Autoscaler de réduire le nombre de nœuds car{nbsp}:
+
+* Longhorn crée des budgets de perturbation de pod pour tous les pods de gestionnaire d'instance moteur et de réplique.
+* Les pods de gestionnaire d'instance Longhorn ont des budgets de perturbation de pod stricts.
+* Les pods de gestionnaire d'instance Longhorn ne sont pas soutenus par un contrôleur de charge de travail intégré Kubernetes.
+* Les pods Longhorn utilisent des montages de volumes de stockage local.
+
+Pour plus d'informations, voir https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/FAQ.md#what-types-of-pods-can-prevent-ca-from-removing-a-node[Quels types de pods peuvent empêcher CA de supprimer un nœud\&nbsp;?]
+
+Si vous souhaitez débloquer la mise à l'échelle du Kubernetes Cluster Autoscaler, vous pouvez définir le paramètre xref:longhorn-system/settings.adoc#_kubernetes_cluster_autoscaler_enabled_experimental[Kubernetes Cluster Autoscaler Activé].
+
+Lorsque ce paramètre est activé, Longhorn conservera le strict minimum de budgets de perturbation pour les pods de gestionnaire d'instance. Chaque volume aura au moins une réplique sous la protection d'un budget de perturbation de pod de gestionnaire d'instance tant qu'aucun budget de perturbation de pod redondant n'empêche le Cluster Autoscaler de réduire le nombre de nœuds.
+
+Lorsque ce paramètre est activé, Longhorn ajoutera également l'annotation `cluster-autoscaler.kubernetes.io/safe-to-evict` aux charges de travail Longhorn qui ne sont pas soutenues par un contrôleur de charge de travail intégré à Kubernetes ou qui utilisent des montages de stockage local.
+
+WARNING: La reconstruction de répliques pourrait être coûteuse car des nœuds avec des répliques réutilisables pourraient être supprimés par le Kubernetes Cluster Autoscaler.

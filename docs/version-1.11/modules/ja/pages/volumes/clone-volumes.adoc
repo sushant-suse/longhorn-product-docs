@@ -1,0 +1,101 @@
+= ボリュームのクローン作成
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:description: 既存のボリュームの複製として新しいボリュームを作成します。
+:current-version: {page-component-version}
+
+{longhorn-product-name}は https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource/[CSIボリュームクローン作成]をサポートしています。
+
+== YAMLを使用してボリュームをクローンする
+
+次の`source-pvc`があると仮定します：
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: source-pvc
+spec:
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+----
+
+次のYAMLファイルを適用することで、`source-pvc`と全く同じ内容を持つ新しいPVCを作成できます：
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloned-pvc
+spec:
+  storageClassName: longhorn
+  dataSource:
+    name: source-pvc
+    kind: PersistentVolumeClaim
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+----
+
+____
+注意:
+https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource/[CSIボリュームクローン作成]に記載されている要件に加えて、`cloned-pvc`は`resources.requests.storage`と同じ`source-pvc`を持っている必要があります。
+____
+
+== {longhorn-product-name} UIを使用してボリュームをクローンする
+
+=== ボリュームをクローンする
+
+. *ボリューム*ページに移動します。
+. ボリュームを選択した後、*操作*メニュー内の*ボリュームをクローン*をクリックします。
+. （オプション）新しいボリュームの設定を構成します。
+. [OK] をクリックします。
+
+=== スナップショットを使用してボリュームをクローンする
+
+. *ボリューム*ページに移動します。
+. クローンしたいボリュームの名前をクリックします。
+. 詳細画面の*スナップショットとバックアップ*セクションで、使用したいスナップショットを特定し、次に*ボリュームをクローン*をクリックします。
+. （オプション）新しいボリュームの設定を構成します。
+. [OK] をクリックします。
+
+image::screenshots/snapshots-and-backups/clone-volume-modal.png[イメージ]
+
+=== 複数のボリュームのクローン作成（バルククローン）
+
+. *ボリューム*ページに移動します。
+. クローンしたいボリュームを選択します。
+. テーブルの上部にある*ボリュームをクローン*ボタンをクリックします。
+. （オプション）新しいボリュームの設定を構成します。
+. *OK*をクリックします。
+
+[NOTE]
+====
+* {longhorn-product-name} UIは特定のフィールドを自動入力し、ソースボリュームの設定と一致するように値を変更できないようにします。
+* {longhorn-product-name}は新しいボリュームを自動的に接続し、ソースボリュームをクローンし、その後新しいボリュームを切り離します。
+* 効率的なクローン作成が有効になっている場合、新しくクローンされて切り離されたボリュームは劣化しており、レプリカは1つだけで、クローンの状態は`copy-completed-awaiting-healthy`に設定されています。ボリュームを正常な状態に戻すには、クローンの状態を`completed`に移行し、オフラインレプリカ再構築を有効にするか、ボリュームを接続してレプリカ再構築をトリガーします。 https://github.com/longhorn/longhorn/issues/12341[Issue #12341]および https://github.com/longhorn/longhorn/issues/12328[Issue #12328]を参照してください。
+====
+
+== ボリュームの作成
+
+. *ボリューム*ページに移動します。
+. *Create Volume*をクリックします。
+. 使用したいデータソース（*ボリューム*または*ボリュームスナップショット*）を選択します。
+. *ボリュームスナップショット*を選択した場合は、スナップショットを選択してください。
+. ボリューム名を指定してください。
+. [OK] をクリックします。
+
+image::screenshots/snapshots-and-backups/create-volume-choose-datasource.png[イメージ]
+
+== 履歴
+
+* https://github.com/longhorn/longhorn/issues/1815[GitHub Issue]
+* https://github.com/longhorn/longhorn/pull/2864[Longhorn拡張提案]

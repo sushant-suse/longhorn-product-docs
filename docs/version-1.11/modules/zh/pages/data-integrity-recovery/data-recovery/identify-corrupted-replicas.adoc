@@ -1,0 +1,34 @@
+= 识别损坏的副本
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+如果 Longhorn 使用的某个磁盘出现故障，您在使用 Longhorn 卷时可能会遇到间歇性的输入/输出错误。
+
+例如，有时一个文件无法读取，但后来可以。在这种情况下，很可能是某个磁盘出现故障，导致其中一个副本向用户返回了错误的数据。
+
+要恢复卷，我们可以识别损坏的副本并将其从卷中去除：
+
+. 缩减工作负载以分离卷。
+. 通过检查 Longhorn 用户界面找到所有副本的位置。用户界面中每个副本的目录将作为工具提示显示。
+. 登录到每个包含卷副本的节点，并进入包含副本数据的目录。
++
+例如，副本可能存储在：
+
+  /var/lib/longhorn/replicas/pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2
+
+. 对该目录下的每个文件运行校验和。
++
+例如：
++
+----
+ # sha512sum /var/lib/longhorn/replicas/pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2/*
+ fcd1b3bb677f63f58a61adcff8df82d0d69b669b36105fc4f39b0baf9aa46ba17bd47a7595336295ef807769a12583d06a8efb6562c093574be7d14ea4d6e5f4  /var/lib/longhorn/replicas/pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2/revision.counter
+ c53649bf4ad843dd339d9667b912f51e0a0bb14953ccdc9431f41d46c85301dff4a021a50a0bf431a931a43b16ede5b71057ccadad6cf37a54b2537e696f4780  /var/lib/longhorn/replicas/pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2/volume-head-000.img
+ f6cd5e486c88cb66c143913149d55f23e6179701f1b896a1526717402b976ed2ea68fc969caeb120845f016275e0a9a5b319950ae5449837e578665e2ffa82d0  /var/lib/longhorn/replicas/pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2/volume-head-000.img.meta
+ e6f6e97a14214aca809a842d42e4319f4623adb8f164f7836e07dc8a3f4816a0389b67c45f7b0d9f833d50a731ae6c4670ba1956833f1feb974d2d12421b03f7  /var/lib/longhorn/replicas/pvc-06b4a8a8-b51d-42c6-a8cc-d8c8d6bc65bc-d890efb2/volume.meta
+----
+
+. 比较每个副本的输出。其中一个副本应该会失败或与其他副本的结果不同。这将是我们需要从卷中去除的副本。
+. 使用 Longhorn 用户界面将识别出的副本从卷中去除。
+. 增加工作负载以确保错误已消除。

@@ -1,0 +1,53 @@
+= Rancher Windows 集群
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Rancher 可以通过组合 Linux 工作节点和 Windows 工作节点来配置 Windows 集群。
+有关 Rancher Windows 集群的更多信息，请参见官方 https://documentation.suse.com/cloudnative/rancher-manager/latest/en/cluster-deployment/custom-clusters/windows/use-windows-clusters.html[Rancher 文档]。
+
+在 Rancher Windows 集群中，所有 Linux 工作节点是：
+
+* 被标记为污点 `cattle.io/os=linux:NoSchedule`
+* 标记为 `kubernetes.io/os:linux`
+
+[NOTE]
+====
+在 {longhorn-product-name} 部署后，您只能在 Linux 节点上启动使用 {longhorn-product-name} 卷的工作负载。
+====
+
+== 使用支持的 Helm Chart 部署 {longhorn-product-name}
+
+您可以更新 Helm 值 `global.cattle.windowsCluster.enabled` 以允许在 Rancher Windows 集群上安装 {longhorn-product-name}。
+
+当此值设置为 `true` 时，{longhorn-product-name} 将识别 Rancher Windows 集群，然后部署 {longhorn-product-name} 组件，使用正确的节点选择器和污点容忍，以便所有 {longhorn-product-name} 工作负载只能在 Linux 节点上启动。
+
+在 Rancher 市场上，该设置可以在安装前在 `customize Helm options` 中自定义： +
+`Edit Options` > `Other Settings` > `Rancher Windows Cluster`
+
+也在： +
+`Edit YAML`
+
+----
+global:
+  cattle:
+    systemDefaultRegistry: ""
+    windowsCluster:
+      # Enable this to allow Longhorn to run on the Rancher deployed Windows cluster
+      enabled: true
+----
+
+== 为现有 {longhorn-product-name} 部署设置 {longhorn-product-name} 组件
+
+您可以在未使用支持的 Helm chart 部署时设置现有 {longhorn-product-name}。
+
+* 由于 {longhorn-product-name} 组件只能在 Linux 节点上运行，您需要为 `kubernetes.io/os:linux` 设置节点选择器 {longhorn-product-name} 以选择 Linux 节点。有关更多信息，请参见 xref:nodes/node-selector.adoc[节点选择器]。
++
+* 由于 Rancher Windows 集群中的所有 Linux 工作节点都有污点 `cattle.io/os=linux:NoSchedule`，您必须设置污点容忍 `cattle.io/os=linux:NoSchedule` 以允许 {longhorn-product-name} 在这些节点上运行。有关更多信息，请参见 xref:nodes/taints-tolerations.adoc[污点容忍]。
+
+
+
+[NOTE]
+====
+{longhorn-product-name}可以有效地部署在包含 Windows 和 Linux 节点的集群上，提供多样化的基础设施需求的解决方案。为了方便从 Rancher 安装，用户应首先将 AppCo OCI 注册表添加为 Rancher APP 储存库。有关此过程的详细说明可以在 https://docs.apps.rancher.io/howto-guides/integrate-with-rancher-manager/[Rancher 文档：与 Rancher 管理器集成]中找到。
+====

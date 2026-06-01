@@ -1,0 +1,137 @@
+= Installer {longhorn-product-name} à l'aide du contrôleur Helm
+:revdate: 2026-02-02
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Vous pouvez installer {longhorn-product-name} en utilisant le contrôleur Helm intégré à RKE2 et K3s.
+
+== Conditions préalables
+
+[NOTE]
+====
+L'installation de {longhorn-product-name} nécessite un accès authentifié à la collection d'applications SUSE. Pour plus de détails, consultez https://docs.apps.rancher.io/get-started/authentication[le guide d'authentification].
+====
+
+* Cluster Kubernetes{nbsp}: Assurez-vous que chaque nœud remplit les xref:installation-setup/requirements.adoc[exigences d'installation]. Le cluster doit exécuter RKE2 ou K3s.
+
+____
+L'xref:longhorn-system/system-access/longhorn-cli.adoc[outil de ligne de commande Longhorn] peut être utilisé pour vérifier l'environnement {longhorn-product-name} pour d'éventuels problèmes.
+____
+
+== Installation
+
+[NOTE]
+====
+* Les paramètres initiaux peuvent être xref:longhorn-system/customize-default-settings.adoc#_using_helm[personnalisés à l'aide des options Helm ou en modifiant le fichier de configuration de déploiement].
+* Pour Kubernetes v1.25 ou antérieur, si votre cluster active toujours le contrôleur d'admission de la politique de sécurité des pods, définissez la valeur helm `enablePSP` sur `true` pour installer la ressource PodSecurityPolicy `longhorn-psp` qui permet aux pods Longhorn privilégiés de démarrer.
+====
+
+. Créez un fichier YAML HelmChart similaire à ce qui suit{nbsp}:
++
+[subs="+attributes",yaml]
+----
+apiVersion: helm.cattle.io/v1
+  kind: HelmChart
+  metadata:
+    annotations:
+      helmcharts.cattle.io/managed-by: helm-controller
+    finalizers:
+    - wrangler.cattle.io/on-helm-chart-remove
+    generation: 1
+    name: longhorn-install
+    namespace: default
+  spec:
+    version: v{patch-version}
+    chart: longhorn
+    repo: https://charts.longhorn.io
+    failurePolicy: abort
+    targetNamespace: longhorn-system
+    createNamespace: true
+----
++
+[IMPORTANT]
+====
+* Assurez-vous que `spec.failurePolicy` est défini sur "abort".  La seule autre valeur est la valeur par défaut{nbsp}: "reinstall", qui désinstalle {longhorn-product-name}.  Avec "abort", il réessaie périodiquement, donnant à l'utilisateur une chance de résoudre le problème.
++
+* Plutôt que de spécifier le dépôt, la version et le nom du chart, le YAML peut également utiliser une image des charts eux-mêmes{nbsp}:
++
+[,yaml]
+----
+spec:
+  chartContent:  <tarball of chart directory | base64 -w 0>
+----
++
+Pour plus de détails, consultez la documentation du contrôleur HelmChart{nbsp}: https://documentation.suse.com/cloudnative/rke2/latest/en/add-ons/helm.html[{rke2-product-name} - Helm] ou https://documentation.suse.com/cloudnative/k3s/latest/en/helm.html[{k3s-product-name} - Helm].
+====
++
+. Appliquez le YAML pour créer le CR HelmChart et un job d'installation.
++
+[,shell]
+----
+$ kubectl apply -f helmchart_repo_install.yaml
+helmchart.helm.cattle.io/longhorn-install created
+----
++
+[NOTE]
+====
+La suppression du CR HelmChart initie la désinstallation de {longhorn-product-name}.
+====
+. Vérifiez les ressources créées.
++
+[subs="+attributes",shell]
+----
+$ kubectl get jobs
+NAME                            COMPLETIONS   DURATION   AGE
+helm-install-longhorn-install   0/1           8s         8s
+$ kubectl get pods
+NAME                                  READY   STATUS      RESTARTS   AGE
+helm-install-longhorn-install-lngm8   0/1     Completed   0          25s
+$ kubectl get helmcharts
+NAME               JOB                     CHART      TARGETNAMESPACE   VERSION   REPO                         HELMVERSION   BOOTSTRAP
+longhorn-install   helm-install-longhorn   longhorn   longhorn-system   v{patch-version}    https://charts.longhorn.io
+----
++
+. Vérifiez que le déploiement a réussi.
++
+[,bash]
+----
+kubectl -n longhorn-system get pod
+----
++
+Exemple de résultat{nbsp}:
++
+[,bash]
+----
+NAME                                                READY   STATUS    RESTARTS      AGE
+csi-attacher-85c7684cfd-67kqc                       1/1     Running   0             29m
+csi-attacher-85c7684cfd-jbddj                       1/1     Running   0             29m
+csi-attacher-85c7684cfd-t85bw                       1/1     Running   0             29m
+csi-provisioner-68cdb8b96-46d9q                     1/1     Running   0             29m
+csi-provisioner-68cdb8b96-dgf5f                     1/1     Running   0             29m
+csi-provisioner-68cdb8b96-mh8q7                     1/1     Running   0             29m
+csi-resizer-86dd765b9-d27cs                         1/1     Running   0             29m
+csi-resizer-86dd765b9-scqxm                         1/1     Running   0             29m
+csi-resizer-86dd765b9-zpcv7                         1/1     Running   0             29m
+csi-snapshotter-65b46b8749-dtvh2                    1/1     Running   0             29m
+csi-snapshotter-65b46b8749-g67fn                    1/1     Running   0             29m
+csi-snapshotter-65b46b8749-nfgzm                    1/1     Running   0             29m
+engine-image-ei-221c9c21-gd5d6                      1/1     Running   0             29m
+engine-image-ei-221c9c21-v6clp                      1/1     Running   0             29m
+engine-image-ei-221c9c21-zzdrt                      1/1     Running   0             29m
+instance-manager-77d11dda6091967f9b30011c9876341b   1/1     Running   0             29m
+instance-manager-870c250b69a4fe01382ed46156d33f47   1/1     Running   0             29m
+instance-manager-a4099c5ce28b423c3cc2667906f4b0b4   1/1     Running   0             29m
+longhorn-csi-plugin-jfbh5                           3/3     Running   0             29m
+longhorn-csi-plugin-w768w                           3/3     Running   0             29m
+longhorn-csi-plugin-xcghm                           3/3     Running   0             29m
+longhorn-driver-deployer-586bc86bf9-bkwk6           1/1     Running   0             30m
+longhorn-manager-c4xtv                              1/1     Running   1 (30m ago)   30m
+longhorn-manager-kgqts                              1/1     Running   0             30m
+longhorn-manager-n8xdr                              1/1     Running   0             30m
+longhorn-ui-69667f9678-2lvxn                        1/1     Running   0             30m
+longhorn-ui-69667f9678-2xmc9                        1/1     Running   0             30m
+----
++
+. xref:longhorn-system/system-access/create-ingress.adoc[Créer un contrôleur d'Ingress NGINX avec une authentification de base] pour accéder à l'interface utilisateur. L'authentification à l'interface utilisateur n'est pas activée par défaut.
++
+. xref:longhorn-system/system-access/system-access.adoc[Accédez à l'interface utilisateur].

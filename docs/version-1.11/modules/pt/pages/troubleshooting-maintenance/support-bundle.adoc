@@ -1,0 +1,22 @@
+= Pacote de Suporte
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+O Longhorn substituiu a geração interna de pacotes de suporte por um https://github.com/rancher/support-bundle-kit[kit para pacotes de suporte] de uso geral.
+
+Você pode clicar no `Generate Support Bundle` na parte inferior da interface do Longhorn para baixar um arquivo zip contendo manifestos e logs do cluster.
+
+Durante a geração do pacote de suporte, o Longhorn criará uma implantação para o gerenciador do pacote de suporte.
+
+NOTE: O gerenciador do pacote de suporte usará uma conta de serviço `longhorn-support-bundle` dedicada e uma vinculação de função de cluster `longhorn-support-bundle` com acesso `cluster-admin` para a coleta do pacote de suporte.
+
+Com o pacote de suporte, você pode simular um cluster Kubernetes interativo com o comando `kubectl`. Veja https://github.com/rancher/support-bundle-kit#simulator-command[comando do simulador] para mais detalhes.
+
+== Limitações
+
+Atualmente, o Longhorn não suporta a geração concorrente de múltiplos pacotes de suporte. Recomendamos aguardar a conclusão do pacote de suporte em andamento antes de iniciar um novo. Se um novo pacote de suporte for criado enquanto outro ainda estiver em progresso, o Longhorn substituirá o pacote de suporte mais antigo.
+
+== Histórico
+
+https://github.com/longhorn/longhorn/issues/2759[Solicitação de Recurso Original]

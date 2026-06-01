@@ -1,0 +1,94 @@
+= Crear una copia de seguridad
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Copia de seguridad incremental
+
+Las copias de seguridad en Longhorn son objetos en un backupstore externo al clúster. Una copia de seguridad de una instantánea se copia en el backupstore, y el endpoint para acceder al backupstore es el destino de la copia de seguridad. Para obtener más información, consulte xref:introduction/concepts.adoc#_3_1_how_backups_work[esta sección.]
+
+____
+*Requisito previo:* Se debe configurar un BackupTarget. Para obtener más información, consulte xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[Configurar el BackupTarget]. Si no se ha configurado el BackupTarget, se le presentará un error.
+____
+
+=== Crear una copia de seguridad incremental utilizando la interfaz de usuario
+
+Para crear una copia de seguridad,
+
+. Navegue al menú *Volumen*.
+. Seleccione el volumen que desea respaldar.
+. Haga clic en *Crear copia de seguridad.*
+. Agregue las etiquetas apropiadas y haga clic en Aceptar.
+
+*Resultado:* La copia de seguridad se crea. Para verla, haga clic en *Copia de seguridad* en la barra de navegación superior.
+
+Para obtener información sobre cómo restaurar un volumen a partir de una instantánea, consulte xref:snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[Restaurar desde una copia de seguridad].
+
+=== Crear una copia incremental utilizando código YAML
+
+. Obtenga el nombre de la instantánea que desea respaldar (desde la interfaz de usuario de Longhorn o el CR).
+. Aplique el YAML.
+
+Ejemplo:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Backup
+metadata:
+  name: backup-example
+  namespace: longhorn-system
+spec:
+  backupMode: incremental
+  snapshotName: snapshot-name-example
+  labels:
+    app: test
+----
+
+== Copia de seguridad completa
+
+Por defecto, Longhorn solo realiza copias de seguridad de los datos que han cambiado desde la última copia de seguridad. Este enfoque, conocido como _copia de seguridad delta_, mejora la eficiencia temporal y conserva el ancho de banda de la red. Sin embargo, cuando un bloque de datos en el backupstore se corrompe, Longhorn no reemplaza ese bloque de datos por uno sano durante las operaciones de copia de seguridad posteriores.
+
+A partir de la versión 1.7.0, Longhorn puede realizar copias de seguridad completas que suben todos los bloques de datos en el volumen y sobrescriben los bloques de datos existentes en el backupstore.
+
+=== Crea una copia de seguridad completa utilizando la interfaz de usuario de Longhorn
+
+. Ve a la pantalla de *Volumen*.
+. Selecciona el volumen que deseas respaldar.
+. Haz clic en *Crear copia de seguridad*.
+. Añade etiquetas apropiadas.
+. Selecciona copia de seguridad completa.
+. Haz clic en *OK*.
+
+=== Crea una copia de seguridad completa utilizando código YAML
+
+. Obtenga el nombre de la instantánea que desea respaldar (desde la interfaz de usuario de Longhorn o el CR).
+. Aplique el YAML.
+
+Ejemplo:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Backup
+metadata:
+  name: backup-example
+  namespace: longhorn-system
+spec:
+  backupMode: full
+  snapshotName: snapshot-name-example
+  labels:
+    app: test
+----
+
+== Tamaño de datos subidos
+
+Para facilitar la recopilación de información sobre la transferencia de datos para cada copia de seguridad, Longhorn registra la información utilizando dos métricas en el estado de CR.
+
+=== Tamaño de datos recién subidos
+
+`status.newlyUploadDataSize` registra el tamaño de los datos que se subieron _por primera vez_ al backupstore durante la última copia de seguridad. En otras palabras, rastrea el tamaño de los bloques de datos que no existían previamente en el backupstore.
+
+=== Tamaño de datos re-subidos
+
+`status.reUploadDataSize` registra el tamaño de los datos que fueron sobrescritos durante la última copia de seguridad completa. En otras palabras, rastrea el tamaño de los bloques de datos que existían previamente en el backupstore.

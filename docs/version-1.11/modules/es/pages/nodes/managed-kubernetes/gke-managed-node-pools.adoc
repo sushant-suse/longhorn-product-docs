@@ -1,0 +1,56 @@
+= Grupos de nodos gestionados en Google Kubernetes Engine (GKE)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Consulta https://cloud.google.com/kubernetes-engine/docs/tutorials/migrating-node-pool[Migrando cargas de trabajo a diferentes tipos de máquina] para más información.
+
+El siguiente es un ejemplo para reemplazar nodos de clúster con un nuevo tamaño de almacenamiento.
+
+== Expansión de almacenamiento
+
+GKE admite la adición de un disco adicional con `local-ssd-count`. Sin embargo, cada SSD local tiene un tamaño fijo de 375 GB. Sugerimos expandir el tamaño del nodo mediante el reemplazo del grupo de nodos.
+
+. En Longhorn, establece `replica-replenishment-wait-interval` en `0`.
+. Añade un nuevo grupo de nodos. Más tarde, los componentes de Longhorn se desplegarán automáticamente en los nodos de este grupo.
++
+----
+ GKE_NODEPOOL_NAME_NEW=<new-nodepool-name>
+ GKE_REGION=<gke-region>
+ GKE_CLUSTER_NAME=<gke-cluster-name>
+ GKE_IMAGE_TYPE=Ubuntu
+ GKE_MACHINE_TYPE=<gcp-machine-type>
+ GKE_DISK_SIZE_NEW=<new-disk-size-in-gb>
+ GKE_NODE_NUM=<number-of-nodes>
+
+ gcloud container node-pools create ${GKE_NODEPOOL_NAME_NEW} \
+   --region ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME} \
+   --image-type ${GKE_IMAGE_TYPE} \
+   --machine-type ${GKE_MACHINE_TYPE} \
+   --disk-size ${GKE_DISK_SIZE_NEW} \
+   --num-nodes ${GKE_NODE_NUM}
+
+ gcloud container node-pools list \
+   --zone ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME}
+----
+
+. Usando la interfaz de Longhorn para deshabilitar la programación de discos y solicitar la evacuación de nodos en el antiguo grupo de nodos.
+. Cordon y drena los nodos de Kubernetes en el antiguo grupo de nodos.
++
+----
+ GKE_NODEPOOL_NAME_OLD=<old-nodepool-name>
+ for n in `kubectl get nodes | grep ${GKE_CLUSTER_NAME}-${GKE_NODEPOOL_NAME_OLD}- | awk '{print $1}'`; do
+   kubectl cordon $n && \
+   kubectl drain $n --ignore-daemonsets --delete-emptydir-data
+ done
+----
+
+. Elimina el antiguo grupo de nodos.
++
+----
+ gcloud container node-pools delete ${GKE_NODEPOOL_NAME_OLD}\
+   --zone ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME}
+----

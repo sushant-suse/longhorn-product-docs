@@ -1,0 +1,46 @@
+= CLIをインストールします
+:revdate: 2025-12-10
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== プリビルドバイナリを使用します
+
+. バイナリをダウンロードします：
++
+[subs="+attributes",bash]
+----
+# Choose your architecture (amd64 or arm64).
+ARCH="amd64"
+
+# Download the release binary.
+curl -LO "https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-$\{ARCH}"
+----
+
+. バイナリを検証します：
++
+[subs="+attributes",bash]
+----
+# Download the checksum for your architecture.
+curl -LO "https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-$\{ARCH}.sha256"
+
+# Verify the downloaded binary matches the checksum.
+echo "$(cat longhornctl-linux-$\{ARCH}.sha256 | awk '{print $1}') longhornctl-linux-$\{ARCH}" | sha256sum --check
+----
+
+. バイナリをインストールします：
++
+[,bash]
+----
+sudo install longhornctl-linux-${ARCH} /usr/local/bin/longhornctl
+----
+
+. インストールを確認してください：
++
+[,bash]
+----
+longhornctl version
+----
+
+== ソースからビルドします
+
+GitHubリポジトリ内の https://github.com/longhorn/cli/tree/{patch-version}?tab=readme-ov-file#build-from-source[このドキュメント]を参照してください。

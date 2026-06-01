@@ -1,0 +1,52 @@
+= Classe de Prioridade
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+A configuração da Classe de Prioridade pode ser usada para definir uma prioridade maior em {longhorn-product-name} cargas de trabalho no cluster, impedindo que sejam as primeiras a serem removidas durante situações de pressão nos nós.
+
+Para mais informações sobre como a prioridade de pod funciona, consulte a https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/[documentação oficial do Kubernetes].
+
+== Definindo Classe de Prioridade
+
+{longhorn-product-name} consiste em componentes implantados pelo usuário (por exemplo, Longhorn Manager, Longhorn Driver e {longhorn-product-name} UI) e componentes gerenciados pelo sistema (por exemplo, Instance Manager, CSI Driver e imagens do Engine).
+Você precisa definir a Classe de Prioridade para ambos os tipos de componentes. Veja mais detalhes abaixo.
+
+[discrete]
+=== Definindo Classe de Prioridade Durante a Instalação do {longhorn-product-name}
+
+{longhorn-product-name} cria uma Classe de Prioridade `longhorn-critical` e a define como padrão para seus componentes implantados pelo usuário ou gerenciados pelo sistema, se as seguintes ações não forem tomadas.
+
+. Defina a Classe de Prioridade de taint para componentes gerenciados pelo sistema: siga as xref:longhorn-system/customize-default-settings.adoc[Configurações padrão personalizadas] para definir a Classe de Prioridade alterando o valor da configuração padrão `priority-class`.
+. Defina a Classe de Prioridade de taint para componentes implantados pelo usuário: modifique o gráfico Helm ou o arquivo YAML de implantação, dependendo de como você implanta {longhorn-product-name}.
+
+WARNING: {longhorn-product-name} não iniciará se a configuração da Classe de Prioridade for inválida (como a Classe de Prioridade não existindo).
+Você pode verificar se este é o caso verificando o status do DaemonSet longhorn-manager com `kubectl -n longhorn-system describe daemonset.apps/longhorn-manager`.
+Você precisará desinstalar {longhorn-product-name} e reiniciar a instalação se este for o caso.
+
+[discrete]
+=== Definindo Classe de Prioridade Após a Instalação do {longhorn-product-name}
+
+. Defina a Classe de Prioridade de taint para componentes gerenciados pelo sistema: A configuração da Classe de Prioridade pode ser encontrada na UI do {longhorn-product-name} clicando em menu:Configurações[Classe de Prioridade].
+. Defina a Classe de Prioridade de taint para componentes implantados pelo usuário: modifique o gráfico Helm ou o arquivo YAML de implantação, dependendo de como você implanta {longhorn-product-name}.
+
+Os usuários podem atualizar ou remover a Classe de Prioridade aqui, mas observe que isso resultará na recriação de todos os {longhorn-product-name} componentes do sistema.
+A configuração da Classe de Prioridade rejeitará valores que parecem ser Classes de Prioridade inválidas.
+
+== Uso
+
+Para garantir que suas configurações de Classe de Prioridade preferidas sejam aplicadas imediatamente, pare todas as cargas de trabalho e desanexe todos os volumes Longhorn antes de configurar as configurações.
+
+{longhorn-product-name} torna-se temporariamente indisponível quando todos os componentes são reiniciados.
+Não opere o sistema Longhorn após modificar a configuração da Classe de Prioridade, pois os componentes Longhorn estarão reiniciando.
+
+Quando todos os volumes Longhorn estão desanexados, a configuração personalizada é aplicada imediatamente aos componentes gerenciados pelo sistema.
+Quando um ou mais volumes Longhorn ainda estão anexados, a configuração personalizada é aplicada ao Gerenciador de Instâncias apenas quando nenhum motor e instâncias de réplica estão em execução. Você deve reconfigurar a configuração após desanexar os volumes restantes. Alternativamente, você pode aguardar a próxima sincronização, que ocorrerá em uma hora.
+
+Não exclua a Classe de Prioridade em uso por {longhorn-product-name}, pois isso pode fazer com que novas cargas de trabalho {longhorn-product-name} falhem ao entrar online.
+
+== Histórico
+
+https://github.com/longhorn/longhorn/issues/1487[Solicitação de Recurso Original]

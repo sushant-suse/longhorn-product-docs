@@ -1,0 +1,33 @@
+= Knotenbedingungen
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Knotenbedingungen beschreiben den Status aller Arbeitsknoten und werden verwendet, um die Umgebungsparameter der Arbeitsknoten zu überprüfen, um potenzielle Probleme zu identifizieren, bevor sie Auswirkungen auf das System haben.
+
+Knotenbedingungen:
+
+* `Ready`: Zeigt an, dass der Knoten bereit für Longhorn-Operationen ist, einschließlich der Tatsache, dass ein `longhorn-manager` Pod auf diesem Knoten läuft, der Kubernetes-Knoten bereit ist und kein physischer Ressourcenengpass besteht.
++
+* `Schedulable`: Zeigt an, dass der Knoten nicht abgeriegelt ist und Arbeitslasten auf diesem Knoten geplant werden können.
++
+* `MountPropagation`: Zeigt an, dass der Knoten die Montagepropagation unterstützt. Dies ist notwendig, um Volumes, die von einem Container gemountet wurden, mit anderen Containern im selben Longhorn-Pod oder mit anderen Longhorn-Pods auf demselben Knoten zu teilen.
++ 
+* `Multipathd`: Überprüft, ob der `multipathd` Dienst nicht auf dem Knoten läuft, was den Pod mit dem Volume-Start beeinträchtigen könnte. Siehe link:https://longhorn.io/kb/troubleshooting-volume-with-multipath/[Fehlerbehebung: `MountVolume.SetUp failed for volume` aufgrund von multipathd auf dem Knoten].
+* `RequiredPackages`: Überprüft, ob alle erforderlichen Pakete (xref:installation-setup/requirements.adoc#_installing_nfsv4_client[NFS-Client], xref:installation-setup/requirements.adoc#_installing_open-_scsi[iSCSI-Tool], xref:installation-setup/requirements.adoc#_installing_cryptsetup_and_luks[cryptsetup], xref:installation-setup/requirements.adoc#_installing_device_mapper_userspace_tool[dmsetup]) für Longhorn vorhanden sind.
++
+* `NFSClientInstalled`: Überprüft, ob einer der folgenden NFS-Clients unterstützt wird: `v4.2`, `v4.1` oder `v4.0`. Ein NFS-Client ist erforderlich für RWX-Volumes und Sicherungen.
++
+* `KernelModulesLoaded`: Überprüft, ob die folgenden Kernel-Module geladen sind:
++
+** `dm_crypt`: Erforderlich für die Verschlüsselung von Volumes und Sicherungsbildern.
+** `vfio_pci`: Erforderlich für SPDK- und PCI-Geräteverwaltung (V2-Daten-Engine).
+** `uio_pci_generic`: Erforderlich für SPDK UIO-Unterstützung (V2-Daten-Engine).
+** `nvme_tcp`: Erforderlich für die Verwendung von NVMe-over-TCP-Geräten (V2-Daten-Engine).
++
+* `HugePagesAvailable`: Zeigt an, ob der Knoten ordnungsgemäß mit HugePages (2Mi) konfiguriert ist, wie es von der Longhorn V2-Daten-Engine erforderlich ist. Dies umfasst die Überprüfung der folgenden Punkte:
++
+** HugePages (2Mi) werden als Kubernetes-Ressource (`hugepages-2Mi`) registriert.
+** Die konfigurierte HugePages-Kapazität entspricht oder übersteigt den in der `v2-data-engine-hugepage-limit`-Einstellung definierten Wert.
+
+Die Knotenbedingungen blockieren die Longhorn-Implementierung nicht, führen jedoch zu Warnungen in der Longhorn-`Node`-Ressource. Für weitere Informationen siehe xref:installation-setup/requirements.adoc#_requirements[Longhorn Installationsanforderungen].

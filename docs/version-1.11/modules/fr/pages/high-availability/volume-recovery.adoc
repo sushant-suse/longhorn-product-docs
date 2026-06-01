@@ -1,0 +1,39 @@
+= Récupération de volume
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn fournit deux mécanismes pour maintenir la fonctionnalité des volumes dans une variété de situations.
+
+== Suppression automatique des pods de charge de travail
+
+Ce mécanisme de récupération est activé par le paramètre xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[_Supprimer automatiquement le pod de charge de travail lorsque le volume est détaché de manière inattendue_].
+
+Lorsque l'une des situations suivantes se produit, Longhorn tente automatiquement de supprimer les pods de charge de travail gérés par un contrôleur (par exemple, Deployment, StatefulSet ou DaemonSet). Après la suppression, le contrôleur redémarre le pod de charge de travail et Kubernetes gère le rattachement et le remontage du volume.
+
+. Un volume a été détaché de manière inattendue, possiblement en raison d'une https://github.com/longhorn/longhorn/issues/703[Mise à niveau de Kubernetes], https://github.com/longhorn/longhorn/issues/686[redémarrage de l'environnement d'exécution de conteneur], d'un problème de connectivité réseau ou d'un plantage du moteur de volume.
+. Un volume a été automatiquement récupéré après que toutes les répliques soient devenues défaillantes, possiblement en raison d'un problème de connectivité réseau. Longhorn tente d'identifier les répliques utilisables et les utilise pour le volume.
+. Une erreur s'est produite sur un pod Share Manager qui utilise un volume RWX.
+
+Si vous souhaitez empêcher Longhorn de supprimer automatiquement les pods de charge de travail, désactivez le paramètre xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[_Supprimer automatiquement le pod de charge de travail lorsque le volume est détaché de manière inattendue_] sur l'interface utilisateur de Longhorn.
+
+Longhorn ne supprime pas les pods sans contrôleur car ces pods ne peuvent pas être redémarrés après suppression. Pour récupérer les volumes qui sont détachés de manière inattendue, vous devez supprimer manuellement et redémarrer les pods sans contrôleur.
+
+== Remontage automatique du volume
+
+Ce mécanisme de récupération n'est contrôlé par aucun paramètre spécifique.
+
+L'état d'un volume peut changer en lecture seule lorsque des erreurs d'E/S se produisent. Les erreurs d'E/S peuvent être causées par une variété de problèmes, y compris les suivants{nbsp}:
+
+* Déconnexion réseau{nbsp}: Connexion interrompue entre le moteur et les répliques.
+* Latence élevée du disque{nbsp}: Délai significatif dans le transfert de données entre une réplique et le disque correspondant.
+
+Longhorn vérifie l'état du point de montage global du volume toutes les 10 secondes. Lorsque le système de fichiers du volume passe en mode lecture seule, Longhorn met à jour la condition dans le moteur de données du volume. Longhorn tente alors automatiquement de remonter le point de montage global sur l'hôte pour changer l'état en lecture-écriture. Après un remontage réussi, les pods de charge de travail continuent de fonctionner sans interruption. Cependant, si le point de montage devient protégé en écriture et que Longhorn échoue à le remonter, vous devrez peut-être recréer manuellement le pod de charge de travail pour forcer sa réattache et le remontage du volume.
+
+NOTE: Ce mécanisme peut ne pas fonctionner dans certaines situations. Par exemple, lorsque le moteur de données du volume plante, Longhorn détache et réattache automatiquement le volume. Le système de fichiers passe en mode lecture seule dans ce cas. Longhorn détectera le mode lecture seule et mettra à jour l'état, mais <<_automatic_volume_remounting,Le Remontage Automatique du Volume>> ne peut pas le changer en lecture-écriture car le dispositif est maintenant protégé en écriture. Dans ce cas, vous ne pouvez compter que sur le mécanisme <<_automatic_workload_pod_deletion,Suppression Automatique des Pods de Charge de Travail>>, qui permet le remontage du volume après la recréation du pod de charge de travail.
+
+== Résumé
+
+<<_automatic_workload_pod_deletion,Suppression Automatique des Pods de Charge de Travail>> est déclenché lorsque des pannes inattendues se produisent. Le contrôleur supprime puis redémarre le pod de charge de travail, et Kubernetes gère la réattache et le remontage du volume. Le processus peut provoquer des interruptions de la charge de travail. Si vous souhaitez empêcher Longhorn de supprimer automatiquement les pods de charge de travail, désactivez le paramètre xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[_Supprimer automatiquement le pod de charge de travail lorsque le volume est détaché de manière inattendue_] dans l'interface Longhorn.
+
+<<_automatic_volume_remounting,Remontage Automatique du Volume>> est déclenché lorsque le système de fichiers du volume passe en mode lecture seule. Longhorn remonte le point de montage global sur l'hôte pour changer l'état en lecture-écriture.

@@ -1,0 +1,74 @@
+= {longhorn-product-name} avec CDI Imports
+:revdate: 2025-12-24
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Ce document explique comment utiliser le https://github.com/kubevirt/containerized-data-importer[Importateur de données conteneurisé (CDI)] pour importer des images Raw ou QCOW2 dans {longhorn-product-name}. Il décrit le flux de travail pour créer une *image de référence* réutilisable et provisionner plusieurs charges de travail à partir de celle-ci en utilisant le clonage de volumes CSI.
+
+== Présentation
+
+Dans les environnements Kubernetes qui nécessitent des images de disque pré-remplies, CDI permet d'importer des images externes dans des {longhorn-product-name}PersistentVolumeClaims (PVCs) basés sur. Ces PVC servent d'images de référence réutilisables pour provisionner les charges de travail suivantes.
+
+Techniquement, l'image de référence agit comme un *PVC d'Image de Base*. {longhorn-product-name} le met en œuvre en utilisant le clonage de volumes CSI, qui crée une *copie complète et indépendante* pour chaque nouvelle demande. Cette approche garantit une isolation complète des données. Chaque charge de travail reçoit son propre volume inscriptible, et l'image de référence originale reste inchangée et indépendante des clones à l'exécution.
+
+== Workflow
+
+. *Importer*{nbsp}: CDI récupère une image d'une source externe (HTTP, S3 ou un registre de conteneurs) et remplit un {longhorn-product-name}PVC basé sur.
+. *Protéger*{nbsp}: Ce PVC fonctionne comme l'image de référence. Il est recommandé de traiter ce PVC comme *lecture seule* ou immuable pour garantir la cohérence des futurs clones.
+. *Cloner*{nbsp}: Les charges de travail créent de nouveaux PVC qui référencent l'image de base comme leur `dataSource`. {longhorn-product-name} copie les données de l'image de base vers le nouveau volume.
+
+=== Création d'un PVC d'Image de Base
+
+Un manifeste DataVolume spécifie l'image source et la classe de stockage Longhorn. Par exemple, le manifeste suivant importe une image QCOW2 en utilisant HTTP{nbsp}:
+
+[,yaml]
+----
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: golden-base-image
+spec:
+  source:
+    http:
+      url: "https://example.com/images/base-image.qcow2"
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
+    storageClassName: longhorn
+----
+
+Après la création, CDI gère l'importation et la conversion de l'image. Le résultat est un {longhorn-product-name}PVC basé sur qui agit comme l'image de base. Il est recommandé de traiter ce PVC comme immuable et d'éviter les écritures directes depuis les charges de travail.
+
+=== Clonage des images de base
+
+Le clonage d'un PVC d'image de base dans {longhorn-product-name} s'effectue en mode de copie complète. Cela crée une copie complète et indépendante de l'image de base pour chaque PVC cloné. Chaque charge de travail dispose donc de son propre volume isolé et ne dépend pas de l'image de base pour les opérations d'exécution.
+
+L'exemple suivant montre comment créer un PVC cloné{nbsp}:
+
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloned-pvc-1
+spec:
+  dataSource:
+    name: golden-base-image
+    kind: PersistentVolumeClaim
+    apiGroup: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: longhorn
+----
+
+Vous pouvez créer plusieurs clones à partir de la même image de base. Chaque clone est une copie complète et indépendante qui garantit l'isolement des charges de travail.
+
+== Références
+
+* https://github.com/kubevirt/containerized-data-importer[Importateur de données conteneurisé]

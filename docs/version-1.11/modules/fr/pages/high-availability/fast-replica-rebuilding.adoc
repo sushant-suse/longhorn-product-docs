@@ -1,0 +1,25 @@
+= Reconstruction rapide des répliques
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn prend en charge la reconstruction rapide des répliques basée sur les sommes de contrôle des fichiers de disque instantanés.
+
+== Introduction
+
+Le processus de reconstruction des répliques hérité parcourt tous les fichiers de disque instantanés. Pour chaque bloc de données, le client (réplique saine) hache le bloc de données local et demande également la somme de contrôle du bloc de données correspondant du côté distant (réplique reconstruite). Ensuite, le client compare les deux sommes de contrôle pour déterminer si le bloc de données doit être envoyé au côté distant et remplacer le bloc de données. Ainsi, c'est un processus intensif en entrée/sortie et en calcul, surtout si le volume est important ou contient un grand nombre de fichiers instantanés.
+
+Si les utilisateurs activent la fonction de vérification de l'intégrité des données instantanées en configurant `snapshot-data-integrity` à `enabled` ou `fast-check`, les horodatages de changement et les sommes de contrôle des fichiers de disque instantanés sont enregistrés. Tant que les deux conditions ci-dessous sont remplies, nous pouvons ignorer la synchronisation du fichier de disque instantané.
+
+* Les horodatages de changement sur le fichier de disque instantané et la valeur enregistrée sont les mêmes.
+* Les fichiers de disque instantanés locaux et distants ont la même somme de contrôle.
+
+Ainsi, une réduction du nombre de calculs inutiles peut accélérer l'ensemble du processus ainsi que réduire l'impact sur les performances du système.
+
+== Paramètres
+
+=== Paramètres globaux
+
+* reconstruction-rapide-des-répliques-activée +
++
+Le paramètre active la fonction de reconstruction rapide des répliques. Il repose sur les sommes de contrôle des fichiers de disque instantanés, donc définir l'intégrité-des-données-instantanées à *activer* ou *vérification-rapide* est une condition préalable. Veuillez vous référer à xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[Vérification de l'intégrité des données instantanées].

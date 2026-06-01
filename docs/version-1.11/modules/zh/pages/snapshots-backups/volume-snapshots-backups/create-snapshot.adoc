@@ -1,0 +1,156 @@
+= 创建快照
+:revdate: 2026-01-08
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+xref:introduction/concepts.adoc#_2_4_snapshots[快照]是Kubernetes卷在任何给定时刻的状态。
+
+== 通过{longhorn-product-name} UI进行快照管理
+
+要创建现有集群的快照，请按照以下步骤操作：
+
+. 在{longhorn-product-name} UI的顶部导航栏中，点击*卷*。
+. 点击您想要创建快照的卷的名称。这将打开该卷的详细信息页面。
+. 点击*创建快照*按钮。
+
+一旦快照创建完成，您可以在卷的快照列表中查看它，位于卷头之前。
+
+=== 理解快照链可视化
+
+在*卷详细信息*页面，*快照和备份*部分以链的形式显示快照历史。默认情况下，*显示系统快照*选项已启用，所有系统创建的快照都会出现在视图中。
+
+链中的每个快照都有颜色编码，以指示其类型或状态。如果一个快照满足多个标准，可视化将使用优先级最高的颜色。
+
+[cols="1,1,2,1", options="header"]
+|===
+| 快照类型
+| 颜色
+| 说明
+| 优先级（1 = 最高）
+
+| 错误
+| 红色
+| 指示快照创建失败或快照存在问题。
+| 1 
+
+| 已去除
+| 浅灰色
+| 指示快照被标记为删除或已被删除。
+| 2
+
+| 系统创建
+| 橙色/黄色
+| 由 Longhorn 自动创建，通常用于重复作业或内部操作。
+| 3
+
+| 备份
+| 环保
+| 表示快照在配置的备份目标上存储了备份。
+| 4
+
+| 默认（用户创建）
+| 蓝色
+| 用户手动发起的快照，通过 *创建快照* 操作进行。
+| 5
+|===
+
+下图显示了快照链可视化的示例：
+
+image::diagrams/snapshot/snapshot_volumes_page.png[快照卷页面]
+
+== 使用自定义资源（CRs）进行快照管理
+
+本节演示如何通过 `kubectl` 使用 *自定义资源（CRs）* 直接创建、列出、恢复和删除 Longhorn 快照{longhorn-product-name}。
+
+[NOTE]
+====
+{longhorn-product-name} 在 `longhorn.io` API 组下使用自己的 `Snapshot` CRD（例如，`v1beta2`），而不是来自 `snapshot.storage.k8s.io` 的通用 Kubernetes `VolumeSnapshot`。
+====
+
+=== 创建快照
+
+. *准备清单* - 创建一个名为 `longhorn-snapshot.yaml` 的文件，内容如下：
++
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: longhorn-test-snapshot
+  namespace: longhorn-system
+spec:
+  volume: pvc-840804d8-6f11-49fd-afae-54bc5be639de   # replace with your actual Longhorn volume name
+  createSnapshot: true
+----
++
+. *应用清单*：
++
+[,bash]
+----
+kubectl apply -f longhorn-snapshot.yaml
+----
++
+预期输出：
++
+[,bash]
+----
+snapshot.longhorn.io/longhorn-test-snapshot created
+----
++
+[NOTE]
+====
+如果卷已分离，将出现关于引擎未运行的简短警告。{longhorn-product-name} 会自动重试，当卷连接时快照完成。
+====
+
+=== 列出快照
+
+要列出特定卷的所有快照，请使用以下命令：
+
+[,bash]
+----
+kubectl get snapshots.longhorn.io -l longhornvolume=pvc-840804d8-6f11-49fd-afae-54bc5be639de -n longhorn-system
+----
+
+=== 删除快照
+
+要删除特定快照，请使用以下命令：
+
+[,bash]
+----
+kubectl delete snapshot.longhorn.io longhorn-test-snapshot -n longhorn-system
+----
+
+预期输出：
+
+[,bash]
+----
+snapshot.longhorn.io "longhorn-test-snapshot" deleted
+----
+
+[NOTE]
+====
+{longhorn-product-name} 会自动处理底层数据的清理。
+====
+
+== 数据引擎行为差异
+
+当删除快照时，该快照是 *卷头*（当前活动状态）的直接父级，快照自定义资源（CR）的行为取决于所使用的数据引擎：
+
+[cols="1,1,1", options="header"]
+|===
+| 行为 | v1 数据引擎 | v2 数据引擎
+
+| *CR 持久性*
+| 系统中的快照 CR *依然存在*。
+| 快照 CR *立即被去除*。
+
+| *状态字段*
+| `READYTOUSE` 变为 `false`，快照被标记为 `Removed`。
+| 不适用，因为快照 CR 已被删除。
+
+| *说明*
+| v1 卷无法立即物理合并活动卷头的父卷。CR 继续跟踪快照数据，直到稍后的合并或清理操作。
+| v2 卷支持将父快照实时合并到卷头中，从而允许立即清理数据和元数据。
+|===
+
+这种行为差异是预期的。在 *v2 卷* 中，快照 CR 的立即消失表明引擎已成功完成删除并合并数据。

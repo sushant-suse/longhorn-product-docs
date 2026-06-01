@@ -1,0 +1,45 @@
+= Rendimiento
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/performance.md"]
+:doctype: book
+:current-version: {page-component-version}
+
+== Herramientas de Medición de Rendimiento
+
+* https://github.com/yasker/kbench[KBench]: Utilizado para evaluar el rendimiento del almacenamiento en clúster
+* https://github.com/rancher/local-path-provisioner[Local Path Provisioner]: Utilizado para medir el rendimiento base del disco de datos
+
+== Equinix (m3.small.x86)
+
+* Equipo: Japan/m3.small.x86
+* CPU: Intel(R) Xeon(R) E-2378G CPU @ 2.80GHz
+* RAM: 64 GiB
+* Kubernetes: v1.23.6+rke2r2
+* Nodos: 3 (cada nodo es un maestro y también un trabajador)
+* SO: Ubuntu 22.04 / 5.15.0-33-generic
+* Almacenamiento: 1 SSD (Micron_5300_MTFD)
+* Rendimiento de red entre nodos (probado por iperf durante 60 segundos): 15.0 Gbits/s
+
+image::diagrams/v2-data-engine/equinix-iops.svg[Imagen]
+
+image::diagrams/v2-data-engine/equinix-bw.svg[Imagen]
+
+image::diagrams/v2-data-engine/equinix-latency.svg[Imagen]
+
+== AWS EC2 (c5d.xlarge)
+
+* Equipo: Tokyo/c5d.xlarge
+* CPU: Intel(R) Xeon(R) Platinum 8124M CPU @ 3.00GHz
+* RAM: 8 GiB
+* Kubernetes: v1.25.10+rke2r1
+* Nodos: 3 (cada nodo es un maestro y también un trabajador)
+* SO: Ubuntu 22.04.2 LTS / 5.19.0-1025-aws
+* Almacenamiento: 1 SSD (Almacenamiento de instancia NVMe de Amazon EC2/Almacenamiento local NVMe)
+* Rendimiento de red entre nodos (probado por iperf durante 60 segundos): 7.9 Gbits/s
+
+image::diagrams/v2-data-engine/aws-c5d-xlarge-iops.svg[Imagen]
+
+image::diagrams/v2-data-engine/aws-c5d-xlarge-bw.svg[Imagen]
+
+image::diagrams/v2-data-engine/aws-c5d-xlarge-latency.svg[Imagen]

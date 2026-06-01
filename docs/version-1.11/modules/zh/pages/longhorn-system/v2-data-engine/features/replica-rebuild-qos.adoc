@@ -1,0 +1,69 @@
+= 副本重建QoS
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:aliases: ["/spdk/features/replica-rebuild-qos.md"]
+:current-version: {page-component-version}
+
+{longhorn-product-name}支持基于SPDK的v2卷的重建带宽限制（服务质量，或QoS）。此功能允许您在重建期间对副本应用带宽限制，这有助于防止源节点和目标节点的存储吞吐量过载。
+
+== 全局设置：`v2-data-engine-rebuilding-mbytes-per-second`
+
+* 此集群范围的设置定义了重建副本的最大写入带宽（以MB/s为单位）。
+* 值为`0`表示无限制。
+* 您只能通过`kubectl`配置此设置：
+
+[,bash]
+----
+kubectl -n longhorn-system patch settings.longhorn.io v2-data-engine-rebuilding-mbytes-per-second \
+  --type=merge -p '{"value":"100"}'
+----
+
+== 每卷QoS覆盖
+
+您可以通过在卷的规范中设置`spec.rebuildingMbytesPerSecond`来覆盖特定卷的全局重建带宽限制：
+
+[,yaml]
+----
+spec:
+  rebuildingMbytesPerSecond: 50
+----
+
+== 有效QoS判定
+
+有效的重建带宽限制是通过评估全局设置和卷特定设置来确定的。如果卷特定值大于零，则覆盖全局设置。
+
+|===
+|全局设置 | 卷覆盖 | 有效QoS
+
+|0
+|0
+|无限制
+
+|100
+|0
+|100 MB/s
+
+|0
+|200
+|200 MB/s
+
+|100
+|200
+|200 MB/s
+|===
+
+应用的QoS记录在引擎状态中的`status.rebuildStatus[*].appliedRebuildingMbps`字段内。
+
+例如，应用的带宽限制在卷引擎状态中显示如下：
+
+[,yaml]
+----
+  Rebuild Status:
+    tcp://172.24.1.95:20001:
+      Error:
+      From Replica Address:  tcp://172.24.8.133:20001
+      Is Rebuilding:         true
+      Progress:              97
+      State:                 in_progress
+      appliedRebuildingMbps: 50
+----

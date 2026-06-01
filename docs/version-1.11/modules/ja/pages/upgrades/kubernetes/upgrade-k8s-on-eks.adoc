@@ -1,0 +1,13 @@
+= Amazon Elastic Kubernetes Service (Amazon EKS) で Kubernetes をアップグレードする
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} で `replica-replenishment-wait-interval` を `0` に設定します。
+
+手順については https://docs.aws.amazon.com/eks/latest/userguide/update-cluster.html[クラスターの更新] を参照してください。
+
+[NOTE]
+====
+Longhorn のために xref:nodes/managed-kubernetes/eks-managed-node-pools.adoc#_create_additional_volume[追加ディスク] を作成した場合、アップグレード後のノードのディスクリストにマウントされたディスクのパスを手動で追加する必要があります。
+====

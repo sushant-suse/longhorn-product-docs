@@ -1,0 +1,74 @@
+= {longhorn-product-name}与CDI导入
+:revdate: 2025-12-24
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+本文档解释了如何使用 https://github.com/kubevirt/containerized-data-importer[容器化数据导入器（CDI）]将原始或QCOW2映像导入{longhorn-product-name}。它描述了通过使用CSI卷克隆创建可重用的*黄金映像*并从中配置多个工作负载的工作流程。
+
+== 概述
+
+在需要预填充磁盘映像的Kubernetes环境中，CDI使得将外部映像导入{longhorn-product-name}支持的持久卷声明（PVC）成为可能。这些PVC作为可重用的黄金映像，用于配置后续的工作负载。
+
+从技术上讲，黄金映像充当*基础映像PVC*。{longhorn-product-name}通过使用CSI卷克隆来实现这一点，为每个新声明创建一个*完整的独立副本*。这种方法确保了数据的完全隔离。每个工作负载接收自己的可写卷，原始黄金映像在运行时保持不变，并且与克隆独立。
+
+== 工作流程
+
+. *导入*：CDI从外部源（HTTP、S3或容器注册表）拉取映像，并填充一个{longhorn-product-name}支持的PVC。
+. *保护*：该PVC充当黄金映像。建议将此PVC视为*只读*或不可变，以确保未来克隆的一致性。
+. *克隆*：工作负载创建新的PVC，引用基础映像作为它们的`dataSource`。{longhorn-product-name}将数据从基础映像复制到新卷。
+
+=== 创建基础映像PVC
+
+DataVolume清单指定源映像和Longhorn存储类。例如，以下清单通过HTTP导入QCOW2映像：
+
+[,yaml]
+----
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: golden-base-image
+spec:
+  source:
+    http:
+      url: "https://example.com/images/base-image.qcow2"
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
+    storageClassName: longhorn
+----
+
+创建后，CDI处理映像导入和转换。结果是一个{longhorn-product-name}支持的PVC，作为基础映像。建议将此PVC视为不可变，并避免工作负载直接写入。
+
+=== 克隆基础映像
+
+在{longhorn-product-name}中克隆基础映像PVC是以完整复制模式进行的。这为每个克隆的PVC创建了一个完整的独立基础映像副本。因此，每个工作负载都有自己的隔离卷，并且不依赖于基础映像进行运行时操作。
+
+以下示例展示了如何创建克隆PVC：
+
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloned-pvc-1
+spec:
+  dataSource:
+    name: golden-base-image
+    kind: PersistentVolumeClaim
+    apiGroup: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: longhorn
+----
+
+您可以从同一基础映像创建多个克隆。每个克隆都是一个完整的独立副本，确保工作负载的隔离。
+
+== 参考资料
+
+* https://github.com/kubevirt/containerized-data-importer[容器化数据导入器]

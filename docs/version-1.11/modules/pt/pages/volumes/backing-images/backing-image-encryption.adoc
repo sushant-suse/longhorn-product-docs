@@ -1,0 +1,280 @@
+= Criptografia da Imagem de Base
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+O Longhorn permite que você criptografe e descriptografe uma imagem de base clonando-a. O mecanismo de criptografia da imagem de base utiliza o módulo do kernel Linux `dm_crypt` e o utilitário de linha de comando `cryptsetup`.
+
+== Clone uma Imagem de Base
+
+Você pode clonar uma imagem de base usando código YAML. Observe que isso criará uma nova imagem de base com o mesmo conteúdo da original. A imagem de base também consome espaço em disco.
+
+Exemplo de uma imagem de base baixada:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+Exemplo de código YAML usado para clonar a imagem de base de amostra:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: ignore
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`: Especifique o nome da imagem de base a ser clonada.
+* `encryption`: Defina o valor para `ignore` para clonar diretamente a imagem de base. Se o valor não for fornecido, o Longhorn usará `ignore` como valor padrão.
+====
+
+Você também pode clonar uma imagem de base usando a interface do Longhorn.
+
+. Vá para *Configurações* > *Imagem de Base*.
+. Clique em *Criar Imagem de Base*.
+. Defina as seguintes configurações:
+ ** *Criado a partir de*: Selecione *Clonar de Imagem de Base Existente*.
+ ** *Criptografia*: Selecione *Ignorar*.
+. Clique em *OK*.
+
+image::screenshots/backing-image/clone.png[Imagem de Base]
+
+== Criptografar uma Imagem de Base
+
+Você pode habilitar a criptografia durante a clonagem de uma imagem de base para que a imagem possa ser usada com um volume criptografado.
+
+Exemplo de uma imagem de base baixada:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+Exemplo de código YAML usado para clonar e criptografar a imagem de base de amostra:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-encrypted
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: encrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+Exemplo de código YAML usado para criptografar a imagem de base:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`: Especifique o nome da imagem de base a ser clonada.
+* `encryption`: Defina o valor para `encrypt` para criptografar a imagem de base durante a clonagem.
+* `secret`: Especifique o segredo usado para criptografar a imagem de base.
+* `secret-namespace`: Especifique o namespace do segredo usado para criptografar a imagem de base.
+====
+
+Você também pode criar uma cópia criptografada de uma imagem de base usando a interface do Longhorn.
+
+. Vá para *Configurações* > *Imagem de Base*.
+. Clique em *Criar Imagem de Base*.
+. Defina as seguintes configurações:
+ ** *Criado a partir de*: Selecione *Clonar de Imagem de Base Existente*.
+ ** *Criptografia*: Selecione *Criptografar*.
+. Especifique o segredo e o namespace do segredo a serem usados para criptografia.
+. Clique em *OK*.
+
+image::screenshots/backing-image/encrypt.png[Imagem de Base]
+
+== Descriptografar uma Imagem de Base
+
+Você pode descriptografar uma imagem de base criptografada através da clonagem.
+
+Exemplo de uma imagem de base criptografada:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-encrypted
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: encrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+Exemplo de código YAML usado para criptografar e descriptografar a imagem de base:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+Exemplo de código YAML usado para descriptografar a imagem de base:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-decrypt
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot-cloned-encrypted
+    encryption: decrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`: Especifique o nome da imagem de base a ser clonada.
+* `encryption`: Defina o valor para `decrypt` para descriptografar a imagem de base durante a clonagem.
+* `secret`: Especifique o segredo usado para descriptografar a imagem de base.
+* `secret-namespace`: Especifique o namespace do segredo usado para descriptografar a imagem de base.
+====
+
+Você também pode descriptografar uma imagem de base (por meio de clonagem) usando a interface do Longhorn.
+
+. Vá para *Configurações* > *Imagem de Base*.
+. Clique em *Criar Imagem de Base*.
+. Defina as seguintes configurações:
+ ** *Criado de*: Selecione *Clonar de Imagem de Base Existente*.
+ ** *Criptografia*: Selecione *Descriptografar*.
+. Especifique o segredo e o namespace do segredo a serem usados para a descriptografia.
+. Clique em *OK*.
+
+image::screenshots/backing-image/decrypt.png[Imagem de Base]
+
+== Use uma Imagem de Base Criptografada com um Volume Criptografado
+
+O segredo usado para criptografar a imagem de base e o volume deve ser idêntico. Uma vez que a imagem de base criptografada esteja pronta, você pode criar a StorageClass com a imagem de base correspondente e o segredo para criar o volume para a carga de trabalho.
+
+Exemplo de código YAML para o segredo de criptografia:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+Exemplo de código YAML para a StorageClass:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-crypto-global
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  encrypted: "true"
+  backingImage: "parrot-cloned-encrypted"
+  backingImageDataSourceType: "clone"
+  # global secret that contains the encryption key that will be used for all volumes
+  csi.storage.k8s.io/provisioner-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/provisioner-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-publish-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-publish-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-stage-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-stage-secret-namespace: "longhorn-system"
+----
+
+Para mais informações, veja xref:volumes/volume-encryption.adoc[Criptografia de Volume].
+
+== Limitações
+
+* O Longhorn não consegue criptografar imagens de base que já estão criptografadas e descriptografar imagens de base que não estão criptografadas.
+* O Longhorn não permite que você altere a chave de criptografia de uma imagem de base criptografada.
+* Ao criptografar uma imagem qcow2, o Longhorn primeiro cria uma imagem bruta a partir da imagem qcow2 e, em seguida, a criptografa. A imagem bruta criptografada resultante consome temporariamente espaço extra durante a clonagem. Por exemplo,
+ .. Se criptografarmos uma imagem qcow2 de 10MiB com um tamanho virtual de 200MiB, primeiro criaremos a imagem bruta a partir da qcow2, que consumirá 200MiB do espaço.
+ .. O Longhorn então cria a imagem de base criptografada a partir dessa imagem bruta de 200MiB, que ocupará mais 200MiB do espaço.
+ .. Após a criação da imagem de base criptografada, a imagem bruta temporária será limpa e liberará os 200MiB do espaço.
+* Se a imagem de base de origem for um arquivo esparso, o arquivo perde sua esparsidade após a criptografia.
+* Para permitir o armazenamento dos metadados LUKS durante a criptografia, o tamanho da imagem é aumentado em 16 MB. Para mais informações, veja as https://gitlab.com/cryptsetup/cryptsetup/-/blob/master/docs/v2.1.0-ReleaseNotes#L27[notas de versão do cryptsetup].

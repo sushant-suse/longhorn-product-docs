@@ -1,0 +1,42 @@
+= Faça upgrade manualmente do Longhorn Engine
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Você pode fazer upgrade manualmente do Longhorn Engine usando a interface do Longhorn.
+
+== Pré-requisitos
+
+Sempre faça backup antes de fazer upgrade das imagens do Longhorn Engine.
+
+Faça upgrade do Longhorn Manager antes de fazer upgrade do Longhorn Engine.
+
+== Faça upgrade offline
+
+Siga estas etapas se a atualização ao vivo não estiver disponível ou se o volume estiver preso em estado degradado:
+
+. Siga xref:data-integrity-recovery/disaster-recovery-volumes.adoc[o procedimento de desanexação para cargas de trabalho relevantes].
+. Selecione todos os volumes usando a seleção em lote. Clique no botão de operação em lote *Upgrade Engine* e escolha a imagem do Longhorn Engine disponível na lista. É o Longhorn Engine padrão enviado com o Longhorn Manager para esta versão.
+. Retome todas as cargas de trabalho. Qualquer volume que não faça parte de uma carga de trabalho Kubernetes deve ser anexado pela interface do Longhorn.
+
+== Atualização ao vivo
+
+{longhorn-product-name} v1.8.x para v{current-version} suporta atualizações do Longhorn Engine ao vivo.
+
+A interface `iSCSI` não suporta atualizações ao vivo.
+
+A atualização ao vivo deve ser feita apenas com volumes saudáveis.
+
+. Selecione o volume que deseja fazer upgrade.
+. Clique em `Upgrade Engine` no menu suspenso.
+. Selecione a imagem do Longhorn Engine para a qual deseja fazer upgrade.
+ .. Normalmente, é a única imagem do Longhorn Engine na lista, uma vez que a interface do Longhorn exclui a imagem atual da lista.
+. Clique em OK.
+
+Durante a atualização ao vivo, o usuário verá o dobro do número de réplicas temporariamente. Após a conclusão da atualização, o usuário deve ver o mesmo número de réplicas que antes, e o campo `Engine Image` do volume deve ser atualizado.
+
+Observe que, após a atualização ao vivo, o Rancher ou Kubernetes ainda mostrará a versão antiga da imagem para o Longhorn Engine e a nova versão para as réplicas. É esperado. O upgrade foi bem-sucedido se você ver a nova versão da imagem listada como a imagem do volume na página de Detalhes do Volume.
+
+== Limpe a imagem antiga.
+
+Depois de ter feito o upgrade de todas as imagens, selecione `Settings/Engine Image` na interface do Longhorn. Agora você deve ser capaz de remover a imagem não padrão.

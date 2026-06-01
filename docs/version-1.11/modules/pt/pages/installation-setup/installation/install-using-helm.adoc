@@ -1,0 +1,88 @@
+= Instale {longhorn-product-name} usando o Helm
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Pré-requisitos
+
+[NOTE]
+====
+A instalação de {longhorn-product-name} requer acesso autenticado à SUSE Application Collection. Para mais detalhes, consulte https://docs.apps.rancher.io/get-started/authentication[guia de autenticação].
+====
+
+=== gerenciamento
+
+* É necessário https://helm.sh/docs/[Helm] v3.0 ou posterior.
+* A xref:longhorn-system/system-access/longhorn-cli.adoc[Ferramenta de Linha de Comando Longhorn] pode ser usada para verificar o ambiente {longhorn-product-name} em busca de problemas potenciais.
+
+=== Ambiente Kubernetes
+
+* Um cluster Kubernetes, com cada nó atendendo aos xref:installation-setup/requirements.adoc[requisitos de instalação], é necessário.
+
+=== Autenticação
+
+* Para autenticar o Helm com o repositório OCI de charts da SUSE Application Collection, consulte a https://docs.apps.rancher.io/get-started/authentication/#helm[documentação de autenticação do Helm].
+* Para permitir que o Kubernetes puxe imagens do registro, siga a https://docs.apps.rancher.io/get-started/authentication/#kubernetes[documentação de autenticação do Kubernetes] para criar um segredo e definir o valor do chart `global.imagePullSecrets`.
+
+== Instalação
+
+. Instale {longhorn-product-name} com a configuração padrão, execute:
++
+[subs="+attributes",shell]
+----
+helm install longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+  --namespace longhorn-system \
+  --create-namespace \
+  --version <version> \ # Replace with the version you would like to install
+  --set global.imagePullSecrets=<PULL_IMAGE_SECRET>
+----
+
+. Para confirmar que a implantação foi bem-sucedida, execute:
++
+[,bash]
+----
+kubectl -n longhorn-system get pod
+----
++
+O resultado deve ser semelhante ao seguinte:
++
+[,bash]
+----
+NAME                                                READY   STATUS    RESTARTS   AGE
+longhorn-ui-b7c844b49-w25g5                         1/1     Running   0          2m41s
+longhorn-manager-pzgsp                              1/1     Running   0          2m41s
+longhorn-driver-deployer-6bd59c9f76-lqczw           1/1     Running   0          2m41s
+longhorn-csi-plugin-mbwqz                           2/2     Running   0          100s
+csi-snapshotter-588457fcdf-22bqp                    1/1     Running   0          100s
+csi-snapshotter-588457fcdf-2wd6g                    1/1     Running   0          100s
+csi-provisioner-869bdc4b79-mzrwf                    1/1     Running   0          101s
+csi-provisioner-869bdc4b79-klgfm                    1/1     Running   0          101s
+csi-resizer-6d8cf5f99f-fd2ck                        1/1     Running   0          101s
+csi-provisioner-869bdc4b79-j46rx                    1/1     Running   0          101s
+csi-snapshotter-588457fcdf-bvjdt                    1/1     Running   0          100s
+csi-resizer-6d8cf5f99f-68cw7                        1/1     Running   0          101s
+csi-attacher-7bf4b7f996-df8v6                       1/1     Running   0          101s
+csi-attacher-7bf4b7f996-g9cwc                       1/1     Running   0          101s
+csi-attacher-7bf4b7f996-8l9sw                       1/1     Running   0          101s
+csi-resizer-6d8cf5f99f-smdjw                        1/1     Running   0          101s
+instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc   1/1     Running   0          114s
+engine-image-ei-df38d2e5-cv6nc                      1/1     Running   0          114s
+----
+
+. Para habilitar o acesso à UI, você precisará configurar um controlador de Ingress. A autenticação na UI não está habilitada por padrão. Para informações sobre como criar um controlador de Ingress NGINX com autenticação básica, consulte xref:longhorn-system/system-access/create-ingress.adoc[seção de criação de ingress].
+. Acesse a UI usando xref:longhorn-system/system-access/system-access.adoc[passos de acesso ao sistema].
+
+=== Configuração
+
+O chart Helm {longhorn-product-name} fornece amplas opções de configuração de acordo com suas necessidades específicas. Você pode configurar essas opções fornecendo um arquivo `values.yaml` ou usando as flags `--set` durante `helm install` ou `helm upgrade`.
+
+Aspectos configuráveis comuns incluem:
+
+* **Classe de Armazenamento**: Configurações padrão da Classe de Armazenamento.
+* **Configurações da UI**: Configuração de Ingress, tipo de serviço e opções de autenticação para a {longhorn-product-name} UI.
+* **Configurações do Gerente e do Motor**: Limites de recursos, contagens de réplicas e outros parâmetros operacionais para os {longhorn-product-name} componentes do kernel.
+* **Gerenciamento de Nós e Discos**: Provisionamento automático de discos, seletores de nós e tolerâncias.
+* **Driver CSI**: Configuração específica para os componentes da Interface de Armazenamento de Contêineres.
+* **Rede**: Tipos de serviço e políticas de rede.
+
+Para uma lista abrangente de todos os parâmetros disponíveis e suas descrições, consulte a documentação oficial do xref:installation-setup/installation/helm-values.adoc[{longhorn-product-name} Helm Chart] e o arquivo `values.yaml` no repositório do chart.

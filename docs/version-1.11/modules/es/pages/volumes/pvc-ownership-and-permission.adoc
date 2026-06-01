@@ -1,0 +1,120 @@
+= Propiedad y Permiso de PVC
+:revdate: 2025-10-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Kubernetes soporta los 2 https://kubernetes.io/docs/concepts/storage/persistent-volumes/#volume-mode[modos de volumen] para PVC: Sistema de archivos y Bloque.
+Cuando un pod define el contexto de seguridad y solicita un PVC de Longhorn, Kubernetes manejará la modificación de propiedad y permiso del PVC de manera diferente según el modo de volumen.
+
+== PVC de Longhorn con Modo de Volumen de Sistema de Archivos
+
+Debido a que el controlador CSI de Longhorn `csiDriver.spec.fsGroupPolicy` está configurado en `ReadWriteOnceWithFSType`, el Kubelet intenta cambiar la propiedad y el permiso de un PVC de Longhorn de la siguiente manera:
+
+. Verificar `pod.spec.securityContext.fsGroup`.
+ ** Si no está vacío, continúa al siguiente paso.
+ ** Si está vacío, el Kubelet no intenta cambiar la propiedad y el permiso para el volumen.
+. Verificar `fsType` del PV y `accessModes` del PVC.
+ ** Si el `fsType` del PV está definido y la lista `accessModes` del PVC contiene `ReadWriteOnce`, continúa al siguiente paso.
+ ** De lo contrario, el Kubelet no intenta cambiar la propiedad y el permiso para el volumen.
+. Verificar `pod.spec.securityContext.fsGroupChangePolicy`.
+ ** Si el `pod.spec.securityContext.fsGroupChangePolicy` está configurado en `always` o vacío, el Kubelet realiza las siguientes acciones:
+  *** Asegura que todos los procesos de los contenedores dentro del pod pertenezcan al grupo suplementario con id `pod.spec.securityContext.fsGroup`
+  *** Asegura que cualquier nuevo archivo creado en el volumen estará en el grupo id `pod.spec.securityContext.fsGroup`
+  *** Cambia recursivamente el permiso y la propiedad del volumen para tener el mismo grupo id que `pod.spec.securityContext.fsGroup` cada vez que se monta el volumen
+ ** Si el `pod.spec.securityContext.fsGroupChangePolicy` está configurado en `OnRootMismatch`:
+  *** Si la raíz del volumen ya tiene los permisos correctos (es decir, pertenece al grupo id como `pod.spec.securityContext.fsGroup`), el cambio recursivo de permisos y propiedad se omitirá.
+  *** De lo contrario, Kubelet cambia recursivamente el permiso y la propiedad del volumen para tener el mismo grupo id que `pod.spec.securityContext.fsGroup`
+
+Para obtener más información, consulte:
+
+* https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#configure-volume-permission-and-ownership-change-policy-for-pods
+* https://github.com/longhorn/longhorn/issues/2131#issuecomment-778897129
+
+== PVC de Longhorn con Modo de Volumen de Bloque
+
+Para PVC con modo de volumen de bloque, Kubelet nunca intenta cambiar la propiedad y el permiso del dispositivo de bloque al hacerlo disponible dentro del contenedor.
+Debe establecer el ID de grupo correcto en el `pod.spec.securityContext` para que el pod pueda leer y escribir en el dispositivo de bloque o ejecutar el contenedor como root.
+
+Por defecto, Longhorn coloca el dispositivo de bloque en el ID de grupo 6, que suele estar asociado con el grupo "disk".
+Por lo tanto, los pods que utilizan Longhorn PVC con modo de volumen de bloque deben establecer el ID de grupo 6 en el `pod.spec.securityContext`, o ejecutarse como root.
+Por ejemplo:
+
+. Pod que establece el ID de grupo 6 en el `pod.spec.securityContext`
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: PersistentVolumeClaim
+ metadata:
+   name: longhorn-block-vol
+ spec:
+   accessModes:
+     - ReadWriteOnce
+   volumeMode: Block
+   storageClassName: longhorn
+   resources:
+     requests:
+       storage: 2Gi
+ ---
+ apiVersion: v1
+ kind: Pod
+ metadata:
+   name: block-volume-test
+   namespace: default
+ spec:
+   securityContext:
+     runAsGroup: 1000
+     runAsNonRoot: true
+     runAsUser: 1000
+     supplementalGroups:
+     - 6
+   containers:
+     - name: block-volume-test
+       image: ubuntu:20.04
+       command: ["sleep", "360000"]
+       imagePullPolicy: IfNotPresent
+       volumeDevices:
+         - devicePath: /dev/longhorn/testblk
+           name: block-vol
+   volumes:
+     - name: block-vol
+       persistentVolumeClaim:
+         claimName: longhorn-block-vol
+----
+
+. Pod que se ejecuta como root
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: PersistentVolumeClaim
+ metadata:
+   name: longhorn-block-vol
+ spec:
+   accessModes:
+     - ReadWriteOnce
+   volumeMode: Block
+   storageClassName: longhorn
+   resources:
+     requests:
+       storage: 2Gi
+ ---
+ apiVersion: v1
+ kind: Pod
+ metadata:
+   name: block-volume-test
+   namespace: default
+ spec:
+   containers:
+     - name: block-volume-test
+       image: ubuntu:20.04
+       command: ["sleep", "360000"]
+       imagePullPolicy: IfNotPresent
+       volumeDevices:
+         - devicePath: /dev/longhorn/testblk
+           name: block-vol
+   volumes:
+     - name: block-vol
+       persistentVolumeClaim:
+         claimName: longhorn-block-vol
+----

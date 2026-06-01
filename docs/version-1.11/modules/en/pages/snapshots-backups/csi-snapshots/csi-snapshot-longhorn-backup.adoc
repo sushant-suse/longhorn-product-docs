@@ -75,6 +75,7 @@ The CSI snapshotter sidecar periodically queries the Longhorn CSI plugin to eval
 
 Once the backup is completed, the `VolumeSnapshotContent.readyToUse` flag is set to *true*.
 
+[#_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backup]
 == Restore PVC from CSI VolumeSnapshot Associated With Longhorn Backup
 
 Create a `PersistentVolumeClaim` object where the `dataSource` field points to an existing `VolumeSnapshot` object that is associated with Longhorn backup.
@@ -151,4 +152,4 @@ spec:
 ----
 
 Now you can create a `PerstistantVolumeClaim` object that refers to the newly created `VolumeSnapshot` object.
-For an example see <<_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backup,Restore PVC from CSI VolumeSnapshot Associated With Longhorn Backup>> above.
+For an example see xref:_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backup[Restore PVC from CSI VolumeSnapshot Associated With Longhorn Backup] above.

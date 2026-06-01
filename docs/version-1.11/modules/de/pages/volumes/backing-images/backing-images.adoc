@@ -1,0 +1,280 @@
+= Backing Images
+:revdate: 2025-12-10
+:page-revdate: {revdate}
+:experimental:
+:current-version: {page-component-version}
+
+{longhorn-product-name} unterstützt nativ Backing-Images.
+
+Ein QCOW2- oder RAW-Image kann als Backing-/Basis-Image eines {longhorn-product-name}-Volumes festgelegt werden, was es {longhorn-product-name} ermöglicht, mit einer Virtualisierungslösung wie https://www.suse.com/products/rancher/virtualization[{harvester-product-name}] integriert zu werden.
+
+[IMPORTANT]
+====
+Die Bildgröße muss *ein Vielfaches von 512 Bytes* sein. {longhorn-product-name} verwendet direktes I/O, was eine Ausrichtung der Dateigrößen an der zugrunde liegenden Speicherblockgröße erfordert.
+====
+
+== Erstellen Sie ein V1 Data Engine Backing Image
+
+=== Parameter
+
+==== Datenquelle
+
+Sie können ein V1 Backing Image mit einer der unterstützten Datenquellen vorbereiten.
+
+. Laden Sie eine Backing-Image-Datei (unter Verwendung einer URL) herunter.
+. Laden Sie eine Datei von Ihrem lokalen Computer hoch. Diese Option steht den {longhorn-product-name} UI-Nutzern zur Verfügung.
+. Exportieren Sie ein vorhandenes In-Cluster-Volume als Backing Image.
+. Stellen Sie ein Backing Image aus dem Backupstore wieder her. Für weitere Informationen siehe xref:snapshots-backups/backing-image-backups.adoc[Backing Image Backup].
+. Klonen Sie ein Backing Image.
+
+==== Volume-Export
+
+Ein Backing Image dient als anfänglicher Snapshot in der Snapshot-Kette eines {longhorn-product-name}-Volumes. Wenn Sie ein Volume mit einem zugehörigen Backing Image exportieren, kombiniert {longhorn-product-name} dieses Image mit den Delta-Änderungen, was zu einem neuen konsolidierten Backing Image führt.
+
+==== Prüfsumme
+
+* Die Prüfsumme eines Backing Images ist *die SHA512-Prüfsumme* der gesamten *Backing-Image-Datei* und nicht die des tatsächlichen Inhalts.
+Was ist der Unterschied? Wenn {longhorn-product-name} die Prüfsumme einer qcow2-Datei berechnet, wird die Datei als Rohdatei gelesen, anstatt die qcow-Bibliothek zu verwenden, um den richtigen Inhalt zu lesen. Mit anderen Worten, die Benutzer erhalten immer die korrekte Prüfsumme, indem sie `shasum -a 512 <the file path>` unabhängig vom Dateiformat ausführen.
+* Es wird empfohlen, die erwartete Prüfsumme während der Erstellung des Backing-Images anzugeben.
+Andernfalls wird {longhorn-product-name} die Prüfsumme der ersten Datei als die korrekte betrachten. Wenn bei der Vorbereitung der ersten Datei etwas schiefgeht, was dann zu einer falschen Prüfsumme als dem erwarteten Wert führt, ist dieses Backing-Image wahrscheinlich nicht verfügbar.
+
+==== Planung
+
+* {longhorn-product-name} bereitet zuerst die Backing-Image-Datei auf einem zufälligen Knoten und Datenträger vor und speichert sie, und dupliziert dann die Datei auf die Datenträger, die die Replikate speichern.
+* Für eine verbesserte Raumeffizienz können Sie `nodeSelector` und `diskSelector` hinzufügen, um die Speicherung der Backing-Image-Dateien auf einer bestimmten Gruppe von Knoten und Datenträgern zu erzwingen.
+* Die Replikate können nicht auf Knoten oder Datenträgern geplant werden, auf denen das Backing-Image nicht geplant werden kann.
+
+==== Anzahl Kopien
+
+* Sie können `minNumberOfCopies` hinzufügen, um sicherzustellen, dass mehrere Backing-Image-Dateien im Cluster existieren.
+* Sie können das `minNumberOfCopies` in den globalen Einstellungen anpassen, um den Standardwert auf das Backing Image anzuwenden.
+
+=== Methoden zur Erstellung eines Backing-Images
+
+==== Erstelle ein Backing-Image über die {longhorn-product-name} UI
+
+Auf der Seite menu:Erweiterte[Backing Images] können Benutzer Backing-Images mit beliebigen Arten von Datenquellen erstellen.
+
+==== Erstelle ein V1 Backing-Image mit YAML
+
+Sie können eine Datei herunterladen oder ein vorhandenes Volume über YAML als Backing Image exportieren.
+Es ist besser, eine Datei nicht über YAML zu "hochladen". Andernfalls müssen Sie den Daten-Upload manuell über HTTP-Anfragen abwickeln.
+
+Hierzu einige Beispiele:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: bi-download
+  namespace: longhorn-system
+spec:
+  dataEngine: v1
+  minNumberOfCopies: 2
+  nodeSelector:
+    - "node1"
+  diskSelector:
+    - "disk1"
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: bi-export
+  namespace: longhorn-system
+spec:
+  dataEngine: v1
+  minNumberOfCopies: 2
+  nodeSelector:
+    - "node1"
+  diskSelector:
+    - "disk1"
+  sourceType: export-from-volume
+  sourceParameters:
+    volume-name: vol-export-src
+    export-type: qcow2
+----
+
+==== Erstelle ein Backing-Image mit einer StorageClass und PVC
+
+. In einer Longhorn StorageClass.
+. Das Setzen des Parameters `backingImageName` bedeutet, {longhorn-product-name} zu bitten, dieses Backing-Image während der Volumenerstellung zu verwenden.
+. Wenn Sie das Backing Image erstellen möchten, solange es während der CSI-Volumenerstellung nicht existiert, sollten die Parameter `backingImageDataSourceType` und `backingImageDataSourceParameters` gesetzt werden. Ähnlich wie bei YAML ist es besser, ein Backing-Image nicht über "Hochladen" in der StorageClass zu erstellen. Beachten Sie, dass, wenn alle diese Parameter festgelegt sind und das Backing-Image bereits existiert, {longhorn-product-name} überprüft, ob die Parameter mit dem vorhandenen übereinstimmen, bevor es verwendet wird.
+
+ ** Für `download`:
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-backing-image-example
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  backingImage: "bi-download"
+  backingImageDataSourceType: "download"
+  backingImageDataSourceParameters: '{"url": "https://backing-image-example.s3-region.amazonaws.com/test-backing-image"}'
+  backingImageChecksum: "SHA512 checksum of the backing image"
+  backingImageMinNumberOfCopies: "2"
+  backingImageNodeSelector: "node1"
+  backingImageDiskSelector: "disk1"
+  dataEngine: "v1"
+----
+
+ ** Für `export-from-volume`:
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-backing-image-example
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  backingImage: "bi-export-from-volume"
+  backingImageDataSourceType: "export-from-volume"
+  backingImageDataSourceParameters: '{"volume-name": "vol-export-src", "export-type": "qcow2"}'
+  backingImageMinNumberOfCopies: "2"
+  backingImageNodeSelector: "node1"
+  backingImageDiskSelector: "disk1"
+  dataEngine: "v1"
+----
+. Erstellen Sie ein PVC mit der StorageClass. Dann wird das Backing-Image (mit dem {longhorn-product-name} Volume) erstellt, wenn es nicht existiert.
+. {longhorn-product-name} beginnt, die Backing-Images für die Replikate auf die Festplatten vorzubereiten, wenn ein Volume, das das Backing-Image verwendet, an einen Knoten angehängt wird.
+
+[NOTE]
+====
+* Bitte seien Sie vorsichtig mit dem Escape-Zeichen `\`, wenn Sie eine Download-URL in einer StorageClass eingeben.
+* Ein Backing-Image, das mit einer StorageClass erstellt wurde, hat denselben Daten-Engine wie das Volume.
+====
+
+== Verwenden Sie ein Backing-Image in einem Volume
+
+Benutzer können <<Create a Backing Image Using a StorageClass and PVC, direkt ein Backing-Image über die StorageClass erstellen und sofort verwenden>> oder ein vorhandenes Backing-Image wie unten erwähnt nutzen.
+
+[discrete]
+==== Verwenden Sie ein vorhandenes Backing-Image
+
+[discrete]
+===== Verwenden Sie ein vorhandenes Backing-Image während der Volume-Erstellung
+
+. Klicken Sie auf menu:Erweitert[Backing-Images] in der {longhorn-product-name} UI.
+. Klicken Sie auf *Backing-Image erstellen*, um ein Backing-Image mit einem eindeutigen Namen und einer gültigen URL zu erstellen.
+. Wählen Sie ein Backing-Image aus der Liste aus. Das Volume und das Backing-Image müssen denselben Daten-Engine verwenden.
+. {longhorn-product-name} beginnt, das Backing-Image auf die Festplatten für die Replikate herunterzuladen, wenn ein Volume, das das Backing-Image verwendet, an einen Knoten angehängt wird.
+
+[discrete]
+===== Verwenden Sie ein vorhandenes Backing-Image während der Wiederherstellung des Volumes
+
+. Klicken Sie auf `Backup` und wählen Sie ein Backup-Volume für die Wiederherstellung aus.
+. Solange das Backing-Image bereits für das Backup-Volume festgelegt ist, wird {longhorn-product-name} das Backing-Image während der Wiederherstellung automatisch auswählen.
+. {longhorn-product-name} ermöglicht es Ihnen, das Backing-Image während der Wiederherstellung erneut anzugeben oder zu überschreiben.
+
+[discrete]
+==== Laden Sie eine Backing-Image-Datei herunter
+
+Seit v1.3.0 können Benutzer vorhandene Backing-Image-Dateien über die UI auf die lokale Maschine herunterladen.
+
+[NOTE]
+====
+* Benutzer müssen sicherstellen, dass das Backing Image vorhanden ist, wenn sie die Benutzeroberfläche verwenden, um ein Volume mit einem angegebenen Backing Image zu erstellen oder wiederherzustellen.
+* Bevor Benutzer eine vorhandene Backing-Image-Datei lokal herunterladen, müssen sie garantieren, dass eine bereitstehende Datei dafür vorhanden ist.
+* Der Download von V2 Data Engine Sicherungsbildern wird derzeit nicht unterstützt.
+====
+
+== Erstellen Sie ein V2 Data Engine Sicherungsbild.
+
+Ab v1.8.0 können Sie ein Sicherungsbild erstellen, das von der V2 Data Engine unterstützt wird, indem Sie `Data Engine` in der YAML konfigurieren (über die Benutzeroberfläche oder eine StorageClass).
+
+=== Parameter
+
+Alle Parameter sind die gleichen wie die des V1 Data Engine Backing Images, mit Ausnahme von `Data Engine`.
+
+==== Datenquellen
+
+Sie können ein V2 Data Engine Sicherungsbild mit einer der unterstützten Datenquellen vorbereiten.
+
+* Laden Sie eine Sicherungsbilddatei (unter Verwendung einer URL) herunter.
+* Laden Sie eine Datei von Ihrem lokalen Computer hoch. Diese Option steht den {longhorn-product-name} UI-Nutzern zur Verfügung.
+* Exportieren Sie ein vorhandenes V1 Data Engine Volume im Cluster als Sicherungsbild.
+* Stellen Sie ein Backing Image aus dem Backupstore wieder her. Für weitere Informationen siehe xref:snapshots-backups/backing-image-backups.adoc[Backing Image Backup].
+* Klonen Sie ein V1 Sicherungsbild.
+
+[NOTE]
+====
+* Die folgenden Operationen werden derzeit nicht unterstützt:
+ ** Exportieren aus einem V2 Data Engine Volume
+ ** Klonen eines V2 Sicherungsbildes.
+ ** Sichern eines V2 Sicherungsbildes.
+* Im Gegensatz zur V1 Data Engine, die dateibasiert ist, erfordert die V2 Data Engine {longhorn-product-name}, um die Sicherungsbilddaten in einem SPDK-logischen Volume zu speichern. Daher muss {longhorn-product-name} für qcow2-Bilder zuerst das qcow2-Bild in ein Rohformat konvertieren, bevor die Daten im V2 Data Engine Sicherungsbild gespeichert werden, damit es die richtigen Daten lesen kann.
+====
+
+== Sicherungsbilder bereinigen.
+
+[discrete]
+==== Sicherungsbilder auf Festplatten bereinigen.
+
+* {longhorn-product-name} bereinigt automatisch die ungenutzten Sicherungsbilder auf den Festplatten basierend auf xref:longhorn-system/settings.adoc#_backing_image_cleanup_wait_interval[der Einstellung `Backing Image Cleanup Wait Interval`]. Aber {longhorn-product-name} wird mindestens eine Datei auf einer Festplatte für jedes Sicherungsbild aufbewahren.
+* Sie können Sicherungsbilder manuell von Festplatten über die {longhorn-product-name} Benutzeroberfläche entfernen. Gehen Sie zu *Einstellungen* > *Sicherungsbild* und klicken Sie dann auf den Namen eines bestimmten Sicherungsbildes. Wählen Sie im sich öffnenden Fenster eine oder mehrere Festplatten aus und klicken Sie dann auf *Bereinigen*.
+* Sobald ein Replikat auf einer Festplatte, das ein Backing Image verwendet, vorhanden ist, kann die Backing-Image-Datei auf dieser Festplatte, unabhängig vom aktuellen Zustand des Replikats, nicht bereinigt werden.
+
+[discrete]
+==== Sicherungsbilder löschen
+
+* Das Sicherungsbild kann nur gelöscht werden, wenn kein Volume es verwendet.
+
+== Wiederherstellung des Sicherungsbildes
+
+* Wenn sich noch eine bereitstehende Backing-Image-Datei auf einer Festplatte befindet, wird {longhorn-product-name} automatisch die fehlgeschlagenen Backing-Image-Dateien bereinigen und anschließend diese Dateien aus der bereitstehenden Datei erneut laden.
+* Wenn aus irgendeinem Grund alle Dateien eines Sicherungsbildes fehlschlagen und die erste Datei ist:
+ ** von einer URL heruntergeladen, wird {longhorn-product-name} den Download neu starten.
+ ** Von einem bestehenden Volume exportiert, wird {longhorn-product-name} (bei Bedarf das Volume anhängen und anschließend) den Export neu starten.
+ ** von der lokalen Umgebung des Benutzers hochgeladen, gibt es keine Möglichkeit, es wiederherzustellen. Benutzer müssen dieses Sicherungsbild löschen und dann ein neues erstellen, indem sie die Datei erneut hochladen.
+* Wenn ein Knoten ausgefallen ist oder der Sicherungsbildmanager-Pod auf dem Knoten nicht verfügbar ist, werden alle Sicherungsbilddateien auf dem Knoten `unknown`. Später, wenn der Knoten wieder online ist und der Pod läuft, wird {longhorn-product-name} dies erkennen und dann die vorhandenen Dateien automatisch wiederverwenden.
+
+== Ausschluss von Sicherungsbildern
+
+* Sie können alle Sicherungsbilddateien manuell von einem Knoten oder einer Festplatte ausschließen, indem Sie `Scheduling` auf `Disabled` und `Eviction Requested` auf `True` in der {longhorn-product-name} Benutzeroberfläche einstellen.
+* Wenn nur eine Sicherungsbilddatei im Cluster vorhanden ist, dupliziert {longhorn-product-name} zuerst die Datei auf eine andere Festplatte und löscht dann die Datei.
+* Wenn die Sicherungsbilddatei nicht auf andere Festplatten dupliziert werden kann, löscht {longhorn-product-name} die Datei nicht. Sie können die Einstellungen aktualisieren, um das Problem zu beheben.
+
+== Sicherungsbild-Workflow
+
+. Um alle Sicherungsbilddateien auf einer Festplatte zu verwalten, erstellt {longhorn-product-name} einen einzelnen Sicherungsbild-Manager-Pod für jede Festplatte. Sobald die Festplatte keine Anforderungen an eine Sicherungsbilddatei hat, wird der Sicherungsbild-Manager automatisch entfernt.
+. Sobald eine Sicherungsbilddatei vom Sicherungsbild-Manager für eine Festplatte vorbereitet wurde, wird die Datei unter allen Volume-Replikaten auf dieser Festplatte geteilt.
+. Wenn ein Sicherungsbild erstellt wird, startet {longhorn-product-name} einen Sicherungsbild-Datenquellen-Pod, um die ursprüngliche Datei vorzubereiten. Die Dateidaten stammen aus einer vom Benutzer angegebenen Quelle – wie einem Download von einem entfernten Standort, einem Upload von einer lokalen Datei oder einem Export von einem bestehenden Volume. Sobald die Vorbereitung abgeschlossen ist, übernimmt der Sicherungsbild-Manager-Pod auf derselben Festplatte die Datei, und {longhorn-product-name} beendet den Datenquellen-Pod.
+. Sobald ein neues Sicherungsbild von einem Volume verwendet wird, werden die Sicherungsbild-Manager-Pods in den Festplatten, auf denen sich die Volume-Replikate befinden, aufgefordert, die Datei von den Sicherungsbild-Manager-Pods zu synchronisieren, die die Datei bereits enthalten.
+. Wie im Abschnitt <<_clean_up_backing_images_in_disks,#clean_up_backing_images_in_disks>> erwähnt, wird die Datei automatisch bereinigt, wenn alle Replikate auf einer Festplatte keine Sicherungsbilddatei verwenden.
+
+== Gleichzeitige Begrenzung der Sicherungsbild-Synchronisierung
+
+* `Concurrent Backing Image Replenish Per Node Limit` in den globalen Einstellungen steuert, wie viele Kopien von Sicherungsbildern auf einem Knoten gleichzeitig wieder aufgefüllt werden können.
+* Wenn auf 0 gesetzt, füllt {longhorn-product-name} die Kopie nicht automatisch wieder auf, selbst wenn sie unter der minNumberOfCopies liegt.
+
+== Warnhinweis
+
+* Die Download-URL des Sicherungsbildes sollte öffentlich sein. Wir werden diesen Teil in Zukunft verbessern.
+* Wenn nach <<_download_a_backing_image_file,Dateidownload>> eine hohe Speicherauslastung eines Sicherungsbild-Manager-Pods auftritt, wird dies durch den Systemcache/Puffer verursacht. Die Speicherauslastung wird automatisch sinken, daher müssen Sie sich keine Sorgen darüber machen. Siehe https://github.com/longhorn/longhorn/issues/4055[das GitHub-Ticket] für weitere Details.
+
+== Verlauf
+
+* https://github.com/Longhorn/Longhorn/issues/2006[Aktivieren Sie die Sicherungsbild-Funktion in {longhorn-product-name}]
+* Unterstützen Sie https://github.com/longhorn/longhorn/issues/2404[Hochladen] und https://github.com/longhorn/longhorn/issues/2403[Volumenexport]
+* Unterstützen Sie https://github.com/longhorn/longhorn/issues/2404[lokal herunterladen] und https://github.com/longhorn/longhorn/issues/3155[Volumenexport]

@@ -1,0 +1,382 @@
+= Quick Start Guide
+:revdate: 2026-01-30
+:page-revdate: {revdate}
+:aliases: ["/spdk/quick-start.md"]
+:current-version: {page-component-version}
+
+{longhorn-product-name}のV2データエンジンは、ストレージパフォーマンス開発キット（SPDK）を使用して、高いパフォーマンスを実現します。この統合により、I/Oレイテンシが低下し、IOPSとスループットの両方が向上し、幅広いワークロードに対応できる高性能なストレージソリューションが提供されます。
+
+V2データエンジンは現在、テクニカルプレビュー機能です。サポートされている機能は https://github.com/longhorn/longhorn/wiki/V1-and-V2-Feature-Parities[こちら]に文書化されています。
+
+このチュートリアルでは、環境の設定プロセスと、V2データエンジンを使用してLonghornボリュームに対応する永続ボリューム（PVs）および永続ボリュームクレーム（PVCs）を作成する方法を案内します。
+
+== 前提条件
+
+=== カーネルモジュールをロードします。
+
+DebianおよびUbuntuでは、必要なカーネルモジュールをロードする前にLinuxカーネルの追加モジュールをインストールします：
+
+[,bash]
+----
+apt install -y linux-modules-extra-`uname -r`
+----
+
+xref:longhorn-system/system-access/install-longhorn-cli.adoc[Longhorn CLI]を使用して、必要なカーネルモジュールとhugepagesを設定できます。
+
+手動でインストールできます：
+
+各Longhornノードでカーネルモジュールをロードします：
+
+[,bash]
+----
+modprobe vfio_pci
+modprobe uio_pci_generic
+modprobe nvme-tcp
+----
+
+代わりに、再起動後に毎回手動でカーネルモジュールvfio_pci、uio_pci_generic、およびnvme-tcpをロードするのではなく、ブートシーケンス中に自動モジュールロードを設定することでプロセスを簡素化できます。詳細な手順については、オペレーティングシステムが提供するマニュアルを参照してください。
+
+*リファレンス*：
+
+* SUSEまたはopenSUSE： https://documentation.suse.com/sles/15-SP4/html/SLES-all/cha-mod.html#sec-mod-modprobe-d[ブート時にカーネルモジュールをロードする]
+* Ubuntu： https://manpages.ubuntu.com/manpages/jammy/man5/modules-load.d.5.html[ブート時にカーネルモジュールをロードするように設定する]
+* RHEL： https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/managing_monitoring_and_updating_the_kernel/managing-kernel-modules_managing-monitoring-and-updating-the-kernel[システムブート時にカーネルモジュールを自動的にロードする]
+
+=== hugepagesを有効にします。
+
+==== hugepagesを設定します。
+
+SPDKは、パフォーマンスを向上させ、メモリオーバーヘッドを最小限に抑えるためにhugepagesを使用します。hugepagesを使用するために、各Longhornノードで2 MiBサイズのhugepagesを設定する必要があります。具体的には、各Longhornノードに1024ページ（合計2 GiB相当）が利用可能でなければなりません。
+
+hugepagesを割り当てるには、各ノードで次のコマンドを実行します。
+
+[,bash]
+----
+echo 1024 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
+----
+
+`/sys/kernel/mm/hugepages`の下で行われた割り当ては永続的ではなく、再起動後にリセットされます。割り当てを永続的にするには、次のいずれかの方法を使用します：
+
+===== 永続的な割り当て（推奨）
+
+hugepagesを永続的に事前割り当てするには、カーネルブートパラメータを更新します。
+
+. GRUB設定を更新します
++
+`/etc/default/grub`を編集し、hugepagesのパラメータを追加します。この例では、`1024 × 2` MiBページ（合計2 GiB）を割り当てます：
++
+[,bash]
+----
+GRUB_CMDLINE_LINUX="hugepagesz=2M hugepages=1024"
+----
++
+ノードにすでにカーネルパラメータがある場合は、それらを上書きするのではなく、これらの値を追加してください。
+
+. GRUB設定を適用します
++
+BIOSシステム：
++
+[,bash]
+----
+sudo update-grub
+----
++
+RHELまたはSUSE（GRUB2）：
++
+[,bash]
+----
+sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+----
++
+UEFIシステム：
++
+[,bash]
+----
+sudo grub2-mkconfig -o /boot/efi/EFI/<distro>/grub.cfg
+----
+
+. ノードを再起動します：
++
+[,bash]
+----
+sudo reboot
+----
+
+. hugepagesを確認します：
++
+[,bash]
+----
+grep Huge /proc/meminfo
+----
++
+期待される出力：
++
+----
+HugePages_Total:    1024
+Hugepagesize:       2048 kB
+----
+
+. Kubernetesリソースとしてhugepagesを確認します：
++
+[,bash]
+----
+kubectl describe node <node-name>
+----
++
+*Capacity*および*Allocatable*の下で期待される：
++
+----
+hugepages-2Mi: 2Gi
+----
+
+===== 代替：sysctl設定（推奨されません）
+
+次の行を`/etc/sysctl.conf`に追加します。
+
+[,bash]
+----
+vm.nr_hugepages=1024
+----
+
+多くのディストリビューションでは、再起動を跨いで持続しないため、hugepagesはブートプロセスの早い段階で割り当てる必要があります。GRUBの変更が許可されていない場合のみ使用してください。
+
+=== `kubelet`を再起動します。
+
+上記の手順が完了したら、各ノードでkubeletを再起動します。
+
+=== 環境を確認します。
+
+==== Longhornコマンドラインツールを使用しています。
+
+`longhornctl`ツールはLonghorn操作のためのCLIです。詳細については、xref:longhorn-system/system-access/longhorn-cli.adoc[コマンドラインツール（longhornctl）]を参照してください。
+
+前提条件と設定を確認するには、ツールをダウンロードして`check`サブコマンドを実行します。
+
+[subs="+attributes",shell]
+----
+# For AMD64 platform
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-amd64
+# For ARM platform
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-arm64
+
+chmod +x longhornctl
+./longhornctl check preflight --enable-spdk
+----
+
+結果の例：
+
+[subs="+attributes",shell]
+----
+INFO[2024-01-10T00:00:01Z] Initializing preflight checker
+INFO[2024-01-01T00:00:01Z] Cleaning up preflight checker
+INFO[2024-01-01T00:00:01Z] Running preflight checker
+INFO[2024-01-01T00:00:02Z] Retrieved preflight checker result:
+worker1:
+  error:
+  - 'HugePages is insufficient. Required 2MiB HugePages: 1024 pages, Total 2MiB HugePages: 0 pages'
+  - 'Module nvme_tcp is not loaded: failed to execute: nsenter [--mount=/host/proc/204896/ns/mnt --net=/host/proc/204896/ns/net grep nvme_tcp /proc/modules], output , stderr : exit status 1'
+  - 'Module uio_pci_generic is not loaded: failed to execute: nsenter [--mount=/host/proc/204896/ns/mnt --net=/host/proc/204896/ns/net grep uio_pci_generic /proc/modules], output , stderr : exit status 1'
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-common is installed
+  - Package open-iscsi is installed
+  - CPU instruction set sse4_2 is supported
+  warn:
+  - multipathd.service is running. Please refer to https://longhorn.io/kb/troubleshooting-volume-with-multipath/ for more information.
+----
+
+Longhornをインストールする前に、`install`サブコマンドを使用して事前依存関係をインストールおよび設定します。
+
+[subs="+attributes",shell]
+----
+master:~# ./longhornctl install preflight --enable-spdk
+INFO[2024-01-01T00:00:03Z] Initializing preflight installer
+INFO[2024-01-01T00:00:03Z] Cleaning up preflight installer
+INFO[2024-01-01T00:00:03Z] Running preflight installer
+INFO[2024-01-01T00:00:03Z] Installing dependencies with package manager
+INFO[2024-01-01T00:00:10Z] Installed dependencies with package manager
+INFO[2024-01-01T00:00:10Z] Cleaning up preflight installer
+INFO[2024-01-01T00:00:10Z] Completed preflight installer. Use 'longhornctl check preflight' to check the result.
+----
+
+[NOTE]
+====
+SUSE Linux Enterprise Micro（SLE Micro）などの特定の不変Linuxディストリビューションでは、`install`サブコマンドを実行した後にワーカーノードを再起動する必要があります。再起動後、操作を完了するために`install`サブコマンドを再度実行する必要があります。
+
+お使いのLinuxディストリビューションのドキュメントには、そのような要件が記載されているはずです。例えば、 https://documentation.suse.com/sle-micro/6.0/html/Micro-transactional-updates/index.html#reference-transactional-update-usage[SLE Microドキュメント]では、`transactional-update`コマンドによって行われたすべての変更は、ノードが再起動された後にのみ有効になることが説明されています。
+====
+
+
+事前依存関係をインストールおよび設定した後、すべての環境設定が正しいことを確認するために、`check`サブコマンドを再度実行できます。
+
+[subs="+attributes",shell]
+----
+master:~# ./longhornctl check preflight --enable-spdk
+INFO[2024-01-01T00:00:13Z] Initializing preflight checker
+INFO[2024-01-01T00:00:13Z] Cleaning up preflight checker
+INFO[2024-01-01T00:00:13Z] Running preflight checker
+INFO[2024-01-01T00:00:16Z] Retrieved preflight checker result:
+worker1:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-common is installed
+  - Package open-iscsi is installed
+  - CPU instruction set sse4_2 is supported
+  - HugePages is enabled
+  - Module nvme_tcp is loaded
+  - Module uio_pci_generic is loaded
+----
+
+==== Longhornコマンドラインツールを使用します。
+
+すべてが正しく設定され、インストールされていることを確認してください。
+
+[subs="+attributes", console]
+----
+longhornctl --kubeconfig ~/.kube/config --image longhornio/longhorn-cli:v{patch-version} install preflight --enable-spdk
+----
+
+詳細については、xref:longhorn-system/system-access/longhorn-cli.adoc[Longhornコマンドラインツール]を参照してください。
+
+== インストール
+
+=== Longhornシステムをインストールする
+
+Quick Installationの手順に従って、Longhornシステムをインストールします。
+
+=== V2データエンジンを有効にする
+
+インストール後、`v2-data-engine`設定を`true`に変更することでV2データエンジンを有効にします。これに続いて、インスタンスマネージャーポッドが自動的に再起動されます。
+
+または、`Settings > V2 Data Engine`で有効にすることもできます。
+
+=== CPUおよびメモリの使用量
+
+V2データエンジンが有効になると、V2データエンジン用の各インスタンスマネージャーポッドは1 CPUコアを使用します。高いCPU使用率は、各インスタンスマネージャーポッドで実行される`spdk_tgt`プロセスによって引き起こされます。このプロセスは入出力（IO）操作を処理し、集中的なポーリングを必要とします。`spdk_tgt`は、IOリクエストを効率的に管理および処理するために、専用のCPUコアの100%を消費し、ストレージ操作の最適なパフォーマンスと応答性を確保します。
+
+----
+NAME                                                CPU(cores)   MEMORY(bytes)
+csi-attacher-57c5fd5bdf-jsfs4                       1m           7Mi
+csi-attacher-57c5fd5bdf-kb6dv                       1m           9Mi
+csi-attacher-57c5fd5bdf-s7fb6                       1m           7Mi
+csi-provisioner-7b95bf4b87-8xr6f                    1m           11Mi
+csi-provisioner-7b95bf4b87-v4gwb                    1m           9Mi
+csi-provisioner-7b95bf4b87-vnt58                    1m           9Mi
+csi-resizer-6df9886858-6v2ds                        1m           8Mi
+csi-resizer-6df9886858-b6mns                        1m           9Mi
+csi-resizer-6df9886858-l4vmj                        1m           8Mi
+csi-snapshotter-5d84585dd4-4dwkz                    1m           7Mi
+csi-snapshotter-5d84585dd4-km8bc                    1m           9Mi
+csi-snapshotter-5d84585dd4-kzh6w                    1m           7Mi
+engine-image-ei-b907910b-79k2s                      3m           19Mi
+instance-manager-214803c4f23376af5a75418299b12ad6   1015m        133Mi (for V2 Data Engine)
+instance-manager-4550bbc4938ff1266584f42943b511ad   4m           15Mi  (for V1 Data Engine)
+longhorn-csi-plugin-nz94f                           1m           26Mi
+longhorn-driver-deployer-556955d47f-h5672           1m           12Mi
+longhorn-manager-2n9hd                              4m           42Mi
+longhorn-ui-58db78b68-bzzz8                         0m           2Mi
+longhorn-ui-58db78b68-ffbxr                         0m           2Mi
+----
+
+コマンド`kubectl get node <node name> -o yaml`を実行することで、各ノードで割り当てられたhugepagesの利用状況を観察できます。
+
+----
+# kubectl get node sles-pool1-07437316-4jw8f -o yaml
+...
+
+status:
+  ...
+  allocatable:
+    cpu: "8"
+    ephemeral-storage: "203978054087"
+    hugepages-1Gi: "0"
+    hugepages-2Mi: 2Gi
+    memory: 31813168Ki
+    pods: "110"
+  capacity:
+    cpu: "8"
+    ephemeral-storage: 209681388Ki
+    hugepages-1Gi: "0"
+    hugepages-2Mi: 2Gi
+    memory: 32861744Ki
+    pods: "110"
+...
+----
+
+=== Longhornノードに`block-type`ディスクを追加する
+
+レガシーボリューム用に設計された`filesystem-type`ディスクとは異なり、V2データエンジンを使用するボリュームは`block-type`ディスク上で永続的です。したがって、Longhornノードに`block-type`ディスクを装備する必要があります。
+
+==== ディスクを準備する
+
+Longhornノードに追加のディスクがない場合、機能をテストするためにループブロックデバイスを作成できます。これを実現するために、各Longhornノードで10 GiBのブロックデバイスを作成するために次のコマンドを実行します。
+
+----
+dd if=/dev/zero of=blockfile bs=1M count=10240
+losetup -f blockfile
+----
+
+コマンド`losetup -f blockfile`を実行する際にブロックデバイスのパスを表示するには、次のコマンドを使用します。
+
+----
+losetup -j blockfile
+----
+
+==== `node.longhorn.io`にディスクを追加する
+
+[NOTE]
+====
+バージョン1.11.0以降、{longhorn-product-name}は既存のファイルシステムまたはパーティションテーブルを含むブロックディスクの追加を防止し、予期しないデータ損失を避けます。追加する前にディスクがクリーンであることを確認するには、次のコマンドを実行します。
+
+----
+wipefs -a /path/to/block/device
+----
+
+ディスクに既存のファイルシステムまたはパーティションテーブルが含まれている場合、ディスク追加操作は失敗します。1コードにはコメントがあります。表示するにはエンターを押してください。
+====
+
+ノードUIページに移動し、`Disk Type`を`Block`として指定することでディスクを追加できます。次に、`Path`フィールドにブロックデバイスのパスを提供してください。
+
+または、`node.longhorn.io`リソースを編集します。
+
+----
+kubectl -n longhorn-system edit node.longhorn.io <NODE NAME>
+----
+
+ディスクを`Spec.Disks`に追加します。
+
+----
+<DISK NAME>:
+  allowScheduling: true
+  evictionRequested: false
+  path: /PATH/TO/BLOCK/DEVICE
+  storageReserved: 0
+  tags: []
+  diskType: block
+----
+
+しばらく待つと、ディスクが`Status.DiskStatus`に表示されます。
+
+== アプリケーションの導入
+
+インストールと設定の後、V2データエンジンを使用して、以下の手順で永続ボリュームを動的にプロビジョニングできます。
+
+=== StorageClassを作成します。
+
+次のコマンドを実行して、`longhorn-spdk`という名前のStorageClassを作成します。`parameters.dataEngine`を`v2`に設定して、V2データエンジンを有効にします。
+
+[subs="+attributes", console]
+----
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/storageclass.yaml
+----
+
+=== Longhornボリュームを作成します。
+
+このコマンドを実行して、V2データエンジンとLonghornボリュームを利用するPodを作成します。
+
+[subs="+attributes", console]
+----
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/pod_with_pvc.yaml
+----

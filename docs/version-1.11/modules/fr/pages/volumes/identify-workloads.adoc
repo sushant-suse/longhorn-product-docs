@@ -1,0 +1,48 @@
+= Identifier les charges de travail utilisant un volume
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Les utilisateurs peuvent désormais identifier les charges de travail actuelles ou l'historique des charges de travail pour les volumes persistants Longhorn (PV) existants et leur historique de liaison aux demandes de volume persistant (PVC).
+
+Depuis l'interface Longhorn, allez à l'onglet *Volumes*. Chaque volume Longhorn est listé sur la page. La colonne *Attaché à* affiche le nom de la charge de travail utilisant le volume. Si vous cliquez sur le nom de la charge de travail, vous pourrez voir plus de détails, y compris le type de charge de travail, le nom du pod et l'état.
+
+Les informations sur la charge de travail sont également disponibles sur la page de détails du volume Longhorn. Pour voir les détails, cliquez sur le nom du volume{nbsp}:
+
+----
+State: attached
+...
+Namespace:default
+PVC Name:longhorn-volv-pvc
+PV Name:pvc-0edf00f3-1d67-4783-bbce-27d4458f6db7
+PV Status:Bound
+Pod Name:teststatefulset-0
+Pod Status:Running
+Workload Name:teststatefulset
+Workload Type:StatefulSet
+----
+
+== History
+
+Après que la charge de travail n'utilise plus le volume Longhorn, la page de détails du volume montre l'état historique de la charge de travail la plus récente ayant utilisé le volume{nbsp}:
+
+----
+Last time used by Pod: a few seconds ago
+...
+Last Pod Name: teststatefulset-0
+Last Workload Name: teststatefulset
+Last Workload Type: Statefulset
+----
+
+Si ces champs sont définis, cela indique qu'actuellement aucune charge de travail n'utilise ce volume.
+
+Lorsqu'un PVC n'est plus lié au volume, le statut suivant est affiché{nbsp}:
+
+----
+Last time bound with PVC:a few seconds ago
+Last time used by Pod:32 minutes ago
+Last Namespace:default
+Last Bounded PVC Name:longhorn-volv-pvc
+----
+
+Si le champ `Last time bound with PVC` est défini, cela indique qu'actuellement il n'y a pas de PVC lié pour ce volume. Les champs associés montreront la charge de travail la plus récente utilisant ce volume.

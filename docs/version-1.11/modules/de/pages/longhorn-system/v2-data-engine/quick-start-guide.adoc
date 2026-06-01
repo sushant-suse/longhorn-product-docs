@@ -1,0 +1,382 @@
+= Quick Start Guide
+:revdate: 2026-01-30
+:page-revdate: {revdate}
+:aliases: ["/spdk/quick-start.md"]
+:current-version: {page-component-version}
+
+Die {longhorn-product-name}'s V2-Daten-Engine verwendet das Storage Performance Development Kit (SPDK), um eine verbesserte Leistung zu bieten. Diese Integration verringert die I/O-Latenz und erhöht sowohl IOPS als auch Durchsatz und bietet eine leistungsstarke Speicherlösung, die eine Vielzahl von Workloads bewältigen kann.
+
+Die V2-Daten-Engine ist derzeit eine technische Vorschau-Funktion. Die unterstützten Funktionen sind https://github.com/longhorn/longhorn/wiki/V1-and-V2-Feature-Parities[hier] dokumentiert.
+
+Dieses Tutorial führt Sie durch den Prozess der Konfiguration der Umgebung und erstellt Kubernetes-Ressourcen für persistente Speicher wie Persistent Volumes (PVs) und Persistent Volume Claims (PVCs), die den Longhorn-Volumes mit der V2-Daten-Engine entsprechen.
+
+== Voraussetzungen
+
+=== Laden Sie Kernel-Module
+
+Unter Debian und Ubuntu installieren Sie die zusätzlichen Linux-Kernel-Module, bevor Sie die erforderlichen Kernel-Module laden:
+
+[,bash]
+----
+apt install -y linux-modules-extra-`uname -r`
+----
+
+Sie können die erforderlichen Kernel-Module und Hugepages für SPDK mit dem xref:longhorn-system/system-access/install-longhorn-cli.adoc[Longhorn-Befehlszeilenwerkzeug] konfigurieren.
+
+Sie können sie manuell installieren:
+
+Laden Sie die Kernel-Module auf jedem Longhorn-Knoten:
+
+[,bash]
+----
+modprobe vfio_pci
+modprobe uio_pci_generic
+modprobe nvme-tcp
+----
+
+Alternativ können Sie den Prozess optimieren, indem Sie die automatische Modulladung während des Bootvorgangs konfigurieren, anstatt die Kernel-Module vfio_pci, uio_pci_generic und nvme-tcp jedes Mal nach dem Neustart manuell zu laden. Für detaillierte Anweisungen konsultieren Sie bitte das Handbuch Ihres Betriebssystems.
+
+*Referenz*:
+
+* SUSE oder openSUSE: https://documentation.suse.com/sles/15-SP4/html/SLES-all/cha-mod.html#sec-mod-modprobe-d[Kernel-Module beim Booten laden]
+* Ubuntu: https://manpages.ubuntu.com/manpages/jammy/man5/modules-load.d.5.html[Kernel-Module für das Laden beim Booten konfigurieren]
+* RHEL: https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/managing_monitoring_and_updating_the_kernel/managing-kernel-modules_managing-monitoring-and-updating-the-kernel[Kernel-Module automatisch beim Systemstart laden]
+
+=== Aktivieren Sie Hugepages
+
+==== Konfigurieren Sie Hugepages
+
+SPDK verwendet Hugepages zur Leistungssteigerung und Minimierung des Speicheraufwands. Sie müssen auf jedem Longhorn-Knoten 2 MiB große Hugepages konfigurieren, um die Nutzung von Hugepages zu ermöglichen. Konkret müssen auf jedem Longhorn-Knoten 1024 Seiten (entsprechend insgesamt 2 GiB) verfügbar sein.
+
+Um Hugepages zuzuweisen, führen Sie die folgenden Befehle auf jedem Knoten aus.
+
+[,bash]
+----
+echo 1024 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
+----
+
+Zuweisungen, die unter `/sys/kernel/mm/hugepages` vorgenommen werden, sind nicht persistent und werden nach dem Neustart zurückgesetzt. Um die Zuweisung persistent zu machen, verwenden Sie eine der folgenden Methoden:
+
+===== Persistente Zuweisung (empfohlen)
+
+Um Hugepages dauerhaft vorzubelegen, aktualisieren Sie die Kernel-Parameter für den Bootvorgang.
+
+. GRUB-Konfiguration aktualisieren
++
+Bearbeiten Sie `/etc/default/grub` und fügen Sie die Hugepages-Parameter hinzu. Dieses Beispiel weist `1024 × 2` MiB Seiten (insgesamt 2 GiB) zu:
++
+[,bash]
+----
+GRUB_CMDLINE_LINUX="hugepagesz=2M hugepages=1024"
+----
++
+Wenn der Knoten bereits Kernel-Parameter hat, hängen Sie diese Werte an, anstatt sie zu überschreiben.
+
+. Wenden Sie die GRUB-Konfiguration an
++
+BIOS-Systeme:
++
+[,bash]
+----
+sudo update-grub
+----
++
+RHEL oder SUSE (GRUB2):
++
+[,bash]
+----
+sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+----
++
+UEFI-Systeme:
++
+[,bash]
+----
+sudo grub2-mkconfig -o /boot/efi/EFI/<distro>/grub.cfg
+----
+
+. Starten Sie den Knoten neu:
++
+[,bash]
+----
+sudo reboot
+----
+
+. Überprüfen Sie die Hugepages:
++
+[,bash]
+----
+grep Huge /proc/meminfo
+----
++
+Erwartete Ausgabe:
++
+----
+HugePages_Total:    1024
+Hugepagesize:       2048 kB
+----
+
+. Überprüfen Sie die Hugepages als Kubernetes-Ressource:
++
+[,bash]
+----
+kubectl describe node <node-name>
+----
++
+Erwartet unter *Kapazität* und *Zuweisbar*:
++
+----
+hugepages-2Mi: 2Gi
+----
+
+===== Alternative: sysctl-Konfiguration (nicht empfohlen)
+
+Fügen Sie die folgende Zeile zu `/etc/sysctl.conf` hinzu:
+
+[,bash]
+----
+vm.nr_hugepages=1024
+----
+
+Bei vielen Distributionen bleiben diese Einstellungen nach einem Neustart nicht bestehen, da Hugepages früh im Bootprozess zugewiesen werden müssen. Nur verwenden, wenn eine GRUB-Änderung nicht erlaubt ist.
+
+=== Neustart `kubelet`
+
+Nachdem Sie die obigen Schritte abgeschlossen haben, starten Sie kubelet auf jedem Knoten neu.
+
+=== Umgebung überprüfen
+
+==== Verwendung des Longhorn-Befehlszeilenwerkzeugs
+
+Das `longhornctl` Werkzeug ist ein Longhorn-Befehlszeilenwerkzeug. Für weitere Informationen siehe xref:longhorn-system/system-access/longhorn-cli.adoc[Befehlszeilenwerkzeug (longhornctl)].
+
+Um die Voraussetzungen und Konfigurationen zu überprüfen, laden Sie das Werkzeug herunter und führen Sie den `check` Unterbefehl aus:
+
+[subs="+attributes",shell]
+----
+# For AMD64 platform
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-amd64
+# For ARM platform
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-arm64
+
+chmod +x longhornctl
+./longhornctl check preflight --enable-spdk
+----
+
+Beispiel für das Ergebnis:
+
+[subs="+attributes",shell]
+----
+INFO[2024-01-10T00:00:01Z] Initializing preflight checker
+INFO[2024-01-01T00:00:01Z] Cleaning up preflight checker
+INFO[2024-01-01T00:00:01Z] Running preflight checker
+INFO[2024-01-01T00:00:02Z] Retrieved preflight checker result:
+worker1:
+  error:
+  - 'HugePages is insufficient. Required 2MiB HugePages: 1024 pages, Total 2MiB HugePages: 0 pages'
+  - 'Module nvme_tcp is not loaded: failed to execute: nsenter [--mount=/host/proc/204896/ns/mnt --net=/host/proc/204896/ns/net grep nvme_tcp /proc/modules], output , stderr : exit status 1'
+  - 'Module uio_pci_generic is not loaded: failed to execute: nsenter [--mount=/host/proc/204896/ns/mnt --net=/host/proc/204896/ns/net grep uio_pci_generic /proc/modules], output , stderr : exit status 1'
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-common is installed
+  - Package open-iscsi is installed
+  - CPU instruction set sse4_2 is supported
+  warn:
+  - multipathd.service is running. Please refer to https://longhorn.io/kb/troubleshooting-volume-with-multipath/ for more information.
+----
+
+Verwenden Sie den `install` Unterbefehl, um die Preflight-Abhängigkeiten zu installieren und einzurichten, bevor Sie Longhorn installieren.
+
+[subs="+attributes",shell]
+----
+master:~# ./longhornctl install preflight --enable-spdk
+INFO[2024-01-01T00:00:03Z] Initializing preflight installer
+INFO[2024-01-01T00:00:03Z] Cleaning up preflight installer
+INFO[2024-01-01T00:00:03Z] Running preflight installer
+INFO[2024-01-01T00:00:03Z] Installing dependencies with package manager
+INFO[2024-01-01T00:00:10Z] Installed dependencies with package manager
+INFO[2024-01-01T00:00:10Z] Cleaning up preflight installer
+INFO[2024-01-01T00:00:10Z] Completed preflight installer. Use 'longhornctl check preflight' to check the result.
+----
+
+[NOTE]
+====
+Bestimmte unveränderliche Linux-Distributionen, wie SUSE Linux Enterprise Micro (SLE Micro), erfordern, dass Sie die Arbeitsknoten nach dem Ausführen des `install` Unterbefehls neu starten. Nach dem Neustart müssen Sie den `install` Unterbefehl erneut ausführen, um den Vorgang abzuschließen.
+
+Die Dokumentation für Ihre Linux-Distribution sollte solche Anforderungen umreißen. Zum Beispiel erklärt die https://documentation.suse.com/sle-micro/6.0/html/Micro-transactional-updates/index.html#reference-transactional-update-usage[SLE Micro-Dokumentation], dass alle Änderungen, die durch den `transactional-update` Befehl vorgenommen werden, erst nach dem Neustart des Knotens aktiv werden.
+====
+
+
+Nachdem Sie die Preflight-Abhängigkeiten installiert und eingerichtet haben, können Sie den `check` Unterbefehl erneut ausführen, um zu überprüfen, ob alle Umgebungseinstellungen korrekt sind.
+
+[subs="+attributes",shell]
+----
+master:~# ./longhornctl check preflight --enable-spdk
+INFO[2024-01-01T00:00:13Z] Initializing preflight checker
+INFO[2024-01-01T00:00:13Z] Cleaning up preflight checker
+INFO[2024-01-01T00:00:13Z] Running preflight checker
+INFO[2024-01-01T00:00:16Z] Retrieved preflight checker result:
+worker1:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-common is installed
+  - Package open-iscsi is installed
+  - CPU instruction set sse4_2 is supported
+  - HugePages is enabled
+  - Module nvme_tcp is loaded
+  - Module uio_pci_generic is loaded
+----
+
+==== Verwenden Sie das Longhorn-Befehlszeilenwerkzeug
+
+Stellen Sie sicher, dass alles korrekt konfiguriert und installiert ist durch
+
+[subs="+attributes", console]
+----
+longhornctl --kubeconfig ~/.kube/config --image longhornio/longhorn-cli:v{patch-version} install preflight --enable-spdk
+----
+
+Siehe xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn-Befehlszeilentool] für weitere Informationen.
+
+== Installation
+
+=== Installieren Sie das Longhorn-System
+
+Befolgen Sie die Schritte in der Schnellinstallation, um das Longhorn-System zu installieren.
+
+=== Aktivieren Sie die V2-Daten-Engine
+
+Aktivieren Sie die V2-Daten-Engine, indem Sie die `v2-data-engine`-Einstellung nach der Installation auf `true` ändern. Anschließend werden die Instanz-Manager-Pods automatisch neu gestartet.
+
+Oder Sie können es in `Settings > V2 Data Engine` aktivieren.
+
+=== CPU- und Speicherauslastung
+
+Wenn die V2-Daten-Engine aktiviert ist, verwendet jeder Instanz-Manager-Pod für die V2-Daten-Engine einen CPU-Kern. Die hohe CPU-Auslastung wird durch `spdk_tgt` verursacht, einen Prozess, der in jedem Instanz-Manager-Pod läuft und Eingang/Ausgang (E/A)-Operationen verarbeitet und intensives Polling erfordert. `spdk_tgt` verbraucht 100 % eines dedizierten CPU-Kerns, um die E/A-Anfragen effizient zu verwalten und zu verarbeiten und so optimale Leistung und Reaktionsfähigkeit für Speicheroperationen zu gewährleisten.
+
+----
+NAME                                                CPU(cores)   MEMORY(bytes)
+csi-attacher-57c5fd5bdf-jsfs4                       1m           7Mi
+csi-attacher-57c5fd5bdf-kb6dv                       1m           9Mi
+csi-attacher-57c5fd5bdf-s7fb6                       1m           7Mi
+csi-provisioner-7b95bf4b87-8xr6f                    1m           11Mi
+csi-provisioner-7b95bf4b87-v4gwb                    1m           9Mi
+csi-provisioner-7b95bf4b87-vnt58                    1m           9Mi
+csi-resizer-6df9886858-6v2ds                        1m           8Mi
+csi-resizer-6df9886858-b6mns                        1m           9Mi
+csi-resizer-6df9886858-l4vmj                        1m           8Mi
+csi-snapshotter-5d84585dd4-4dwkz                    1m           7Mi
+csi-snapshotter-5d84585dd4-km8bc                    1m           9Mi
+csi-snapshotter-5d84585dd4-kzh6w                    1m           7Mi
+engine-image-ei-b907910b-79k2s                      3m           19Mi
+instance-manager-214803c4f23376af5a75418299b12ad6   1015m        133Mi (for V2 Data Engine)
+instance-manager-4550bbc4938ff1266584f42943b511ad   4m           15Mi  (for V1 Data Engine)
+longhorn-csi-plugin-nz94f                           1m           26Mi
+longhorn-driver-deployer-556955d47f-h5672           1m           12Mi
+longhorn-manager-2n9hd                              4m           42Mi
+longhorn-ui-58db78b68-bzzz8                         0m           2Mi
+longhorn-ui-58db78b68-ffbxr                         0m           2Mi
+----
+
+Sie können die Nutzung der zugewiesenen Hugepages auf jedem Knoten überprüfen, indem Sie den Befehl `kubectl get node <node name> -o yaml` ausführen.
+
+----
+# kubectl get node sles-pool1-07437316-4jw8f -o yaml
+...
+
+status:
+  ...
+  allocatable:
+    cpu: "8"
+    ephemeral-storage: "203978054087"
+    hugepages-1Gi: "0"
+    hugepages-2Mi: 2Gi
+    memory: 31813168Ki
+    pods: "110"
+  capacity:
+    cpu: "8"
+    ephemeral-storage: 209681388Ki
+    hugepages-1Gi: "0"
+    hugepages-2Mi: 2Gi
+    memory: 32861744Ki
+    pods: "110"
+...
+----
+
+=== Fügen Sie `block-type` Festplatten in Longhorn-Knoten hinzu
+
+Im Gegensatz zu `filesystem-type` Festplatten, die für Legacy-Volumes konzipiert sind, sind Volumes, die die V2-Daten-Engine verwenden, persistent auf `block-type` Festplatten. Daher ist es notwendig, Longhorn-Knoten mit `block-type` Festplatten auszustatten.
+
+==== Bereiten Sie die Festplatten vor
+
+Wenn auf den Longhorn-Knoten keine zusätzlichen Festplatten verfügbar sind, können Sie Loop-Blockgeräte erstellen, um die Funktion zu testen. Um dies zu erreichen, führen Sie den folgenden Befehl auf jedem Longhorn-Knoten aus, um ein 10 GiB-Blockgerät zu erstellen.
+
+----
+dd if=/dev/zero of=blockfile bs=1M count=10240
+losetup -f blockfile
+----
+
+Um den Pfad des Blockgeräts beim Ausführen des Befehls `losetup -f blockfile` anzuzeigen, verwenden Sie den folgenden Befehl.
+
+----
+losetup -j blockfile
+----
+
+==== Fügen Sie Festplatten zu `node.longhorn.io` hinzu
+
+[NOTE]
+====
+Beginnend mit Version 1.11.0 verhindert {longhorn-product-name}, dass Blockfestplatten, die ein vorhandenes Dateisystem oder eine Partitionstabelle enthalten, hinzugefügt werden, um unerwarteten Datenverlust zu vermeiden. Stellen Sie sicher, dass die Festplatte sauber ist, bevor Sie sie hinzufügen, indem Sie Folgendes ausführen:
+
+----
+wipefs -a /path/to/block/device
+----
+
+Wenn die Festplatte ein vorhandenes Dateisystem oder eine Partitionstabelle enthält, schlägt der Vorgang zum Hinzufügen der Festplatte fehl. 1. Der Code enthält Kommentare. Drücken Sie die Eingabetaste, um anzuzeigen.
+====
+
+Sie können die Festplatte hinzufügen, indem Sie zur Node UI-Seite navigieren und `Disk Type` als `Block` angeben. Geben Sie als Nächstes den Pfad des Blockgeräts im Feld `Path` an.
+
+Oder bearbeiten Sie die `node.longhorn.io`-Ressource.
+
+----
+kubectl -n longhorn-system edit node.longhorn.io <NODE NAME>
+----
+
+Fügen Sie die Festplatte zu `Spec.Disks` hinzu.
+
+----
+<DISK NAME>:
+  allowScheduling: true
+  evictionRequested: false
+  path: /PATH/TO/BLOCK/DEVICE
+  storageReserved: 0
+  tags: []
+  diskType: block
+----
+
+Warten Sie eine Weile, Sie werden sehen, dass die Festplatte in `Status.DiskStatus` angezeigt wird.
+
+== Anwendungsbereitstellung beschleunigen
+
+Nach der Installation und Konfiguration können wir ein Persistent Volume dynamisch bereitstellen, wie in den folgenden Schritten mit der V2-Daten-Engine beschrieben.
+
+=== Erstellen Sie eine StorageClass.
+
+Führen Sie den folgenden Befehl aus, um eine StorageClass mit dem Namen `longhorn-spdk` zu erstellen. Setzen Sie `parameters.dataEngine` auf `v2`, um die V2-Daten-Engine zu aktivieren.
+
+[subs="+attributes", console]
+----
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/storageclass.yaml
+----
+
+=== Erstellen Sie Longhorn-Volumes.
+
+Erstellen Sie einen Pod, der Longhorn-Volumes mit der V2-Daten-Engine verwendet, indem Sie diesen Befehl ausführen:
+
+[subs="+attributes", console]
+----
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/pod_with_pvc.yaml
+----

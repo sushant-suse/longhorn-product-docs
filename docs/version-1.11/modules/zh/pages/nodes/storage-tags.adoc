@@ -1,0 +1,79 @@
+= 存储标签
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 概述
+
+存储标签功能仅允许某些节点或磁盘用于存储 Longhorn 卷数据。例如，性能敏感的数据只能使用标记为 `fast`、`ssd` 或 `nvme` 的高性能磁盘，或者仅使用标记为 `baremetal` 的高性能节点。
+
+此功能支持磁盘和节点。
+
+== 设置
+
+可以通过 Longhorn UI 设置标签：
+
+. _节点 \-> 选择一个节点 \-> 编辑节点和磁盘_
+. 点击 `+新节点标签` 或 `+新磁盘标签` 来添加新标签。
+
+节点或磁盘上所有现有的调度副本不会受到新标签的影响。
+
+== 用法
+
+当为一个卷指定多个标签时，磁盘和节点（磁盘所属的节点）必须具有所有指定的标签才能变得可用。
+
+=== UI
+
+创建卷时，在 UI 中指定磁盘标签和节点标签。
+
+=== Kubernetes
+
+使用 Kubernetes StorageClass 参数来指定标签。
+
+您可以通过在名为 `nodeSelector: "storage,fast"` 的 ConfigMap 中添加参数 `longhorn-storageclass` 来指定默认的 Longhorn StorageClass 标签。
+例如：
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: ConfigMap
+data:
+  storageclass.yaml: |
+    kind: StorageClass
+    apiVersion: storage.k8s.io/v1
+    metadata:
+      name: longhorn
+      annotations:
+        storageclass.kubernetes.io/is-default-class: "true"
+    provisioner: driver.longhorn.io
+    allowVolumeExpansion: true
+    reclaimPolicy: "Delete"
+    volumeBindingMode: Immediate
+    parameters:
+      numberOfReplicas: "3"
+      staleReplicaTimeout: "480"
+      diskSelector: "ssd"
+      nodeSelector: "storage,fast"
+----
+
+如果通过 Helm 安装 Longhorn，您可以通过编辑 `persistence.defaultNodeSelector` 在 https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[`values.yaml`] 中实现。
+
+或者，可以使用自定义 StorageClass 设置，例如：
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-fast
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "480" # 8 hours in minutes
+  diskSelector: "ssd"
+  nodeSelector: "storage,fast"
+----
+
+== 历史记录
+
+* https://github.com/longhorn/longhorn/issues/311[原始功能请求]

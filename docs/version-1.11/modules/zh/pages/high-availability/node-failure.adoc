@@ -1,0 +1,40 @@
+= 节点故障管理
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Kubernetes 节点故障时的预期
+
+本节旨在告知用户节点故障期间发生的情况以及恢复期间的预期。
+
+在 *一分钟* 后，`kubectl get nodes` 将对故障节点报告 `NotReady`.
+
+大约在 *五分钟* 后，`NotReady` 节点上所有 pod 的状态将变为 `Unknown` 或 `NodeLost`。
+
+StatefulSets 具有稳定的身份，因此 Kubernetes 不会强制删除用户的 pod。请参阅 https://kubernetes.io/docs/tasks/run-application/force-delete-stateful-set-pod/[官方 Kubernetes 文档，了解如何强制删除 StatefulSet]。
+
+Deployments 没有稳定的身份，但对于读写一次（Read-Write-Once, RWO）类型的存储，由于它不能同时附加到两个节点，因此 Kubernetes 创建的新 pod 将无法启动，因为 RWO 卷仍附加在丢失节点的旧 pod 上。
+
+在这两种情况下，Kubernetes 将自动驱逐丢失节点上的 pod（为 pod 设置删除时间戳），然后尝试 *使用旧卷重新创建一个新 pod*。因为被驱逐的 pod 卡在 `Terminating` 状态，附加的卷无法释放/重用，如果没有管理员或存储软件的干预，新 pod 将卡在 `ContainerCreating` 状态。
+
+== 节点故障时 Longhorn Pod 删除策略
+
+Longhorn 提供一个选项，帮助用户在故障节点上自动强制删除 StatefulSet/Deployment 的终止 pod。强制删除后，Kubernetes 将分离 Longhorn 卷，并在新节点上启动替换 pod。
+
+您可以在 Longhorn UI 的 *设置* 选项卡中找到有关设置选项的更多详细信息，或在 `Pod Deletion Policy When Node is Down` 中查看 xref:longhorn-system/settings.adoc#_pod_deletion_policy_when_node_is_down[设置参考]。
+
+== Kubernetes 节点恢复时的预期
+
+如果节点在故障后 5 - 6 分钟内恢复在线，Kubernetes 将重新启动 pod，卸载并重新挂载卷，而无需重新附加卷和清理 VolumeAttachment。
+
+由于节点故障后卷引擎会停止工作，因此这种直接重新挂载将无法工作，因为设备在节点上不再存在。
+
+在这种情况下，Longhorn 将分离并重新附加卷，以恢复卷引擎，以便 pod 可以安全地重新挂载/重用卷。
+
+如果节点在故障后 5 - 6 分钟内未恢复在线，Kubernetes 将根据 pod 驱逐机制尝试删除所有不可达的 pod，这些 pod 将处于 `Terminating` 状态。有关详细信息，请参见 https://kubernetes.io/docs/concepts/architecture/nodes/#condition[pod 驱逐超时]。
+
+如果失败的节点稍后恢复，Kubernetes 将重新启动那些终止的 pod，分离卷，等待旧的 VolumeAttachment 清理，并重新使用（重新附加和重新挂载）这些卷。通常这些步骤可能需要 1 到 7 分钟。
+
+在这种情况下，分离和重新附加操作已经包含在 Kubernetes 的恢复程序中。因此不需要额外的操作，Longhorn 卷将在上述步骤后可用。
+
+对于所有上述恢复场景，Longhorn 将与 Kubernetes 协同自动处理这些步骤。

@@ -1,0 +1,66 @@
+= 存储网络
+:revdate: 2025-11-19
+:page-revdate: {revdate}
+:doctype: book
+:current-version: {page-component-version}
+
+默认情况下，{longhorn-product-name} 使用默认的 Kubernetes 集群 CNI 网络，该网络仅限于单个接口，并与其他工作负载共享。如果您需要网络隔离，{longhorn-product-name} 支持通过存储网络设置隔离 {longhorn-product-name} 集群内的数据流量。
+
+存储网络设置采用 `<NAMESPACE>/<NAME>` 格式的 Multus NetworkAttachmentDefinition。
+
+您可以参考 https://github.com/k8snetworkplumbingwg/multus-cni#comprehensive-documentation[综合文档] 了解如何安装和设置 Multus NetworkAttachmentDefinition。
+
+应用该设置将添加 `k8s.v1.cni.cncf.io/networks` 注释，并重新创建所有现有的实例管理器和备份镜像管理器 Pod。{longhorn-product-name} 将对任何新的实例管理器、备份镜像管理器和备份镜像数据源 Pod 应用相同的注释。
+
+[IMPORTANT]
+====
+为了确保您的首选设置立即生效，请在配置设置之前停止所有工作负载并分离所有 Longhorn 卷。
+
+当所有卷被分离时，{longhorn-product-name} 尝试重新启动所有实例管理器和备份镜像管理器 Pod 以应用该设置。
+当一个或多个 Longhorn 卷仍然连接时，只有在没有引擎和副本实例运行时，定制设置才会应用于实例管理器。在分离剩余卷后，您需要重新配置该设置。或者，您可以等待下一个设置同步，这将在一小时内发生。
+====
+
+== 设置存储网络
+
+=== 先决条件
+
+存储网络设置的 Multus NetworkAttachmentDefinition 网络必须在不同集群节点的 Pod 之间可达。
+
+您可以通过创建一个简单的 DaemonSet 并尝试在 Pod 之间 ping 来验证。
+
+=== 在 {longhorn-product-name} 安装期间设置存储网络
+
+按照 xref:longhorn-system/customize-default-settings.adoc[自定义默认设置] 通过更改 `storage-network` 默认设置的值来设置存储网络。
+
+[WARNING]
+====
+如果存储网络设置无效，Longhorn 实例管理器将无法启动。
+
+您可以检查实例管理器 Pod 的事件，以查看是否与 `kubectl -n longhorn-system describe pods -l longhorn.io/component=instance-manager` 的无效 NetworkAttachmentDefinition 相关。
+
+如果是这种情况，请提供有效的 `NetworkAttachmentDefinition` 并重新运行 {longhorn-product-name} 安装。
+====
+
+=== 在 {longhorn-product-name} 安装后设置存储网络
+
+设置 xref:longhorn-system/settings.adoc#_storage_network[存储网络]。
+
+[WARNING]
+====
+在将 NetworkAttachmentDefinition 自定义资源应用于设置后，请勿修改它。
+
+{longhorn-product-name} 不会感知到更新。因此，这将导致故障和错误。相反，您可以创建一个新的 NetworkAttachmentDefinition 自定义资源并将其更新到设置中。
+====
+
+=== 为 RWX 卷设置端点网络
+
+配置设置 xref:longhorn-system/settings.adoc#_network_for_rwx_volume[RWX 卷的端点网络]。
+
+== 限制
+
+当 RWX 卷与端点网络连接时，CSI 插件 Pod 重启时必须重新建立 NFS 挂载点连接。{longhorn-product-name} 提供了 xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[意外断开卷时自动删除工作负载 Pod] 设置，该设置在 CSI 插件 Pod 重启时自动删除 RWX 卷工作负载 Pod。然而，当设置被禁用或 Pod 未由控制器管理时，工作负载 Pod 的 NFS 挂载点可能会变得无响应。在这种情况下，您必须手动重启 CSI 插件 Pod。
+
+== 历史记录
+
+* https://github.com/longhorn/longhorn/issues/2285[原始功能请求（自 v1.3.0 起）]
+* https://github.com/longhorn/longhorn/issues/8184[[FEATURE\] 支持 RWX 卷的存储网络（自 v1.7.0 起）]

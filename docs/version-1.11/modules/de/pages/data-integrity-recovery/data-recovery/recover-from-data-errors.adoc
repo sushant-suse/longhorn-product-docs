@@ -1,0 +1,38 @@
+= Identifizieren und Wiederherstellen von Datenfehlern
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Wenn Sie eine Fehlermeldung wie die folgende erhalten haben:
+
+ 'fsck' found errors on device /dev/longhorn/pvc-6288f5ea-5eea-4524-a84f-afa14b85780d but could not correct them.
+
+Dann liegt eine Datenbeschädigung vor. In diesem Abschnitt wird beschrieben, wie das Problem angegangen werden kann.
+
+== Fehlerhafte zugrunde liegende Festplatte
+
+Um festzustellen, ob der Fehler verursacht wurde, weil eines der zugrunde liegenden Laufwerke defekt ist, folgen Sie xref:data-integrity-recovery/data-recovery/identify-corrupted-replicas.adoc[diesen Schritten], um beschädigte Replikate zu identifizieren.
+
+Wenn die meisten Replikate auf dem Laufwerk defekt sind, bedeutet das, dass das Laufwerk jetzt unzuverlässig ist und ersetzt werden sollte.
+
+Wenn nur ein Replikat auf dem Laufwerk defekt ist, kann es sich um eine Situation handeln, die als `bit rot` bekannt ist. In diesem Fall ist es ausreichend, das Replikat zu entfernen.
+
+== Wiederherstellen aus einem Snapshot
+
+Wenn alle Replikate identisch sind, muss das Volume mithilfe von Snapshots wiederhergestellt werden.
+
+Der Grund dafür ist wahrscheinlich, dass das fehlerhafte Bit von der Arbeitslast, an die das Volume angeschlossen ist, geschrieben wurde.
+
+Um zu einem vorherigen Snapshot zurückzukehren:
+
+. Im Wartungsmodus das Volume an einen beliebigen Knoten anschließen.
+. Kehren Sie zu einem Snapshot zurück. Sie sollten mit dem neuesten beginnen.
+. Trennen Sie das Volume im Wartungsmodus von einem beliebigen Knoten.
+. Schließen Sie das Volume wieder an einen Knoten an, auf den Sie Zugriff haben.
+. Mounten Sie das Volume von `/dev/longhorn/<volume_name>` und überprüfen Sie den Inhalt des Volumes.
+. Wenn der Volumeninhalt weiterhin falsch ist, wiederholen Sie Schritt 1.
+. Sobald Sie einen verwendbaren Snapshot gefunden haben, erstellen Sie von dort aus einen neuen Snapshot und verwenden Sie das Volumen wie gewohnt.
+
+== Aus Sicherung wiederherstellen
+
+Wenn alle oben genannten Methoden fehlschlugen, verwenden Sie eine Sicherung, um das Volumen zu xref:snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[wiederherstellen.]

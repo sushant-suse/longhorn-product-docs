@@ -1,0 +1,54 @@
+= 访问用户界面
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+暴露 {longhorn-product-name} UI 允许外部访问管理控制台。Ingress 控制器的选择（例如，*Traefik*、*HAProxy* 等）仅影响 UI 的访问方式。*对 {longhorn-product-name} 后端、存储操作或数据完整性没有影响*。
+
+[NOTE]
+====
+截至 2025 年 11 月，Kubernetes 项目已宣布退役 ingress-nginx 控制器。有关详细信息， https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement[请参阅官方公告]。
+====
+
+== 访问和身份验证的先决条件
+
+这些说明假设 {longhorn-product-name} 已在集群中安装。
+
+如果您使用 YAML 清单安装了 {longhorn-product-name}，则必须设置 Ingress 控制器以允许外部流量进入集群。身份验证*默认情况下未启用*。这适用于 Helm 和 `kubectl` 安装。
+
+有关使用基本身份验证创建 Traefik Ingress 控制器的信息，请参见 xref:longhorn-system/system-access/longhorn-ingress-traefik.adoc[本节]。或者，您还可以使用 xref:longhorn-system/system-access/longhorn-httproute.adoc[Gateway API HTTPRoute] 作为暴露 {longhorn-product-name} UI 的现代方法。
+
+如果 {longhorn-product-name} 作为 Rancher 目录 APP 安装，Rancher 会自动创建一个带有访问控制的 Ingress 控制器（`rancher-proxy`）。
+
+== 访问 {longhorn-product-name} UI
+
+在您的 Kubernetes 集群中安装 {longhorn-product-name} 后，您可以按照以下步骤访问 UI 仪表板。
+
+. 检索 {longhorn-product-name} 服务信息：
++
+[,shell]
+----
+kubectl -n longhorn-system get svc
+----
++
+对于 {longhorn-product-name} v0.8.0 及更高版本，输出类似于以下内容。使用 `CLUSTER-IP` 服务的 `longhorn-frontend` 来访问 UI：
++
+[,shell]
+----
+NAME                TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+longhorn-backend    ClusterIP   10.20.248.250   <none>        9500/TCP   58m
+longhorn-frontend   ClusterIP   10.20.245.110   <none>        80/TCP     58m
+----
++
+在此示例中，UI 可在 `10.20.245.110` 访问。
++
+[NOTE]
+====
+从 {longhorn-product-name} v0.8.0 开始，UI 服务类型从 `LoadBalancer` 更改为 `ClusterIP`。
+====
+
+. 打开浏览器并导航到 `longhorn-frontend` 服务的 IP 地址。
++
+{longhorn-product-name} UI 看起来是这样的：
++
+image::screenshots/getting-started/v1.10.0/longhorn-ui.png[映像]

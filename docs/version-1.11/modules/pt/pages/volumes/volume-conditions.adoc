@@ -1,0 +1,29 @@
+= Condições de Volume
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Condições de Volume
+
+As condições de volume descrevem o status atual de um volume e possíveis problemas que podem ocorrer.
+
+* `Scheduled`: Todas as réplicas foram agendadas com sucesso.
+  Se o Longhorn não conseguiu agendar nenhuma das réplicas, a condição é definida como `false` e mensagens de erro são exibidas. A condição é definida como `true` quando a configuração xref:longhorn-system/settings.adoc#_allow_volume_creation_with_degraded_availability[Permitir Criação de Volume com Disponibilidade Degradada] está habilitada e pelo menos uma réplica está agendada.
+* `TooManySnapshots`: Este volume específico tem mais de 100 instantâneos.
+  O Longhorn permite que você crie um máximo de 250 instantâneos para cada volume. Para mais informações sobre como configurar a contagem máxima de instantâneos, consulte xref:snapshots-backups/volume-snapshots-backups/snapshot-space-management.adoc[Gerenciamento de Espaço para Instantâneos].
+* `Restore`: O Longhorn está restaurando o volume a partir de um backup.
+* `WaitForBackingImage`: As réplicas não foram iniciadas porque as imagens de suporte devem primeiro ser sincronizadas com seus discos.
+* `OfflineRebuildingInProgress`: O volume está sendo reconstruído usando reconstrução offline.
+
+== Condições do Motor
+
+As condições do motor descrevem o status atual de um motor e possíveis problemas que podem ocorrer.
+`FilesystemReadOnly`: O estado do ponto de montagem do volume atual mudou para somente leitura.
+Essa mudança pode impedir que cargas de trabalho gravem dados no volume. Para obter informações sobre solução de problemas, consulte xref:high-availability/volume-recovery.adoc[].
+
+== Condições da Réplica
+
+As condições da réplica descrevem o status atual de uma réplica e possíveis problemas que podem ocorrer.
+
+* `RebuildFailed`: A réplica falhou ao ser reconstruída.
+* `WaitForBackingImage`: As réplicas não foram iniciadas porque as imagens de suporte devem primeiro ser sincronizadas com seus discos.

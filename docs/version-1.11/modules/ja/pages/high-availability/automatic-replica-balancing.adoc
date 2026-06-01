@@ -1,0 +1,134 @@
+= 自動レプリカバランシング
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+レプリカがノードやゾーンに不均等にスケジュールされている場合、{longhorn-product-name} `Replica Auto Balance` 設定は、新しいノードがクラスターに利用可能になったときや、ボリュームのレプリカ数が更新されたときにレプリカの自動バランスを有効にします。
+
+== レプリカ自動バランス設定
+
+=== グローバル設定
+
+{longhorn-product-name} は、グローバルレプリカ自動バランス設定のために3つのオプションをサポートしています：
+
+* `disabled`これはデフォルトのオプションで、レプリカ自動バランスは行われません。
+* `least-effort`このオプションは、{longhorn-product-name} に最小限の冗長性のためにレプリカをバランスさせるよう指示します。
+例えば、ノード-2を追加した後、バランスが崩れているレプリカが4つあるボリュームは、1つのレプリカのみを再バランスします。
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  +-- replica-c
+  node-2
+  +-- replica-d
+----
+
+* `best-effort`ボタンをクリックします。このオプションは、{longhorn-product-name} に均等な冗長性のためにレプリカをバランスさせるよう指示します。
+例えば、ノード-2を追加した後、バランスが崩れているレプリカが4つあるボリュームは、2つのレプリカを再バランスします。
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  node-2
+  +-- replica-c
+  +-- replica-d
+----
++
+{longhorn-product-name} は、均等なバランスをサポートするために十分なノードがないゾーンにレプリカを強制的に再スケジュールすることはありません。代わりに、{longhorn-product-name} はノードレベルでバランスを取るために再スケジュールします。
+
+=== ボリューム固有の設定
+
+{longhorn-product-name} は、`Replica Auto Balance` のために個別のボリューム設定もサポートしています。この設定は `volume.spec.replicaAutoBalance` で指定でき、グローバル設定を上書きします。
+
+個別ボリューム設定には4つのオプションがあります：
+
+* `Ignored`これはデフォルトのオプションで、{longhorn-product-name} にグローバル設定を継承するよう指示します。
+* `disabled`このオプションは、{longhorn-product-name} にレプリカ自動バランスを実行しないよう指示します。
+* `least-effort`ボタンをクリックします。このオプションは、{longhorn-product-name} に最小限の冗長性のためにレプリカをバランスさせるよう指示します。
+例えば、ノード-2を追加した後、バランスが崩れているレプリカが4つあるボリュームは、1つのレプリカのみを再バランスします。
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  +-- replica-c
+  node-2
+  +-- replica-d
+----
+
+* `best-effort`このオプションは、{longhorn-product-name} に均等な冗長性のためにレプリカをバランスさせるよう指示します。
+例えば、ノード-2を追加した後、バランスが崩れているレプリカが4つあるボリュームは、2つのレプリカを再バランスします。
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  node-2
+  +-- replica-c
+  +-- replica-d
+----
++
+{longhorn-product-name} は、均等なバランスをサポートするために十分なノードがないゾーンにレプリカを強制的に再スケジュールすることはありません。代わりに、{longhorn-product-name} はノードレベルでバランスを取るために再スケジュールします。
+
+== ボリュームのレプリカ自動バランスを設定する方法
+
+`Replica Auto Balance` ボリュームの {longhorn-product-name} を設定する方法は 3 つあります：
+
+=== グローバル設定を変更する
+
+`Replica Auto Balance` の UI 設定内で {longhorn-product-name} のグローバルデフォルト設定を変更できます。
+グローバル設定は、レプリカ数と同様にデフォルト値としてのみ機能します。
+既存のボリューム設定は変更されません。
+ボリュームが `Replica Auto Balance` を指定せずに作成されると、{longhorn-product-name} はグローバル設定を継承するために自動的に `ignored` に設定されます。
+
+=== {longhorn-product-name} UI を使用して、個々のボリュームを自動的にレプリカのバランスを取るように設定します。
+
+ボリューム詳細ページで作成後に個々のボリュームの `Replica Auto Balance` 設定を変更するか、リストされたボリュームページで複数の更新を行うことができます。
+
+=== StorageClass を使用して、個々のボリュームを自動的にレプリカのバランスを取るように設定します。
+
+{longhorn-product-name} は、StorageClass のパラメーターとして `Replica Auto Balance` 設定も公開します。
+指定された `Replica Auto Balance` 設定で StorageClass を作成し、その StorageClass を使用して PVC を作成できます。
+
+例えば、以下の YAML ファイルは、{longhorn-product-name} CSI ドライバーに `Replica Auto Balance` を `least-effort` に設定するよう指示する StorageClass を定義しています：
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: hyper-converged
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  replicaAutoBalance: "least-effort"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+----
+
+== レプリカ自動バランスディスク圧力閾値（%）
+
+`Replica Auto Balance` が `best-effort` で有効になっている場合、`Replica Auto Balance Disk Pressure Threshold (%)` を設定できます。この閾値は、{longhorn-product-name} が同じノードの別のディスクにレプリカを自動的に移行しようとするディスク使用レベルを定義します。
+
+例えば、閾値が 75% に設定されている場合、{longhorn-product-name} はディスク消費が 75% の容量に達したときにレプリカを順次移行しようとします。
+
+{longhorn-product-name} は、最初にノードとゾーン全体でレプリカのバランスを取ることを優先します。ノードとゾーンのバランスが取れたら、次にディスク圧力に基づいて単一ノード内でのバランスを考慮します。
+
+{longhorn-product-name} v1.7.0 以降、同じノードでレプリカを再構築する際に、{longhorn-product-name} はより効率的なデータ転送のためにローカルファイルデータの同期を使用します。
+
+== 制限
+
+{longhorn-product-name} の自動レプリカバランシング機能は、ロバストネスステータスが `Healthy` のボリュームに対してのみ有効になります。
+
+*不健康なボリューム* または *切り離されたボリューム* は、ノードの利用可能なスペースが低い場合でも、自動的に再バランスされることはありません。
+
+この動作は、システムの安定性とデータの整合性を確保するための意図的な設計選択です：
+* 不健康なボリュームでレプリカを移動したり、自動再構築をトリガーしたりすると、データの整合性がさらに損なわれる可能性があります。この設計は、管理者がボリュームの状態を評価し、潜在的にリスクのある操作を開始する前に手動で介入することを要求します。
+* 切り離されたボリュームは、I/Oを積極的に提供しません。自動再バランスをスキップすることで、不必要な再構築を防ぎ、クラスターのリソースを節約します。
+
+ボリュームが不健康または切り離されている場合、レプリカを移動するには手動での介入が必要です。例えば： +
+* ボリュームが検査され、かつ／または接続された後にレプリカを再構築すること。 +
+* ボリュームが切り離されている場合は、ボリュームを接続すること（可能であれば健康な状態を回復するため）。

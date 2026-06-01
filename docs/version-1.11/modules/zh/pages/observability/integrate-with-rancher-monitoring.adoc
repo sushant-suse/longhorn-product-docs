@@ -1,0 +1,42 @@
+= 将SUSE®存储指标集成到Rancher监控系统中
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 关于Rancher监控系统
+
+使用Rancher，您可以通过与 https://prometheus.io/[Prometheus]的集成，监控集群节点、Kubernetes组件和软件部署的状态和进程。Prometheus是一个领先的开源监控解决方案。
+
+请参见 https://rancher.com/docs/rancher/v2.x/en/monitoring-alerting/[这里]获取有关如何部署/启用Rancher监控系统的说明。
+
+== 将Longhorn指标添加到Rancher监控系统中
+
+如果您使用Rancher管理Kubernetes，并且已经启用了Rancher监控系统，您可以通过简单地部署以下ServiceMonitor将Longhorn指标添加到Rancher监控系统中：
+
+[subs="+attributes",yaml]
+----
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: longhorn-prometheus-servicemonitor
+  namespace: longhorn-system
+  labels:
+    name: longhorn-prometheus-servicemonitor
+spec:
+  selector:
+    matchLabels:
+      app: longhorn-manager
+  namespaceSelector:
+    matchNames:
+    - longhorn-system
+  endpoints:
+  - port: manager
+----
+
+一旦创建ServiceMonitor，Rancher将自动发现所有Longhorn指标。
+
+然后，您可以设置Grafana仪表板进行可视化。
+
+您可以导入我们预构建的 https://grafana.com/grafana/dashboards/13032[Longhorn示例仪表板]以供参考。
+
+您还可以在Rancher UI中设置警报。

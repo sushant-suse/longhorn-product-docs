@@ -1,0 +1,181 @@
+= 孤立数据清理
+:revdate: 2025-07-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} 支持孤立数据清理。目前，{longhorn-product-name} 可以识别并清理磁盘上的孤立副本目录。
+
+== 孤立副本目录
+
+当用户将磁盘引入 {longhorn-product-name} 节点时，它可能包含未被 {longhorn-product-name} 系统跟踪的副本目录。未被跟踪的副本目录可能属于其他 {longhorn-product-name} 集群。或者，与副本目录相关的副本 CR 在节点或磁盘宕机后被删除。当节点或磁盘恢复时，相应的副本数据目录不再被 {longhorn-product-name} 系统跟踪。这些副本数据目录被称为孤立的。
+
+{longhorn-product-name} 支持孤立副本目录的检测和清理。它识别这些目录并提供描述这些目录的 `orphan` 资源列表。默认情况下，{longhorn-product-name} 不会自动删除 `orphan` 资源及其目录。用户可以手动触发孤立副本目录的删除，或者让其自动完成。
+
+当启用自动孤立删除时，{longhorn-product-name} 会在 `orphan-resource-auto-deletion-grace-period` 设置定义的延迟后自动删除孤立的自定义资源（CR）及其相关目录。如果用户手动删除孤立的 CR，删除将立即发生，并不遵循此宽限期。
+
+=== 示例
+
+以下示例演示如何通过 `kubectl` 和 {longhorn-product-name} 界面管理由 {longhorn-product-name} 识别的孤立副本目录。
+
+==== 通过 kubectl 管理孤立副本目录
+
+. 引入包含孤立副本目录的磁盘。
+ ** 节点 `worker1` 磁盘上的孤立副本目录
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+ pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
+----
+
+ ** 节点 `worker2` 磁盘上的孤立副本目录
++
+[,console]
+----
+# ls /var/lib/longhorn/replicas/
+ pvc-28255b31-161f-5621-eea3-a1cbafb4a12a-866aa0a5
+
+# ls /mnt/disk/replicas/
+ pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-a86771c0
+----
+
+. {longhorn-product-name} 检测孤立副本目录并创建描述这些目录的 `orphan` 资源。
++
+[,console]
+----
+ # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
+ NAME                                                                      TYPE      NODE
+ orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272   replica   rancher60-worker1
+ orphan-637f6c01660277b5333f9f942e4b10071d89379dbe7b4164d071f4e1861a1247   replica   rancher60-worker2
+ orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
+----
+
+. 通过命令 `kubectl -n longhorn-system get orphan` 检索由 {longhorn-product-name} 创建的孤立资源列表。
++
+[,console]
+----
+ kubectl -n longhorn-system get orphan
+----
+
+. 获取 `spec.parameters` 中一个孤立副本目录的详细信息，使用 `kubectl -n longhorn-system get orphan <name>`。
++
+[,yaml]
+----
+ # kubectl -n longhorn-system get orphans orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272 -o yaml
+ apiVersion: longhorn.io/v1beta2
+ kind: Orphan
+ metadata:
+ creationTimestamp: "2022-04-29T10:17:40Z"
+ finalizers:
+ ** longhorn.io
+ generation: 1
+ labels:
+  longhorn.io/component: orphan
+  longhorn.io/managed-by: longhorn-manager
+  longhorn.io/orphan-type: replica
+  longhornnode: rancher60-worker1
+
+......
+
+spec:
+ nodeID: rancher60-worker1
+ orphanType: replica
+ parameters:
+     DataName: pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
+     DiskName: disk-1
+     DiskPath: /mnt/disk/
+     DiskUUID: 90f00e61-d54e-44b9-a095-35c2b56a0462
+ status:
+ conditions:
+ ** lastProbeTime: ""
+  lastTransitionTime: "2022-04-29T10:17:40Z"
+  message: ""
+  reason: ""
+  status: "True"
+  type: DataCleanable
+ ** lastProbeTime: ""
+  lastTransitionTime: "2022-04-29T10:17:40Z"
+  message: ""
+  reason: ""
+  status: "False"
+  type: Error
+ ownerID: rancher60-worker1
+----
+
+. 可以通过 `orphan` 删除 `kubectl -n longhorn-system delete orphan <name>` 资源，然后相应的孤立副本目录将被删除。
++
+[,console]
+----
+ # kubectl -n longhorn-system delete orphan orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272
+
+ # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
+ NAME                                                                      TYPE      NODE
+ orphan-637f6c01660277b5333f9f942e4b10071d89379dbe7b4164d071f4e1861a1247   replica   rancher60-worker2
+ orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
+----
++
+孤立副本目录已被删除。
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+----
+
+. 默认情况下，{longhorn-product-name} 不会自动删除孤立副本目录。您可以通过设置 `orphan-resource-auto-deletion` 来启用自动删除。
++
+[,console]
+----
+ # kubectl -n longhorn-system edit settings.longhorn.io orphan-resource-auto-deletion
+----
++
+然后，通过将 `replica-data` 作为分号分隔的项目之一添加到列表中。
++
+[,console]
+----
+ # kubectl -n longhorn-system get settings.longhorn.io orphan-resource-auto-deletion
+ NAME                           VALUE          APPLIED     AGE
+ orphan-resource-auto-deletion  replica-data   true        26m
+----
+
+. 在启用自动删除并等待一段时间后，`orphan` 资源和目录将被自动删除。
++
+[,console]
+----
+ # kubectl -n longhorn-system get orphans.longhorn.io -l "longhorn.io/orphan-type=replica"
+ No resources found in longhorn-system namespace.
+----
++
+孤立副本目录已被删除。
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+
+ # ls /var/lib/longhorn/replicas/
+----
++
+此外，可以通过指定节点删除所有孤立副本目录。
++
+[,console]
+----
+ # kubectl -n longhorn-system delete orphan -l "longhorn.io/orphan-type=replica-instance,longhornnode=<node name>”
+----
+
+==== 通过 {longhorn-product-name} 界面管理孤立副本目录。
+
+. 在顶部导航栏中，选择 *设置 > 孤立数据 > 副本数据*。
+. 查看显示的孤立副本目录列表。这些按节点和磁盘分组。
+. 对于您想要删除的目录，选择 *操作 > 删除*。
+
+默认情况下，{longhorn-product-name} 不会自动删除孤立副本目录。要启用自动删除，请导航到 *设置 > 孤立* 并配置相关的自动删除选项。
+
+=== 异常
+
+{longhorn-product-name} 不会为孤立目录创建 `orphan` 资源。
+
+* 孤立目录不是 *孤立副本目录*。
+ ** 目录名称不符合副本目录的命名规范。
+ ** 缺少 volume volume.meta 文件。
+* 孤立的副本目录位于被驱逐的节点上。
+* 孤立的副本目录位于被驱逐的磁盘上。
+* 孤立的数据清理机制不会清理过时的副本，也称为错误副本。相反，过时的副本会根据 xref:volumes/create-volumes.adoc#_creating_longhorn_volumes_with_kubectl[staleReplicaTimeout] 设置进行清理。

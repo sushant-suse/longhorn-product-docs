@@ -1,0 +1,119 @@
+= Configurar los ajustes predeterminados de nodos y discos
+:revdate: 2025-07-11
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Esta función permite al usuario personalizar los discos predeterminados y las configuraciones de nodos en {longhorn-product-name} para los nodos añadidos recientemente utilizando etiquetas y anotaciones de Kubernetes en lugar de la interfaz de usuario o API de {longhorn-product-name}.
+
+Personalizar la configuración predeterminada de discos y nodos es útil para escalar el clúster porque elimina la necesidad de configurar {longhorn-product-name} manualmente para cada nuevo nodo si el nodo contiene más de un disco, o si la configuración del disco es diferente para nuevos nodos.
+
+{longhorn-product-name} no mantendrá las etiquetas o anotaciones del nodo sincronizadas con los discos o etiquetas de nodo actuales de Longhorn. Tampoco {longhorn-product-name} mantendrá los discos o etiquetas del nodo sincronizados con los nodos, etiquetas o anotaciones después de que se hayan creado los discos o etiquetas predeterminados.
+
+== Añadiendo etiquetas de nodo a nuevos nodos
+
+Cuando un nodo no tiene una etiqueta, puedes usar una anotación de nodo para establecer las etiquetas del nodo, como alternativa a usar la interfaz de usuario o API de {longhorn-product-name}.
+
+. Escalar el clúster de Kubernetes. Los nodos añadidos recientemente no contienen etiquetas de nodo.
+. Añade anotaciones a los nuevos nodos de Kubernetes que especifiquen cuáles deberían ser las etiquetas de nodo predeterminadas. El formato de la anotación es:
++
+[,yaml]
+----
+node.longhorn.io/default-node-tags: <node tag list with JSON string format>
+----
++
+Por ejemplo:
++
+[,yaml]
+----
+node.longhorn.io/default-node-tags: '["fast","storage"]'
+----
+
+. Espera a que {longhorn-product-name} sincronice automáticamente la etiqueta del nodo. Si la lista de etiquetas del nodo estaba originalmente vacía, {longhorn-product-name} actualiza el nodo con la lista de etiquetas, y verás que las etiquetas de ese nodo se actualizan de acuerdo con la anotación. Si el nodo ya tenía etiquetas, no verás ningún cambio en la lista de etiquetas.
+
+== Personalizando discos predeterminados para nuevos nodos
+
+{longhorn-product-name} utiliza la configuración *Create Default Disk on Labeled Nodes* para habilitar la personalización de discos predeterminados.
+
+Si la configuración está deshabilitada, {longhorn-product-name} creará un disco predeterminado utilizando `setting.default-data-path` en todos los nuevos nodos.
+
+Si la configuración está habilitada, {longhorn-product-name} decidirá si crear los discos predeterminados o no, dependiendo del valor de etiqueta del nodo de `node.longhorn.io/create-default-disk`.
+
+* Si el valor de etiqueta del nodo es `true`, {longhorn-product-name} creará el disco predeterminado utilizando `settings.default-data-path` en el nodo. Si el nodo ya tiene discos existentes, {longhorn-product-name} no cambiará nada.
+* Si el valor de la etiqueta del nodo es `config`, {longhorn-product-name} comprobará la anotación `node.longhorn.io/default-disks-config` y creará discos predeterminados de acuerdo con ella. Si no hay anotación, o si la anotación es inválida, o el valor de la etiqueta es inválido, {longhorn-product-name} no cambiará nada.
+
+El valor de la etiqueta solo tendrá efecto cuando la configuración esté habilitada.
+
+Si la etiqueta `create-default-disk` no está establecida, el disco predeterminado no se creará automáticamente en los nuevos nodos cuando la configuración esté habilitada.
+
+La configuración descrita en la anotación solo tiene efecto cuando no hay discos o etiquetas existentes en el nodo.
+
+Si la etiqueta o la anotación no pasan la validación, se ignora toda la anotación.
+
+=== Requisitos previos
+
+La configuración {longhorn-product-name} *Crear Disco Predeterminado en Nodos Etiquetados* debe estar habilitada.
+
+. Añade nuevos nodos al clúster de Kubernetes.
+. Añade la etiqueta al nodo. {longhorn-product-name} se basa en la etiqueta para decidir cómo personalizar los discos predeterminados:
++
+[,yaml]
+----
+node.longhorn.io/create-default-disk: 'config'
+----
+
+. Luego añade una anotación al nodo. La anotación se utiliza para especificar la configuración de los discos predeterminados. El formato es:
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config: <disks configuration with JSON string format>
+----
++
+Por ejemplo, la siguiente configuración de disco puede especificarse en la anotación:
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config:
+'[
+    {
+        "path":"/mnt/disk1",
+        "allowScheduling":true
+    },
+    {
+        "name":"fast-ssd-disk",
+        "path":"/mnt/disk2",
+        "allowScheduling":false,
+        "storageReserved":10485760,
+        "tags":[
+            "ssd",
+            "fast"
+        ]
+    }
+]'
+----
++
+[NOTE]
+====
+Si se especifica el mismo nombre para diferentes discos, la configuración se tratará como inválida.
+====
+
+. Espera a que {longhorn-product-name} cree automáticamente los discos predeterminados personalizados, de acuerdo con la anotación.
+
+== Lanza {longhorn-product-name} con múltiples discos
+
+. Añade la etiqueta a todos los nodos antes de lanzar {longhorn-product-name}.
++
+[,yaml]
+----
+node.longhorn.io/create-default-disk: 'config'
+----
+
+. Luego añade la anotación de configuración de disco a todos los nodos:
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config: '[ { "path":"/var/lib/longhorn", "allowScheduling":true
+  }, { "name":"fast-ssd-disk", "path":"/mnt/extra", "allowScheduling":false, "storageReserved":10485760,
+  "tags":[ "ssd", "fast" ] }]'
+----
+
+. Desplegar {longhorn-product-name} con `create-default-disk-labeled-nodes: true`, y consulta xref:longhorn-system//customize-default-settings.adoc[aquí] para personalizar la configuración predeterminada de {longhorn-product-name}.

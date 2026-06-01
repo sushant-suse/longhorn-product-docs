@@ -1,0 +1,71 @@
+= Configurar o Tamanho do Bloco de Backup
+:revdate: 2025-08-28
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Blocos de Backup em {longhorn-product-name}
+
+Um {longhorn-product-name} backup é composto por fragmentos de dados de um instantâneo, e cada um desses fragmentos é chamado de bloco. Esses blocos são as unidades fundamentais para processar, transmitir e armazenar dados no destino do backup. Cada bloco dentro de um único backup tem o mesmo tamanho físico.
+
+Antes do {longhorn-product-name} v1.10.0, o tamanho do bloco de backup era fixo em 2 MiB. Com o {longhorn-product-name} v1.10.0 e versões posteriores, os usuários podem definir o tamanho do bloco de backup ao criar um novo volume. Esse valor é permanente e não pode ser alterado após a criação do volume. O tamanho do bloco usado para um volume específico é exibido na página de detalhes na interface do {longhorn-product-name}, e todos os backups futuros para esse volume usarão esse mesmo tamanho.
+
+=== Impacto do Tamanho do Bloco de Backup
+
+{longhorn-product-name} oferece dois tamanhos de bloco de backup: *2 MiB* e *16 MiB*. O tamanho que você escolher afeta a eficiência com que os backups são criados e armazenados.
+
+. Tamanhos de bloco maiores significam menos blocos totais. Isso melhora a eficiência de transmissão e reduz o número de solicitações de API enviadas ao destino do backup, o que pode acelerar o processo de backup.
+. No entanto, tamanhos de bloco maiores também podem usar mais espaço de armazenamento físico devido ao preenchimento com zeros e requerer mais memória durante o processo de criação do backup.
+
+== Tamanho Global Padrão do Bloco de Backup
+
+{longhorn-product-name} fornece uma configuração global para definir o tamanho padrão do bloco de backup para novos volumes. Se você não especificar explicitamente um tamanho de bloco de backup ao criar um volume, {longhorn-product-name} usará este valor padrão.
+
+Você pode alterar o tamanho padrão do bloco de backup usando a interface {longhorn-product-name} ou o kubectl:
+
+. Usando a interface {longhorn-product-name}:
++
+----
+Settings > General > Default Backup Block Size
+----
+
+. Usando `kubectl`:
++
+[,bash]
+----
+kubectl -n longhorn-system edit settings.longhorn.io default-backup-block-size
+----
+
+== Crie um Volume e Especifique o Tamanho do Bloco de Backup
+
+Para definir um tamanho de bloco de backup personalizado ao criar um novo volume, siga estas etapas:
+
+. Vá para o menu *Volume*.
+. Selecione *Criar Volume*.
+. Na caixa de diálogo de criação, dentro de `Advanced Configurations`, escolha o seu *Tamanho do Bloco de Backup* desejado.
+
+== Especifique o Tamanho do Bloco de Backup na Classe de Armazenamento
+
+Para volumes criados usando uma Reivindicação de Volume Persistente (PVC), você pode especificar o `backupBlockSize` na seção `parameters` do `StorageClass`.
+
+Exemplo:
+
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-example
+provisioner: driver.longhorn.io
+parameters:
+  backupBlockSize: 16Mi
+...
+----
+
+== Restaurando um Volume de um Backup
+
+Quando você restaura um volume de um backup, pode definir o novo volume para um tamanho de bloco de backup diferente do original.
+
+[CAUTION]
+====
+Versões {longhorn-product-name} anteriores à v1.10 não são compatíveis para frente. Elas não podem restaurar backups feitos com {longhorn-product-name} v1.10 ou versões posteriores. Tentar restaurar um backup com um tamanho de bloco não padrão (qualquer coisa diferente de 2 MiB) no {longhorn-product-name} v1.9.x ou anteriores criará um volume com corrupção no sistema de arquivos.
+====

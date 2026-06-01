@@ -1,0 +1,237 @@
+= Longhorn Managerのアップグレード
+:revdate: 2026-03-24
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+[WARNING]
+====
+アップグレードを実行する前に、xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhornシステムバックアップ]を作成することをお勧めします。これにより、ボリュームやバックイメージなどの重要なリソースがバックアップされ、問題が発生した場合に復元できるようになります。
+====
+
+== v1.10.xからのアップグレード
+
+{longhorn-product-name}はv1.10.xからv{current-version}へのアップグレードのみをサポートしています。他のバージョンについては、まずv1.10.xにアップグレードしてください。
+
+{longhorn-product-name}がRancherアプリとしてインストールされている場合、エアギャップアップグレードのために、イメージ名を変更し、レジストリURL部分を削除する必要があります。
+
+{longhorn-product-name}がRancherアプリとしてインストールされている場合、エアギャップ(された)アップグレードのために、イメージ名を変更し、レジストリURL部分を削除する必要があります。例えば、イメージ`registry.example.com/longhorn/longhorn-manager:v{patch-version}`はLonghornイメージセクションで`longhorn/longhorn-manager:v{patch-version}`に変更されます。詳細については、エアギャップインストール手順をxref:installation-setup/installation/airgapped-environment.adoc#_using_a_rancher_app[こちら]でご覧ください。
+
+=== アップグレードの準備
+
+現在のデフォルトのStorageClassには、以下のパラメータがあります：
+
+[,yaml]
+----
+parameters:
+  numberOfReplicas: <user specified replica count, 3 by default>
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  baseImage: ""
+----
+
+== アップグレード
+
+[IMPORTANT]
+====
+アップグレードする前に、常にボリュームをバックアップしてください。何か問題が発生した場合、バックアップを使用してボリュームを復元できます。
+====
+
+=== {rancher-product-name} UIを使用してアップグレード
+
+{rancher-product-name}によって管理されているKubernetesクラスターの場合、リポジトリを更新して新しいHelmチャートバージョンを参照することで、{longhorn-product-name}アプリをアップグレードできます。
+
+以下の手順では、{longhorn-product-name}アプリを{rancher-product-name}でアップグレードする方法について説明します。
+
+. *アプリ > リポジトリ*に移動します。
+. ［*作成*］をクリックします。
+. ターゲットとして*OCIリポジトリ*を選択します。
+. リポジトリの名前を指定してください。例えば、`suse-storage`。
+. *OCIリポジトリホストURL*フィールドに入力してください：
++
+`oci://dp.apps.rancher.io/charts/suse-storage`
++
+image::screenshots/install/add-repo.png[リポジトリを追加, width=100%]
+
+. ［*Create*］ボタンをクリックします。
+. リポジトリが正常に追加されたことを確認してください。
++
+image::screenshots/install/add-repo-success.png[リポジトリが追加されました, width=100%]
+
+. *アプリ > チャート*に移動し、`suse-storage`チャートを見つけてください。
++
+image::screenshots/install/find-chart.png[チャートを見つける, width=100%]
+
+. チャートをクリックし、次に*インストール*をクリックしてください。
++
+image::screenshots/install/install-chart.png[チャートをインストール, width=100%]
+
+. 次のページで、`global.imagePullSecrets`を`application-collection`に設定し、次に*インストール*をクリックしてください。
++
+資格情報の設定については、 https://docs.apps.rancher.io/get-started/authentication/#kubernetes[認証ドキュメント]を参照してください。
++
+[,yaml]
+----
+global:
+  cattle:
+    windowsCluster:
+      defaultSetting:
+        systemManagedComponentsNodeSelector: kubernetes.io/os:linux
+        taintToleration: cattle.io/os=linux:NoSchedule
+      enabled: false
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+        - effect: NoSchedule
+          key: cattle.io/os
+          operator: Equal
+          value: linux
+  imagePullSecrets: [application-collection]
+  imageRegistry: ''
+----
+
+. これにより、`suse-storage`が`{current-version}`にアップグレードされます。
++
+image::screenshots/install/update-repo.png[更新リポジトリ, width=100%]
+
+. アップグレード後、*アプリ > リポジトリ*に移動してください。
++
+[NOTE]
+.v2.13より前の{rancher-product-name}バージョンの場合は、次の手順に従ってください：
+====
+[lowerroman]
+. `suse-storage`リポジトリを選択し、縦3点リーダメニューをクリックして、*設定を編集*を選択してください。
+. *解決策:*バージョンが検出されるように、URLを`oci://dp.apps.rancher.io/charts/suse-storage:{patch-version}`に更新してください。
+. リポジトリは正常に更新されるはずです。
++
+image::screenshots/install/updated-repo.png[更新リポジトリ, width=100%]
+
+. *アプリ > インストール済みアプリ*に移動してください。
+. `longhorn-system`ネームスペースの*アップグレード可能*列で、黄色でハイライトされた`{patch-version}`ラベルを探してください。
++
+image::screenshots/install/upgradable-column.png[アップグレード可能なバージョン, width=100%]
+
+. 黄色の`{patch-version}`ラベルをクリックして、アップグレードページを開いてください。
++
+image::screenshots/install/upgrade-page.png[アップグレードページ, width=100%]
+
+. *次へ* をクリックします。
+. `global.imagePullSecrets`が`application-collection`に設定されていることを確認し、次に*アップグレード*をクリックしてください。
++
+image::screenshots/install/upgrade-progress.png[アップグレード進行状況, width=100%]
+====
++
+. *アプリ > チャート*に移動し、`suse-storage`チャートを選択してください。
+. *チャートバージョン*パネルから希望のアップグレードバージョンを選択してください。
++
+image::screenshots/install/current-version-rancher-2-13_and_above.png[Rancher 2.13+での更新リポジトリ, width=100%]
+
+. *このバージョンにアップグレード*をクリックしてください。
+. アップグレードが完了したら、`suse-storage`チャートバージョンが`{patch-version}`に更新されていることを確認してください。
++
+image::screenshots/install/upgrade-success.png[アップグレード成功, width=100%]
+
+=== Helmでのアップグレード
+
+{longhorn-product-name} Helmチャートのアップグレードには、デプロイメントを新しいバージョンに更新するか、Longhornコミュニティイメージと{longhorn-product-name}イメージの間で切り替えることが含まれます。
+
+アップグレードのための一般的なHelmコマンドは次のとおりです：
+
+[subs="+attributes",shell]
+----
+helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+  --namespace longhorn-system \
+  --version <version> \ # Replace with the version you would like to upgrade to
+  --set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
+  -f values.yaml
+----
+
+[NOTE]
+====
+シークレットを作成するには、 https://docs.apps.rancher.io/get-started/authentication/#kubernetes[AppCoのドキュメント]に従ってください。
+====
+
+または、特定の`values.yaml`ファイルなしでアップグレードし、バージョンのみを変更する場合：
+
+[subs="+attributes",shell]
+----
+helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+  --namespace longhorn-system \
+  --version <version> \ # Replace with the version you would like to upgrade to
+  --set global.imagePullSecrets=<PULL_IMAGE_SECRET>
+----
+
+* *アップグレードパス*：特定のバージョン間のアップグレードパス、前提条件、およびアップグレード後の検証手順については、公式のxref:upgrades/upgrades.adoc[{longhorn-product-name}アップグレードドキュメント]を参照してください。これは、スムーズなアップグレードとデータの整合性を確保するために重要です。
+* *設定の変更*：カスタム設定がある場合は、それらを新しいチャートバージョンに移行し、デフォルトの変更と統合してください。
+
+=== Fleetでアップグレード
+
+GitOpsリポジトリの`helm.version` YAMLファイル内の`fleet`の値を更新してください。
+
+[subs="+attributes",yaml]
+----
+helm:
+  repo: https://charts.longhorn.io
+  chart: longhorn
+  version: v{patch-version} # Replace with the {longhorn-product-name} version you would like to upgrade to
+  releaseName: longhorn
+----
+
+=== Fluxでアップグレード
+
+GitOpsリポジトリの`spec.chart.spec.version` YAMLファイル内の`HelmRelease`の値を更新してください。
+
+[subs="+attributes",yaml]
+----
+spec:
+  chart:
+    spec:
+      chart: longhorn
+      reconcileStrategy: ChartVersion
+      sourceRef:
+        kind: HelmRepository
+        name: longhorn
+      version: v{patch-version} # Replace with the {longhorn-product-name} version you would like to upgrade to
+----
+
+=== Argo CDでアップグレード
+
+GitOpsリポジトリの`targetRevision` YAMLファイル内の`Application`の値を更新してください。
+
+[subs="+attributes",yaml]
+----
+spec:
+  project: default
+  sources:
+    - chart: longhorn
+      repoURL: https://charts.longhorn.io
+      targetRevision: v{patch-version} # Replace with the {longhorn-product-name} version you would like to upgrade to
+----
+
+すべてのポッドが実行中になり、{longhorn-product-name} UIが動作するのを待ってください。次に例を示します。
+
+[,shell]
+----
+$ kubectl -n longhorn-system get pod
+NAME                                                  READY   STATUS    RESTARTS      AGE
+engine-image-ei-4dbdb778-nw88l                        1/1     Running   0             4m29s
+longhorn-ui-b7c844b49-jn5g6                           1/1     Running   0             75s
+longhorn-manager-z2p8h                                1/1     Running   0             71s
+instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc     1/1     Running   0             65s
+longhorn-driver-deployer-6bd59c9f76-jp6pg             1/1     Running   0             75s
+engine-image-ei-df38d2e5-zccq5                        1/1     Running   0             65s
+csi-snapshotter-588457fcdf-h2lgc                      1/1     Running   0             30s
+csi-resizer-6d8cf5f99f-8v4sp                          1/1     Running   1 (30s ago)   37s
+csi-snapshotter-588457fcdf-6pgf4                      1/1     Running   0             30s
+csi-provisioner-869bdc4b79-7ddwd                      1/1     Running   1 (30s ago)   44s
+csi-snapshotter-588457fcdf-p4kkn                      1/1     Running   0             30s
+csi-attacher-7bf4b7f996-mfbdn                         1/1     Running   1 (30s ago)   50s
+csi-provisioner-869bdc4b79-4dc7n                      1/1     Running   1 (30s ago)   43s
+csi-resizer-6d8cf5f99f-vnspd                          1/1     Running   1 (30s ago)   37s
+csi-attacher-7bf4b7f996-hrs7w                         1/1     Running   1 (30s ago)   50s
+csi-attacher-7bf4b7f996-rt2s9                         1/1     Running   1 (30s ago)   50s
+csi-resizer-6d8cf5f99f-7vv89                          1/1     Running   1 (30s ago)   37s
+csi-provisioner-869bdc4b79-sn6zr                      1/1     Running   1 (30s ago)   43s
+longhorn-csi-plugin-b2zzj                             2/2     Running   0             24s
+----
+
+次に、xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[Longhorn Engineをアップグレード]します。

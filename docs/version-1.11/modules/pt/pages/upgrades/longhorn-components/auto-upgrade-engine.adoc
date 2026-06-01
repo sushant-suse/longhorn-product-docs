@@ -1,0 +1,43 @@
+= Atualizar automaticamente o Longhorn Engine
+:revdate: 2026-01-08
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} permite que você atualize automaticamente os volumes Longhorn para a nova versão padrão do Longhorn Engine após atualizar o Longhorn Manager. Esse recurso reduz a quantidade de trabalho manual que você precisa fazer ao atualizar {longhorn-product-name}. Existem alguns conceitos relacionados a esse recurso, conforme listado abaixo:
+
+== 1. Configuração do Limite de Atualização Automática do Longhorn Engine por Nó
+
+Essa é uma configuração que controla como {longhorn-product-name} faz upgrade automaticamente do Longhorn Engine dos volumes para a nova imagem padrão do Longhorn Engine após atualizar o Longhorn Manager. O valor dessa configuração especifica o número máximo de Longhorn Engine por nó que podem ser atualizados para a imagem padrão do Longhorn Engine ao mesmo tempo.
+
+Se o valor for 0, {longhorn-product-name} não faz upgrade automaticamente do Longhorn Engine dos volumes para a versão padrão. Quanto maior esse valor, mais rápido o processo de upgrade do Longhorn Engine será concluído.
+
+No entanto, atribuir um valor maior a essa configuração consumirá mais CPU e memória do nó durante o processo de upgrade do Longhorn Engine. Recomendamos definir o valor como 3 para deixar uma margem para erro, mas não sobrecarregar o sistema com muitos upgrades falhados.
+
+== 2. O comportamento de {longhorn-product-name} com diferentes condições de volume.
+
+Nos seguintes casos, assuma que a configuração `concurrent automatic engine upgrade per node limit` é maior que 0.
+
+. Volumes Anexados
++
+Se o volume estiver em estado anexado e saudável, {longhorn-product-name} fará automaticamente um upgrade ao vivo para o Longhorn Engine do volume para a nova imagem padrão do Longhorn Engine.
+
+. Volumes Desanexados
++
+{longhorn-product-name} faz automaticamente um upgrade offline para volumes desanexados.
+
+. Volumes de Recuperação de Desastre
++
+{longhorn-product-name} não faz upgrade automaticamente de xref:data-integrity-recovery/disaster-recovery-volumes.adoc[volumes de recuperação de desastre] para a nova imagem padrão do Longhorn Engine porque isso acionaria uma restauração completa para os volumes de recuperação de desastre. A restauração completa pode afetar o desempenho de outros volumes Longhorn em execução no sistema. Assim, {longhorn-product-name} deixa para você decidir quando é o bom momento para fazer upgrade manualmente do Longhorn Engine para volumes de recuperação de desastre (por exemplo, quando o sistema está ocioso ou durante o tempo de manutenção).
++
+No entanto, quando você ativa o volume de recuperação de desastres, ele será ativado e, em seguida, desanexado.
+Neste momento, {longhorn-product-name} fará automaticamente o upgrade offline para o volume, semelhante ao caso do volume desanexado.
+
+== 3. O que acontece se o upgrade falhar?
+
+Se um volume falhar ao fazer upgrade do seu Longhorn Engine, a imagem do Longhorn Engine na especificação do volume permanecerá diferente da imagem do Longhorn Engine no status do volume. {longhorn-product-name} continuará tentando fazer upgrade até que tenha sucesso.
+
+Se houver muitos volumes que falharem ao fazer upgrade por nó (ou seja, mais do que a configuração `concurrent automatic engine upgrade per node limit`), {longhorn-product-name} vai parar de fazer upgrade dos volumes nesse nó.
+
+== 4. Liveness e limpeza de pods antigos do gerenciador de instâncias durante o upgrade automático
+
+Para liveness e limpeza de pods antigos do gerenciador de instâncias durante o upgrade ao vivo, consulte a documentação xref:upgrades/longhorn-components/instance-manager-pods-during-upgrade.adoc[Pods do Gerenciador de Instâncias Durante o Upgrade].

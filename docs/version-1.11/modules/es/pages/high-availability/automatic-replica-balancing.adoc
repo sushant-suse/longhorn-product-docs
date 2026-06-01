@@ -1,0 +1,134 @@
+= Balanceo automático de réplicas
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Cuando las réplicas se programan de manera desigual en nodos o zonas, la configuración {longhorn-product-name} `Replica Auto Balance` permite que las réplicas se equilibren automáticamente cuando un nuevo nodo está disponible en el clúster o cuando se actualiza el recuento de réplicas para un volumen.
+
+== Configuración de balanceo automático de réplicas
+
+=== Configuración global
+
+{longhorn-product-name} admite 3 opciones para la configuración global de balanceo automático de réplicas:
+
+* `disabled`. Esta es la opción predeterminada, no se realizará balanceo automático de réplicas.
+* `least-effort`. Esta opción instruye a {longhorn-product-name} a equilibrar las réplicas para una redundancia mínima.
+Por ejemplo, después de añadir el nodo-2, un volumen con 4 réplicas desbalanceadas, solo reequilibrará 1 réplica.
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  +-- replica-c
+  node-2
+  +-- replica-d
+----
+
+* `best-effort`. Esta opción instruye a {longhorn-product-name} a intentar equilibrar las réplicas para una redundancia uniforme.
+Por ejemplo, después de añadir el nodo-2, un volumen con 4 réplicas desbalanceadas, reequilibrará 2 réplicas.
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  node-2
+  +-- replica-c
+  +-- replica-d
+----
++
+{longhorn-product-name} no reprograma forzosamente las réplicas a una zona que no tiene suficientes nodos para soportar un balanceo uniforme. En su lugar, {longhorn-product-name} reprogramará para equilibrar a nivel de nodo.
+
+=== Configuración específica del volumen
+
+{longhorn-product-name} también admite la configuración de volúmenes individuales para `Replica Auto Balance`. La configuración se puede especificar en `volume.spec.replicaAutoBalance`, esto anula la configuración global.
+
+Hay 4 opciones disponibles para la configuración de volúmenes individuales:
+
+* `Ignored`. Esta es la opción predeterminada que instruye a {longhorn-product-name} a heredar de la configuración global.
+* `disabled`. Esta opción instruye a {longhorn-product-name} a no realizar balanceo automático de réplicas.
+* `least-effort`. Esta opción instruye a {longhorn-product-name} a equilibrar las réplicas para una redundancia mínima.
+Por ejemplo, después de añadir el nodo-2, un volumen con 4 réplicas desbalanceadas, solo reequilibrará 1 réplica.
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  +-- replica-c
+  node-2
+  +-- replica-d
+----
+
+* `best-effort`. Esta opción instruye a {longhorn-product-name} a intentar equilibrar las réplicas para una redundancia uniforme.
+Por ejemplo, después de añadir el nodo-2, un volumen con 4 réplicas desbalanceadas, reequilibrará 2 réplicas.
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  node-2
+  +-- replica-c
+  +-- replica-d
+----
++
+{longhorn-product-name} no reprograma forzosamente las réplicas a una zona que no tiene suficientes nodos para soportar un balanceo uniforme. En su lugar, {longhorn-product-name} reprogramará para equilibrar a nivel de nodo.
+
+== Cómo configurar el balanceo automático de réplicas para volúmenes
+
+Hay 3 maneras de establecer `Replica Auto Balance` para {longhorn-product-name} volúmenes:
+
+=== Cambia la configuración global
+
+Puedes cambiar la configuración predeterminada global para `Replica Auto Balance` dentro de la configuración de la interfaz de usuario de {longhorn-product-name}.
+La configuración global solo funciona como un valor predeterminado, similar al recuento de réplicas.
+No cambia ninguna configuración de volumen existente.
+Cuando se crea un volumen sin especificar `Replica Auto Balance`, {longhorn-product-name} se establecerá automáticamente en `ignored` para heredar de la configuración global.
+
+=== Establece volúmenes individuales para equilibrar automáticamente las réplicas utilizando la interfaz de usuario de {longhorn-product-name}
+
+Puedes cambiar la configuración de `Replica Auto Balance` para un volumen individual después de la creación en la página de detalles del volumen, o realizar múltiples actualizaciones en la página del volumen listado.
+
+=== Establece volúmenes individuales para equilibrar automáticamente las réplicas utilizando una StorageClass
+
+{longhorn-product-name} también expone la configuración de `Replica Auto Balance` como un parámetro en una StorageClass.
+Puedes crear una StorageClass con una configuración de `Replica Auto Balance` especificada, y luego crear PVCs utilizando esta StorageClass.
+
+Por ejemplo, el siguiente archivo YAML define una StorageClass que indica al controlador CSI de {longhorn-product-name} que establezca `Replica Auto Balance` en `least-effort`:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: hyper-converged
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  replicaAutoBalance: "least-effort"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+----
+
+== Umbral de presión de disco para el equilibrio automático de réplicas (%)
+
+Cuando `Replica Auto Balance` está habilitado con `best-effort`, puedes establecer un `Replica Auto Balance Disk Pressure Threshold (%)`. Este umbral define el nivel de uso del disco en el que {longhorn-product-name} intentará automáticamente migrar réplicas a otro disco en el mismo nodo.
+
+Por ejemplo, si el umbral se establece en 75%, {longhorn-product-name} intentará migrar réplicas secuencialmente cuando el consumo del disco alcance el 75% de la capacidad.
+
+{longhorn-product-name} prioriza el equilibrio de réplicas entre nodos y zonas primero. Una vez que los nodos y zonas están equilibrados, considerará equilibrar dentro de un solo nodo basado en la presión del disco.
+
+Desde {longhorn-product-name} v1.7.0, al reconstruir réplicas en el mismo nodo, {longhorn-product-name} utiliza la sincronización de datos de archivos locales para una transferencia de datos más eficiente.
+
+== limitaciones
+
+La función de equilibrio automático de réplicas en {longhorn-product-name} se activa solo para volúmenes con un estado de robustez de `Healthy`.
+
+*Volúmenes no saludables* o *volúmenes desconectados* no se reequilibran automáticamente, incluso cuando un nodo tiene poco espacio disponible.
+
+Este comportamiento es una elección de diseño deliberada para garantizar la estabilidad del sistema y la integridad de los datos:
+* Mover réplicas o activar reconstrucciones automáticas en un volumen no saludable podría comprometer aún más la integridad de los datos. Este diseño requiere intervención manual para permitir que un administrador evalúe la condición del volumen antes de iniciar operaciones potencialmente arriesgadas.
+* Los volúmenes desconectados no sirven activamente para E/S. Saltar el reequilibrio automático previene reconstrucciones innecesarias y ahorra recursos del clúster.
+
+Si un volumen es no saludable o está desconectado, mover réplicas requiere intervención manual, como:
+* Reconstruir réplicas después de que se inspeccione y/o se conecte el volumen.
+* Conectar el volumen si está desconectado (para restaurar un estado saludable, si es posible).

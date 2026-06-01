@@ -1,0 +1,276 @@
+= Limpieza de instancias huérfanas
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} puede identificar y limpiar instancias huérfanas en cada nodo.
+
+== Instancia huérfana de tiempo de ejecución
+
+Cuando una interrupción de red afecta a un nodo {longhorn-product-name}, puede dejar atrás instancias de tiempo de ejecución de motor o réplica que ya no son rastreadas por el sistema {longhorn-product-name}. Los Recursos Personalizados (CRs) correspondientes de motor y réplica pueden ser eliminados o reprogramados a otro nodo durante la interrupción. Cuando el nodo se recupera, el sistema {longhorn-product-name} ya no rastrea estas instancias de tiempo de ejecución. Estas instancias, como los procesos de motor y réplica para volúmenes v1, se llaman instancias huérfanas. Las instancias huérfanas continúan consumiendo recursos del nodo como CPU y memoria.
+
+{longhorn-product-name} soporta la detección y limpieza de instancias huérfanas. Identifica estas instancias y crea recursos `orphan` que las describen. Por defecto, {longhorn-product-name} no elimina automáticamente los recursos `orphan`. Los usuarios pueden activar la eliminación de instancias huérfanas manualmente o configurar {longhorn-product-name} para eliminarlas automáticamente.
+
+Cuando la eliminación automática de huérfanas está habilitada, {longhorn-product-name} elimina automáticamente los Recursos Personalizados (CRs) huérfanos y sus directorios asociados después del retraso definido por la configuración `orphan-resource-auto-deletion-grace-period`. Si un usuario elimina manualmente un CR huérfano, la eliminación ocurre inmediatamente y no respeta este período de gracia.
+
+=== Ejemplo
+
+El siguiente ejemplo demuestra cómo gestionar instancias huérfanas utilizando `kubectl`.
+
+==== Gestionar instancias huérfanas a través de `kubectl`
+
+. Introducir nodos en los que se están ejecutando procesos de instancias huérfanas 
++
+  * Instancia de réplica huérfana en el nodo `worker1`
++
+[,text]
+----
+Name:         instance-manager-8ff396d6d3744979b32abafc6346781c
+Namespace:    longhorn-system
+Kind:         InstanceManager
+...
+Status:
+  Instance Replicas:
+    pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-r-05660b73: # This instance might be an orphan
+      Spec:
+        Data Engine:  v1
+        Name:         pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-r-05660b73
+      Status:
+        Conditions:       <nil>
+        Endpoint:
+        Error Msg:
+        Listen:
+        Port End:         10020
+        Port Start:       10011
+        Resource Version: 0
+        State:            running
+        Target Port End:  0
+        Target Port Start:0
+        Type:             replica
+...
+----
++
+  * Instancia de motor huérfana en el nodo `worker2`
++
+[,text]
+----
+Name:         instance-manager-b87f10b867cec1dca2b814f5e78bcc90
+Namespace:    longhorn-system
+Kind:         InstanceManager
+...
+Status:
+  Instance Engines:
+    pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-e-0: # This instance might be an orphan
+      Spec:
+        Data Engine:  v1
+        Name:         pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-e-0
+      Status:
+        Conditions:
+          Filesystem Read Only: false
+        Endpoint:
+        Error Msg:
+        Listen:
+        Port End:             10020
+        Port Start:           10020
+        Resource Version:     0
+        State:                running
+        Target Port End:      10020
+        Target Port Start:    10020
+        Type:                 engine
+...
+----
++
+. {longhorn-product-name} detecta las instancias huérfanas y crea recursos `orphan` que describen dichas instancias.
++
+[,text]
+----
+NAME                                                              TYPE                NODE
+orphan-1807009489e50534c35c350e22680449c97deca4e5d3b72f4591976145f8bc41  engine-instance     worker2
+orphan-a91aa42ab5eda6b8b9fe1116d5b5f5673e5108d89be3db6fd18a275913463eef  replica-instance    worker1
+----
++
+. Puedes ver la lista de `orphan` recursos creados por el sistema {longhorn-product-name} ejecutando `kubectl -n longhorn-system get orphan`.
++
+[,bash]
+----
+# kubectl -n longhorn-system get orphan
+----
++
+. Obtén la información detallada de una de las instancias de réplica huérfanas en `spec.parameters` mediante `kubectl -n longhorn-system get orphan <name>`.
++
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Orphan
+metadata:
+  creationTimestamp: "2025-05-02T06:07:32Z"
+  finalizers:
+  - longhorn.io
+  generation: 1
+  labels:
+    longhorn.io/component: orphan
+    longhorn.io/managed-by: longhorn-manager
+    longhorn.io/orphan-type: replica-instance
+    longhornnode: worker1
+    longhornreplica: pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-r-05660b73
+  # ... (representing other omitted metadata fields)
+spec:
+  dataEngine: v1
+  nodeID: worker1
+  orphanType: replica-instance
+  parameters:
+    InstanceManager: instance-manager-8ff396d6d3744979b32abafc6346781c
+    InstanceName: pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-r-05660b73
+status:
+  conditions:
+  - lastProbeTime: ""
+    lastTransitionTime: "2025-05-02T06:06:39Z"
+    message: ""
+    reason: running
+    status: "True"
+    type: InstanceExist
+  - lastProbeTime: ""
+    lastTransitionTime: "2025-05-02T06:06:39Z"
+    message: ""
+    reason: ""
+    status: "False"
+    type: Error
+  ownerID: worker1
+----
++
+. Obtén la información detallada de una de las instancias de motor huérfanas en `spec.parameters` mediante `kubectl -n longhorn-system get orphan <name>`.
++
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Orphan
+metadata:
+  creationTimestamp: "2025-05-02T06:47:25Z"
+  finalizers:
+  - longhorn.io
+  generation: 1
+  labels:
+    longhorn.io/component: orphan
+    longhorn.io/managed-by: longhorn-manager
+    longhorn.io/orphan-type: engine-instance
+    longhornengine: pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-e-0
+    longhornnode: worker2
+  # ... (representing other omitted metadata fields)
+spec:
+  dataEngine: v1
+  nodeID: worker2
+  orphanType: engine-instance
+  parameters:
+    InstanceManager: instance-manager-b87f10b867cec1dca2b814f5e78bcc90
+    InstanceName: pvc-569e44c0-b352-4aca-bf14-2cf7a6cfe86f-e-0
+status:
+  conditions:
+  - lastProbeTime: ""
+    lastTransitionTime: "2025-05-02T06:47:25Z"
+    message: ""
+    reason: running
+    status: "True"
+    type: InstanceExist
+  - lastProbeTime: ""
+    lastTransitionTime: "2025-05-02T06:47:25Z"
+    message: ""
+    reason: ""
+    status: "False"
+    type: Error
+  ownerID: worker2
+----
++
+. Puedes eliminar un recurso `orphan` ejecutando `kubectl -n longhorn-system delete orphan <name>`. La instancia huérfana correspondiente también será eliminada.
++
+[,bash]
+----
+# kubectl -n longhorn-system delete orphan orphan-a91aa42ab5eda6b8b9fe1116d5b5f5673e5108d89be3db6fd18a275913463eef
+
+# kubectl -n longhorn-system get orphan -l "longhorn.io/orphan-type in (engine-instance,replica-instance)"
+NAME                                                                      TYPE               NODE
+orphan-1807009489e50534c35c350e22680449c97deca4e5d3b72f4591976145f8bc41   engine-instance    worker2
+----
++
+La instancia huérfana es eliminada.
++
+[,bash]
+----
+# kubectl -n longhorn-system describe instancemanager -l "longhorn.io/node=worker1"
+    Name:         instance-manager-8ff396d6d3744979b32abafc6346781c
+    Namespace:    longhorn-system
+    Kind:         InstanceManager
+    ...
+    Status:
+      Instance Replicas:
+    ...
+----
++
+. Por defecto, {longhorn-product-name} no elimina automáticamente las instancias huérfanas. Puedes habilitar la eliminación automática configurando la opción `orphan-resource-auto-deletion`.
++
+[,bash]
+----
+# kubectl -n longhorn-system edit settings.longhorn.io orphan-resource-auto-deletion
+----
++
+Luego, añade `instance` a la lista incluyéndolo como uno de los elementos separados por punto y coma.
++
+[,text]
+----
+NAME                            VALUE      APPLIED   AGE
+orphan-resource-auto-deletion   instance   true      45h
+----
++
+. Después de habilitar la eliminación automática y esperar un tiempo, los recursos y procesos `orphan` se eliminan automáticamente.
++
+
+[,bash]
+----
+# kubectl -n longhorn-system get orphan -l "longhorn.io/orphan-type in (engine-instance,replica-instance)"
+No resources found in longhorn-system namespace.
+----
++
+Las instancias huérfanas se eliminan del gestor de instancias.
++
+[,bash]
+----
+# kubectl -n longhorn-system describe instancemanager -l "longhorn.io/node=worker1"
+Name:         instance-manager-8ff396d6d3744979b32abafc6346781c
+Namespace:    longhorn-system
+Kind:         InstanceManager
+...
+Status:
+  Instance Replicas:
+...
+
+# kubectl -n longhorn-system describe instancemanager -l "longhorn.io/node=worker2"
+Name:         instance-manager-b87f10b867cec1dca2b814f5e78bcc90
+Namespace:    longhorn-system
+Kind:         InstanceManager
+...
+Status:
+  Instance Engines:
+    ...
+----
++
+Además, puedes eliminar todas las instancias huérfanas en el nodo especificado ejecutando:
++
+[,bash]
+----
+# kubectl -n longhorn-system delete orphan -l "longhorn.io/orphan-type in (engine-instance,replica-instance),longhornnode=<node name>"
+----
+
+==== Gestionar instancias huérfanas a través de la interfaz {longhorn-product-name}
+
+. En la barra de navegación superior, selecciona *Avanzado > Recursos Huérfanos > Instancias*.
+. Revisa la lista de instancias huérfanas, que muestra información relevante de las instancias.
+. Para eliminar una instancia huérfana específica, selecciona *Operación > Eliminar* para esa instancia.
+
+Por defecto, {longhorn-product-name} no elimina automáticamente las instancias huérfanas solo a través de esta operación manual de la interfaz. Para habilitar la eliminación automática de instancias huérfanas, o para configurar opciones relacionadas con datos huérfanos generales, navega a *Configuración > Huérfano* y configura las opciones relevantes. (Consulta la sección `kubectl` para detalles sobre la configuración específica `orphan-resource-auto-deletion` para CRs de instancia si gestionas a través de configuraciones de backend).
+
+=== Excepciones
+
+{longhorn-product-name} no crea un recurso `orphan` en los siguientes escenarios:
+
+* La instancia de motor o réplica huérfana se reprograma de nuevo en su nodo original y se rastrea correctamente otra vez.
+* La instancia de motor o réplica está en un estado transitorio, como migrando, iniciando o terminando.
+* El nodo donde se estaba ejecutando la instancia es expulsado del clúster de Kubernetes.

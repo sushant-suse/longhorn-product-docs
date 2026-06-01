@@ -1,0 +1,156 @@
+= Créer un instantané
+:revdate: 2026-01-08
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Un xref:introduction/concepts.adoc#_2_4_snapshots[instantané] est l'état d'un volume Kubernetes à un moment donné.
+
+== Gestion des instantanés via l'interface {longhorn-product-name}
+
+Pour créer un instantané d'un cluster existant, suivez ces étapes{nbsp}:
+
+. Dans la barre de navigation supérieure de l'interface {longhorn-product-name}, cliquez sur *Volume*.
+. Cliquez sur le nom du volume pour lequel vous souhaitez créer un instantané. Cela mène à la page de détails du volume.
+. Cliquez sur le bouton *Prendre un instantané*.
+
+Une fois l'instantané créé, vous pouvez le voir dans la liste des instantanés pour le volume avant le Volume Head.
+
+=== Comprendre la visualisation de la chaîne d'instantanés
+
+Sur la page *Détails du volume*, la section *Instantanés et sauvegardes* affiche l'historique des instantanés sous forme de chaîne. Par défaut, l'option *Afficher les instantanés système* est activée, et tous les instantanés créés par le système apparaissent dans la vue.
+
+Chaque instantané dans la chaîne est codé par couleur pour indiquer son type ou son statut. Si un instantané répond à plusieurs critères, la visualisation utilise la couleur ayant la priorité la plus élevée.
+
+[cols="1,1,2,1", options="header"]
+|===
+| Type d'instantané
+| Couleur
+| Description
+| Priorité (1 = la plus élevée)
+
+| Erreur
+| Rouge
+| Indique que la création de l'instantané a échoué ou que l'instantané a un problème.
+| 1
+
+| Supprimé
+| Gris clair
+| Indique que l'instantané est marqué pour suppression ou a été supprimé.
+| 2
+
+| Créé par le système
+| Orange/Jaune
+| Créé automatiquement par Longhorn, souvent pour des tâches récurrentes ou des opérations internes.
+| 3
+
+| Sauvegarde
+| Informatique verte
+| Indique que l'instantané a une sauvegarde stockée sur une cible de sauvegarde configurée.
+| 4
+
+| Par défaut (créé par l'utilisateur)
+| Bleu
+| Un instantané initié par l'utilisateur pris manuellement avec l'action *Prendre un instantané*.
+| 5
+|===
+
+La figure suivante montre un exemple de visualisation de la chaîne d'instantanés{nbsp}:
+
+image::diagrams/snapshot/snapshot_volumes_page.png[Page de volume d'instantané]
+
+== Gestion des instantanés avec des ressources personnalisées (CRs)
+
+Cette section démontre comment créer, lister, restaurer et supprimer des instantanés Longhorn directement via `kubectl` en utilisant les *Ressources personnalisées (CRs)* de {longhorn-product-name}.
+
+[NOTE]
+====
+{longhorn-product-name} utilise son propre `Snapshot` CRD sous le groupe d'API `longhorn.io` (par exemple, `v1beta2`), et non le `VolumeSnapshot` générique de Kubernetes de `snapshot.storage.k8s.io`.
+====
+
+=== Créer un instantané
+
+. *Préparer le manifeste* - Créez un fichier nommé `longhorn-snapshot.yaml` avec le contenu suivant{nbsp}:
++
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: longhorn-test-snapshot
+  namespace: longhorn-system
+spec:
+  volume: pvc-840804d8-6f11-49fd-afae-54bc5be639de   # replace with your actual Longhorn volume name
+  createSnapshot: true
+----
++
+. *Appliquer le manifeste* :
++
+[,bash]
+----
+kubectl apply -f longhorn-snapshot.yaml
+----
++
+Sortie attendue{nbsp}:
++
+[,bash]
+----
+snapshot.longhorn.io/longhorn-test-snapshot created
+----
++
+[NOTE]
+====
+Si le volume est détaché, un bref avertissement concernant le moteur qui ne fonctionne pas apparaît. {longhorn-product-name} réessaie automatiquement et l'instantané se termine lorsque le volume est attaché.
+====
+
+=== Lister les instantanés
+
+Pour lister tous les instantanés d'un volume spécifique, utilisez la commande suivante{nbsp}:
+
+[,bash]
+----
+kubectl get snapshots.longhorn.io -l longhornvolume=pvc-840804d8-6f11-49fd-afae-54bc5be639de -n longhorn-system
+----
+
+=== Supprimer un instantané
+
+Pour supprimer un instantané spécifique, utilisez la commande suivante{nbsp}:
+
+[,bash]
+----
+kubectl delete snapshot.longhorn.io longhorn-test-snapshot -n longhorn-system
+----
+
+Sortie attendue{nbsp}:
+
+[,bash]
+----
+snapshot.longhorn.io "longhorn-test-snapshot" deleted
+----
+
+[NOTE]
+====
+{longhorn-product-name} gère automatiquement le nettoyage des données sous-jacentes.
+====
+
+== Différences de comportement du moteur de données
+
+Lors de la suppression d'un instantané qui est le parent direct du *Volume Head* (l'état actif actuel), le comportement de la ressource personnalisée d'instantané (CR) dépend du moteur de données utilisé{nbsp}:
+
+[cols="1,1,1", options="header"]
+|===
+| Comportement | moteur de données v1 | moteur de données v2
+
+| *CR Persistence*
+| La CR d'instantané *reste* dans le système.
+| La CR d'instantané est *immédiatement supprimée*.
+
+| *Champs d'état*
+| `READYTOUSE` devient `false` et l'instantané est marqué comme `Removed`.
+| Non applicable, car la CR d'instantané est supprimée.
+
+| *Explication*
+| Les volumes v1 ne peuvent pas physiquement fusionner le parent d'un volume actif immédiatement. La CR reste pour suivre les données de l'instantané jusqu'à une opération de fusion ou de nettoyage ultérieure.
+| Les volumes v2 prennent en charge la fusion en direct de l'instantané parent dans la tête de volume, permettant un nettoyage immédiat des données et des métadonnées.
+|===
+
+Cette différence de comportement est attendue. Dans *les volumes v2*, la disparition immédiate de la CR d'instantané indique que le moteur a réussi à finaliser la suppression et à fusionner les données.

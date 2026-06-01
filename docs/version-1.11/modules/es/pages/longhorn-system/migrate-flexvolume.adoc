@@ -1,0 +1,18 @@
+= Migra del controlador Flexvolume a CSI
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+El controlador Flexvolume ya no es compatible. Puedes migrar del controlador Flexvolume a CSI, que es la interfaz de almacenamiento de Kubernetes más reciente fuera del árbol.
+
+____
+Ten en cuenta que los volúmenes creados y utilizados a través de un controlador no serán reconocidos por Kubernetes utilizando el otro controlador. Así que, por favor, no cambies de controlador (por ejemplo, durante una actualización) si tienes volúmenes existentes creados con el controlador antiguo.
+____
+
+Asegúrate de que tu app Longhorn esté actualizada. Sigue el procedimiento de actualización relevante antes de continuar.
+
+La vía de migración entre controladores requiere hacer copias de seguridad y restaurar cada volumen y ocasionará tanto tiempo de inactividad de la API como de la carga de trabajo. Este puede ser un proceso tedioso. Considera eliminar cargas de trabajo no importantes que utilicen el controlador antiguo para reducir el esfuerzo.
+
+. xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[Haz una copia de seguridad de los volúmenes existentes].
+. En la interfaz de Rancher, navega a la pantalla `Catalog Apps`, localiza la aplicación `Longhorn` y haz clic en el botón `Up to date`. Bajo `Kubernetes Driver`, selecciona `flexvolume`. Recomendamos dejar `Flexvolume Path` vacío. Haga clic en `Upgrade`.
+. Restaura cada volumen. Este xref:snapshots-backups/volume-snapshots-backups/restore-volume-statefulset.adoc[procedimiento] está adaptado a la carga de trabajo StatefulSet, pero el proceso es aproximadamente el mismo para todas las cargas de trabajo.

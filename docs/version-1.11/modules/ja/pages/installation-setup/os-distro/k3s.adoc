@@ -1,0 +1,57 @@
+= K3s
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+https://rancher.com/docs/k3s/latest/en/[K3s]は、インストールが簡単で、メモリを半分使用し、50MB未満のバイナリで提供される完全準拠のKubernetesディストリビューションです。
+
+== 要件
+
+* {longhorn-product-name} v0.7.0以降。
+* ノードに`open-iscsi`または`iscsiadm`がインストールされています。
+
+== 手順
+
+デフォルトでは、{longhorn-product-name}はK3s v0.10.0以降のバージョンのみをサポートします。
+
+K3s v0.10.0以前のバージョンに{longhorn-product-name}をデプロイしたい場合は、`--kubelet-root-dir`のデプロイメント `<data-dir>/agent/kubelet`に対して`longhorn-driver-deployer`を`longhorn/deploy/longhorn.yaml`に設定する必要があります。
+
+`data-dir`は`k3s`引数であり、k3sサーバーを起動する際に設定できます。デフォルトでは、`/var/lib/rancher/k3s`です。
+
+== トラブルシューティング
+
+=== 引数root-dirの取得に失敗しました：kubeletのルートディレクトリを取得できません。root-dir検出のための関連プロセスがありません。...
+
+このエラーは、{longhorn-product-name}がKubeletのルートディレクトリの設定場所を検出できないため、CSIプラグインのインストールに失敗したことによるものです。
+
+環境変数`KUBELET_ROOT_DIR`を https://github.com/longhorn/longhorn/blob/v{patch-version}/deploy/longhorn.yaml[`longhorn.yaml`]に設定することで、root-dirの検出を上書きできます。
+
+=== `root-dir`を見つける方法は？
+
+*v0.10.0以前のK3Sについて*
+
+`ps aux | grep k3s`を実行し、k3sノードで引数`--data-dir`または`-d`を取得します。
+
+例：
+
+ $ ps uax | grep k3s
+ root      4160  0.0  0.0  51420  3948 pts/0    S+   00:55   0:00 sudo /usr/local/bin/k3s server --data-dir /opt/test/kubelet
+ root      4161 49.0  4.0 259204 164292 pts/0   Sl+  00:55   0:04 /usr/local/bin/k3s server --data-dir /opt/test/kubelet
+
+proc `data-dir`のcmdlineに`k3s`が見つかります。デフォルトでは設定されておらず、`/var/lib/rancher/k3s`が使用されます。次に、`data-dir`と`/agent/kubelet`を結合すると、`root-dir`が得られます。したがって、K3Sのデフォルト`root-dir`は`/var/lib/rancher/k3s/agent/kubelet`です。
+
+K3Sが設定ファイルを使用している場合は、`data-dir`パラメータを見つけるには設定ファイルを確認する必要があります。
+
+*K3S v0.10.0+のために*
+
+常に`/var/lib/kubelet`です。
+
+== 背景
+
+=== {longhorn-product-name}バージョンはv0.7.0より前のもので、K3s v0.10.0以降では動作しません。
+
+K3sは現在、kubeletディレクトリを`/var/lib/kubelet`に設定しています。詳細については、 https://github.com/rancher/k3s/releases/tag/v0.10.0[K3Sのリリースコメント]をご覧ください。
+
+== リファレンス
+
+https://github.com/kubernetes-csi/driver-registrar

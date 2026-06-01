@@ -1,0 +1,49 @@
+= 使用 Rancher 快照恢复集群
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 假定：
+
+* 在恢复之前，集群中大部分数据和底层磁盘仍然存在，可以直接重用。
+* 有一个备份存储库保存所有卷数据。
+* 设置 xref:longhorn-system/settings.adoc#_disable_revision_counter[`Disable Revision Counter`] 为 false。（默认情况下为 false。）否则，用户需要手动检查卷副本之间的数据是否一致，或者直接从备份中恢复卷。
+
+== 期望：
+
+* 所有设置和节点及磁盘配置将被恢复。
+* 只要有效数据仍然存在，卷可以在不使用备份的情况下恢复。换句话说，我们将尽量避免恢复备份，这可能有助于减少恢复时间目标 (RTO) 并节省带宽。
+* 只要相关卷在恢复后仍然包含有效副本，就检测无效或不同步的副本。
+
+== Rancher 恢复的行为与要求
+
+* 您必须在所有节点上重新启动 Kubernetes 组件。否则，Longhorn 中将会出现大量资源更新冲突。
+
+== 恢复后的操作
+
+* 为所有节点重新启动所有 Kubernetes 组件。有关更多详细信息，请参见上述链接。
+* 杀死所有 Longhorn Manager pod，然后 Kubernetes 将自动重新启动它们。等待 Longhorn Manager pod 中的冲突消失。
+* 所有卷可能会被重新附加。如果一个 Longhorn 卷被单个 pod 使用，用户需要先关闭然后重新创建它。对于 Deployments 或 StatefulSet，Longhorn 会自动杀死然后重启相关的 pod。
+* 如果在快照之后和集群恢复之前发生以下情况：
+ ** 卷没有变化：用户不需要做任何事情。
+ ** 数据已更新：用户通常不需要做任何事情。Longhorn 会自动失败那些不包含最新数据的副本。
+ ** 创建了一个新卷：此卷将在恢复后消失。用户需要重新创建一个新卷，基于消失卷的副本启动 xref:data-integrity-recovery/data-recovery/retrieve-volume-data-from-replica.adoc[a single replica volume]，然后将数据转移到新卷。
+ ** 卷被删除：由于在卷被移除时数据被清理，恢复的卷不包含任何数据。用户可能需要重新删除它。
+ ** 对于 DR 卷：用户不需要做任何事情。Longhorn 将重新执行完整恢复。
+ ** 对一个卷应用了一些操作：
+  *** 备份：卷的备份信息应自动重新同步。
+  *** 快照：卷的快照信息在卷附加后应重新同步。
+  *** 副本重建与副本移除：
+   **** 如果有新的副本被重建，这些副本将在恢复后从 Longhorn 系统中消失。用户需要手动清理副本数据，或者使用这些副本的数据目录导出单个副本卷，然后在必要时进行数据恢复。
+   **** 如果有一些失败/移除的副本，并且至少有一个副本保持健康，这些失败/移除的副本将在恢复后返回。然后 Longhorn 可以检测到这些恢复的副本不包含任何数据，并将最新数据从健康副本复制到这些副本。
+   **** 如果在快照后所有副本都被新副本替换，卷在恢复后将仅包含无效副本。然后用户需要导出 xref:data-integrity-recovery/data-recovery/retrieve-volume-data-from-replica.adoc[a single replica volume] 以进行数据恢复。
+  *** 引擎镜像升级：用户需要重新进行升级。
+  *** 扩展：卷的规格大小将小于当前大小。这就像有人请求卷缩小，但实际上 Longhorn 将拒绝内部处理。要恢复卷，用户需要缩减工作负载并重新进行扩展。
+ ** *注意*：如果用户不知道如何恢复有问题的卷，最简单的方法始终是从备份恢复一个新卷。
+* 如果在快照后 Longhorn 系统被升级，新设置和节点配置的修改将消失。用户需要重新进行升级，然后重新修改设置和节点配置。
+* 如果在快照后从 Longhorn 系统中删除了一个节点，该节点将不会恢复，但被移除节点上的 Pod 将被恢复。用户需要手动清理它们，因为这些 Pod 可能会卡在状态 `Terminating`。
+* 如果在快照后将节点添加到 Longhorn 系统，Longhorn 应该在集群恢复后自动重新启动该节点上的所有必要工作负载。但用户应该意识到，在恢复后，该节点上的所有新副本或引擎将会消失。
+
+== 参考资料
+
+* 相关的 GitHub 问题是 https://github.com/longhorn/longhorn/issues/2228.在这个 GitHub 帖子中，一位用户提供了一种将 Longhorn 恢复到不包含任何数据的新集群的方法。

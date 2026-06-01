@@ -1,0 +1,42 @@
+= 手动升级 Longhorn Engine
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+您可以使用 Longhorn UI 手动升级 Longhorn Engine。
+
+== 先决条件
+
+在升级 Longhorn Engine 镜像之前，请务必先做好备份。
+
+在升级 Longhorn Engine 之前，请先升级 Longhorn Manager。
+
+== 离线升级
+
+如果无法进行在线升级，或者卷处于降级状态，请按照以下步骤操作：
+
+. 遵循 xref:data-integrity-recovery/disaster-recovery-volumes.adoc[相关工作负载的分离程序]。
+. 请使用批量选择来选择所有卷。点击批量操作按钮 *升级引擎*，并选择列表中可用的引擎镜像。这是本版本随 Longhorn Manager 一起提供的默认引擎。
+. 恢复所有工作负载。任何不属于 Kubernetes 工作负载的卷必须从 Longhorn UI 附加。
+
+== 在线升级
+
+{longhorn-product-name} v1.8.x 到 v{current-version} 支持在线引擎升级。
+
+`iSCSI` 前端不支持在线升级。
+
+在线升级仅应在健康卷上进行。
+
+. 选择您要升级的卷。
+. 在下拉菜单中点击 `Upgrade Engine`。
+. 选择您要升级到的引擎镜像。
+ .. 通常这是列表中唯一的引擎镜像，因为 UI 会将当前镜像从列表中排除。
+. 单击“确定”。
+
+在在线升级期间，用户将暂时看到副本数量翻倍。升级完成后，用户应该看到与之前相同数量的副本，并且卷的 `Engine Image` 字段应该已更新。
+
+请注意，在在线升级后，Rancher 或 Kubernetes 仍会显示引擎的旧版本镜像，而副本则显示新版本。这是预期的。如果您在卷详情页面上看到卷镜像显示为新版本，则说明升级成功。
+
+== 清理旧镜像。
+
+在您完成所有镜像的升级后，从 Longhorn UI 中选择 `Settings/Engine Image`。现在您应该能够删除非默认镜像。

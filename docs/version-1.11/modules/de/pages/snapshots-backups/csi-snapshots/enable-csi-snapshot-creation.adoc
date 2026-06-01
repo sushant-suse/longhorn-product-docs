@@ -1,0 +1,60 @@
+= Aktivieren Sie die Erstellung von CSI-Snapshots in einem Cluster
+:revdate: 2026-03-16
+:page-revdate: {revdate}
+:description: Aktivieren Sie die Unterstützung für die programmgesteuerte Erstellung von SUSE®-Speichersnapshots/Sicherungen
+:current-version: {page-component-version}
+
+== Voraussetzungen
+
+Es liegt in der Verantwortung der Kubernetes-Distribution, den Snapshot-Controller sowie die zugehörigen benutzerdefinierten Ressourcenbeschreibungen bereitzustellen.
+
+Für weitere Informationen siehe https://kubernetes.io/docs/concepts/storage/volume-snapshots/[CSI Volume Snapshots].
+
+== Wenn Ihre Kubernetes-Distribution den Snapshot-Controller nicht bündelt
+
+Sie können diese Komponenten manuell installieren.
+
+=== Voraussetzungen
+
+Bitte installieren Sie die gleiche Release-Version der Snapshot-CRDs und des Snapshot-Controllers, um sicherzustellen, dass die CRD-Version mit dem Snapshot-Controller kompatibel ist.
+
+Für die allgemeine Verwendung aktualisieren Sie die YAML-Dateien des Snapshot-Controllers mit einem geeigneten *namespace*, bevor Sie installieren.
+
+Zum Beispiel, aktualisieren Sie in einem Standard-Kubernetes-Cluster den Namespace von `default` auf `kube-system`, bevor Sie den `kubectl create`-Befehl ausführen.
+
+=== Installieren Sie die Snapshot-CRDs
+
+. Laden Sie die Dateien von https://github.com/kubernetes-csi/external-snapshotter/tree/v8.5.0/client/config/crd herunter, da {longhorn-product-name} v{patch-version} https://kubernetes-csi.github.io/docs/external-snapshotter.html[CSI external-snapshotter] v8.5.0 verwendet
+. Führen Sie `kubectl create -k client/config/crd`.
+. Tun Sie dies einmal pro Cluster.
+
+=== Installieren Sie den gemeinsamen Snapshot-Controller
+
+. Laden Sie die Dateien von https://github.com/kubernetes-csi/external-snapshotter/tree/v8.5.0/deploy/kubernetes/snapshot-controller herunter (Sie können v{patch-version} durch Ihre gewünschte {longhorn-product-name}-Version ersetzen), da {longhorn-product-name} v{patch-version} https://kubernetes-csi.github.io/docs/external-snapshotter.html[CSI external-snapshotter] v8.5.0 verwendet
+. Aktualisieren Sie den Namespace auf einen geeigneten Wert für Ihre Umgebung (zum Beispiel `kube-system`)
+. Führen Sie `kubectl create -k deploy/kubernetes/snapshot-controller`.
+. Tun Sie dies einmal pro Cluster.
++
+[NOTE]
+====
+Früher wurden die YAML-Dateien des Snapshot-Controllers standardmäßig im Namespace `default` bereitgestellt.
+Die aktualisierten YAML-Dateien werden standardmäßig im Namespace `kube-system` bereitgestellt.
+Daher empfehlen wir, den vorherigen Snapshot-Controller im Namespace `default` zu löschen, um mehrere Snapshot-Controller zu vermeiden.
+====
+
+Siehe den Abschnitt https://github.com/kubernetes-csi/external-snapshotter#usage[Verwendung] im Git-Repo des kubernetes external-snapshotter für weitere Informationen.
+
+== Fügen Sie einen Standard-`VolumeSnapshotClass` hinzu
+
+Stellen Sie die Verfügbarkeit der Snapshot-CRDs sicher. Erstellen Sie anschließend ein Standard-`VolumeSnapshotClass`.
+
+[subs="+attributes",yaml]
+----
+# Use v1 as an example
+kind: VolumeSnapshotClass
+apiVersion: snapshot.storage.k8s.io/v1
+metadata:
+  name: longhorn
+driver: driver.longhorn.io
+deletionPolicy: Delete
+----

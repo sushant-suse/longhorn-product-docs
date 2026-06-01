@@ -1,0 +1,261 @@
+= Mejores prácticas
+:revdate: 2026-02-03
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+La siguiente configuración se recomienda para entornos de producción.
+
+== Hardware mínimo recomendado
+
+* 3 nodos
+* 4 vCPUs por nodo
+* 4 GiB por nodo
+* SSD/NVMe o dispositivo de bloque de rendimiento similar en el nodo para almacenamiento (recomendado)
+* HDD/Disco giratorio o dispositivo de bloque de rendimiento similar en el nodo para almacenamiento (verificado)
+ ** 500/250 IOPS máximos por volumen (1 MiB E/S)
+ ** 500/250 rendimiento máximo por volumen (MiB/s)
+
+[WARNING]
+====
+Aunque {longhorn-product-name} puede funcionar con HDDs (discos giratorios) como almacenamiento, es importante entender que *latencia* juega un papel mucho más importante en la estabilidad del volumen que IOPS o rendimiento. Esto se debe a que los HDDs son mecánicos, dependiendo de platos giratorios y cabezales de lectura o escritura en movimiento para acceder a los datos. Este movimiento físico introduce retrasos inherentes (tiempo de búsqueda y retraso rotacional), lo que lleva a una latencia mucho más alta en comparación con los SSDs o unidades NVMe, que utilizan memoria flash y no tienen partes móviles. Esto puede causar directamente inestabilidad, especialmente cuando se están ejecutando múltiples tareas intensivas en entrada/salida, tales como:
+
+* IOs en primer plano a las réplicas
+* IOs en primer plano desde las réplicas
+* Reconstrucción de volúmenes
+* Copias de seguridad u otras cargas de trabajo
+
+La latencia aumentada debido al uso de HDDs, combinada con otras cargas de trabajo de entrada/salida, puede llevar a *inestabilidad del volumen*. Por lo tanto, recomendamos unidades *SSD o NVMe* para un mejor rendimiento y estabilidad, especialmente para cargas de trabajo de producción.
+
+Los IOPS y el rendimiento mencionados (500/250 IOPS máximos por volumen y 500/250 rendimiento máximo por volumen) están destinados como referencias generales basadas en la configuración de prueba, pero *no deben ser tratados como requisitos estrictos*. La latencia, no solo el rendimiento, es el factor más importante para garantizar la estabilidad del sistema.
+====
+
+== Arquitectura
+
+{longhorn-product-name} soporta las siguientes arquitecturas:
+
+. AMD64
+. ARM64
+
+== Sistema operativo
+
+[NOTE]
+====
+CentOS Linux ha sido eliminado de la lista de sistemas operativos verificados a continuación, ya que ha sido descontinuado en favor de CentOS Stream [https://www.redhat.com/en/blog/faq-centos-stream-updates#Q5[ref]], una distribución de Linux de lanzamiento continuo. Las pruebas para distribuciones de código abierto basadas en RHEL se centran en versiones de nivel empresarial, como Rocky Linux y Oracle Linux.
+====
+
+Las siguientes distribuciones y versiones de sistemas operativos Linux han sido verificadas durante las pruebas de lanzamiento de la v{patch-version}. Sin embargo, esto no implica que {longhorn-product-name} soporte exclusivamente estas distribuciones. {longhorn-product-name} debería funcionar bien en cualquier clúster de Kubernetes certificado que ejecute nodos Linux con una amplia gama de sistemas operativos de propósito general, así como sistemas operativos optimizados para contenedores verificados como SLE Micro.
+
+|===
+| No. | SO | Versiones
+
+| 1.
+| Ubuntu
+| 24.04
+
+| 2.
+| SUSE Linux Enterprise Server
+| 16
+
+| 3.
+| SUSE Linux Enterprise Micro
+| 6.1
+
+| 4.
+| Red Hat Enterprise Linux
+| 10.1
+|===
+
+{longhorn-product-name} depende en gran medida de la funcionalidad del núcleo de Linux y funciona mejor en ciertas versiones del mismo. Las siguientes actividades, en particular, se benefician del uso de versiones específicas del núcleo de Linux.
+
+* Optimizar o mejorar el sistema de archivos: Utiliza un núcleo de Linux con la versión `v5.8` o posterior. Consulta https://github.com/longhorn/longhorn/issues/2507#issuecomment-857195496[Problema #2507] para más detalles.
+* Habilitando la configuración xref:longhorn-system/settings.adoc#_freeze_filesystem_for_snapshot[Congelar Sistema de Archivos para Instantánea]: Utiliza un núcleo de Linux con la versión `5.17` o posterior para garantizar que un fallo de volumen durante un congelamiento del sistema de archivos no pueda bloquear un nodo.
+* Habilitando el xref:longhorn-system/v2-data-engine/prerequisites.adoc[Motor de Datos V2]: Utiliza un núcleo de Linux con la versión `5.19` o posterior para garantizar
+
+La lista a continuación contiene versiones de núcleo de Linux conocidas como defectuosas que los usuarios deben evitar utilizar:
+
+|===
+| No. | Versión | Distro | Contexto adicional
+
+| 1.
+| 6.5.6
+| Vanilla kernel
+| Relacionado con este error https://longhorn.io/kb/troubleshooting-rwx-volume-fails-to-attached-caused-by-protocol-not-supported/
+
+| 2.
+| 5.15.0-94
+| Ubuntu
+| Relacionado con este error https://longhorn.io/kb/troubleshooting-rwx-volume-fails-to-attached-caused-by-protocol-not-supported/
+
+| 3.
+| 6.5.0-21
+| Ubuntu
+| Relacionado con este error https://longhorn.io/kb/troubleshooting-rwx-volume-fails-to-attached-caused-by-protocol-not-supported/
+
+| 4.
+| 6.5.0-1014-aws
+| Ubuntu
+| Relacionado con este error https://longhorn.io/kb/troubleshooting-rwx-volume-fails-to-attached-caused-by-protocol-not-supported/
+|===
+
+== Kubernetes
+
+=== Kubernetes Version
+
+Asegúrate de que tu clúster esté ejecutando Kubernetes v1.21 o posterior antes de actualizar {longhorn-product-name}.
+
+Recomendamos ejecutar tu clúster de Kubernetes en una de las siguientes versiones. Estas versiones son las versiones activas soportadas antes del lanzamiento de {longhorn-product-name}, y han sido probadas con {longhorn-product-name} v{patch-version}.
+
+|===
+| Lanzamiento | Publicado | Fin de vida
+
+| 1.35
+| 17 de diciembre de 2025
+| 28 Feb 2027
+
+| 1.34
+| 27 de agosto de 2025
+| 27 de octubre de 2026
+
+| 1.33
+| 23 de abril de 2025
+| 28 de junio de 2026
+
+| 1.32
+| 11 de diciembre de 2024
+| 28 Feb 2026
+|===
+
+Referenciado a https://endoflife.date/kubernetes.
+
+=== CoreDNS Setup
+
+Asegúrate de que CoreDNS se ejecute con al menos dos réplicas para mantener alta disponibilidad. Esta configuración minimiza las interrupciones en la resolución DNS cuando un pod de CoreDNS experimenta una interrupción temporal.
+
+== Configuración de Nodos y Discos
+
+Recomendamos la siguiente configuración para nodos y discos.
+
+=== Usa un Disco Dedicado
+
+Se recomienda dedicar un disco para el almacenamiento de {longhorn-product-name} en producción, en lugar de usar el disco raíz.
+
+=== Almacenamiento Mínimo Disponible y Sobredimensionamiento
+
+Si necesitas usar el disco raíz, utiliza la configuración predeterminada de `minimal available storage percentage` que es del 25%, y establece `overprovisioning percentage` al 100% para minimizar la posibilidad de DiskPressure.
+
+Si estás utilizando un disco dedicado para {longhorn-product-name}, puedes reducir la configuración `minimal available storage percentage` al 10%.
+
+Para el porcentaje de Sobredimensionamiento, depende de cuánto espacio utiliza tu volumen en promedio. Por ejemplo, si tu carga de trabajo solo utiliza la mitad del tamaño del volumen disponible, puedes establecer el porcentaje de Sobredimensionamiento en `200`, lo que significa que {longhorn-product-name} considera que el disco tiene el doble del tamaño programable como su tamaño completo menos el espacio reservado.
+
+=== Gestión del espacio del disco
+
+Dado que {longhorn-product-name} actualmente no soporta sharding entre los diferentes discos, recomendamos usar https://en.wikipedia.org/wiki/Logical_Volume_Manager_(Linux)[LVM] para agregar todos los discos para {longhorn-product-name} en una sola partición, para que pueda ser fácilmente ampliada en el futuro.
+
+=== Configurando Discos Adicionales
+
+Cualquier disco adicional debe ser escrito dentro del archivo `/etc/fstab` para permitir el montaje automático después de que la máquina se reinicie.
+
+No uses un enlace simbólico para los discos adicionales. Usa `mount --bind` en lugar de `ln -s` y asegúrate de que esté en el archivo `fstab`. Para más detalles, consulta xref:nodes/multiple-disks.adoc#_use_an_alternative_path_for_a_disk_on_the_node[la sección sobre el soporte de múltiples discos.]
+
+=== Configuración de discos predeterminados antes y después de la instalación
+
+Para utilizar un directorio diferente al predeterminado `/var/lib/longhorn` para el almacenamiento, se puede cambiar la configuración `Default Data Path` antes de instalar el sistema. Para detalles sobre cómo cambiar la configuración previa a la instalación, consulta xref:longhorn-system/customize-default-settings.adoc[esta sección.]
+
+La función xref:nodes/default-disk-and-node-config.adoc[Configuración predeterminada de nodo/disco] se puede utilizar para personalizar el disco predeterminado después de la instalación. Personalizar las configuraciones predeterminadas para discos y nodos es útil para escalar el clúster porque elimina la necesidad de configurar {longhorn-product-name} manualmente para cada nuevo nodo si el nodo contiene más de un disco, o si la configuración del disco es diferente para nuevos nodos. Recuerda habilitar `Create default disk only on labeled node` si es aplicable.
+
+== Optimización del rendimiento de volúmenes
+
+Antes de configurar las cargas de trabajo, asegúrate de haber establecido los siguientes requisitos básicos para un rendimiento óptimo de los volúmenes.
+
+* SSDs SATA/NVMe o unidades de disco con rendimiento similar
+* Ancho de banda de red de 10 Gbps entre nodos
+* Clase de prioridad dedicada para componentes {longhorn-product-name} gestionados por el sistema y desplegados por el usuario. Por defecto, {longhorn-product-name} instala la clase de prioridad predeterminada `longhorn-critical`.
+
+Las siguientes secciones describen otras recomendaciones para entornos de producción.
+
+=== Rendimiento de IO
+
+* *Red de almacenamiento*: Utiliza una xref:longhorn-system/networking/storage-network.adoc#_setting_storage_network[red de almacenamiento dedicada] para mejorar el rendimiento y la estabilidad de IO.
+* *{longhorn-product-name} disco*: Utiliza un xref:nodes/multiple-disks.adoc#_add_a_disk[disco dedicado] para el almacenamiento {longhorn-product-name} en lugar de utilizar el disco raíz.
+* *Conteo de réplicas*: Establece el xref:longhorn-system/settings.adoc#_default_replica_count[número de réplicas por defecto] en "2" para lograr disponibilidad de datos con un mejor uso del espacio en disco o menos impacto en el rendimiento del sistema. Esta práctica es especialmente beneficiosa para aplicaciones intensivas en datos.
+* *Etiqueta de almacenamiento*: Utiliza xref:nodes/storage-tags.adoc[etiquetas de almacenamiento] para definir la jerarquía de almacenamiento para aplicaciones intensivas en datos. Por ejemplo, solo se pueden utilizar discos de alto rendimiento para almacenar datos sensibles al rendimiento.
+* *Localidad de datos*: Utiliza `best-effort` como la xref:high-availability/data-locality.adoc[localidad de datos] por defecto de {longhorn-product-name} StorageClasses.
++
+Para aplicaciones que soportan replicación de datos (por ejemplo, una base de datos distribuida), puedes utilizar la opción `strict-local` para asegurar que solo se crea una réplica para cada volumen. Esta práctica previene el uso adicional de espacio en disco y la sobrecarga de rendimiento de IO asociada con la replicación de volúmenes.
++
+Para aplicaciones intensivas en datos, puedes utilizar funciones de programación de pods como selector de nodos o tolerancia a taints. Estas funciones te permiten programar la carga de trabajo en un nodo específico etiquetado con almacenamiento junto con una réplica.
+
+=== Eficiencia del espacio
+
+* *Instantáneas recurrentes*: Limpia periódicamente las instantáneas generadas por el sistema y conserva solo el número de instantáneas que tenga sentido para tu implementación.
++
+Para aplicaciones con capacidad de replicación, elimina periódicamente xref:introduction/concepts.adoc#_2_4_3_deleting_snapshots[todos los tipos de instantáneas].
+
+* *Recorte recurrente del sistema de archivos*: Recorta periódicamente xref:volumes/trim-filesystem.adoc[el sistema de archivos] dentro de los volúmenes para recuperar espacio en disco.
+* *Gestión del espacio de instantáneas*: xref:snapshots-backups/volume-snapshots-backups/snapshot-space-management.adoc[Configura ajustes globales y específicos de volumen] para prevenir el agotamiento inesperado del espacio en disco.
+
+=== Recuperación tras fallos
+
+* *Copias de seguridad recurrentes*: Crea xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[trabajos de copia de seguridad recurrentes] para volúmenes de aplicaciones críticas.
+* *Copia de seguridad del sistema*: Crea xref:snapshots-backups/system-backups/create-system-backup.adoc#_create_a_longhorn_system_backup[copias de seguridad del sistema periódicas].
+
+== Despliegue de Cargas de Trabajo
+
+Si estás utilizando `ext4` como el sistema de archivos del volumen, recomendamos añadir una verificación de actividad a las cargas de trabajo para ayudar a recuperarse automáticamente de una interrupción causada por la red, un reinicio de nodo o un reinicio de Docker. Consulta xref:high-availability/volume-recovery.adoc[esta sección] para más detalles.
+
+== Mantenimiento de Volúmenes
+
+Se recomienda encarecidamente utilizar la función de copia de seguridad integrada de {longhorn-product-name}. Puedes guardar copias de seguridad en un almacén de objetos como S3 o en un servidor NFS. Guardar en un almacén de objetos es preferible porque generalmente ofrece mejor fiabilidad. Otra ventaja es que no necesitas montar y desmontar el destino, lo que puede complicar el failover y las actualizaciones de versión.
+
+Para cada volumen, programa al menos una copia de seguridad recurrente. Si debes ejecutar {longhorn-product-name} en producción sin un almacén de copias de seguridad, entonces programa al menos una instantánea recurrente para cada volumen.
+
+{longhorn-product-name} crea instantáneas automáticamente al reconstruir una réplica. Las instantáneas o copias de seguridad recurrentes también pueden limpiar automáticamente la instantánea generada por el sistema.
+
+=== CPU garantizada del gestor de instancias
+
+Recomendamos establecer la solicitud de CPU para {longhorn-product-name} los pods del gestor de instancias.
+
+=== Motor de Datos V1
+
+La configuración `Guaranteed Instance Manager CPU` te permite reservar un porcentaje de los recursos de CPU totales asignables en cada nodo para cada pod del gestor de instancias cuando el Motor de Datos V1 está habilitado. El valor por defecto es 12.
+
+Establece un valor específico de mili-CPU para los pods del gestor de instancias en un nodo particular actualizando el campo de Solicitud de CPU del Gestor de Instancias para ese nodo.
+
+[NOTE]
+====
+Este campo sobrescribe la configuración anterior para el nodo especificado.
+====
+
+Consulta xref:longhorn-system/settings.adoc#_guaranteed_instance_manager_cpu[CPU garantizada del gestor de instancias] para más detalles.
+
+=== Motor de Datos V2
+
+La configuración `Guaranteed Instance Manager CPU for V2 Data Engine` te permite reservar un número específico de mili-CPUs en cada nodo para cada pod del gestor de instancias cuando el Motor de Datos V2 está habilitado. Por defecto, el daemon de destino del Kit de Desarrollo de Rendimiento de Almacenamiento (SPDK) dentro de cada pod del gestor de instancias utiliza 1 núcleo de CPU. Configurar un valor mínimo de uso de CPU es esencial para mantener la estabilidad del motor y de las réplicas, especialmente durante períodos de alta carga de trabajo en el nodo. El valor por defecto es 1250.
+
+== StorageClass
+
+Evita modificar la Clase de Almacenamiento por defecto llamada `longhorn`. Cambiar sus parámetros puede causar problemas durante futuras actualizaciones de versión. Para cambiar los parámetros establecidos en la Clase de Almacenamiento, puedes crear una nueva Clase de Almacenamiento refiriéndote a los xref:longhorn-system/examples-resources.adoc#_storageclass[ejemplos de Clase de Almacenamiento].
+
+== Configuraciones de Programación
+
+=== Anti-afinidad suave a nivel de nodo para réplicas
+
+Recomendación: `false`
+
+Esta configuración debe establecerse en `false` en entornos de producción para asegurar la mejor disponibilidad del volumen. De lo contrario, un evento de caída de un nodo puede hacer que caigan más de una réplica de un volumen.
+
+=== Permitir la Creación de Volúmenes con Disponibilidad Degradada
+
+Recomendación: `false`
+
+Desactiva esta configuración (`false`) en entornos de producción para asegurar la máxima disponibilidad del volumen al crearlo. Cuando está habilitado (`true`), la creación de volúmenes tiene éxito incluso si el sistema solo puede programar una réplica. Esto crea un riesgo en el que el clúster se queda sin espacio sin notificar al usuario de inmediato.
+
+=== Balanceo Automático de Réplicas
+
+Recomendación: `least-effort`
+
+Para entornos de producción, recomendamos establecer el Balanceo Automático de Réplicas en `least-effort`. Esta configuración asegura que al menos una réplica se coloque en un nodo diferente en cada zona, proporcionando una alta disponibilidad (HA) adicional.
+
+En ciertos casos extremos, podrías considerar usar el `best-effort`, que intenta continuamente distribuir las réplicas de manera uniforme entre nodos y zonas. Sin embargo, esta configuración puede llevar a reconstrucciones frecuentes si el clúster es inestable.
+
+Para la mayoría de los usuarios, tener múltiples réplicas sin la configuración de Balanceo Automático de Réplicas es suficiente para lograr una HA básica, especialmente si prefieres evitar reconstrucciones excesivas y el uso de recursos.

@@ -1,0 +1,173 @@
+= 为Kubernetes StatefulSet恢复一个卷
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn 支持恢复备份，其中一个使用场景是为 Kubernetes StatefulSet 恢复数据，这需要为每个被备份的副本恢复一个卷。
+
+要恢复，请按照以下说明操作。下面的示例使用一个 StatefulSet，每个 Pod 附加一个卷，并有两个副本。
+
+. 在您的网页浏览器中连接到`Longhorn UI`页面。在`Backup`选项卡下，选择StatefulSet卷的名称。点击卷条目的下拉菜单并恢复它。给卷命名一个可以在`Persistent Volumes`中轻松引用的名称。
+ ** 对每个需要恢复的卷重复此步骤。
+ ** 例如，如果恢复一个有两个副本、卷名为 `pvc-01a` 和 `pvc-02b` 的 StatefulSet，恢复过程可能如下所示：
+
++
+|===
+| 备份名称 | 恢复的卷
+
+| pvc-01a
+| statefulset-vol-0
+
+| pvc-02b
+| statefulset-vol-1
+|===
+. 在 Kubernetes 中，为每个创建的 Longhorn 卷创建一个 `Persistent Volume`。给卷命名一个便于以后引用的名称，适用于 `Persistent Volume Claims`。`storage`容量、`numberOfReplicas`、`storageClassName` 和 `volumeHandle`必须在下方替换。在示例中，我们在 Longhorn 中引用 `statefulset-vol-0` 和 `statefulset-vol-1`，并使用 `longhorn` 作为我们的 `storageClassName`。
++
+----
+ apiVersion: v1
+ kind: PersistentVolume
+ metadata:
+   name: statefulset-vol-0
+ spec:
+   capacity:
+     storage: <size> # must match size of Longhorn volume
+   volumeMode: Filesystem
+   accessModes:
+     - ReadWriteOnce
+   persistentVolumeReclaimPolicy: Delete
+   csi:
+     driver: driver.longhorn.io # driver must match this
+     fsType: ext4
+     volumeAttributes:
+       numberOfReplicas: <replicas> # must match Longhorn volume value
+       staleReplicaTimeout: '30' # in minutes
+     volumeHandle: statefulset-vol-0 # must match volume name from Longhorn
+   storageClassName: longhorn # must be same name that we will use later
+ ---
+ apiVersion: v1
+ kind: PersistentVolume
+ metadata:
+   name: statefulset-vol-1
+ spec:
+   capacity:
+     storage: <size>  # must match size of Longhorn volume
+   volumeMode: Filesystem
+   accessModes:
+     - ReadWriteOnce
+   persistentVolumeReclaimPolicy: Delete
+   csi:
+     driver: driver.longhorn.io # driver must match this
+     fsType: ext4
+     volumeAttributes:
+       numberOfReplicas: <replicas> # must match Longhorn volume value
+       staleReplicaTimeout: '30'
+     volumeHandle: statefulset-vol-1 # must match volume name from Longhorn
+   storageClassName: longhorn # must be same name that we will use later
+----
++
+如果您使用加密卷，创建 `PersistentVolume` 时必须指定 `nodePublishSecretRef` 和 `nodeStageSecretRef`。
++
+[,yaml]
+----
+kind: PersistentVolume
+metadata:
+  name: statefulset-encrypted-vol-0
+spec:
+  capacity:
+    storage: <size>
+    volumeMode: Filesystem
+    accessModes:
+      - ReadWriteOnce
+    persistentVolumeReclaimPolicy: Delete
+    csi:
+      driver: driver.longhorn.io
+      fsType: ext4
+      nodePublishSecretRef:
+        name: <secret-name>
+        namespace: <namespace>
+      nodeStageSecretRef:
+        name: <secret-name>
+        namespace: <namespace>
+      volumeAttributes:
+        numberOfReplicas: <replicas>
+        staleReplicaTimeout: "30"
+      volumeHandle: statefulset-encrypted-vol-0
+    storageClassName: longhorn
+----
+
+. 在将部署 `namespace` 的 `StatefulSet` 中，为每个 `Persistent Volume` 创建 PersistentVolume Claims *for each*。`Persistent Volume Claim`的名称必须遵循以下命名方案：
++
+----
+ <name of Volume Claim Template>-<name of StatefulSet>-<index>
+----
++
+StatefulSet Pods是零索引的。在此示例中，`卷声明模板`的名称为 +`data`，`StatefulSet` 的名称为 `webapp`，并且有两个副本，索引为 `0` 和 `1`。
++
+----
+ apiVersion: v1
+ kind: PersistentVolumeClaim
+ metadata:
+   name: data-webapp-0
+ spec:
+   accessModes:
+   - ReadWriteOnce
+   resources:
+     requests:
+       storage: 2Gi # must match size from earlier
+   storageClassName: longhorn # must match name from earlier
+   volumeName: statefulset-vol-0 # must reference Persistent Volume
+ ---
+ apiVersion: v1
+ kind: PersistentVolumeClaim
+ metadata:
+   name: data-webapp-1
+ spec:
+   accessModes:
+   - ReadWriteOnce
+   resources:
+     requests:
+       storage: 2Gi # must match size from earlier
+   storageClassName: longhorn # must match name from earlier
+   volumeName: statefulset-vol-1 # must reference Persistent Volume
+----
+
+. 创建 `StatefulSet`：
++
+----
+ apiVersion: apps/v1beta2
+ kind: StatefulSet
+ metadata:
+   name: webapp # match this with the PersistentVolumeClaim naming scheme
+ spec:
+   selector:
+     matchLabels:
+       app: nginx # has to match .spec.template.metadata.labels
+   serviceName: "nginx"
+   replicas: 2 # by default is 1
+   template:
+     metadata:
+       labels:
+         app: nginx # has to match .spec.selector.matchLabels
+     spec:
+       terminationGracePeriodSeconds: 10
+       containers:
+       - name: nginx
+         image: registry.k8s.io/nginx-slim:0.8
+         ports:
+         - containerPort: 80
+           name: web
+         volumeMounts:
+         - name: data
+           mountPath: /usr/share/nginx/html
+   volumeClaimTemplates:
+   - metadata:
+       name: data # match this with the PersistentVolumeClaim naming scheme
+     spec:
+       accessModes: [ "ReadWriteOnce" ]
+       storageClassName: longhorn # must match name from earlier
+       resources:
+         requests:
+           storage: 2Gi # must match size from earlier
+----
+
+*结果：*恢复的数据现在应该可以从 `StatefulSet` 内部访问 `Pods`。

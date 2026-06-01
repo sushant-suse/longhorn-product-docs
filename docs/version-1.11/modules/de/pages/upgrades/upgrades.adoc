@@ -1,0 +1,102 @@
+= Aufrüstungen
+:revdate: 2026-03-06
+:page-revdate: {revdate}
+:doctype: book
+:current-version: {page-component-version}
+
+== Auslaufen & Inkompatibilität
+
+Es wurden keine ausgelaufenen oder inkompatiblen Änderungen in v{patch-version} eingeführt.
+
+== Durchsetzung des Upgrade-Pfades und Verhinderung von Downgrades
+
+Ab Version {longhorn-product-name} v1.5.0 werden Upgrades nur von einer Minor-Version zur nächsten aufeinanderfolgenden Minor-Version unterstützt. Zum Beispiel können Sie von 1.5.x auf 1.6.x upgraden, aber das Überspringen von Versionen (wie von 1.4.x auf 1.6.x) wird nicht unterstützt. Wenn Sie versuchen, von einer nicht unterstützten Version ein Upgrade durchzuführen oder eine Minor-Version zu überspringen, schlägt die Operation automatisch fehl. Sie können jedoch zur zuvor installierten Version ohne Unterbrechung des Dienstes oder Ausfallzeit zurückkehren.
+
+Darüber hinaus unterstützt {longhorn-product-name} keine Downgrades. Diese Einschränkung hilft, unerwartetes Systemverhalten und Probleme im Zusammenhang mit Funktionsinkompatibilität, Auslaufen oder Entfernung zu verhindern.
+
+[CAUTION]
+====
+* Sobald Sie erfolgreich auf v{patch-version} ein Upgrade durchgeführt haben, dürfen Sie nicht zur zuvor installierten Version zurückkehren.
+* Downgrades werden nicht unterstützt und sind daher nicht empfohlen.
+====
+
+Die folgende Tabelle skizziert die unterstützten Upgrade-Pfade.
+
+[cols="^,^,^,^"]
+|===
+| Aktuelle Version | Zielversion | Unterstützt | Beispiel
+
+| x.y.*
+| x.(y+1).*
+| ✓
+| v1.4.2 bis v1.5.1
+
+| x.y.*
+| x.y.(*+n)
+| ✓
+| v1.5.0 bis v1.5.1
+
+| x.y[^lastMinorVersion].*
+| (x+1).y.*
+| ✓
+| v1.30.0 bis v2.0.0
+
+| x.(y-1).*
+| x.(y+1).*
+| X
+| v1.3.3 bis v1.5.1
+
+| x.(y-2).*
+| x.(y+1).*
+| X
+| v1.2.6 bis v1.5.1
+|===
+
+== Manuelle Überprüfungen vor Upgrades
+
+Automatisierte Überprüfungen werden nur für einige Upgrade-Pfade durchgeführt, und der Vor-Upgrade-Checker deckt möglicherweise nicht alle Szenarien ab. Manuelle Überprüfungen, die entweder mit kubectl oder der Benutzeroberfläche durchgeführt werden, werden für diese Szenarien empfohlen. Sie können mildernde Maßnahmen ergreifen oder das Upgrade aufschieben, bis die Probleme behoben sind.
+
+* Stellen Sie sicher, dass alle V2 Data Engine-Volumes getrennt und die Replikate gestoppt sind. Die V2 Data Engine unterstützt derzeit keine Live-Upgrades.
+* Vermeiden Sie Upgrades, wenn Volumes den Status "Fehlerhaft" haben. Wenn alle Replikate als unbrauchbar erachtet werden, können sie gelöscht werden und Daten können dauerhaft verloren gehen (wenn keine brauchbaren Sicherungen vorhanden sind).
+* Vermeiden Sie Upgrades, wenn ein fehlgeschlagenes Backing Image vorhanden ist. Für weitere Informationen siehe xref:volumes/backing-images/backing-images.adoc[Backing Image].
+* Erstellen Sie ein Longhorn-System-Backup, bevor Sie das Upgrade durchführen. Siehe xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn-System-Backup] für Anweisungen. Ein System-Backup stellt sicher, dass alle kritischen Ressourcen, wie Volumes und Backing Images, gesichert sind und wiederhergestellt werden können, falls Probleme auftreten.
+
+== Upgrade {longhorn-product-name}
+
+Normalerweise gibt es zwei Schritte im Upgrade-Prozess: Zuerst den Longhorn Manager auf die neueste Version upgraden, dann die Longhorn Engine manuell auf die neueste Version mit dem neuesten Longhorn Manager upgraden.
+
+=== 1. Upgrade Longhorn Manager
+
+* Um von v{current-version}.x zu upgraden, xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrade Longhorn Manager].
+
+=== 2. Manuelles Upgrade der Longhorn Engine
+
+Nachdem der Longhorn Manager upgegradet wurde, muss auch die Longhorn Engine upgegradet werden xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[unter Verwendung der {longhorn-product-name} Benutzeroberfläche].
+
+=== 3. Automatisches Upgrade der Longhorn Engine
+
+Seit {longhorn-product-name} v1.1.1 bieten wir eine Option an, um Ihnen zu helfen, xref:upgrades/longhorn-components/auto-upgrade-engine.adoc[Engines automatisch zu upgraden].
+
+=== 4. Automatische Migration wiederkehrender Jobs
+
+Mit der Einführung des neuen, labelgesteuerten `Recurring Job` Features hat {longhorn-product-name} das `RecurringJobs` Feld in der Volume-Spezifikation entfernt und plant, `RecurringJobs` in der StorageClass auslaufen zu lassen.
+
+Während des Upgrades führt {longhorn-product-name} automatisch Folgendes aus:
+
+* Erstellt neue CRs für wiederkehrende Jobs aus dem `recurringJobs` Feld in der Volume-Spezifikation und konvertiert sie in die Volume-Labels.
+* Erstellt neue CRs für wiederkehrende Jobs aus dem `recurringJobs` in der StorageClass und konvertiert sie in den neuen `recurringJobSelector` Parameter.
+
+Besuchen Sie xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[Wiederkehrende Snapshot und Sicherungen] für weitere Informationen über das neue `Recurring Job` Feature.
+
+== Erweiterte Lektüre
+
+Besuchen Sie https://longhorn.io/kb/troubleshooting-some-old-instance-manager-pods-are-still-running-after-upgrade[Einige alte Instanz-Manager-Pods laufen weiterhin nach dem Upgrade] für weitere Informationen über die Bereinigungsstrategie der Instanz-Manager-Pods während des Upgrades.
+
+== Benötigen Sie Hilfe?
+
+Wenn Sie Probleme haben, melden Sie diese bitte https://github.com/longhorn/longhorn/issues[hier] und fügen Sie Ihre Sicherungs-YAML-Dateien sowie die Protokolle des Managers bei.
+
+[IMPORTANT]
+====
+{longhorn-product-name} erlaubt nur Upgrades von Patch-Versionen der letzten Minor-Version vor der neuen Major-Version. Wenn v1.8.0 die letzte Minor-Version vor v2.0 ist, können Sie von jeder Patch-Version von v1.8.0 auf jede Patch-Version von v2.0 upgraden.
+====

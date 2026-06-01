@@ -1,0 +1,38 @@
+= Expulsão de Réplicas em Discos ou Nós Desativados
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+O Longhorn suporta a expulsão automática das réplicas nos discos ou nós desativados selecionados para outros discos e nós adequados. Enquanto isso, o mesmo nível de alta disponibilidade é mantido durante a expulsão.
+
+NOTE: Esse recurso de expulsão só pode ser ativado quando os discos ou nós selecionados têm o agendamento desativado. E durante o tempo de expulsão, os discos ou nós selecionados não podem ser reativados para agendamento.
+
+NOTE: Esse recurso de expulsão funciona para volumes que são `Attached` e `Detached`. Se o volume estiver 'Desanexado', o Longhorn irá automaticamente anexá-lo antes da expulsão e desanexá-lo automaticamente uma vez que a expulsão esteja concluída.
+
+Por padrão, `Eviction Requested` para discos ou nós é `false`. E para manter o mesmo nível de alta disponibilidade durante a expulsão, o Longhorn só expulsa uma réplica por volume após a reconstrução da réplica para esse volume ser bem-sucedida.
+
+== Selecionar Discos ou Nós para Expulsão
+
+Para expulsar discos de um nó,
+
+. Vá para a aba `Node`, selecione um dos nós e escolha `Edit Node and Disks` no menu suspenso.
+. Certifique-se de que o disco está desativado para agendamento e defina `Scheduling` como `Disable`.
+. Defina `Eviction Requested` como `true` e salve.
+
+Para expulsar um nó,
+
+. Vá para a aba `Node`, selecione um ou mais nós e clique em `Edit Node`.
+. Certifique-se de que o nó está desativado para agendamento e defina `Scheduling` como `Disable`.
+. Defina `Eviction Requested` como `true` e salve.
+
+== Cancelar Expulsão de Discos ou Nós
+
+Para cancelar a expulsão de um disco ou de um nó, defina a configuração correspondente `Eviction Requested` para `false`.
+
+== Verificar Status da Expulsão
+
+O número `Replicas` nos discos ou nós selecionados deve ser reduzido a 0 uma vez que a expulsão seja bem-sucedida.
+
+Se você clicar no número `Replicas`, ele mostrará o nome da réplica neste disco. Quando você clicar no nome da réplica, a interface do Longhorn redirecionará a página da web para a página do volume correspondente, e exibirá o status do volume. Se houver algum erro, por exemplo, sem espaço, ou não foi possível encontrar outro disco agendável (falha de agendamento), o erro será exibido. Todos os erros serão registrados no log de Eventos.
+
+Se ocorrer algum erro durante a expulsão, a expulsão será suspensa até que novo espaço tenha sido liberado ou será cancelada. E se a expulsão for cancelada, as réplicas restantes nos discos ou nós selecionados permanecerão nos discos ou nós.

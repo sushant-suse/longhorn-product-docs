@@ -1,0 +1,33 @@
+= Condições do Nó
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+As condições do nó descrevem o status de todos os nós de trabalho e são usadas para verificar as configurações do ambiente dos nós de trabalho para identificar possíveis problemas antes de qualquer impacto no sistema.
+
+Condições do nó:
+
+* `Ready`: Indica que o nó está pronto para operações do Longhorn, incluindo que um `longhorn-manager` pod está em execução neste nó, o nó do Kubernetes está pronto e não há pressão sobre os recursos físicos.
++
+* `Schedulable`: Indica que o nó não está isolado e a carga de trabalho pode ser agendada para este nó.
++
+* `MountPropagation`: Indica que o nó suporta a propagação de montagem. Isso é necessário para o compartilhamento de volumes montados por um contêiner com outros contêineres no mesmo pod do Longhorn, ou para outros pods do Longhorn no mesmo nó.
++ 
+* `Multipathd`: Verifica se o serviço `multipathd` não está em execução no nó, o que pode afetar o pod com a inicialização do volume. Veja link:https://longhorn.io/kb/troubleshooting-volume-with-multipath/[Resolução de Problemas: `MountVolume.SetUp failed for volume` devido ao multipathd no nó].
+* `RequiredPackages`: Verifica se todos os pacotes necessários (xref:installation-setup/requirements.adoc#_installing_nfsv4_client[cliente NFS], xref:installation-setup/requirements.adoc#_installing_open-_scsi[ferramenta iSCSI], xref:installation-setup/requirements.adoc#_installing_cryptsetup_and_luks[cryptsetup], xref:installation-setup/requirements.adoc#_installing_device_mapper_userspace_tool[dmsetup]) existem para o Longhorn
++
+* `NFSClientInstalled`: Verifica se algum dos seguintes clientes NFS é suportado: `v4.2`, `v4.1` ou `v4.0`. O cliente NFS é necessário para volume RWX e backup.
++
+* `KernelModulesLoaded`: Verifica se os seguintes módulos do kernel estão carregados:
++
+** `dm_crypt`: Necessário para criptografia de volume e imagem de backup.
+** `vfio_pci`: Necessário para gerenciamento de SPDK e dispositivos PCI (V2 Data Engine).
+** `uio_pci_generic`: Necessário para suporte a UIO do SPDK (V2 Data Engine).
+** `nvme_tcp`: Necessário para uso de dispositivos NVMe-over-TCP (V2 Data Engine).
++
+* `HugePagesAvailable`: Indica se o nó está configurado corretamente com HugePages (2Mi) conforme exigido pelo Longhorn V2 Data Engine. Isso inclui verificar o seguinte:
++
+** HugePages (2Mi) são registrados como um recurso do Kubernetes (`hugepages-2Mi`).
+** A capacidade de HugePages configurada atende ou excede o valor definido na configuração `v2-data-engine-hugepage-limit`.
+
+As condições do nó não bloqueiam a implantação do Longhorn, mas resultam em avisos no recurso `Node` do Longhorn. Para mais informações, veja xref:installation-setup/requirements.adoc#_requirements[Requisitos de Instalação do Longhorn].

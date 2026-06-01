@@ -1,0 +1,123 @@
+= Mehrere Datenträger
+:revdate: 2025-07-04
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} unterstützt die Verwendung von mehr als einem Datenträger auf den Knoten zur Speicherung der Volumendaten.
+
+Standardmäßig speichert {longhorn-product-name} Volumendaten im Verzeichnis `/var/lib/longhorn` auf dem Host. Um einen anderen Datenträger für die Speicherung zu verwenden, können Sie einen neuen Datenträger hinzufügen und die Planung für das Standardverzeichnis deaktivieren. Dieser Ansatz bietet die Flexibilität, die Speicherung basierend auf Ihren spezifischen Anforderungen zu verwalten.
+
+== Datenträger hinzufügen
+
+Bevor Sie einen Datenträger zu {longhorn-product-name} hinzufügen, montieren Sie ihn in ein Verzeichnis auf dem Host des Longhorn-Knotens.
+
+. **Wählen Sie einen Datenträger**: Wählen Sie den physischen oder virtuellen Datenträger für die Longhorn-Speicherung aus und formatieren Sie ihn mit einem extent-basierten Dateisystem (zum Beispiel ext4 oder XFS).
+. **Datenträger einhängen**: Hängen Sie den Datenträger in ein Verzeichnis auf dem Host ein, wie zum Beispiel `/mnt/example-disk`. Stellen Sie sicher, dass das Verzeichnis zugänglich und korrekt konfiguriert ist.
+
+Nachdem der Datenträger eingehängt ist, können Sie ihn zu {longhorn-product-name} hinzufügen, indem Sie entweder die Benutzeroberfläche oder das `kubectl` Kommandozeilenwerkzeug verwenden.
+
+*Verwendung der {longhorn-product-name} Benutzeroberfläche*
+
+. Gehen Sie zum Tab *Knoten*, wählen Sie einen Knoten aus und wählen Sie *Datenträger bearbeiten* aus dem Dropdown-Menü.
+. Fügen Sie den Einhängepunkt des Datenträgers zur Liste der Datenträger hinzu.
+
+*Verwendung von `kubectl`*
+
+. Führen Sie `kubectl edit node.longhorn.io <node-name>` aus, um die Longhorn-Knotenressource zu ändern.
+. Fügen Sie den Einhängepunkt zu `spec.disks` hinzu. Beispiel:
++
+[,yaml]
+----
+...
+spec:
+  ...
+  disks:
+    ...
+    example-disk:
+      allowScheduling: true
+      diskDriver: ""
+      diskType: filesystem
+      evictionRequested: false
+      path: /mnt/example-disk
+      storageReserved: 0
+      tags: []
+...
+----
++
+. Speichern und beenden Sie den Editor.
+
+Sobald ein Datenträger hinzugefügt wird:
+
+* {longhorn-product-name} erkennt automatisch die Speicherdetails des Datenträgers, wie maximale und verfügbare Kapazität.
+* Wenn der Datenträger zum Speichern von Volumendaten geeignet ist, beginnt {longhorn-product-name} mit der Planung von Volumen dafür.
+
+[NOTE]
+====
+. Sie können keinen Einhängepunkt hinzufügen, den ein anderer {longhorn-product-name}-Datenträger bereits verwendet.
+. {longhorn-product-name} verwendet die Dateisystem-ID, um doppelte Einhänge zu erkennen. Daher können Sie keinen Datenträger mit der *gleichen Dateisystem-ID* wie einen anderen Datenträger auf demselben Knoten hinzufügen.
++
+Für weitere Informationen siehe das Problem https://github.com/longhorn/longhorn/issues/2477[#2477].
+====
+
+=== Reservierung des Root-Datenträgers
+
+Optional können Sie das Feld *Reservierter Speicher* in der Benutzeroberfläche oder `spec.disks.<disk-name>.storageReserved` verwenden, um einen Teil des Speicherplatzes (in Bytes) für andere Zwecke zu reservieren. {longhorn-product-name} wird diesen reservierten Speicherplatz nicht für Volumendaten verwenden.
+
+Um die Stabilität des Knotens aufrechtzuerhalten, wenn die Rechenressourcen (zum Beispiel Speicher oder Datenträger) unter Druck stehen, benötigt `kubelet` etwas freien Speicherplatz. Wenn diese kritischen Ressourcen erschöpft sind, kann dies zu Instabilität des Knotens führen.
+
+Standardmäßig reserviert {longhorn-product-name} 30 % des Speicherplatzes des Root-Datenträgers (`/var/lib/longhorn`), um Probleme wie `DiskPressure`-Bedingungen von `kubelet` zu verhindern, insbesondere nach der Planung mehrerer Volumen. Die Einstellung `storage-reserved-percentage-for-default-disk` steuert dieses Verhalten.
+
+=== Verwenden Sie einen alternativen Pfad für einen Datenträger auf dem Knoten.
+
+Wenn Sie einen anderen Pfad für einen Datenträger (anstatt des ursprünglichen Einhängepunkts) verwenden möchten, können Sie `mount --bind` verwenden, um einen alternativen Pfad zu erstellen. Verwenden Sie *nicht* einen symbolischen Link (`ln -s`), da symbolische Links innerhalb von Longhorn-Pods nicht richtig aufgelöst werden.
+
+Stellen Sie sicher, dass der alternative Pfad nach einem Neustart des Knotens erneut eingehängt wird, zum Beispiel, indem Sie ihn zu `/etc/fstab` hinzufügen.
+
+== Entfernen Sie einen Datenträger
+
+Knoten und Datenträger können von zukünftigen Planungen ausgeschlossen werden. Beachten Sie, dass jeder Speicher, der bereits auf einem Knoten geplant ist, nicht automatisch freigegeben wird, wenn die Planung für diesen Knoten deaktiviert ist.
+
+Um einen Datenträger zu entfernen:
+
+. Deaktivieren Sie die Planung für den Datenträger.
+. Stellen Sie sicher, dass keine Replikate oder Sicherungsbilder auf dem Datenträger verbleiben, einschließlich solcher im Fehlerzustand. Für Anweisungen zum Entfernen von Replikaten von deaktivierten Datenträgern siehe xref:nodes/disks-or-nodes-eviction.adoc#_select_disks_or_nodes_for_eviction[Wählen Sie Datenträger oder Knoten zum Entfernen].
+
+Sobald der Datenträger leer und die Planung deaktiviert ist, können Sie ihn sicher aus der Konfiguration des Knotens entfernen.
+
+== Konfiguration
+
+Zwei globale Einstellungen beeinflussen die Volumenplanung:
+
+* `StorageOverProvisioningPercentage` definiert den maximalen Gesamtspeicher, der auf einem Datenträger *geplant* werden kann, relativ zu seiner nutzbaren Kapazität. Die Formel ist:
+
+[,text]
+----
+ScheduledStorage / (MaximumStorage - ReservedStorage)
+----
+
+Standardmäßig ist diese Einstellung `100`%.
+
+Zum Beispiel betrachtet {longhorn-product-name} bei einem 200 GiB Datenträger, von dem 50 GiB reserviert sind, 150 GiB nutzbaren Speicher. Mit der Standardeinstellung kann {longhorn-product-name} bis zu 150 GiB Volumendaten planen.
+
+Da Arbeitslasten typischerweise nicht die gesamte zugewiesene Volumengröße verbrauchen und {longhorn-product-name} spärliche Dateien zur Speicherung von Daten verwendet, ist es im Allgemeinen sicher, diese Einstellung zu erhöhen, um die Nutzung des Datenträgers zu optimieren.
+
+* `StorageMinimalAvailablePercentage` gibt den minimalen Prozentsatz an freiem Speicher an, der auf einem Datenträger verbleiben muss, um neue Replikate zu planen. Die Formel ist:
+
+[,text]
+----
+AvailableStorage / MaximumStorage
+----
+
+Standardmäßig ist diese Einstellung `25`%.
+
+Zum Beispiel stoppt {longhorn-product-name} die Planung neuer Replikate für einen 200 GiB Datenträger, bei dem 50 GiB reserviert sind, wenn der verfügbare Speicher unter 37,5 GiB (25 % von 150 GiB) fällt. Ein neues Volumen wird ebenfalls nicht geplant, wenn seine Größe den verfügbaren Speicher unter dieses Limit drücken würde.
+
+Diese Einstellung hilft, zu verhindern, dass Datenträger zu voll werden, was zu Fehlern bei der Planung oder Problemen mit der Volumenoperation führen könnte.
+
+[WARNING]
+====
+{longhorn-product-name} kann derzeit das `StorageMinimalAvailablePercentage` Limit in allen Szenarien nicht vollständig durchsetzen, weil:
+
+. Longhorn-Volumen könnten mehr Speicherplatz verwenden als ihre angeforderte Größe, insbesondere wenn Snapshots erstellt werden.
+. {longhorn-product-name} erlaubt standardmäßig eine Überprovisionierung.
+====

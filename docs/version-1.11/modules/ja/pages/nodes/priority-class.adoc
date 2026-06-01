@@ -1,0 +1,52 @@
+= 優先クラス
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+優先クラスの設定は、クラスター内の{longhorn-product-name}ワークロードに対して高い優先度を設定するために使用でき、ノードの圧力状況で最初に追い出されることを防ぎます。
+
+ポッドの優先度がどのように機能するかについての詳細は、 https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/[公式Kubernetesドキュメント]を参照してください。
+
+== 優先クラスの設定
+
+{longhorn-product-name}ユーザーがデプロイメントしたコンポーネント（例：Longhorn Manager、Longhorn Driver、{longhorn-product-name} UI）とシステム管理コンポーネント（例：インスタンスマネージャー、CSIドライバー、エンジンイメージ）で構成されています。
+両方のタイプのコンポーネントに対して優先クラスを設定する必要があります。以下の詳細を参照してください。
+
+[discrete]
+=== {longhorn-product-name}のインストール中に優先クラスを設定する
+
+{longhorn-product-name}は、次のアクションが行われない場合、優先クラス`longhorn-critical`を作成し、ユーザーがデプロイメントしたコンポーネントまたはシステム管理コンポーネントのデフォルトとして設定します。
+
+. システム管理コンポーネントのための汚染優先クラスを設定する：xref:longhorn-system/customize-default-settings.adoc[デフォルト設定をカスタマイズする]に従って、`priority-class`のデフォルト設定の値を変更して優先クラスを設定します。
+. ユーザーがデプロイメントしたコンポーネントのための汚染優先クラスを設定する：{longhorn-product-name}をデプロイメントする方法に応じて、HelmチャートまたはデプロイメントYAMLファイルを修正します。
+
+WARNING: 優先クラスの設定が無効な場合（優先クラスが存在しないなど）、{longhorn-product-name}は起動しません。
+この場合、`kubectl -n longhorn-system describe daemonset.apps/longhorn-manager`を使用してlonghorn-manager DaemonSetのステータスを確認することで確認できます。
+この場合、{longhorn-product-name}をアンインストールし、インストールを再起動する必要があります。
+
+[discrete]
+=== {longhorn-product-name}のインストール後に優先クラスを設定する
+
+. システム管理コンポーネントのための汚染優先クラスを設定する：優先クラスの設定は、{longhorn-product-name} UIでmenu:設定[優先クラス]をクリックすることで見つけることができます。
+. ユーザーがデプロイメントしたコンポーネントのための汚染優先クラスを設定する：{longhorn-product-name}をデプロイメントする方法に応じて、HelmチャートまたはデプロイメントYAMLファイルを修正します。
+
+ユーザーはここで優先クラスを更新または削除できますが、これによりすべての{longhorn-product-name}システムコンポーネントが再作成されることに注意してください。
+優先クラスの設定は、無効な優先クラスのように見える値を拒否します。
+
+== 使用方法
+
+希望する優先クラスの設定がすぐに適用されるようにするために、設定を構成する前に、すべてのワークロードを停止し、すべてのLonghornボリュームを切り離してください。
+
+{longhorn-product-name} はすべてのコンポーネントが再起動されると、一時的に利用できなくなります。
+優先クラスの設定を変更した後は、Longhornシステムを操作しないでください。Longhornコンポーネントが再起動されます。
+
+すべてのLonghornボリュームが切り離されると、カスタマイズされた設定がシステム管理コンポーネントに即座に適用されます。
+1つ以上のLonghornボリュームがまだ接続されている場合、エンジンやレプリカインスタンスが実行されていないときのみ、カスタマイズされた設定がインスタンスマネージャーに適用されます。残りのボリュームを切り離した後、設定を再構成する必要があります。あるいは、次の設定同期を1時間後に待つこともできます。
+
+{longhorn-product-name}によって使用されている優先クラスを削除しないでください。これにより、新しい {longhorn-product-name} ワークロードがオンラインにならない可能性があります。
+
+== 履歴
+
+https://github.com/longhorn/longhorn/issues/1487[オリジナル機能リクエスト]

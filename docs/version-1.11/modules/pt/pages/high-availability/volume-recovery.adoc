@@ -1,0 +1,39 @@
+= Recuperação de Volume
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+O Longhorn fornece dois mecanismos para manter a funcionalidade do volume em uma variedade de situações.
+
+== Exclusão Automática de Pods de Carga de Trabalho
+
+Esse mecanismo de recuperação é ativado pela configuração xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[_Excluir Automaticamente o Pod de Carga de Trabalho quando o Volume for desanexado inesperadamente_].
+
+Quando uma das seguintes situações ocorre, o Longhorn tenta automaticamente excluir pods de carga de trabalho que são gerenciados por um controlador (por exemplo, Deployment, StatefulSet ou DaemonSet). Após a exclusão, o controlador reinicia o pod de carga de trabalho e o Kubernetes cuida da reanexação e remontagem do volume.
+
+. Um volume foi desanexado inesperadamente, possivelmente devido a uma https://github.com/longhorn/longhorn/issues/703[atualização do Kubernetes], https://github.com/longhorn/longhorn/issues/686[reinicialização do tempo de execução do contêiner], problema de conectividade de rede ou falha do mecanismo de volume.
+. Um volume foi automaticamente recuperado após todas as réplicas se tornarem defeituosas, possivelmente devido a um problema de conectividade de rede. O Longhorn tenta identificar as réplicas utilizáveis e as utiliza para o volume.
+. Ocorreu um erro em um pod do Share Manager que utiliza um volume RWX.
+
+Se você deseja impedir que o Longhorn exclua automaticamente os pods de carga de trabalho, desative a configuração xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[_Excluir Automaticamente o Pod de Carga de Trabalho quando o Volume for Desconectado Inesperadamente_] na interface do Longhorn.
+
+O Longhorn não exclui pods sem um controlador porque tais pods não podem ser reiniciados após a exclusão. Para recuperar volumes que estão desanexados inesperadamente, você deve excluir e reiniciar manualmente os pods sem um controlador.
+
+== Remontagem Automática de Volume
+
+Esse mecanismo de recuperação não é controlado por nenhuma configuração específica.
+
+O estado de um volume pode mudar para somente leitura quando ocorrem erros de IO. Erros de IO podem ser causados por uma variedade de problemas, incluindo os seguintes:
+
+* Desconexão de rede: Conexão interrompida entre o mecanismo e as réplicas.
+* Alta latência de disco: Atraso significativo na transferência de dados entre uma réplica e o disco correspondente.
+
+O Longhorn verifica o estado do ponto de montagem global do volume a cada 10 segundos. Quando o sistema de arquivos do volume muda para somente leitura, o Longhorn atualiza a condição para o mecanismo de dados do volume. O Longhorn então tenta automaticamente remontar o ponto de montagem global no host para mudar o estado de volta para leitura/gravação. Após a remontagem bem-sucedida, os pods de carga de trabalho continuam funcionando sem interrupções. No entanto, se o ponto de montagem se tornar protegido contra gravação e o Longhorn falhar ao remontar o ponto de montagem, você ainda pode precisar recriar manualmente o pod de carga de trabalho para forçá-lo a se reanexar e remontar o volume.
+
+NOTE: Esse mecanismo pode não funcionar em algumas situações. Por exemplo, quando o mecanismo de dados do volume falha, o Longhorn automaticamente desanexa e reanexa o volume. O sistema de arquivos muda para somente leitura neste caso. O Longhorn detectará o modo somente leitura e atualizará o estado, mas <<_automatic_volume_remounting,Remontagem Automática de Volume>> não pode mudá-lo de volta para leitura/gravação porque o dispositivo agora está protegido contra gravação. Neste caso, você pode apenas contar com o mecanismo <<_automatic_workload_pod_deletion,Exclusão Automática de Pods de Carga de Trabalho>>, que permite a remontagem do volume após a recriação do pod de carga de trabalho.
+
+== Resumo
+
+<<_automatic_workload_pod_deletion,Exclusão Automática de Pods de Carga de Trabalho>> é acionada quando ocorrem falhas inesperadas. O controlador exclui e então reinicia o pod de carga de trabalho, e o Kubernetes cuida da reanexação e remontagem do volume. O processo pode causar interrupções na carga de trabalho. Se você quiser impedir que o Longhorn exclua automaticamente os pods de carga de trabalho, desative a configuração xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[_Excluir Automaticamente o Pod de Carga de Trabalho quando o Volume for desanexado inesperadamente_] na interface do Longhorn.
+
+<<_automatic_volume_remounting,Remontagem Automática de Volume>> é acionada quando o sistema de arquivos do volume muda para somente leitura. O Longhorn remontará o ponto de montagem global no host para mudar o estado de volta para leitura/gravação.

@@ -1,0 +1,71 @@
+= Reconstruction de répliques à l'échelle
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+À partir de la version v1.11.0, {longhorn-product-name} prend en charge *la reconstruction de répliques à l'échelle*, permettant à une réplique en reconstruction de récupérer des données d'instantané à partir de plusieurs répliques saines simultanément pour améliorer les performances de reconstruction.
+
+== Introduction
+
+Traditionnellement, {longhorn-product-name} reconstruit une réplique défaillante en récupérant toutes les données d'instantané d'une seule réplique saine. Avec la reconstruction de répliques à l'échelle, la réplique en reconstruction peut récupérer des données d'instantané à partir de plusieurs répliques sources simultanément, ce qui peut réduire le temps de reconstruction.
+
+Cette fonctionnalité est particulièrement bénéfique lorsque les volumes contiennent de petits fragments de données dispersés ainsi que des trous dans leurs instantanés, car elle permet une meilleure utilisation de la bande passante réseau disponible et un traitement parallèle.
+
+== Fonctionnement
+
+Lorsque la reconstruction de répliques à l'échelle est activée{nbsp}:
+
+. Plusieurs répliques saines démarrent des serveurs de synchronisation en tant que sources de données d'instantané.
+. La réplique en reconstruction récupère des données d'instantané à partir de différents instantanés sur différentes répliques sources simultanément.
+. Le nombre de répliques sources concurrentes est contrôlé par le paramètre `replica-rebuild-concurrent-sync-limit`.
+
+== Paramètres
+
+=== Paramètre global{nbsp}: `replica-rebuild-concurrent-sync-limit`
+
+Ce paramètre contrôle le nombre maximum de répliques saines pouvant synchroniser des données d'instantané vers une seule réplique en reconstruction simultanément.
+
+* *Par défaut*{nbsp}: `1` (reconstruction de répliques à l'échelle désactivée)
+* *Plage*{nbsp}: `1` à `5`
+
+Lorsqu'il est réglé sur `1`, une seule réplique source se synchronise avec la réplique en reconstruction à la fois (comportement traditionnel). Des valeurs supérieures à `1` activent la reconstruction de répliques à l'échelle, permettant à plusieurs répliques sources (jusqu'à la limite configurée) de synchroniser des données d'instantané avec la réplique en reconstruction simultanément.
+
+Pour plus d'informations, voir xref:longhorn-system/settings.adoc#_replica_rebuild_concurrent_sync_limit[Référence des paramètres].
+
+=== Remplacement par volume
+
+Vous pouvez remplacer le paramètre global `replica-rebuild-concurrent-sync-limit` pour des volumes individuels{nbsp}:
+
+* *Utilisation de l'interface {longhorn-product-name}*{nbsp}: Modifiez le volume et modifiez le champ `Rebuild Concurrent Sync Limit`.
+* *Utiliser kubectl*: Exécutez `kubectl -n longhorn-system edit volume [volume-name]` et modifiez le champ `spec.rebuildConcurrentSyncLimit`.
+
+Lorsque le paramètre par volume est défini sur `0`, le volume utilise le paramètre global. Sinon, le paramètre par volume prévaut.
+
+== Performances
+
+=== Quand la reconstruction à l'échelle aide
+
+La reconstruction de répliques à l'échelle offre des améliorations significatives des performances dans les scénarios suivants{nbsp}:
+
+* *Volumes avec de petits morceaux de données dispersés*: Lorsque les instantanés consistent en petits morceaux de données intermittents (par exemple, des blocs de 4K) avec des trous, la reconstruction de répliques à l'échelle peut réduire considérablement le temps de reconstruction en utilisant plusieurs répliques sources.
+* *Disponibilité de la bande passante réseau*: Lorsque la bande passante réseau est sous-utilisée pendant la reconstruction traditionnelle, ajouter plus de répliques sources peut mieux utiliser la bande passante disponible.
+
+== Meilleures pratiques
+
+. *Commencez avec la valeur par défaut*: La valeur par défaut de `1` (reconstruction de répliques à l'échelle désactivée) est conservatrice et convient à la plupart des environnements.
+. *Testez avant d'augmenter*: Avant d'augmenter la limite, testez dans un environnement non productif pour comprendre l'impact sur les ressources de votre charge de travail spécifique.
+. *Considérez votre charge de travail*:
+* Pour les volumes avec de petits morceaux de données dispersés{nbsp}: Envisagez d'activer la reconstruction de répliques à l'échelle (définie sur `2` ou plus).
+* Pour les volumes avec des morceaux de données continus et volumineux{nbsp}: Le bénéfice en termes de performances peut être minime.
+. *Surveillez l'utilisation des ressources*: Lorsque la reconstruction de répliques à l'échelle est activée, surveillez l'utilisation de l'UC sur les nœuds hébergeant les répliques source et destination pour garantir que des ressources suffisantes sont disponibles.
+. *Équilibrer performance et ressources*: Des limites de synchronisation concurrentes plus élevées peuvent améliorer la vitesse de reconstruction mais consomment plus de ressources UC. Considérez le compromis en fonction de la disponibilité des ressources de votre cluster et de l'urgence de la reconstruction.
+
+== limites
+
+* Le nombre maximum de répliques sources concurrentes est limité à `5`.
+* La reconstruction de répliques à l'échelle est désactivée par défaut pour éviter une consommation de ressources élevée inattendue.
+* Les améliorations réelles des performances dépendent de facteurs tels que les performances des E/S disque, la bande passante réseau, les schémas de distribution des données et les ressources UC disponibles.
+
+== Références
+
+Pour plus d'informations sur les fonctionnalités de reconstruction associées, voir https://github.com/longhorn/longhorn/issues/11331[Longhorn #11331].

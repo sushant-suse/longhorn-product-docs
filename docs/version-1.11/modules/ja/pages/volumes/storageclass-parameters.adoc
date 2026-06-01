@@ -1,0 +1,458 @@
+= ストレージクラスのパラメータ
+:revdate: 2026-03-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 概要
+
+ストレージクラスはリソースオブジェクトとして、いくつかの設定可能なパラメータを持っています。
+
+例:
+
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-test
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  backupTargetName: "default"
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  fromBackup: ""
+  fsType: "ext4"
+#  mkfsParams: ""
+#  migratable: false
+#  encrypted: false
+#  dataLocality: "disabled"
+#  replicaAutoBalance: "ignored"
+#  diskSelector: "ssd,fast"
+#  nodeSelector: "storage,fast"
+#  recurringJobSelector: '[{"name":"snap-group", "isGroup":true},
+#                          {"name":"backup", "isGroup":false}]'
+#  backingImageName: ""
+#  backingImageChecksum: ""
+#  backingImageDataSourceType: ""
+#  backingImageDataSourceParameters: ""
+#  unmapMarkSnapChainRemoved: "ignored"
+#  disableRevisionCounter: false
+#  replicaSoftAntiAffinity: "ignored"
+#  replicaZoneSoftAntiAffinity: "ignored"
+#  replicaDiskSoftAntiAffinity: "ignored"
+#  nfsOptions: "soft,timeo=150,retrans=3"
+#  dataEngine: "v1"
+#  freezeFSForSnapshot: "ignored"
+# allowedTopologies:
+#   - matchLabelExpressions:
+#       - key: topology.kubernetes.io/zone
+#         values:
+#           - us-central-1a
+#           - us-central-1b
+----
+
+== ビルトインフィールド
+
+特定のフィールドはすべてのKubernetesストレージクラスに共通です。
+詳細については、 https://kubernetes.io/docs/concepts/storage/storage-classes[Kubernetesストレージクラス]を参照してください。
+
+[discrete]
+==== プロビジョナー _(フィールド: `provisioner`)_
+
+永続ボリュームの動的作成に使用されるプラグインを指定します。{longhorn-product-name}の場合、それは常に`driver.longhorn.io`です。
+
+____
+https://kubernetes.io/docs/concepts/storage/storage-classes/#provisioner[Kubernetesストレージクラス: プロビジョナー]を参照してください。
+____
+
+[discrete]
+==== ボリューム拡張の許可 _(フィールド: `allowVolumeExpansion`)_
+
+____
+デフォルト: `true`
+https://kubernetes.io/docs/concepts/storage/storage-classes/#allow-volume-expansion[Kubernetesストレージクラス: ボリューム拡張の許可]を参照してください。
+____
+
+[discrete]
+==== リクレームポリシー _(フィールド: `reclaimPolicy`)_
+
+____
+デフォルト: `Delete`
+https://kubernetes.io/docs/concepts/storage/storage-classes/#reclaim-policy[Kubernetesストレージクラス: リクレームポリシー]を参照してください。
+____
+
+[discrete]
+==== マウントオプション _(フィールド: `mountOptions`)_
+
+____
+デフォルト `[]`
+https://kubernetes.io/docs/concepts/storage/storage-classes/#mount-options[Kubernetesストレージクラス - マウントオプション]を参照してください。
+____
+
+[discrete]
+==== ボリュームバインディングモード _(フィールド: `volumeBindingMode`)_
+
+____
+デフォルト `Immediate`
+https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode[Kubernetesストレージクラス - ボリュームバインディングモード]を参照してください。
+____
+
+
+[discrete]
+==== 許可されたトポロジー _(フィールド: `allowedTopologies`)_
+
+____
+Kubernetesリファレンスを参照してください https://kubernetes.io/docs/concepts/storage/storage-classes/#allowed-topologies[ストレージクラス — 許可されたトポロジー]。
+____
+
+これは、ボリュームがノードラベルを一致させることによってプロビジョニングされるノードのセットを指定します。
+{longhorn-product-name}はこのフィールドを使用して、CSI `accessibleTopology`フィールドを介してPVの`nodeAffinity`を埋めます。
+
+`allowedTopologies`が有効になるためには、{longhorn-product-name}設定xref:longhorn-system/settings.adoc#_csi_allowed_topology_keys[`csi-allowed-topology-keys`]が対応するトポロジキー（例えば、`topology.kubernetes.io/zone`）で構成されている必要があります。この設定がないと、トポロジ情報は渡されず、PVには`nodeAffinity`がありません。
+
+*使用しないでください* `allowedTopologies`と`parameters.dataLocality: strict-local`を一緒に使用しないでください。結果として得られるPV `nodeAffinity`は不変になり、{longhorn-product-name}の厳密なローカルボリュームピンニングと衝突します。
+
+例を含む完全な手順については、xref:nodes/topology-aware-provisioning.adoc[トポロジ対応プロビジョニング]を参照してください。
+
+== {longhorn-product-name}固有のパラメータ
+
+これらのパラメータのいくつかは、グローバル設定にも存在し、指定される場合があります。特定のストレージクラスに対してKubernetesでボリュームがプロビジョニングされると、ストレージクラスのパラメータがグローバル設定を上書きします。
+これらのフィールドは、新しいボリュームの作成にのみ適用されます。ストレージクラスが変更されると、{longhorn-product-name}もKubernetesも、そのパラメータの変更を以前に作成されたボリュームに伝播することはありません。
+
+[discrete]
+==== レプリカの数 _(フィールド: `parameters.numberOfReplicas`)_
+
+____
+デフォルト: `3`
+____
+
+冗長性のための希望するコピー（レプリカ）の数。
+
+* 1から20の間でなければなりません。
+* レプリカは、ノードセレクタなどの他の制約に従い、クラスター内の可能な限り広いゾーン、ノード、およびディスクに配置されます。
+
+____
+グローバル設定 - xref:longhorn-system/settings.adoc#_default_replica_count[デフォルトレプリカ数]。
+____
+
+[discrete]
+==== 古いレプリカタイムアウト _(フィールド: `parameters.staleReplicaTimeout`)_
+
+____
+デフォルト: `30`
+____
+
+レプリカが不健康とマークされてから、再構築に役立たないと見なされて削除されるまでの分数。
+
+[discrete]
+==== バックアップから _(フィールド: `parameters.fromBackup`)_
+
+____
+デフォルト: `""`
+例: `"s3://backupbucket@us-east-1?volume=minio-vol01&backup=backup-eeb2782d5b2f42bb"`
+____
+
+復元するバックアップのURL。
+
+[discrete]
+==== FSタイプ _(フィールド: `parameters.fsType`)_
+
+____
+デフォルト: `ext4`
+詳細については、xref:volumes/create-volumes.adoc#creating_longhorn_volumes_with_kubectl[KubernetesでのLonghornボリュームの作成]を確認してください。
+____
+
+[discrete]
+==== Mkfsパラメータ _(フィールド: `parameters.mkfsParams`)_
+
+____
+デフォルト: `""`
+詳細については、xref:volumes/create-volumes.adoc#creating_longhorn_volumes_with_kubectl[KubernetesでのLonghornボリュームの作成]を確認してください。
+____
+
+[discrete]
+==== 移行可能 _(フィールド: `parameters.migratable`)_
+
+____
+デフォルト: `false`
+____
+
+Longhornボリュームのライブマイグレーション機能を有効にし、アクティブなI/O操作を維持しながら、ボリュームを1つのノードから別のノードに移行できるようにします。
+
+*使用するタイミング*:
+
+. *`migratable: true`*:ライブマイグレーションを必要とするワークロードの場合。`ReadWriteMany`アクセスモードと`volumeMode: Block`と一緒に使用する必要があります。
+. *`migratable: false`*:ライブマイグレーション機能を必要としない標準ボリュームの場合。
+
+[NOTE]
+====
+詳細については、xref:/volumes/rwx-volumes.adoc[ReadWriteMany (RWX) ボリューム]を確認してください。
+====
+
+[discrete]
+==== 暗号化 _(フィールド: `parameters.encrypted`)_
+
+____
+デフォルト: `false`
+詳細については、xref:volumes/volume-encryption.adoc[暗号化されたボリューム]を確認してください。
+____
+
+[discrete]
+==== データのローカリティ _(フィールド: `parameters.dataLocality`)_
+
+____
+デフォルト: `disabled`
+____
+
+有効にすると、パフォーマンスを向上させるために、ワークロードと同じノードにデータを保持しようとします。
+
+* `best-effort`の場合、レプリカは可能であれば同じ場所に配置されますが、そうでない場合は別のノードを見つけることが許可されます。
+* `strict-local`の場合、レプリカの数は1である必要があり、そうでないとボリュームの作成はパラメータ検証エラーで失敗します。
+* 他の理由で`strict-local`が不可能な場合、ボリュームの作成は失敗します。ワークロードから外れたレプリカ `strict-local` は、`"Stopped"`としてマークされます。
+
+____
+グローバル設定 - xref:longhorn-system/settings.adoc#_default_data_locality[デフォルトのデータローカリティ]。
+詳細については、xref:high-availability/data-locality.adoc[データローカリティ]を確認してください。
+____
+
+[discrete]
+==== レプリカ自動バランス _(フィールド: `parameters.replicaAutoBalance`)_
+
+____
+デフォルト: `ignored`
+____
+
+有効にすると、レプリカを負荷の軽いノードに移動します。
+
+* `ignored`はグローバル設定を使用することを意味します。
+* 他のオプションは`disabled`、`least-effort`、`best-effort`です。
+
+____
+グローバル設定 - xref:longhorn-system/settings.adoc#_replica_auto_balance[レプリカ自動バランス]。
+詳細については、xref:high-availability/automatic-replica-balancing.adoc[レプリカ自動バランス]を確認してください。
+____
+
+[discrete]
+==== ディスクセレクター _(フィールド: `parameters.diskSelector`)_
+
+____
+デフォルト: `""`
+例: `"ssd,fast"`
+____
+
+レプリカ配置の候補となるディスクを選択するためのタグのリスト。
+
+____
+詳細については、xref:nodes/storage-tags.adoc[ストレージタグ]を確認してください。
+____
+
+[discrete]
+==== ノードセレクター _(フィールド: `parameters.nodeSelector`)_
+
+____
+デフォルト: `""`
+例: `"storage,fast"`
+____
+
+レプリカ配置の候補となるノードを選択するためのタグのリスト。
+
+____
+詳細については、xref:nodes/storage-tags.adoc[ストレージタグ]を確認してください。
+____
+
+[discrete]
+==== 定期ジョブセレクター _(フィールド: `parameters.recurringJobSelector`)_
+
+____
+デフォルト: `""`
+例:  `[{"name":"backup", "isGroup":true}]`
+____
+
+ボリュームで実行される定期ジョブのリスト。
+
+____
+詳細については、xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[定期バックアップ/スナップショットジョブの作成]を確認してください。
+____
+
+[discrete]
+==== バックイメージ名 _(フィールド: `parameters.backingImageName`)_
+
+____
+デフォルト: `""`
+xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[バックイメージ]を参照してください。
+____
+
+[discrete]
+==== バックイメージチェックサム _(フィールド: `parameters.backingImageChecksum`)_
+
+____
+デフォルト: `""`
+xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[バックイメージ]を参照してください。
+____
+
+[discrete]
+==== バックイメージデータソースタイプ _(フィールド: `parameters.backingImageDataSourceType`)_
+
+____
+デフォルト: `""`
+xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[バックイメージ]を参照してください。
+____
+
+[discrete]
+==== バックイメージデータソースパラメータ _(フィールド: `parameters.backingImageDataSourceParameters`)_
+
+____
+デフォルト: `""`
+xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[バックイメージ]を参照してください。
+____
+
+[discrete]
+==== アンマップマークスナップチェーンが削除されました _(フィールド: `parameters.unmapMarkSnapChainRemoved`)_
+
+____
+デフォルト: `ignored`
+____
+
+* `ignored`はグローバル設定を使用することを意味します。
+* 他の値は `enabled` と `disabled` です。
+
+____
+グローバル設定 - xref:longhorn-system/settings.adoc#_remove_snapshots_during_filesystem_trim[スナップショットをファイルシステムのトリム中に削除する]。
+詳細については、xref:volumes/trim-filesystem.adoc[ファイルシステムのトリム]をご確認ください。
+____
+
+[discrete]
+==== リビジョンカウンターを無効にする _(フィールド: `parameters.disableRevisionCounter`)_
+
+____
+デフォルト: `true`
+____
+
+____
+グローバル設定 - xref:longhorn-system/settings.adoc#_disable_revision_counter[リビジョンカウンターを無効にする]。
+詳細については、xref:high-availability/revision_counter.adoc[リビジョンカウンター]をご確認ください。
+____
+
+[discrete]
+==== レプリカソフトアンチアフィニティ _(フィールド: `parameters.replicaSoftAntiAffinity`)_
+
+____
+デフォルト: `ignored`
+____
+
+* `ignored`はグローバル設定を使用することを意味します。
+* 他の値は `enabled` と `disabled` です。
+
+____
+グローバル設定 - xref:longhorn-system/settings.adoc#_replica_node_level_soft_anti_affinity[レプリカノードレベルソフトアンチアフィニティ]。
+詳細については、xref:nodes/scheduling.adoc[スケジューリング]およびxref:installation-setup/best-practices.adoc#_replica_node_level_soft_anti_affinity[ベストプラクティス]をご確認ください。
+____
+
+[discrete]
+==== レプリカゾーンソフトアンチアフィニティ _(フィールド: `parameters.replicaZoneSoftAntiAffinity`)_
+
+____
+デフォルト: `ignored`
+____
+
+* `ignored`はグローバル設定を使用することを意味します。
+* 他の値は `enabled` と `disabled` です。
+
+____
+グローバル設定 - xref:longhorn-system/settings.adoc#_replica_zone_level_soft_anti_affinity[レプリカゾーンレベルソフトアンチアフィニティ]。
+詳細については、xref:nodes/scheduling.adoc[スケジューリング]をご確認ください。
+____
+
+[discrete]
+==== レプリカディスクソフトアンチアフィニティ _(フィールド: `parameters.replicaDiskSoftAntiAffinity`)_
+
+____
+デフォルト: `ignored`
+____
+
+* `ignored`はグローバル設定を使用することを意味します。
+* 他の値は `enabled` と `disabled` です。
+
+____
+グローバル設定 - xref:longhorn-system/settings.adoc#_replica_disk_level_soft_anti_affinity[レプリカディスクレベルソフトアンチアフィニティ]。
+詳細については、xref:nodes/scheduling.adoc[スケジューリング]をご確認ください。
+____
+
+[discrete]
+==== NFSオプション _(フィールド: `parameters.nfsOptions`)_
+
+____
+デフォルト: `""`
+例: `"hard,sync"`
+____
+
+* RWXボリュームのNFSマウントのオーバーライドをシェアマネージャーに適用します。このフィールドは注意して使用してください。
++
+[NOTE]
+====
+ビルトインオプションはリリースによって異なります。この設定を行う前に、リリースの詳細を確認してください。
+====
+
+____
+詳細については、xref:volumes/rwx-volumes.adoc#_configuring_volume_mount_options_for_generic_non_migratable_rwx_volumes[RWX Workloads]をご確認ください。
+____
+
+[discrete]
+==== データエンジン _(field: `parameters.dataEngine`)_
+
+____
+デフォルト: `"v1"`
+____
+
+* V2データエンジンを有効にするには「v2」を指定してください（技術プレビュー機能）。指定しない場合、{longhorn-product-name}はデフォルト値（「v1」）を使用します。
+
+____
+グローバル設定：xref:longhorn-system/settings.adoc#_v2_data_engine[V2データエンジン]。
+詳細はxref:longhorn-system/v2-data-engine/quick-start-guide.adoc#_create_a_storageclass[V2データエンジン クイックスタート]にあります。
+____
+
+[discrete]
+==== スナップショットのためのファイルシステムを凍結 _(フィールド: `parameters.freezeFilesystemForSnapshot`)_
+
+____
+デフォルト: `ignored`
+____
+
+* `ignored`は{longhorn-product-name}にグローバル設定を使用するよう指示します。
+* 他の値は `enabled` と `disabled` です。
+
+____
+グローバル設定 - xref:longhorn-system/settings.adoc#_freeze_filesystem_for_snapshot[スナップショットのためのファイルシステムを凍結]。
+____
+
+[discrete]
+==== バックアップターゲット名 _(field: `parameters.backupTargetName`)_
+
+____
+デフォルト: `default`
+____
+
+* 詳細はxref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_default_backup_target[デフォルトバックアップターゲット]およびxref:volumes/create-volumes.adoc[ボリュームを作成]にあります。
+
+[discrete]
+==== バックアップブロックサイズ _(field: `parameters.backupBlockSize`)_
+
+____
+デフォルト: `""`
+____
+
+例：`"2Mi"`または`"16Mi"`
+
+Kubernetesの数量文字列。グローバル設定を適用するには、空の文字列""を使用してください。
+
+詳細については、以下を参照してください。
+
+* xref:longhorn-system/settings.adoc[デフォルトバックアップブロックサイズ]
+* xref:snapshots-backups/volume-snapshots-backups/configure-backup-block-size.adoc[バックアップのブロックサイズを設定する]
+
+== Helmインストール
+
+{longhorn-product-name} が Helm を介してインストールされている場合、デフォルトのストレージクラスの値は https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[`values.yaml`] の対応する項目を編集することで設定できます。 すべてのストレージクラスのパラメータには `persistence` のプレフィックスがあります。 たとえば、`persistence.defaultNodeSelector`と指定します。

@@ -1,0 +1,71 @@
+= 分离卷
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+关闭所有使用 Longhorn 卷的 Kubernetes Pod，以便分离卷。实现这一点最简单的方法是删除所有工作负载，并在升级后重新创建它们。如果这不可取，可以暂停某些工作负载。
+
+每个工作负载都可以修改以关闭其 Pod。
+
+== 部署
+
+使用 `kubectl edit deploy/<name>` 编辑部署。
+
+将 `.spec.replicas` 设置为 `0`。
+
+== 有状态集
+
+使用 `kubectl edit statefulset/<name>` 编辑有状态集。
+
+将 `.spec.replicas` 设置为 `0`。
+
+== DaemonSet
+
+使用 `kubectl edit ds/<name>` 编辑守护程序集。
+
+在 Pod 规格中添加节点选择器：
+
+[,yaml]
+----
+spec:
+  template:
+    spec:
+      nodeSelector:
+        no-schedule: "true"
+----
+
+== Pod
+
+使用 `kubectl delete pod/<name>` 删除 Pod。
+
+无法暂停未由工作负载控制器管理的 Pod。
+
+== CronJob
+
+使用 `kubectl edit cronjob/<name>` 编辑定时任务。
+
+将 `.spec.suspend` 设置为 `true`。
+
+等待当前正在执行的任务完成，或通过删除相关 Pod 来终止它们。
+
+== 作业
+
+考虑允许单次运行的任务完成。
+
+否则，使用 `kubectl delete job/<name>` 删除任务。
+
+== ReplicaSet
+
+使用 `kubectl edit replicaset/<name>` 编辑副本集。
+
+将 `.spec.replicas` 设置为 `0`。
+
+== ReplicationController
+
+使用 `kubectl edit rc/<name>` 编辑副本控制器。
+
+将 `.spec.replicas` 设置为 `0`。
+
+等待由 Kubernetes 使用的卷完成分离。
+
+然后从 Longhorn UI 中分离所有剩余的卷。这些卷很可能是通过 Longhorn UI 或 REST API 在 Kubernetes 之外创建和附加的。

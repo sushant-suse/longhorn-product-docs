@@ -1,0 +1,134 @@
+= Équilibrage automatique des répliques
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Lorsque les répliques sont programmées de manière inégale sur les nœuds ou les zones, le paramètre {longhorn-product-name} `Replica Auto Balance` permet aux répliques d'être équilibrées automatiquement lorsqu'un nouveau nœud est disponible dans le cluster ou lorsque le nombre de répliques pour un volume est mis à jour.
+
+== Paramètres d'équilibrage automatique des répliques
+
+=== Paramètre global
+
+{longhorn-product-name} prend en charge 3 options pour le paramètre global d'équilibrage automatique des répliques{nbsp}:
+
+* `disabled`. C'est l'option par défaut, aucun équilibrage automatique des répliques ne sera effectué.
+* `least-effort`. Cette option demande à {longhorn-product-name} d'équilibrer les répliques pour une redondance minimale.
+Par exemple, après l'ajout du nœud-2, un volume avec 4 répliques déséquilibrées n'équilibrera qu'une seule réplique.
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  +-- replica-c
+  node-2
+  +-- replica-d
+----
+
+* `best-effort`. Cette option demande à {longhorn-product-name} d'essayer d'équilibrer les répliques pour une redondance uniforme.
+Par exemple, après l'ajout du nœud-2, un volume avec 4 répliques déséquilibrées équilibrera 2 répliques.
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  node-2
+  +-- replica-c
+  +-- replica-d
+----
++
+{longhorn-product-name} ne reprogrammera pas de force les répliques vers une zone qui n'a pas suffisamment de nœuds pour supporter un équilibre uniforme. Au lieu de cela, {longhorn-product-name} reprogrammera pour équilibrer au niveau du nœud.
+
+=== Paramètre spécifique au volume
+
+{longhorn-product-name} prend également en charge la définition d'un volume individuel pour `Replica Auto Balance`. Le paramètre peut être spécifié dans `volume.spec.replicaAutoBalance`, cela annule le paramètre global.
+
+Il y a 4 options disponibles pour le paramètre de volume individuel{nbsp}:
+
+* `Ignored`. C'est l'option par défaut qui demande à {longhorn-product-name} d'hériter du paramètre global.
+* `disabled`. Cette option demande à {longhorn-product-name} de ne pas effectuer d'équilibrage automatique des répliques.
+* `least-effort`. Cette option demande à {longhorn-product-name} d'équilibrer les répliques pour une redondance minimale.
+Par exemple, après l'ajout du nœud-2, un volume avec 4 répliques déséquilibrées n'équilibrera qu'une seule réplique.
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  +-- replica-c
+  node-2
+  +-- replica-d
+----
+
+* `best-effort`. Cette option demande à {longhorn-product-name} d'essayer d'équilibrer les répliques pour une redondance uniforme.
+Par exemple, après l'ajout du nœud-2, un volume avec 4 répliques déséquilibrées équilibrera 2 répliques.
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  node-2
+  +-- replica-c
+  +-- replica-d
+----
++
+{longhorn-product-name} ne reprogrammera pas de force les répliques vers une zone qui n'a pas suffisamment de nœuds pour supporter un équilibre uniforme. Au lieu de cela, {longhorn-product-name} reprogrammera pour équilibrer au niveau du nœud.
+
+== Comment définir l'équilibrage automatique des répliques pour les volumes
+
+Il existe 3 façons de définir `Replica Auto Balance` pour {longhorn-product-name} volumes{nbsp}:
+
+=== Modifier le paramètre global
+
+Vous pouvez modifier le paramètre par défaut global pour `Replica Auto Balance` dans les paramètres de l'interface utilisateur {longhorn-product-name}.
+Le paramètre global ne fonctionne que comme une valeur par défaut, similaire au nombre de répliques.
+Il ne modifie aucun paramètre de volume existant.
+Lorsqu'un volume est créé sans spécifier `Replica Auto Balance`, {longhorn-product-name} sera automatiquement défini sur `ignored` pour hériter du paramètre global.
+
+=== Définissez des volumes individuels pour équilibrer automatiquement les répliques en utilisant l'interface utilisateur {longhorn-product-name}
+
+Vous pouvez modifier le paramètre `Replica Auto Balance` pour un volume individuel après sa création sur la page de détails du volume, ou effectuer plusieurs mises à jour (mettre à jour plusieurs volumes) sur la page des volumes listés.
+
+=== Définissez des volumes individuels pour équilibrer automatiquement les répliques en utilisant un StorageClass.
+
+{longhorn-product-name} expose également le paramètre `Replica Auto Balance` en tant que paramètre dans un StorageClass.
+Vous pouvez créer un StorageClass avec un paramètre `Replica Auto Balance` spécifié, puis créer des PVC en utilisant ce StorageClass.
+
+Par exemple, le fichier YAML ci-dessous définit un StorageClass qui indique au pilote CSI {longhorn-product-name} de définir le `Replica Auto Balance` sur `least-effort` :
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: hyper-converged
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  replicaAutoBalance: "least-effort"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+----
+
+== Seuil de pression de disque pour l'équilibre automatique des répliques (%)
+
+Lorsque `Replica Auto Balance` est activé avec `best-effort`, vous pouvez définir un `Replica Auto Balance Disk Pressure Threshold (%)`. Ce seuil définit le niveau d'utilisation du disque auquel {longhorn-product-name} tentera automatiquement de migrer les répliques vers un autre disque sur le même nœud.
+
+Par exemple, si le seuil est fixé à 75 %, {longhorn-product-name} essaiera de migrer les répliques séquentiellement lorsque la consommation de disque atteindra 75 % de capacité.
+
+{longhorn-product-name} priorise d'abord l'équilibre des répliques entre les nœuds et les zones. Une fois que les nœuds et les zones sont équilibrés, il considérera ensuite l'équilibre au sein d'un seul nœud en fonction de la pression du disque.
+
+Depuis {longhorn-product-name} v1.7.0, lors de la reconstruction des répliques sur le même nœud, {longhorn-product-name} utilise la synchronisation des données de fichiers locaux pour un transfert de données plus efficace.
+
+== limites
+
+La fonctionnalité d'équilibrage automatique des répliques dans {longhorn-product-name} s'active uniquement pour les volumes ayant un statut de robustesse de `Healthy`.
+
+*Volumes non sains* ou *volumes détachés* ne sont pas automatiquement rééquilibrés, même lorsqu'un nœud a peu d'espace disponible.
+
+Ce comportement est un choix de conception délibéré pour garantir la stabilité du système et l'intégrité des données{nbsp}:
+* Déplacer des répliques ou déclencher des reconstructions automatiques sur un volume non sain pourrait compromettre davantage l'intégrité des données. Cette conception nécessite une intervention manuelle pour permettre à un administrateur d'évaluer l'état du volume avant d'initier des opérations potentiellement risquées.
+* Les volumes détachés ne servent pas activement les E/S. Sauter le rééquilibrage automatique évite des reconstructions inutiles et économise des ressources du cluster.
+
+Si un volume est non sain ou détaché, le déplacement des répliques nécessite une intervention manuelle, telle que{nbsp}:
+* Reconstruire des répliques après que le volume a été inspecté et/ou attaché.
+* Attacher le volume s'il est détaché (pour restaurer un état sain, si possible).

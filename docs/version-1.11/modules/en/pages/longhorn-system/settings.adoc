@@ -134,6 +134,7 @@ If enabled, when running a recurring backup job, {longhorn-product-name} takes a
 
 If disabled, this setting ensures that the retained snapshots directly correspond to the backups on the remote backup target.
 
+[#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly]
 === Automatically Delete Workload Pod when The Volume Is Detached Unexpectedly
 
 *Default value*: `true`
@@ -153,7 +154,7 @@ If disabled, {longhorn-product-name} does not delete the workload pod that is ma
 
 *Default value*: `""`
 
-Blacklist of controller `api/kind` values for the setting <<_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly,Automatically Delete Workload Pod when the Volume Is Detached Unexpectedly>>. If a workload pod is managed by a controller whose `api/kind` is listed in this blacklist, {longhorn-product-name} will not automatically delete the pod when its volume is unexpectedly detached. Multiple controller `api/kind` entries can be specified, separated by semicolons. For example: `apps/v1/StatefulSet;apps/v1/DaemonSet`.
+Blacklist of controller `api/kind` values for the setting xref:_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[Automatically Delete Workload Pod when the Volume Is Detached Unexpectedly]. If a workload pod is managed by a controller whose `api/kind` is listed in this blacklist, {longhorn-product-name} will not automatically delete the pod when its volume is unexpectedly detached. Multiple controller `api/kind` entries can be specified, separated by semicolons. For example: `apps/v1/StatefulSet;apps/v1/DaemonSet`.
 
 [NOTE]
 ====
@@ -776,6 +777,7 @@ When this setting is checked, the Longhorn Manager does not allow scheduling rep
 
 When this setting is un-checked, the Longhorn Manager allows scheduling replicas on Kubernetes cordoned nodes.
 
+[#_replica_node_level_soft_anti_affinity]
 === Replica Node Level Soft Anti-Affinity
 
 *Default value*: `false`
@@ -817,6 +819,7 @@ When this setting is un-checked, Longhorn Manager prevents scheduling new replic
 * This setting is superseded if replicas are forbidden to share a zone or a node by either of the other Soft Anti-Affinity settings.
 ====
 
+[#_replica_auto_balance]
 === Replica Auto Balance
 
 *Default value*: `disabled`
@@ -855,10 +858,10 @@ To disable this setting, set the value to *0*.
 
 This setting takes effect only when the following conditions are met:
 
-* <<_replica_auto_balance,Replica Auto Balance>> is set to *best-effort*. To disable this setting (disk pressure threshold) when Replica Auto Balance is set to best-effort, set the value of this setting to *0*.
+* xref:_replica_auto_balance[Replica Auto Balance] is set to *best-effort*. To disable this setting (disk pressure threshold) when Replica Auto Balance is set to best-effort, set the value of this setting to *0*.
 * At least one other disk on the node has sufficient available space.
 
-This setting is not affected by <<_replica_node_level_soft_anti_affinity,Replica Node Level Soft Anti_Affinity>>, which can prevent {longhorn-product-name} from rebuilding a replica on the same node. Regardless of that setting's value, this setting still allows {longhorn-product-name} to attempt replica rebuilding on a different disk on the same node for migration purposes.
+This setting is not affected by xref:_replica_node_level_soft_anti_affinity[Replica Node Level Soft Anti Affinity], which can prevent {longhorn-product-name} from rebuilding a replica on the same node. Regardless of that setting's value, this setting still allows {longhorn-product-name} to attempt replica rebuilding on a different disk on the same node for migration purposes.
 
 === Storage Minimal Available Percentage
 
@@ -935,43 +938,45 @@ If you do not detach all volumes before the settings are synchronized, the setti
 |===
 | Setting | Additional Information | Affected Components
 
-| <<_kubernetes_taint_toleration,Kubernetes Taint Toleration>>
+| xref:_kubernetes_taint_toleration[Kubernetes Taint Toleration]
 | xref:nodes/taints-tolerations.adoc[Taints and Tolerations]
 | System-managed components
 
-| <<_priority_class,Priority Class>>
+| xref:_priority_class[Priority Class]
 | xref:nodes/priority-class.adoc[Priority Class]
 | System-managed components
 
-| <<_system_managed_components_node_selector,System Managed Components Node Selector>>
+| xref:_system_managed_components_node_selector[System Managed Components Node Selector]
 | xref:nodes/node-selector.adoc[Node Selector]
 | System-managed components
 
-| <<_storage_network,Storage Network>>
+| xref:_storage_network[Storage Network]
 | xref:longhorn-system/networking/storage-network.adoc[Storage Network]
 | Instance Manager and Backing Image components
 
-| <<_v1_data_engine,V1 Data Engine>>
+| xref:_v1_data_engine[V1 Data Engine]
 |
 | Instance Manager component
 
-| <<_v2_data_engine,V2 Data Engine>>
+| xref:_v2_data_engine[V2 Data Engine]
 | xref:longhorn-system/v2-data-engine/quick-start-guide.adoc[V2 Data Engine (Experimental)]
 | Instance Manager component
 
-| <<_guaranteed_instance_manager_cpu,Guaranteed Instance Manager CPU>>
+| xref:_guaranteed_instance_manager_cpu[Guaranteed Instance Manager CPU]
 |
 | Instance Manager component
 |===
 
 For V1 and V2 Data Engine settings, you can disable the Data Engines only when all associated volumes are detached. For example, you can disable the V2 Data Engine only when all V2 volumes are detached (even when V1 volumes are still attached).
 
+[#_v1_data_engine]
 === V1 Data Engine
 
 *Default value*: `true`
 
 This setting lets you enable the V1 Data Engine.
 
+[#_v2_data_engine]
 === V2 Data Engine
 
 *Default value*: `false`
@@ -1019,6 +1024,7 @@ This setting controls how many backing image copies on a node can be replenished
 
 Typically, {longhorn-product-name} can block the backing image copy starting once the current replenishing count on a node exceeds the limit. But when the value is 0, it means disabling the backing image replenish.
 
+[#_kubernetes_taint_toleration]
 === Kubernetes Taint Toleration
 
 *Example*: `nodetype=storage:NoSchedule`
@@ -1039,6 +1045,7 @@ Multiple tolerations can be set here, and these tolerations are separated by sem
 * `key1=value1:`  this toleration has empty effect. It matches all effects with key `key1`
 See xref:nodes/taints-tolerations.adoc[Taint Toleration] for details.
 
+[#_priority_class]
 === Priority Class
 
 *Default value*: `longhorn-critical`
@@ -1063,6 +1070,7 @@ To avoid disruption, configure the PriorityClass during the initial {longhorn-pr
 
 See xref:nodes/priority-class.adoc[Priority Class] for details.
 
+[#_system_managed_components_node_selector]
 === System Managed Components Node Selector
 
 *Example*: `label-key1:label-value1;label-key2:label-value2`
@@ -1090,18 +1098,20 @@ See xref:high-availability/kubernetes-cluster-autoscaler.adoc[Kubernetes Cluster
 
 WARNING: Replica rebuilding could be expensive because nodes with reusable replicas could get removed by the Kubernetes Cluster Autoscaler.
 
+[#_storage_network]
 === Storage Network
 
 *Example*: `kube-system/demo-192-168-0-0`
 
 The storage network uses Multus NetworkAttachmentDefinition to segregate the in-cluster data traffic from the default Kubernetes cluster network.
 
-By default, this setting applies only to Longhorn's data-plan traffic path. For RWX (Read-Write-Many) volume endpoint traffic, see  <<_endpoint_network_for_rwx_volume,Endpoint Network for RWX Volume>>.
+By default, this setting applies only to Longhorn's data-plan traffic path. For RWX (Read-Write-Many) volume endpoint traffic, see  xref:_endpoint_network_for_rwx_volume[Endpoint Network for RWX Volume].
 
 WARNING: This setting should change after all Longhorn volumes are detached because some pods that run Longhorn system components are recreated to apply the setting. When all volumes are detached, {longhorn-product-name} attempts to restart all Instance Manager and Backing Image Manager pods immediately. When volumes are in use, {longhorn-product-name} components are not restarted, and you need to reconfigure the settings after detaching the remaining volumes; otherwise, you can wait for the setting change to be reconciled in an hour.
 
 See xref:longhorn-system/networking/storage-network.adoc[Storage Network] for details.
 
+[#_endpoint_network_for_rwx_volume]
 === Endpoint Network for RWX Volume
 
 *Default value*: `kube-system/demo-172-16-0-0`
@@ -1114,7 +1124,7 @@ Leave this blank to use the default Kubernetes cluster network.
 ====
 This setting should change after all {longhorn-product-name} RWX volumes are detached because some pods that run {longhorn-product-name} components are recreated to apply the setting. When all RWX volumes are detached, {longhorn-product-name} attempts to restart all CSI plug-in pods immediately. When volumes are in use, pods that run {longhorn-product-name} components are not restarted, so the settings must be reconfigured after the remaining volumes are detached. If you are unable to manually reconfigure the settings, you can opt to wait because settings are synchronized hourly.
 
-The RWX volumes are mounted with the endpoint network within the CSI plug-in pod container network namespace. As a result, restarting the CSI plug-in pod may lead to unresponsive RWX volume mounts. When this occurs, you must restart the workload pod to re-establish the mount connection. Alternatively, you can enable the <<_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly,Automatically Delete Workload Pod when The Volume Is Detached Unexpectedly>> setting.
+The RWX volumes are mounted with the endpoint network within the CSI plug-in pod container network namespace. As a result, restarting the CSI plug-in pod may lead to unresponsive RWX volume mounts. When this occurs, you must restart the workload pod to re-establish the mount connection. Alternatively, you can enable the xref:_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[Automatically Delete Workload Pod when The Volume Is Detached Unexpectedly] setting.
 ====
 
 For more information, see xref:longhorn-system/networking/storage-network.adoc[Storage Network].
@@ -1131,6 +1141,7 @@ Notice that trying to trim a removed files from a valid snapshot will do nothing
 
 See xref:volumes/trim-filesystem.adoc[Trim Filesystem] for details.
 
+[#_guaranteed_instance_manager_cpu]
 === Guaranteed Instance Manager CPU
 
 *Default value*: `{"v1":"12","v2":"12"}`

@@ -1,0 +1,43 @@
+= 自动升级 Longhorn Engine
+:revdate: 2026-01-08
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} 允许您在升级 Longhorn Manager 后自动将 Longhorn 卷升级到新的默认引擎版本。此功能减少了在升级 {longhorn-product-name} 时您需要进行的手动工作量。与此功能相关的一些概念如下所示：
+
+== 1.每个节点的并发自动引擎升级限制设置
+
+这是一个设置，控制 {longhorn-product-name} 在升级 Longhorn Manager 后如何自动将卷的引擎升级到新的默认引擎镜像。此设置的值指定每个节点允许同时升级到默认引擎镜像的最大引擎数量。
+
+如果值为 0，{longhorn-product-name} 将不会自动将卷的引擎升级到默认版本。此值越大，引擎升级过程完成的速度越快。
+
+然而，为此设置提供更大的值将在引擎升级过程中消耗更多节点的处理器和内存。我们建议将值设置为 3，以留出一些错误的余地，但不要让系统因过多的失败升级而不堪重负。
+
+== 2.{longhorn-product-name} 在不同卷条件下的行为。
+
+在以下情况下，假设 `concurrent automatic engine upgrade per node limit` 设置大于 0。
+
+. 已附加卷
++
+如果卷处于附加状态且健康，{longhorn-product-name} 将自动对卷的引擎进行实时升级到新的默认引擎镜像。
+
+. 已分离卷
++
+{longhorn-product-name} 自动对已分离卷进行离线升级。
+
+. 灾难恢复卷
++
+{longhorn-product-name} 不会自动将 xref:data-integrity-recovery/disaster-recovery-volumes.adoc[灾难恢复卷] 升级到新的默认引擎镜像，因为这会触发灾难恢复卷的完全恢复。完全恢复可能会影响系统中其他正在运行的 Longhorn 卷的性能。因此，{longhorn-product-name} 让您决定何时手动升级灾难恢复卷的引擎（例如，当系统空闲或在维护时间期间）。
++
+但是，当您激活灾难恢复卷时，它将被激活并随后分离。
+此时，{longhorn-product-name} 将自动对卷进行离线升级，类似于分离卷的情况。
+
+== 3.如果升级失败会发生什么？
+
+如果卷的引擎升级失败，卷规格中的引擎镜像将与卷状态中的引擎镜像不同。{longhorn-product-name} 将持续重试升级，直到成功。
+
+如果每个节点上失败升级的卷数量过多（即超过 `concurrent automatic engine upgrade per node limit` 设置），{longhorn-product-name} 将停止在该节点上升级卷。
+
+== 4.自动升级期间旧实例管理器 Pod 的活跃性和清理
+
+有关在实时升级期间旧实例管理器 Pod 的活跃性和清理，请参阅 xref:upgrades/longhorn-components/instance-manager-pods-during-upgrade.adoc[升级期间的实例管理器 Pod] 文档。

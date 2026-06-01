@@ -1,0 +1,29 @@
+= Volumenbedingungen
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Volumenbedingungen
+
+Volumenbedingungen beschreiben den aktuellen Status eines Volumens und potenzielle Probleme, die auftreten können.
+
+* `Scheduled`: Alle Replikate wurden erfolgreich geplant.
+  Wenn Longhorn nicht in der Lage war, eines der Replikate zu planen, wird der Zustand auf `false` gesetzt und Fehlermeldungen werden angezeigt. Der Zustand wird auf `true` gesetzt, wenn die Einstellung xref:longhorn-system/settings.adoc#_allow_volume_creation_with_degraded_availability[Volumenerstellung bei degradierter Verfügbarkeit zulassen] aktiviert ist und mindestens ein Replikat geplant ist.
+* `TooManySnapshots`: Dieses spezielle Volumen hat mehr als 100 Snapshots.
+  Longhorn erlaubt Ihnen, maximal 250 Snapshots für jedes Volumen zu erstellen. Für weitere Informationen zur Konfiguration der maximalen Snapshot-Anzahl siehe xref:snapshots-backups/volume-snapshots-backups/snapshot-space-management.adoc[Snapshot-Speicherverwaltung].
+* `Restore`: Longhorn stellt das Volumen aus einer Sicherung wieder her.
+* `WaitForBackingImage`: Die Replikate haben nicht gestartet, da die zugrunde liegenden Images zuerst mit ihren Festplatten synchronisiert werden müssen.
+* `OfflineRebuildingInProgress`: Das Volumen wird mittels Offline-Wiederaufbau neu aufgebaut.
+
+== Engine-Bedingungen
+
+Engine-Bedingungen beschreiben den aktuellen Status einer Engine und potenzielle Probleme, die auftreten können.
+`FilesystemReadOnly`: Der Zustand des aktuellen Volumen-Einhängepunkts hat sich auf schreibgeschützt geändert.
+Diese Änderung kann verhindern, dass Arbeitslasten Daten in das Volumen schreiben. Für Informationen zur Fehlerbehebung siehe xref:high-availability/volume-recovery.adoc[].
+
+== Replikatbedingungen
+
+Replikatbedingungen beschreiben den aktuellen Status eines Replikats und potenzielle Probleme, die auftreten können.
+
+* `RebuildFailed`: Das Replikat konnte nicht neu aufgebaut werden.
+* `WaitForBackingImage`: Die Replikate haben nicht gestartet, da die zugrunde liegenden Images zuerst mit ihren Festplatten synchronisiert werden müssen.

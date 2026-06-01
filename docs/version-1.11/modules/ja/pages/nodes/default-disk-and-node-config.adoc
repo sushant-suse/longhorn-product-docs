@@ -1,0 +1,119 @@
+= デフォルトのノードおよびディスクの設定
+:revdate: 2025-07-11
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+この機能により、ユーザーは、{longhorn-product-name}のUIやAPIの代わりに、Kubernetesのラベルとアノテーションを使用して、新しく追加されたノードのデフォルトディスクおよびノード構成を{longhorn-product-name}でカスタマイズできます。
+
+ディスクとノードのデフォルト設定をカスタマイズすることは、クラスターのスケーリングに役立ちます。なぜなら、ノードが複数のディスクを含む場合や、新しいノードのディスク設定が異なる場合に、各新しいノードのために{longhorn-product-name}を手動で設定する必要がなくなるからです。
+
+{longhorn-product-name}は、ノードのラベルやアノテーションを現在のLonghornノードディスクやタグと同期させません。また、{longhorn-product-name}は、デフォルトのディスクやタグが作成された後、ノード、ラベル、またはアノテーションとノードディスクやタグを同期させません。
+
+== 新しいノードにノードタグを追加する
+
+ノードにタグがない場合、{longhorn-product-name}のUIやAPIの代わりに、ノードアノテーションを使用してノードタグを設定できます。
+
+. Kubernetesクラスターをスケールアップします。新しく追加されたノードにはノードタグが含まれていません。
+. 新しいKubernetesノードに、デフォルトのノードタグが何であるべきかを指定するアノテーションを追加します。アノテーションの形式は次のとおりです：
++
+[,yaml]
+----
+node.longhorn.io/default-node-tags: <node tag list with JSON string format>
+----
++
+次に例を示します。
++
+[,yaml]
+----
+node.longhorn.io/default-node-tags: '["fast","storage"]'
+----
+
+. {longhorn-product-name}がノードタグを自動的に同期するのを待ちます。ノードタグリストが元々空であった場合、{longhorn-product-name}はタグリストでノードを更新し、そのノードのタグがアノテーションに従って更新されるのを確認できます。ノードに既にタグがあった場合、タグリストに変更は見られません。
+
+== 新しいノードのデフォルトディスクをカスタマイズする
+
+{longhorn-product-name}は、デフォルトディスクのカスタマイズを有効にするために、*Create Default Disk on Labeled Nodes*設定を使用します。
+
+設定が無効になっている場合、{longhorn-product-name}はすべての新しいノードに`setting.default-data-path`を使用してデフォルトディスクを作成します。
+
+設定が有効になっている場合、{longhorn-product-name}はノードのラベル値`node.longhorn.io/create-default-disk`に応じて、デフォルトディスクを作成するかどうかを決定します。
+
+* ノードのラベル値が`true`の場合、{longhorn-product-name}はそのノードに`settings.default-data-path`を使用してデフォルトディスクを作成します。ノードに既存のディスクがある場合、{longhorn-product-name}は何も変更しません。
+* ノードのラベル値が`config`の場合、{longhorn-product-name}は`node.longhorn.io/default-disks-config`アノテーションを確認し、それに従ってデフォルトディスクを作成します。アノテーションがない場合、またはアノテーションが無効な場合、またはラベル値が無効な場合、{longhorn-product-name}は何も変更しません。
+
+ラベルの値は、設定が有効な場合にのみ有効になります。
+
+`create-default-disk`ラベルが設定されていない場合、設定が有効なときに新しいノードに自動的にデフォルトディスクは作成されません。
+
+アノテーションで説明されている設定は、ノードに既存のディスクやタグがない場合にのみ有効になります。
+
+ラベルまたはアノテーションが検証に失敗した場合、アノテーション全体が無視されます。
+
+=== 前提条件
+
+{longhorn-product-name}設定*Create Default Disk on Labeled Nodes*は有効にする必要があります。
+
+. Kubernetesクラスターに新しいノードを追加します。
+. ノードにラベルを追加します。{longhorn-product-name}はデフォルトディスクをカスタマイズする方法を決定するためにラベルに依存しています：
++
+[,yaml]
+----
+node.longhorn.io/create-default-disk: 'config'
+----
+
+. 次に、ノードにアノテーションを追加します。アノテーションはデフォルトディスクの設定を指定するために使用されます。書式は、次のいずれかです。
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config: <disks configuration with JSON string format>
+----
++
+例えば、以下のディスク設定をアノテーションで指定できます：
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config:
+'[
+    {
+        "path":"/mnt/disk1",
+        "allowScheduling":true
+    },
+    {
+        "name":"fast-ssd-disk",
+        "path":"/mnt/disk2",
+        "allowScheduling":false,
+        "storageReserved":10485760,
+        "tags":[
+            "ssd",
+            "fast"
+        ]
+    }
+]'
+----
++
+[NOTE]
+====
+異なるディスクに同じ名前が指定された場合、その設定は無効と見なされます。
+====
+
+. {longhorn-product-name}がアノテーションに従ってカスタマイズされたデフォルトディスクを自動的に作成するのを待ちます。
+
+== 複数のディスクで{longhorn-product-name}を起動します。
+
+. {longhorn-product-name}を起動する前に、すべてのノードにラベルを追加します。
++
+[,yaml]
+----
+node.longhorn.io/create-default-disk: 'config'
+----
+
+. 次に、すべてのノードにディスク設定アノテーションを追加します：
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config: '[ { "path":"/var/lib/longhorn", "allowScheduling":true
+  }, { "name":"fast-ssd-disk", "path":"/mnt/extra", "allowScheduling":false, "storageReserved":10485760,
+  "tags":[ "ssd", "fast" ] }]'
+----
+
+. {longhorn-product-name}を`create-default-disk-labeled-nodes: true`でデプロイし、{longhorn-product-name}のデフォルト設定をカスタマイズするための情報はxref:longhorn-system//customize-default-settings.adoc[こちら]を確認してください。

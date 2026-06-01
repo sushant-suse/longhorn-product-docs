@@ -1,0 +1,48 @@
+= Identificar Cargas de Trabalho que Usam um Volume
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Agora os usuários podem identificar cargas de trabalho atuais ou o histórico de cargas de trabalho para volumes persistentes Longhorn (PVs) existentes e seu histórico de vinculação a reivindicações de volume persistente (PVCs).
+
+Na interface do Longhorn, vá para a aba *Volumes*. Cada volume Longhorn está listado na página. A coluna *Vinculado a* exibe o nome da carga de trabalho que está usando o volume. Se você clicar no nome da carga de trabalho, poderá ver mais detalhes, incluindo o tipo de carga de trabalho, nome do pod e status.
+
+As informações da carga de trabalho também estão disponíveis na página de detalhes do volume Longhorn. Para ver os detalhes, clique no nome do volume:
+
+----
+State: attached
+...
+Namespace:default
+PVC Name:longhorn-volv-pvc
+PV Name:pvc-0edf00f3-1d67-4783-bbce-27d4458f6db7
+PV Status:Bound
+Pod Name:teststatefulset-0
+Pod Status:Running
+Workload Name:teststatefulset
+Workload Type:StatefulSet
+----
+
+== Histórico
+
+Depois que a carga de trabalho não estiver mais usando o volume Longhorn, a página de detalhes do volume mostra o status histórico da carga de trabalho mais recente que usou o volume:
+
+----
+Last time used by Pod: a few seconds ago
+...
+Last Pod Name: teststatefulset-0
+Last Workload Name: teststatefulset
+Last Workload Type: Statefulset
+----
+
+Se esses campos estiverem definidos, indicam que atualmente nenhuma carga de trabalho está usando este volume.
+
+Quando um PVC não estiver mais vinculado ao volume, o seguinte status é exibido:
+
+----
+Last time bound with PVC:a few seconds ago
+Last time used by Pod:32 minutes ago
+Last Namespace:default
+Last Bounded PVC Name:longhorn-volv-pvc
+----
+
+Se o campo `Last time bound with PVC` estiver preenchido, indica que atualmente não há PVC vinculado a este volume. Os campos relacionados mostrarão a carga de trabalho mais recente usando este volume.

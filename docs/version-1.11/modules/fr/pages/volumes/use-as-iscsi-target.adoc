@@ -1,0 +1,26 @@
+= Utiliser un volume comme cible iSCSI
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn prend en charge le mode frontend de la cible iSCSI. Vous pouvez vous y connecter via n'importe quel client iSCSI, y compris `open-iscsi`, et un hyperviseur de machine virtuelle comme KVM, tant qu'il est sur le même réseau que le système Longhorn.
+
+Le pilote CSI de Longhorn ne prend pas en charge le mode iSCSI.
+
+Pour démarrer un volume avec le mode frontend de la cible iSCSI, sélectionnez `iSCSI` comme frontend lors de xref:volumes/create-volumes.adoc[la création du volume.]
+
+Une fois le volume attaché, vous verrez quelque chose comme ce qui suit dans le champ `endpoint` :
+
+[subs="+attributes",text]
+----
+iscsi://10.42.0.21:3260/iqn.2014-09.com.rancher:testvolume/1
+----
+
+Dans cet exemple,
+
+* L'IP et le port sont `10.42.0.21:3260`.
+* Le nom de la cible est `iqn.2014-09.com.rancher:testvolume`.
+* Le nom du volume est `testvolume`.
+* Le numéro LUN est 1. Longhorn utilise toujours le LUN 1.
+
+Les informations ci-dessus peuvent être utilisées pour se connecter à la cible iSCSI fournie par Longhorn en utilisant un client iSCSI.

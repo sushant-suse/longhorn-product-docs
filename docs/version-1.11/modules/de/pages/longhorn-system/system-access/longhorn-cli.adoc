@@ -1,0 +1,22 @@
+= Befehlszeilenschnittstelle (CLI)
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:description: Befehlszeilenschnittstelle (CLI) für Longhorn-Vorgänge und Fehlersuche.
+:current-version: {page-component-version}
+
+Das `longhornctl` Werkzeug ist eine Befehlszeilenschnittstelle für Longhorn-Vorgänge. Es interagiert mit Longhorn, indem es Kubernetes Custom Resources (CRs) erstellt und Befehle innerhalb eines dedizierten Pods für In-Cluster- und Host-Vorgänge ausführt.
+
+== Häufige Nutzungsszenarien
+
+* *Installation:*
+ ** `longhornctl install preflight`: Führen Sie die Installation der Abhängigkeiten und das setup durch, bevor Sie Longhorn installieren.
+* *Vorgänge:*
+ ** `longhornctl export replica`: Daten aus einem Longhorn-Replikatdatenverzeichnis in ein bestimmtes Verzeichnis auf der Hostmaschine extrahieren. Dies ist nützlich, um Daten wiederherzustellen, wenn Longhorn nicht verfügbar ist.
+ ** `longhornctl trim volume`: Unbenutzten Speicherplatz innerhalb eines Longhorn-Volumes zurückgewinnen.
+* *Fehlerbehebung:*
+ ** `longhornctl check preflight`: Identifiziert potenzielle Probleme vor der Nutzung.
+ ** `longhornctl get replica`: Details zu Longhorn-Replikaten auf dem Host abrufen.
+
+== Verwendung
+
+Für weitere Informationen zu den verfügbaren Befehlen siehe https://github.com/longhorn/cli/tree/v{patch-version}/docs/longhornctl.md[dieses Dokument] im GitHub-Repository oder führen Sie `longhornctl help` in Ihrem Terminal aus.

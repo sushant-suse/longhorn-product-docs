@@ -1,0 +1,40 @@
+= Verwaltung von Knotenfehlern
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Was zu erwarten ist, wenn ein Kubernetes-Knoten ausfällt
+
+Dieser Abschnitt soll die Benutzer darüber informieren, was während eines Knotenausfalls passiert und was bei der Wiederherstellung zu erwarten ist.
+
+Nach *einer Minute* wird `kubectl get nodes` für den ausgefallenen Knoten `NotReady` melden.
+
+Nach etwa *fünf Minuten* werden die Zustände aller Pods auf dem `NotReady` Knoten entweder auf `Unknown` oder `NodeLost` wechseln.
+
+StatefulSets haben eine stabile Identität, daher wird Kubernetes den Pod nicht zwangsweise für den Benutzer löschen. Siehe die https://kubernetes.io/docs/tasks/run-application/force-delete-stateful-set-pod/[offizielle Kubernetes-Dokumentation über das Zwangslöschen eines StatefulSets].
+
+Deployments haben keine stabile Identität, aber beim Read-Write-Once-Speicher, da er nicht gleichzeitig an zwei Knoten angeschlossen werden kann, wird der neue Pod, der von Kubernetes erstellt wird, aufgrund des RWO-Volumes, das noch am alten Pod auf dem ausgefallenen Knoten angeschlossen ist, nicht starten können.
+
+In beiden Fällen wird Kubernetes den Pod automatisch vom ausgefallenen Knoten evakuieren (setzt den Löschzeitstempel für den Pod) und dann versuchen, *einen neuen mit den alten Volumes zu erstellen*. Da der evakuierte Pod im `Terminating` Zustand stecken bleibt und die angeschlossenen Volumes nicht freigegeben/wiederverwendet werden können, wird der neue Pod im `ContainerCreating` Zustand stecken bleiben, wenn es keine Intervention des Administrators oder der Speicher-Software gibt.
+
+== Longhorn Pod Löschrichtlinie, wenn der Knoten ausgefallen ist
+
+Longhorn bietet eine Option, um Benutzern zu helfen, automatisch das Zwangslöschen von beendenden Pods von StatefulSet/Deployment auf dem ausgefallenen Knoten durchzuführen. Nach dem Zwangslöschen wird Kubernetes das Longhorn-Volume abtrennen und Ersatz-Pods auf einem neuen Knoten starten.
+
+Weitere Details zu den Einstellungsmöglichkeiten finden Sie im `Pod Deletion Policy When Node is Down` im Reiter *"Einstellungen"* in der Longhorn-Benutzeroberfläche oder in der xref:longhorn-system/settings.adoc#_pod_deletion_policy_when_node_is_down[Referenz zu den Einstellungen].
+
+== Was zu erwarten ist, wenn ein ausgefallener Kubernetes-Knoten wiederhergestellt wird
+
+Wenn der Knoten innerhalb von 5 - 6 Minuten nach dem Ausfall wieder online ist, wird Kubernetes die Pods neu starten, Volumes aushängen und wieder einhängen, ohne das Volume erneut anzuschließen und die VolumeAttachment-Bereinigung durchzuführen.
+
+Da die Volume-Engines nach dem Ausfall des Knotens nicht mehr verfügbar sind, wird dieses direkte Wiederanbringen nicht funktionieren, da das Gerät auf dem Knoten nicht mehr existiert.
+
+In diesem Fall wird Longhorn die Volumes abtrennen und wieder anschließen, um die Volume-Engines wiederherzustellen, damit die Pods die Volumes sicher wieder einhängen/wiederverwenden können.
+
+Wenn der Knoten innerhalb von 5 - 6 Minuten nach dem Ausfall nicht wieder online ist, wird Kubernetes versuchen, alle unerreichbaren Pods basierend auf dem Pod-Evakuierungsmechanismus zu löschen, und diese Pods werden sich im `Terminating` Zustand befinden. Siehe https://kubernetes.io/docs/concepts/architecture/nodes/#condition[Pod-Evakuierungszeitüberschreitung] für Details.
+
+Wenn der ausgefallene Knoten später wiederhergestellt wird, wird Kubernetes die terminierenden Pods neu starten, die Volumes abtrennen, auf die Bereinigung des alten VolumeAttachment warten und die Volumes wiederverwenden (neu anhängen und neu einhängen). Typischerweise können diese Schritte 1 bis 7 Minuten in Anspruch nehmen.
+
+In diesem Fall sind die Abtrennungs- und Wiederanbindungsoperationen bereits in den Wiederherstellungsverfahren von Kubernetes enthalten. Daher sind keine zusätzlichen Operationen erforderlich, und die Longhorn-Volumes werden nach den oben genannten Schritten verfügbar sein.
+
+Für alle oben genannten Wiederherstellungsszenarien wird Longhorn diese Schritte automatisch in Zusammenarbeit mit Kubernetes durchführen.

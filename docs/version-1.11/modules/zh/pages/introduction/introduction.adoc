@@ -1,0 +1,44 @@
+= 简介
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+
+{longhorn-product-name-tm} 是适用于 Kubernetes 的轻量级、可靠且易于使用的分布式块存储系统。
+
+使用 {longhorn-product-name}，您可以：
+
+* 将 {longhorn-product-name} 卷用作 Kubernetes 集群中分布式有状态应用程序的持久存储。
+* 将您的块存储划分为 {longhorn-product-name} 卷，以便您可以在有或没有云提供商的情况下使用 Kubernetes 卷。
+* 在多个节点和数据中心之间复制块存储，以提高可用性。
+* 将备份数据存储在外部存储中，例如 NFS 或 AWS S3。
+* 创建跨集群灾难恢复卷，以便可以从第二个 Kubernetes 集群快速恢复来自主 Kubernetes 集群的数据。
+* 安排卷的定期快照，并安排定期备份到 NFS 或 S3 兼容的二级存储。
+* 从备份中恢复卷。
+* 在不干扰持久卷的情况下升级 {longhorn-product-name}。
+
+{longhorn-product-name} 附带独立的用户界面，并可以通过 Helm、kubectl 或 Rancher 应用程序目录进行安装。
+
+== 通过微服务简化分布式块存储。
+
+由于现代云环境需要数万到数百万个分布式块存储卷，一些存储控制器已经变成了高度复杂的分布式系统。相比之下，{longhorn-product-name} 可以通过将大型块存储控制器划分为多个较小的存储控制器来简化存储系统，只要这些卷仍然可以从一个公共磁盘池中构建。通过为每个卷使用一个存储控制器，{longhorn-product-name} 将每个卷转变为一个微服务。该控制器称为 Longhorn Engine。
+
+Longhorn Manager 组件协调 Longhorn Engine，使它们协同工作。
+
+== 在 Kubernetes 中使用持久存储而不依赖于云提供商。
+
+Pods 可以直接引用存储，但不推荐这样做，因为这不允许 Pod 或容器可移植。相反，工作负载的存储需求应在 Kubernetes 持久卷 (PVs) 和持久卷声明 (PVCs) 中定义。通过{longhorn-product-name}，您可以指定卷的大小、同步副本的数量以及您希望在提供存储资源的主机上进行的其他卷特定配置。然后，您的Kubernetes资源可以使用PVC和相应的PV来处理每个{longhorn-product-name}卷，或者使用{longhorn-product-name}存储类为工作负载自动创建PV。
+
+副本在底层磁盘或网络存储上是精简配置的。
+
+== 在多个计算或存储主机上调度多个副本
+
+为了提高可用性，{longhorn-product-name} 会创建每个卷的副本。副本包含卷的快照链，每个快照存储与前一个快照的变化。每个卷的副本也在一个容器中运行，因此一个具有三个副本的卷会导致四个容器。
+
+每个卷的副本数量可以在 {longhorn-product-name} 中配置，以及副本将被调度的节点。{longhorn-product-name} 监控每个副本的健康状况并进行修复，在必要时重建副本。
+
+== 为每个卷分配多个存储前端
+
+常见的前端包括 Linux 内核设备（映射在 /dev/longhorn 下）和 iSCSI 目标。
+
+== 指定定期快照和备份操作的调度
+
+指定这些操作的频率（每小时、每天、每周、每月和每年）、执行这些操作的确切时间（例如，每周日凌晨3:00）以及保留多少个定期快照和备份集。

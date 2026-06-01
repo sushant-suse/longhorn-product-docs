@@ -1,0 +1,74 @@
+= UBLK フロントエンド サポート
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/ublk-frontend-support.md"]
+:current-version: {page-component-version}
+
+v1.9.0 以降、{longhorn-product-name} は V2 データエンジンボリュームのための UBLK フロントエンドをサポートしています。
+この機能は、 https://spdk.io/doc/ublk.html[UBLK SPDK フレームワーク] を使用して V2 データエンジンボリュームをブロックデバイスとして公開します。
+特定の高仕様環境（例えば、数百万の IOPS を処理できる高速 SSD を搭載し、32 CPU コアを備えたマシンなど）では、UBLK フロントエンドは V2 データエンジンボリュームのデフォルトの NVMe-oF フロントエンドと比較して、より良いパフォーマンスを提供する可能性があります。
+パフォーマンスの比較については、link:https://github.com/longhorn/longhorn/wiki/Longhorn-Performance-Investigation[{longhorn-product-name} パフォーマンス調査ウィキページ] を参照してください。
+ただし、UBLK フロントエンドはデフォルトの NVMe-oF フロントエンドよりも成熟度が低いです（xref:_known_limitations[既知の制限] を参照）。
+UBLK フロントエンドには、以下に詳述する追加の制限があります。
+
+== 前提条件
+
+. ノードのカーネルバージョンは v6.0 以上でなければなりません。UBLK カーネルドライバは、カーネル v6.0 以降でのみ利用可能です。
+. UBLK ボリュームをアタッチする各ノードに、カーネルモジュール `ublk_drv` をロードする必要があります。テストのために、関連する各ノードで次のコマンドを使用して手動でロードできます：
++
+[,bash]
+----
+modprobe ublk_drv
+----
+
+== 使い方
+
+=== UI から V2 ボリュームを作成する際
+ボリューム作成時に `UBLK` をボリュームフロントエンドとして選択します。
+
+=== マニフェストから V2 ボリュームを作成する際
+. UBLK フロントエンドを指定する `StorageClass` を作成します。次に例を示します。
++
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: my-ublk-frontend-storageclass
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "2880"
+  fsType: "ext4"
+  dataEngine: "v2"
+  frontend: "ublk"
+----
+. 前のステップで作成した `StorageClass` を参照する `PersistentVolumeClaim` (PVC) を作成します。次に例を示します。
++
+[,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: my-ublk-frontend-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: my-ublk-frontend-storageclass
+  resources:
+    requests:
+      storage: 1Gi
+----
+. {longhorn-product-name} は、PVC と `StorageClass` の定義に基づいて UBLK フロントエンドを使用して V2 ボリュームを自動的にプロビジョニングします。
+
+== 既知の制限事項
+インスタンスマネージャーポッドがクラッシュすると、ノードに孤立した UBLK デバイスが残ることがあります。
+現在、これらの孤立したデバイスを手動で削除することは困難であり、時にはノードの再起動が必要になることがあります。
+私たちはこの問題をさらに調査しています link:https://github.com/longhorn/longhorn/issues/10738[GitHub Issue #10738]。
+
+== リファレンス
+UBLK フロントエンド サポートの元の GitHub Issue: link:https://github.com/longhorn/longhorn/issues/9456[GitHub Issue #9456]。

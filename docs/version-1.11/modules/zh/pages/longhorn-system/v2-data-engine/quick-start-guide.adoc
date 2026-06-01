@@ -1,0 +1,382 @@
+= 快速入门指南》
+:revdate: 2026-01-30
+:page-revdate: {revdate}
+:aliases: ["/spdk/quick-start.md"]
+:current-version: {page-component-version}
+
+{longhorn-product-name}的 V2 数据引擎使用存储性能开发工具包 (SPDK) 提供增强的性能。此集成降低了 I/O 延迟，同时提高了 IOPS 和吞吐量，提供了一种高性能存储解决方案，能够处理各种工作负载。
+
+V2 数据引擎目前是技术预览功能。其支持的功能记录在 https://github.com/longhorn/longhorn/wiki/V1-and-V2-Feature-Parities[这里]。
+
+本教程将指导您完成配置环境的过程，并创建使用 V2 数据引擎的 Longhorn 卷所对应的 Kubernetes 持久存储资源（持久卷（PVs）和持久卷声明（PVCs））。
+
+== 先决条件
+
+=== 加载内核模块
+
+在 Debian 和 Ubuntu 上，在加载所需的内核模块之前，请安装 Linux 内核额外模块：
+
+[,bash]
+----
+apt install -y linux-modules-extra-`uname -r`
+----
+
+您可以使用 xref:longhorn-system/system-access/install-longhorn-cli.adoc[Longhorn CLI] 配置 SPDK 所需的内核模块和大页。
+
+您可以手动安装它们：
+
+在每个 Longhorn 节点上加载内核模块：
+
+[,bash]
+----
+modprobe vfio_pci
+modprobe uio_pci_generic
+modprobe nvme-tcp
+----
+
+或者，您可以通过在启动序列中配置自动模块加载来简化每次重启后手动加载内核模块 vfio_pci、uio_pci_generic 和 nvme-tcp 的过程。有关详细说明，请查阅您的操作系统提供的手册。
+
+*参考*：
+
+* SUSE 或 openSUSE： https://documentation.suse.com/sles/15-SP4/html/SLES-all/cha-mod.html#sec-mod-modprobe-d[在启动时加载内核模块]
+* Ubuntu： https://manpages.ubuntu.com/manpages/jammy/man5/modules-load.d.5.html[配置在启动时加载内核模块]
+* RHEL： https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/managing_monitoring_and_updating_the_kernel/managing-kernel-modules_managing-monitoring-and-updating-the-kernel[在系统启动时自动加载内核模块]
+
+=== 启用大页
+
+==== 配置大页
+
+SPDK 使用大页来增强性能并最小化内存开销。您必须在每个 Longhorn 节点上配置 2 MiB 大小的大页以启用大页的使用。具体来说，每个 Longhorn 节点必须有 1024 页（总计 2 GiB）的可用空间。
+
+要分配大页，请在每个节点上运行以下命令。
+
+[,bash]
+----
+echo 1024 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
+----
+
+在 `/sys/kernel/mm/hugepages` 下进行的分配不是持久的，并在重启后重置。要使分配持久，请使用以下方法之一：
+
+===== 持久分配（推荐）
+
+要永久预分配大页，请更新内核启动参数。
+
+. 更新 GRUB 配置
++
+编辑 `/etc/default/grub` 并添加大页参数。此示例分配 `1024 × 2` MiB 页（总计 2 GiB）：
++
+[,bash]
+----
+GRUB_CMDLINE_LINUX="hugepagesz=2M hugepages=1024"
+----
++
+如果节点已经有内核参数，请附加这些值，而不是覆盖它们。
+
+. 应用 GRUB 配置
++
+BIOS 系统：
++
+[,bash]
+----
+sudo update-grub
+----
++
+RHEL 或 SUSE（GRUB2）：
++
+[,bash]
+----
+sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+----
++
+UEFI 系统：
++
+[,bash]
+----
+sudo grub2-mkconfig -o /boot/efi/EFI/<distro>/grub.cfg
+----
+
+. 重启节点：
++
+[,bash]
+----
+sudo reboot
+----
+
+. 验证大页：
++
+[,bash]
+----
+grep Huge /proc/meminfo
+----
++
+预期输出：
++
+----
+HugePages_Total:    1024
+Hugepagesize:       2048 kB
+----
+
+. 将大页作为 Kubernetes 资源进行验证：
++
+[,bash]
+----
+kubectl describe node <node-name>
+----
++
+在 *Capacity* 和 *Allocatable* 下预期：
++
+----
+hugepages-2Mi: 2Gi
+----
+
+===== 替代方案：sysctl 配置（不推荐）
+
+将以下行添加到 `/etc/sysctl.conf` 中：
+
+[,bash]
+----
+vm.nr_hugepages=1024
+----
+
+在许多 Linux 发行套件中，这不会在重启后保留，因为必须在启动过程中早期分配大页。仅在不允许修改 GRUB 时使用。
+
+=== 重启动 `kubelet`
+
+完成上述步骤后，重启每个节点上的 kubelet。
+
+=== 检查环境
+
+==== 使用 Longhorn 命令行工具
+
+`longhornctl` 工具是用于 Longhorn 操作的 CLI。有关更多信息，请参见 xref:longhorn-system/system-access/longhorn-cli.adoc[命令行工具 (longhornctl)]。
+
+要检查先决条件和配置，请下载该工具并运行 `check` 子命令：
+
+[subs="+attributes",shell]
+----
+# For AMD64 platform
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-amd64
+# For ARM platform
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-arm64
+
+chmod +x longhornctl
+./longhornctl check preflight --enable-spdk
+----
+
+结果示例：
+
+[subs="+attributes",shell]
+----
+INFO[2024-01-10T00:00:01Z] Initializing preflight checker
+INFO[2024-01-01T00:00:01Z] Cleaning up preflight checker
+INFO[2024-01-01T00:00:01Z] Running preflight checker
+INFO[2024-01-01T00:00:02Z] Retrieved preflight checker result:
+worker1:
+  error:
+  - 'HugePages is insufficient. Required 2MiB HugePages: 1024 pages, Total 2MiB HugePages: 0 pages'
+  - 'Module nvme_tcp is not loaded: failed to execute: nsenter [--mount=/host/proc/204896/ns/mnt --net=/host/proc/204896/ns/net grep nvme_tcp /proc/modules], output , stderr : exit status 1'
+  - 'Module uio_pci_generic is not loaded: failed to execute: nsenter [--mount=/host/proc/204896/ns/mnt --net=/host/proc/204896/ns/net grep uio_pci_generic /proc/modules], output , stderr : exit status 1'
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-common is installed
+  - Package open-iscsi is installed
+  - CPU instruction set sse4_2 is supported
+  warn:
+  - multipathd.service is running. Please refer to https://longhorn.io/kb/troubleshooting-volume-with-multipath/ for more information.
+----
+
+使用 `install` 子命令在安装 Longhorn 之前安装和设置预检依赖项。
+
+[subs="+attributes",shell]
+----
+master:~# ./longhornctl install preflight --enable-spdk
+INFO[2024-01-01T00:00:03Z] Initializing preflight installer
+INFO[2024-01-01T00:00:03Z] Cleaning up preflight installer
+INFO[2024-01-01T00:00:03Z] Running preflight installer
+INFO[2024-01-01T00:00:03Z] Installing dependencies with package manager
+INFO[2024-01-01T00:00:10Z] Installed dependencies with package manager
+INFO[2024-01-01T00:00:10Z] Cleaning up preflight installer
+INFO[2024-01-01T00:00:10Z] Completed preflight installer. Use 'longhornctl check preflight' to check the result.
+----
+
+[NOTE]
+====
+某些不可变的 Linux 发行套件，例如 SUSE Linux Enterprise Micro (SLE Micro)，要求您在运行 `install` 子命令后重启工作节点。重启后，您必须再次运行 `install` 子命令以完成操作。
+
+您的 Linux 发行套件的文档应概述此类要求。例如， https://documentation.suse.com/sle-micro/6.0/html/Micro-transactional-updates/index.html#reference-transactional-update-usage[SLE Micro 文档] 解释了通过 `transactional-update` 命令所做的所有更改仅在节点重启后生效。
+====
+
+
+安装和设置预检依赖项后，您可以再次运行 `check` 子命令以验证所有环境设置是否正确。
+
+[subs="+attributes",shell]
+----
+master:~# ./longhornctl check preflight --enable-spdk
+INFO[2024-01-01T00:00:13Z] Initializing preflight checker
+INFO[2024-01-01T00:00:13Z] Cleaning up preflight checker
+INFO[2024-01-01T00:00:13Z] Running preflight checker
+INFO[2024-01-01T00:00:16Z] Retrieved preflight checker result:
+worker1:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-common is installed
+  - Package open-iscsi is installed
+  - CPU instruction set sse4_2 is supported
+  - HugePages is enabled
+  - Module nvme_tcp is loaded
+  - Module uio_pci_generic is loaded
+----
+
+==== 使用 Longhorn 命令行工具
+
+确保一切都已正确配置和安装，
+
+[subs="+attributes", console]
+----
+longhornctl --kubeconfig ~/.kube/config --image longhornio/longhorn-cli:v{patch-version} install preflight --enable-spdk
+----
+
+有关更多信息，请参阅 xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn 命令行工具]。
+
+== 安装
+
+=== 安装 Longhorn 系统
+
+按照快速安装中的步骤安装 Longhorn 系统。
+
+=== 启用 V2 数据引擎
+
+安装后，通过将 `v2-data-engine` 设置更改为 `true` 来启用 V2 数据引擎。接下来，实例管理器的 pod 将自动重启。
+
+或者，您可以在 `Settings > V2 Data Engine` 中启用它。
+
+=== CPU 和内存使用情况
+
+当启用 V2 数据引擎时，每个 V2 数据引擎的实例管理器 pod 使用 1 个 CPU 核心。高 CPU 使用率是由 `spdk_tgt` 引起的，这是在每个实例管理器 pod 中运行的一个进程，处理输入/输出 (IO) 操作并需要密集轮询。`spdk_tgt` 消耗 100% 的专用 CPU 核心，以有效管理和处理 IO 请求，确保存储操作的最佳性能和响应能力。
+
+----
+NAME                                                CPU(cores)   MEMORY(bytes)
+csi-attacher-57c5fd5bdf-jsfs4                       1m           7Mi
+csi-attacher-57c5fd5bdf-kb6dv                       1m           9Mi
+csi-attacher-57c5fd5bdf-s7fb6                       1m           7Mi
+csi-provisioner-7b95bf4b87-8xr6f                    1m           11Mi
+csi-provisioner-7b95bf4b87-v4gwb                    1m           9Mi
+csi-provisioner-7b95bf4b87-vnt58                    1m           9Mi
+csi-resizer-6df9886858-6v2ds                        1m           8Mi
+csi-resizer-6df9886858-b6mns                        1m           9Mi
+csi-resizer-6df9886858-l4vmj                        1m           8Mi
+csi-snapshotter-5d84585dd4-4dwkz                    1m           7Mi
+csi-snapshotter-5d84585dd4-km8bc                    1m           9Mi
+csi-snapshotter-5d84585dd4-kzh6w                    1m           7Mi
+engine-image-ei-b907910b-79k2s                      3m           19Mi
+instance-manager-214803c4f23376af5a75418299b12ad6   1015m        133Mi (for V2 Data Engine)
+instance-manager-4550bbc4938ff1266584f42943b511ad   4m           15Mi  (for V1 Data Engine)
+longhorn-csi-plugin-nz94f                           1m           26Mi
+longhorn-driver-deployer-556955d47f-h5672           1m           12Mi
+longhorn-manager-2n9hd                              4m           42Mi
+longhorn-ui-58db78b68-bzzz8                         0m           2Mi
+longhorn-ui-58db78b68-ffbxr                         0m           2Mi
+----
+
+您可以通过运行命令 `kubectl get node <node name> -o yaml` 来观察每个节点上分配的大页的利用率。
+
+----
+# kubectl get node sles-pool1-07437316-4jw8f -o yaml
+...
+
+status:
+  ...
+  allocatable:
+    cpu: "8"
+    ephemeral-storage: "203978054087"
+    hugepages-1Gi: "0"
+    hugepages-2Mi: 2Gi
+    memory: 31813168Ki
+    pods: "110"
+  capacity:
+    cpu: "8"
+    ephemeral-storage: 209681388Ki
+    hugepages-1Gi: "0"
+    hugepages-2Mi: 2Gi
+    memory: 32861744Ki
+    pods: "110"
+...
+----
+
+=== 在 Longhorn 节点中添加 `block-type` 磁盘
+
+与为传统卷设计的 `filesystem-type` 磁盘不同，使用 V2 数据引擎的卷在 `block-type` 磁盘上是持久的。因此，有必要为 Longhorn 节点配备 `block-type` 磁盘。
+
+==== 准备磁盘
+
+如果 Longhorn 节点上没有可用的额外磁盘，您可以创建循环块设备来测试该功能。为此，请在每个 Longhorn 节点上执行以下命令以创建一个 10 GiB 的块设备。
+
+----
+dd if=/dev/zero of=blockfile bs=1M count=10240
+losetup -f blockfile
+----
+
+要在运行命令 `losetup -f blockfile` 时显示块设备的路径，请使用以下命令。
+
+----
+losetup -j blockfile
+----
+
+==== 将磁盘添加到 `node.longhorn.io`
+
+[NOTE]
+====
+从版本 1.11.0 开始，{longhorn-product-name} 防止添加包含现有文件系统或分区表的块磁盘，以避免意外数据丢失。在添加之前，请通过运行以下命令确保磁盘是干净的：
+
+----
+wipefs -a /path/to/block/device
+----
+
+如果磁盘包含现有的文件系统或分区表，磁盘添加操作将失败。代码有注释。按回车键查看。
+====
+
+您可以通过导航到节点用户界面页面并将 `Disk Type` 指定为 `Block` 来添加磁盘。接下来，在 `Path` 字段中提供块设备的路径。
+
+或者，编辑 `node.longhorn.io` 资源。
+
+----
+kubectl -n longhorn-system edit node.longhorn.io <NODE NAME>
+----
+
+将磁盘添加到 `Spec.Disks`
+
+----
+<DISK NAME>:
+  allowScheduling: true
+  evictionRequested: false
+  path: /PATH/TO/BLOCK/DEVICE
+  storageReserved: 0
+  tags: []
+  diskType: block
+----
+
+稍等片刻，您将看到磁盘在 `Status.DiskStatus` 中显示。
+
+== 应用程序部署
+
+完成安装和配置后，我们可以按照以下步骤使用 V2 数据引擎动态提供持久卷。
+
+=== 创建一个 StorageClass
+
+运行以下命令以创建名为 `longhorn-spdk` 的 StorageClass。将 `parameters.dataEngine` 设置为 `v2` 以启用 V2 数据引擎。
+
+[subs="+attributes", console]
+----
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/storageclass.yaml
+----
+
+=== 创建 Longhorn 卷
+
+通过运行此命令创建一个使用 Longhorn 卷的 Pod，使用 V2 数据引擎：
+
+[subs="+attributes", console]
+----
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/pod_with_pvc.yaml
+----

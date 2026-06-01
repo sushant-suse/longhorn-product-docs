@@ -1,0 +1,116 @@
+= 故障排除问题
+:revdate: 2025-09-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 查错指南
+
+在{longhorn-product-name}中有几个组件：管理器、引擎、驱动程序和用户界面。默认情况下，所有这些组件作为Pod在Kubernetes集群的`longhorn-system`名称空间中运行。
+
+大多数日志包含在支持包中。您可以点击用户界面底部的*生成支持包*链接下载一个包含{longhorn-product-name}相关配置和日志的zip文件。
+
+有关详细信息，请参见xref:troubleshooting-maintenance/support-bundle.adoc[支持包]。
+
+一个例外是`dmesg`，需要用户从每个节点中检索。
+
+=== UI
+
+使用{longhorn-product-name}用户界面是故障排除的一个良好开端。例如，如果Kubernetes无法正确挂载一个卷，在停止工作负载后，尝试在一个节点上手动附加和挂载该卷，并访问内容以检查卷是否完好。
+
+此外，用户界面仪表板中的事件日志提供了一些可能存在的问题的信息。检查`Warning`级别的事件日志。
+
+=== 管理器和引擎
+
+您可以从 Longhorn Manager 和引擎获取日志以帮助故障排除。最有用的日志是来自`longhorn-manager-xxx`的日志，以及Longhorn实例管理器内部的日志，例如`instance-manager-xxxx`、`instance-manager-e-xxxx`和`instance-manager-r-xxxx`。
+
+由于通常有多个 Longhorn Manager 同时运行，我们建议使用 https://github.com/johanhaleby/kubetail[kubetail,]，这是一个很好的工具，可以跟踪多个 Pod 的日志。要实时跟踪管理器日志，您可以使用：
+
+----
+kubetail longhorn-manager -n longhorn-system
+----
+
+=== CSI驱动程序
+
+对于CSI驱动程序，请检查`csi-attacher-0`和`csi-provisioner-0`的日志，以及`longhorn-csi-plugin-xxx`中的容器。
+
+=== Flexvolume驱动程序
+
+FlexVolume 驱动程序从 Longhorn v0.8.0 开始已被弃用，不应再使用。
+
+首先检查驱动程序在节点上安装的位置。检查 `longhorn-driver-deployer-xxxx` 的日志以获取该信息。
+
+然后检查 kubelet 日志。FlexVolume 驱动程序本身并不在容器内运行。它会与 kubelet 进程一起运行。
+
+如果 kubelet 在节点上本地运行，可以使用以下命令获取日志：
+
+----
+journalctl -u kubelet
+----
+
+或者如果 kubelet 作为容器运行（例如在 RKE 中），请使用以下命令：
+
+----
+docker logs kubelet
+----
+
+要获取更详细的 Longhorn FlexVolume 日志，请在节点或容器内运行以下命令（如果 kubelet 作为容器运行，例如在 RKE 中）：
+
+----
+touch /var/log/longhorn_driver.log
+----
+
+== 常见问题
+
+=== 可以通过 UI 附加或分离卷，但 Kubernetes Pods 和 StatefulSets 不能使用它。
+
+==== 使用 FlexVolume 插件时出现问题。
+
+检查卷插件目录是否已正确设置。除非用户明确设置，否则会自动检测。
+
+默认情况下，Kubernetes 使用 `/usr/libexec/kubernetes/kubelet-plugins/volume/exec/`，如 https://github.com/kubernetes/community/blob/master/contributors/devel/sig-storage/flexvolume.md/#prerequisites[官方文档] 中所述。
+
+一些供应商出于各种原因选择更改目录。例如，GKE 使用 `/home/kubernetes/flexvolume`。
+
+您可以通过在主机上运行 `ps aux|grep kubelet` 并检查 `--volume-plugin-dir` 参数来找到正确的目录。如果参数为空，{longhorn-product-name} 使用默认目录 `/usr/libexec/kubernetes/kubelet-plugins/volume/exec/`。
+
+== 保存线索
+
+=== 引擎、副本和同步代理运行时。
+
+您可以动态启用 pprof 服务器以执行运行时分析。
+
+要启用分析，您可以：
+
+. 通过 Shell 进入实例管理器 Pod。
+. 使用 `ps` 来识别运行时进程及其端口。
++
+[,bash]
+----
+$ ps aux | more
+
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+...
+root        1996  0.0  0.6 1990080 20996 ?       Sl   Jul25   0:05 /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --volume-name     vol replica /host/var/lib/longhorn/replicas/vol-3004fc59 --size 1073741824 --disableRevCounter --replica-instance-name vol-r-ec7e35e4 --snapshot-max-count 250     --snapshot-max-size 0 --sync-agent-port-count 7 --listen 0.0.0.0:10000
+root        2004  0.0  0.6 1695152 22708 ?       Sl   Jul25   0:09 /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --volume-name     vol sync-agent --listen 0.0.0.0:10002 --replica 0.0.0.0:10000 --listen-port-range 10003-10009 --replica-instance-name vol-r-ec7e35e4
+root        2031  0.0  0.6 1916348 23760 ?       Sl   Jul25   0:46 /engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --engine-instance-name vol-e-0     controller vol --frontend tgt-blockdev --disableRevCounter --size 1073741824 --current-size 0 --engine-replica-timeout 8 --file-sync-http-client-timeout 30     --snapshot-max-count 250 --snapshot-max-size 0 --replica tcp://10.42.2.7:10000 --replica tcp://10.42.0.15:10000 --replica tcp://10.42.1.7:10000 --listen 0.0.0.0:10010
+----
+. 为所需的运行时启用 `pprof` 服务器（例如，sync-agent）：
++
+在此示例中，sync-agent 进程侦听端口 `10002`。
++
+[,bash]
+----
+$ /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --url http://localhost:10002 profiler enable --port 36060
+$ /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --url http://localhost:10002 profiler show
+
+Profiler enabled at Addr: *:36060
+----
+. 使用 pprof 接口进行运行时检查。有关更多详细信息，请参阅 https://pkg.go.dev/net/http/pprof#hdr-Usage_examples[官方 pprof 文档]。
+. 完成分析后禁用分析器：
++
+[,bash]
+----
+$ /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --url http://localhost:10002 profiler disable
+
+Profiler is disabled!
+----

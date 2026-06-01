@@ -7,9 +7,9 @@ Each node in the Kubernetes cluster where {longhorn-product-name} is installed m
 
 * A container runtime compatible with Kubernetes (Docker v1.13+, containerd v1.3.7+, etc.)
 * Kubernetes v1.25 or later
-* `open-iscsi` is installed, and the `iscsid` daemon is running on all the nodes. This is necessary, since {longhorn-product-name} relies on `iscsiadm` on the host to provide persistent volumes to Kubernetes. For help installing `open-iscsi`, refer to <<_installing_open_iscsi,Installing open-iscsi>>.
+* `open-iscsi` is installed, and the `iscsid` daemon is running on all the nodes. This is necessary, since {longhorn-product-name} relies on `iscsiadm` on the host to provide persistent volumes to Kubernetes. For help installing `open-iscsi`, refer to xref:_installing_open_iscsi[Installing open-iscsi].
 * RWX support requires that each node has a NFSv4 client installed.
- ** For installing a NFSv4 client, refer to <<_installing_nfsv4_client,Installing NFSv4 Client>>.
+ ** For installing a NFSv4 client, refer to xref:_installing_nfsv4_client[Installing NFSv4 Client].
 * The host filesystem supports the `file extents` feature to store the data. Currently we support:
  ** ext4
  ** XFS
@@ -105,7 +105,7 @@ Below are the directories {longhorn-product-name} components requiring access wi
 * Longhorn System Restore Rollout
  ** /var/lib/longhorn/engine-binaries: The default path for storing the Longhorn engine binaries.
 
-[discrete]
+[#_installing_open_iscsi]
 == Installing open-iscsi
 
 The command used to install `open-iscsi` differs depending on the Linux distribution.
@@ -177,7 +177,7 @@ In rare cases, it may be required to modify the installed SELinux policy to get 
 an up-to-date version of a Fedora downstream distribution (e.g. Fedora, RHEL, Rocky, CentOS, etc.) and plan to leave
 SELinux enabled, see link:https://longhorn.io/kb/troubleshooting-volume-attachment-fails-due-to-selinux-denials[the KB] for details.
 
-[discrete]
+[#_installing_nfsv4_client]
 == Installing NFSv4 client
 
 The backup feature requires NFSv4, v4.1 or v4.2, and ReadWriteMany (RWX) volume feature requires NFSv4.1. Before installing NFSv4 client userspace daemon and utilities, make sure the client kernel support is enabled on each {longhorn-product-name} node.

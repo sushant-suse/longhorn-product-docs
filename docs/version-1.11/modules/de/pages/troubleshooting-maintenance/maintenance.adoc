@@ -1,0 +1,208 @@
+= Node-Wartung und Kubernetes-Upgrade-Leitfaden
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Befolgen Sie die Anweisungen zur Handhabung geplanter Knotenwartungen und zum Upgrade der Kubernetes-Version für den Cluster. +
+ +
+Aktualisierung des Node-Betriebssystems oder der Container-Laufzeit. +
+ +
+Den Knoten cordonieren. +
+ +
+Longhorn wird die Knotenplanung automatisch deaktivieren, wenn ein Kubernetes-Knoten cordoniert wird. +
+ +
+Den Knoten entleeren, um die Arbeitslast woanders hin zu verschieben. +
+ +
+Es ist notwendig,  zu verwenden, um den Knoten zu entleeren. +
+ +
+Das  wird benötigt, da Longhorn einige DaemonSets wie , ,  bereitgestellt hat. +
+ +
+Während der Entleerung werden die Engine-Prozesse auf dem Knoten zusammen mit den Arbeitslast-Pods auf andere Knoten migriert. +
+ +
+Volumes, die nicht über den CSI-Fluss auf dem Knoten angeschlossen sind (zum Beispiel manuell über die UI angeschlossen), werden während der Entleerung nicht automatisch an neue Knoten von Kubernetes angeschlossen. +
+ +
+Daher wird Longhorn verhindern, dass der Knoten den Entleerungsvorgang abschließt. +
+ +
+Der Benutzer muss diese Volumes manuell abtrennen, um die Entleerung zu ermöglichen. +
+ +
+Während der Entleerung werden die Replikat-Prozesse auf dem Knoten entweder weiterlaufen oder schließlich basierend auf der Node Drain Policy entfernt und gestoppt. +
+ +
+Standardmäßig wird Longhorn verhindern, dass der Knoten den Entleerungsvorgang abschließt, wenn es ein letztes gesundes Replikat für ein Volume auf dem Knoten gibt, um das letzte Replikat zu schützen und die Störung der Arbeitslast zu verhindern. +
+ +
+Sie können dieses Verhalten mit der Einstellung Node Drain Policy steuern oder das Replikat vor der Entleerung auf andere Knoten evakuieren. +
+ +
+Siehe Node Drain Policy Empfehlungen für Überlegungen bei der Auswahl einer Richtlinie. +
+ +
+Nachdem die Entleerung abgeschlossen ist, sollten keine Engine- oder Replikat-Prozesse mehr auf dem Knoten laufen, da das Instance-Manager-Pod, das sie ausgeführt hat, gestoppt wird. +
+ +
+Je nach Node Drain Policy werden Replikate, die dem Knoten zugewiesen sind, entweder als  angezeigt oder zugunsten von Ersatz entfernt. +
+ +
+Arbeitslasten, die Longhorn-Volumes verwenden, funktionieren wie erwartet und genügend Replikate werden woanders laufen, um die Anforderungen der Richtlinie zu erfüllen. +
+ +
+Normalerweise müssen Sie die Replikate vor dem Entleerungsvorgang nicht evakuieren, solange Sie gesunde Replikate auf anderen Knoten haben. +
+ +
+Die Replikate können später wiederverwendet werden, sobald der Knoten wieder online und nicht mehr cordoniert ist. +
+ +
+Siehe Node Drain Policy für weitere Hinweise.
+
+== Aktualisierung des Node-Betriebssystems oder der Container-Laufzeit
+
+. Den Knoten cordonieren. Longhorn wird die Knotenplanung automatisch deaktivieren, wenn ein Kubernetes-Knoten cordoniert wird.
+. Den Knoten entleeren, um die Arbeitslast woanders hin zu verschieben.
++
+Es ist notwendig, `--ignore-daemonsets` zu verwenden, um den Knoten zu entleeren. Das `--ignore-daemonsets` wird benötigt, da Longhorn einige DaemonSets wie `Longhorn manager`, `Longhorn CSI plugin`, `engine image` bereitgestellt hat.
++
+Während der Entleerung werden die Engine-Prozesse auf dem Knoten zusammen mit den Arbeitslast-Pods auf andere Knoten migriert.
++
+NOTE: Volumes, die nicht über den CSI-Fluss auf dem Knoten angeschlossen sind (zum Beispiel manuell über die UI angeschlossen), werden während der Entleerung nicht automatisch an neue Knoten von Kubernetes angeschlossen. Daher wird Longhorn verhindern, dass der Knoten den Entleerungsvorgang abschließt. Der Benutzer muss diese Volumes manuell abtrennen, um die Entleerung zu ermöglichen.
++
+Während der Entleerung werden die Replikate-Prozesse auf dem Knoten entweder weiterlaufen oder schließlich basierend auf der <<_node_drain_policy_recommendations,Node Drain Policy>> aus dem System entfernt und gestoppt.
++
+NOTE: Standardmäßig wird Longhorn verhindern, dass der Knoten den Entleerungsvorgang abschließt, wenn es ein letztes gesundes Replikat für ein Volume auf dem Knoten gibt, um das letzte Replikat zu schützen und die Störung der Arbeitslast zu verhindern. Sie können dieses Verhalten mit der Einstellung xref:longhorn-system/settings.adoc#_node_drain_policy[Node Drain Policy] steuern oder xref:nodes/disks-or-nodes-eviction.adoc[das Replikat vor der Entleerung auf andere Knoten evakuieren]. Siehe <<_node_drain_policy_recommendations,Node Drain Policy Empfehlungen>> für Überlegungen bei der Auswahl einer Richtlinie.
++
+Nachdem die Entleerung abgeschlossen ist, sollten keine Engine- oder Replikate-Prozesse mehr auf dem Knoten laufen, da das Instance-Manager-Pod, das sie ausgeführt hat, gestoppt wird. Je nach der <<_node_drain_policy_recommendations,Node Drain Policy>> werden Replikate, die dem Knoten zugewiesen sind, entweder als `Failed` angezeigt oder zugunsten von Ersatzteilen entfernt. Arbeitslasten, die Longhorn-Volumes verwenden, funktionieren wie erwartet und genügend Replikate werden woanders laufen, um die Anforderungen der Richtlinie zu erfüllen.
++
+NOTE: Normalerweise müssen Sie die Replikate vor dem Entleerungsvorgang nicht evakuieren, solange Sie gesunde Replikate auf anderen Knoten haben. Die Replikate können später wiederverwendet werden, sobald der Knoten wieder online und nicht mehr cordoniert ist. Siehe <<_node_drain_policy_recommendations,Node Drain Policy>> für weitere Hinweise.
+
+. Führen Sie die erforderliche Wartung durch, einschließlich des Herunterfahrens oder Neustarts des Knotens.
+. Heben Sie den Cordon des Knotens auf. Longhorn wird die Knotenplanung automatisch wieder aktivieren. Wenn es vorhandene Replikate auf dem Knoten gibt, könnte Longhorn diese Replikate verwenden, um den Wiederaufbauprozess zu beschleunigen. Sie können die Einstellung xref:longhorn-system/settings.adoc#_replica_replenishment_wait_interval[Warteintervall für die Wiederauffüllung von Replikaten] anpassen, um festzulegen, wie lange Longhorn warten soll, bis potenziell wiederverwendbare Replikate verfügbar sind.
+
+== Festplatte entfernen
+
+Festplatte entfernen:
+
+. Deaktivieren Sie das Festplatten-Scheduling.
+. Evakuieren Sie alle Replikate auf der Festplatte.
+. Löschen Sie die Festplatte.
+
+=== Den Knotennamen wiederverwenden
+
+Diese Schritte gelten auch, wenn Sie einen Knoten mit demselben Knotennamen ersetzt haben. Longhorn wird erkennen, dass die Festplatten unterschiedlich sind, sobald der neue Knoten aktiv ist. Sie müssen zuerst die ursprünglichen Festplatten entfernen und sie für den neuen Knoten wieder hinzufügen, wenn er denselben Namen wie der vorherige Knoten verwendet.
+
+== Einen Knoten entfernen
+
+Um einen Knoten zu entfernen:
+
+. Deaktivieren Sie das Festplatten-Scheduling.
+. Evakuieren Sie alle Replikate auf dem Knoten.
+. Trennen Sie alle Volumes auf dem Knoten.
++
+Wenn der Knoten entleert wurde, sollten alle Arbeitslasten bereits auf einen anderen Knoten migriert worden sein.
++
+Wenn noch andere Volumes angeschlossen sind, trennen Sie diese, bevor Sie fortfahren.
+
+. Entfernen Sie den Knoten von Longhorn mithilfe des `Delete` im `Node` Tab.
++
+Oder entfernen Sie den Knoten von Kubernetes, indem Sie folgendes verwenden:
++
+kubectl delete node +++<node-name>++++++</node-name>+++
+
+. Longhorn wird den Knoten automatisch aus dem Cluster entfernen.
+
+== Kubernetes aktualisieren
+
+=== Direktaufrüstung
+
+Das In-Place-Upgrade ist eine Upgrade-Methode, bei der Knoten aktualisiert werden, ohne aus dem Cluster entfernt zu werden. Einige Beispiel­lösungen, die diese Upgrade-Methoden verwenden, sind https://documentation.suse.com/cloudnative/k3s/latest/en/upgrades/automated.html[{k3s-product-name} automatisierte Upgrades], https://documentation.suse.com/cloudnative/rancher-manager/latest/en/cluster-admin/backups-and-restore/backups-and-restore.html[{rancher-product-name} Kubernetes-Upgrade-Leitfaden], https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/[Kubeadm-Upgrade], usw....
+
+Unter der Annahme, dass Knoten und Festplatten nicht gelöscht/entfernt werden, ist der empfohlene Upgrade-Leitfaden:
+
+. Cordonieren und entleeren Sie einen Knoten, bevor Sie die Kubernetes-Komponenten aktualisieren. Die Anweisungen zum Entleeren sind ähnlich wie die unter <<_updating_the_node_os_or_container_runtime,Aktualisierung des Node-Betriebssystems oder der Container-Laufzeit>>.
+. Der Entleerungs-`--timeout` sollte groß genug sein, damit die Wiederaufbauvorgänge der Replikate auf gesunden Knoten zwischen den Knoten-Upgrades abgeschlossen werden können. Je mehr Longhorn-Replikate auf dem entleerten Knoten vorhanden sind, desto länger dauert es, bis sie auf anderen gesunden Knoten wiederaufgebaut werden. Wir empfehlen Ihnen, einen ausreichend großen Wert zu testen und auszuwählen oder ihn auf 0 (d. h. niemals ablaufen) zu setzen.
+. Die Anzahl der Knoten, die gleichzeitig aktualisiert werden, sollte kleiner sein als die Anzahl der Longhorn-Replikate für jedes Volume.
+Dies ist so, dass ein laufendes Longhorn-Volume mindestens ein gesundes Replikat gleichzeitig hat.
+. Erwägen Sie, die Einstellung xref:longhorn-system/settings.adoc#_node_drain_policy[Node Drain Policy] auf `allow-if-replica-is-stopped` zu setzen, damit die Entleerung nicht durch das letzte gesunde Replikat eines getrennten Volumes blockiert wird. Siehe <<_node_drain_policy_recommendations,Empfehlungen zur Node Drain Policy>> für Überlegungen bei der Auswahl einer Richtlinie.
+
+=== Verwaltetes Kubernetes
+
+Weitere Informationen finden Sie in folgenden Themen:
+* xref:/upgrades/kubernetes/upgrade-k8s-on-aks.adoc[]
+* xref:/upgrades/kubernetes/upgrade-k8s-on-eks.adoc[]
+* xref:/upgrades/kubernetes/upgrade-k8s-on-gke.adoc[]
+
+== Empfehlungen zur Node Drain Policy
+
+Derzeit stehen fünf Node Drain Policies zur Auswahl. Jede hat ihre eigenen Vorteile und Nachteile. Dieser Abschnitt bietet allgemeine Hinweise zu jeder Richtlinie und schlägt Situationen vor, in denen jede verwendet werden könnte.
+
+=== Wichtige Hinweise
+
+Die Node Drain Policy legt das Verhalten von Longhorn fest, wenn ein Knoten aktiv entleert wird. Es gibt jedoch keine Möglichkeit für Longhorn, den Unterschied zwischen dem Cordonieren und dem Entleeren eines Knotens zu bestimmen. Je nach Richtlinie kann Longhorn jederzeit Maßnahmen ergreifen, wenn ein Knoten cordoniert wird, selbst wenn er nicht entleert wird.
+
+Die Node Drain Policy verhindert die Evakuierung eines Instance-Manager-Pods während eines Entleerungsvorgangs, bis bestimmte Bedingungen erfüllt sind. Wenn der Instance-Manager-Pod nicht evakuiert werden kann, kann die Entleerung nicht abgeschlossen werden. Dies verhindert, dass ein Benutzer (oder ein automatisierter Prozess) einen Knoten weiterhin herunterfährt oder neu startet, wenn es nicht sicher ist, dies zu tun. Es kann verlockend sein, den Entleerungsfehler zu ignorieren und mit Wartungsarbeiten fortzufahren, wenn es zu lange dauert, aber dies schränkt Longhorns Fähigkeit ein, Daten zu schützen. Überprüfen Sie immer die Ereignisse und/oder Protokolle, um zu versuchen, den Grund zu ermitteln, warum die Entleerung nicht voranschreitet, und ergreifen Sie Maßnahmen, um das zugrunde liegende Problem zu beheben.
+
+=== Blockieren, wenn das letzte Replikat vorhanden ist
+
+Dies ist die Standardrichtlinie. Sie soll ein gutes Gleichgewicht zwischen Benutzerfreundlichkeit und Datenschutz bieten. Während sie aktiv ist, wird Longhorn die Evakuierung eines Instance-Manager-Pods (und den Abschluss einer Entleerung) auf einem cordonierten Knoten verhindern, der das letzte gesunde Replikat eines Volumes enthält.
+
+Vorteile:
+
+* Schützt Daten, indem sie verhindert, dass der Entleerungsprozess abgeschlossen wird, bis ein gesundes Replikat für jedes Volume auf einem anderen Knoten verfügbar ist.
+
+Nachteile:
+
+* Wenn es nur ein Replikat für das Volume gibt oder wenn die anderen Replikate nicht gesund sind, muss der Benutzer möglicherweise manuell (über die Benutzeroberfläche) die Ausweisung von Replikaten von der Festplatte oder dem Knoten anfordern.
+* Volumes können nach Abschluss der Entleerung beeinträchtigt sein. Wenn der Knoten neu gestartet wird, wird die Redundanz reduziert, bis er wieder läuft. Wenn der Knoten entfernt wird, wird die Redundanz reduziert, bis ein anderes Replikat wiederhergestellt wird.
+
+=== Erlauben, wenn das letzte Replikat beendet ist
+
+Diese Richtlinie ist ähnlich wie `Block If Contains Last Replica`. Es ist von Natur aus weniger sicher, kann jedoch den Drain-Vorgang schneller abschließen. Es verhindert nur die Ausweisung eines Instance-Manager-Pod (und den Abschluss einer Entleerung) auf einem Knoten, der das letzte LAUFENDE gesunde Replikat enthält.
+
+Vorteile:
+
+* Erlaubt den Entleerungsvorgang in Situationen, in denen der entleerte Knoten voraussichtlich wieder online kommt (Daten gehen nicht verloren) und die auf den Festplatten des Knotens gespeicherten Replikate nicht aktiv verwendet werden.
+
+Nachteile:
+
+* Ähnliche Nachteile wie `Block If Contains Last Replica`.
+* Wenn der Knoten aus irgendeinem Grund niemals zurückkommt, gehen die Daten verloren.
+
+=== Immer zulassen
+
+Diese Richtlinie schützt die Daten in keiner Weise, ermöglicht jedoch das sofortige Abschließen des Drain-Vorgangs. Es verhindert niemals die Ausweisung eines Instance-Manager-Pods (und den Abschluss eines Drain-Vorgangs). Verwenden Sie es nicht in einer Produktionsumgebung.
+
+Vorteile:
+
+* Der Drain-Vorgang wird schnell abgeschlossen, ohne dass Longhorn im Weg steht.
+
+Nachteile:
+
+* Es gibt keine Möglichkeit für Longhorn, Daten zu schützen.
+
+=== Blockieren für die Ausweisung.
+
+Diese Richtlinie bietet den maximalen Schutz für Daten, kann jedoch zu langen Drain-Zeiten und unnötiger Datenbewegung führen. Es verhindert die Ausweisung eines Instance-Manager-Pods (und den Abschluss eines Drain-Vorgangs), solange noch Replikate auf einem Knoten verbleiben. Darüber hinaus ergreift es Maßnahmen, um Replikate automatisch vom Knoten auszuweisen.
+
+Es wird nicht empfohlen, diese Richtlinie unter normalen Bedingungen aktiviert zu lassen, da sie die Ausweisung von Replikaten auslöst, sobald ein Knoten abgeriegelt wird. Aktivieren Sie es nur während geplanter Wartungsarbeiten.
+
+Ein primärer Anwendungsfall für diese Richtlinie ist, wenn Cluster automatisch aktualisiert werden, in denen Volumes keine Redundanz haben (`numberOfReplicas == 1`). Andere Richtlinien verhindern den Drain-Vorgang, bis solche Replikate manuell ausgewiesen werden, was für die Automatisierung unpraktisch ist.
+
+Vorteile:
+
+* Schützt Daten, indem der Drain-Vorgang daran gehindert wird, abzuschließen, bis alle Replikate umgezogen sind.
+* Weist automatisch Replikate aus, sodass der Benutzer dies nicht manuell (über die Benutzeroberfläche) tun muss.
+* Hält die Replikat-Redundanz jederzeit aufrecht.
+
+Nachteile:
+
+* Der Drain-Vorgang ist erheblich langsamer als bei anderen Verhaltensweisen. Jedes Replikat muss auf einem anderen Knoten neu aufgebaut werden, bevor es abgeschlossen werden kann. Der Drain-Timeout muss entsprechend der Menge an Daten angepasst werden, die während des Wiederaufbaus verschoben wird.
+* Der Drain-Vorgang ist datenintensiv, insbesondere wenn die automatische Replikatbalance aktiviert ist, da ausgewiesene Replikate möglicherweise zurück zum entleerten Knoten verschoben werden, wenn/sofern dieser wieder online kommt.
+* Wie bei all diesen Richtlinien wird sie bei Cordon ausgelöst, nicht beim Drain-Vorgang. Wenn ein Benutzer regelmäßig Knoten cordoniert, ohne sie zu entleeren, werden Replikate sinnlos neu aufgebaut.
+
+=== Blockieren bei Ausweisung, wenn das letzte Replikat vorhanden ist.
+
+Diese Richtlinie bietet den Datenschutz der Standardrichtlinie `Block If Contains Last Replica` mit dem zusätzlichen Komfort der automatischen Ausweisung. Während sie in Kraft ist, wird Longhorn die Ausweisung eines Instance-Manager-Pods (und den Abschluss eines Drain-Vorgangs) auf einem cordonierten Knoten verhindern, der das letzte gesunde Replikat eines Volumes enthält. Darüber hinaus werden Replikate, die diese Bedingung erfüllen, automatisch vom Knoten ausgewiesen.
+
+Es wird nicht empfohlen, diese Richtlinie unter normalen Bedingungen aktiviert zu lassen, da sie die Ausweisung von Replikaten jederzeit auslösen kann, wenn ein Knoten cordoniert wird. Aktivieren Sie es nur während geplanter Wartungsarbeiten.
+
+Ein primärer Anwendungsfall für diese Richtlinie ist, wenn Cluster automatisch aktualisiert werden, in denen Volumes keine Redundanz haben (`numberOfReplicas == 1`). Andere Richtlinien verhindern den Drain-Vorgang, bis solche Replikate manuell ausgewiesen werden, was für die Automatisierung unpraktisch ist.
+
+Vorteile:
+
+* Schützt Daten, indem sie verhindert, dass der Entleerungsprozess abgeschlossen wird, bis ein gesundes Replikat für jedes Volume auf einem anderen Knoten verfügbar ist.
+* Weist automatisch Replikate aus, sodass der Benutzer dies nicht manuell (über die Benutzeroberfläche) tun muss.
+* Der Drain-Vorgang ist nur so langsam und datenintensiv, wie es notwendig ist, um Daten zu schützen.
+
+Nachteile:
+
+* Volumes können nach Abschluss des Drain-Vorgangs beeinträchtigt sein. Wenn der Knoten neu gestartet wird, wird die Redundanz reduziert, bis er wieder läuft. Wenn der Knoten entfernt wird, wird die Redundanz reduziert, bis ein anderes Replikat wiederhergestellt wird.
+* Wie bei all diesen Richtlinien wird sie bei Cordon ausgelöst, nicht beim Drain-Vorgang. Wenn ein Benutzer regelmäßig Knoten cordoniert, ohne sie zu entleeren, werden Replikate sinnlos neu aufgebaut.

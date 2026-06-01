@@ -1,0 +1,142 @@
+= Instalar {longhorn-product-name} utilizando Rancher
+:revdate: 2026-03-24
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Una ventaja de instalar {longhorn-product-name} a través del Mercado de Aplicaciones de Rancher es que Rancher proporciona autenticación a la interfaz de usuario de {longhorn-product-name}.
+
+Si hay una nueva versión de {longhorn-product-name} disponible, verás un signo de `Upgrade Available` en la pantalla de `Apps Marketplace`. Puedes hacer clic en el botón `Upgrade` para actualizar la versión de Longhorn Manager. Consulta más sobre la actualización xref:upgrades/upgrades.adoc[aquí].
+
+== Requisitos previos
+
+Cada nodo en el clúster de Kubernetes donde se instala {longhorn-product-name} debe cumplir xref:installation-setup/requirements.adoc[con estos requisitos].
+
+La xref:longhorn-system/system-access/longhorn-cli.adoc[Herramienta de Línea de Comandos de Longhorn] se puede utilizar para comprobar el entorno de {longhorn-product-name} en busca de posibles problemas.
+
+=== Autenticación
+
+Para crear el espacio de nombres `longhorn-system`, ejecuta el siguiente comando:
+
+[,shell]
+----
+kubectl create namespace longhorn-system
+----
+
+Sigue la https://docs.apps.rancher.io/get-started/authentication/#kubernetes[documentación de autenticación de Kubernetes] para crear un secreto en el espacio de nombres `longhorn-system`.
+
+[,shell]
+----
+kubectl create secret docker-registry application-collection \
+  --docker-server=dp.apps.rancher.io \
+  --namespace=longhorn-system \
+  --docker-username=<your-username-or-service-account-username> \
+  --docker-password=<access-token-or-service-account-secret>
+----
+
+== Instalación
+
+Para instalar {longhorn-product-name} desde la Colección de Aplicaciones de SUSE en lugar de los gráficos comunitarios predeterminados de Longhorn de Rancher, configura un nuevo repositorio en Rancher que apunte al repositorio de gráficos de la Colección de Aplicaciones de SUSE para {longhorn-product-name}. Consulta https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/helm-charts-in-rancher/oci-repositories#add-an-oci-based-helm-chart-repository[esta guía] para obtener detalles sobre el proceso y cómo autenticar el repositorio de gráficos.
+
+Los siguientes pasos proporcionan un ejemplo en Rancher. Para obtener instrucciones detalladas, consulta la documentación de Rancher.
+
+. En Rancher, ve a *Aplicaciones* > *Repositorios*.
++
+image::screenshots/install/rancher/navigation.png[Imagen]
++
+. Haz clic en el botón *Crear*.
++
+. Elige *Repositorio OCI* en los botones de opción e introduce la ruta del registro de gráficos OCI `oci://dp.apps.rancher.io/charts/suse-storage` junto con la autenticación, luego haz clic en *Crear*.
++
+image::screenshots/install/rancher/oci-repository.png[Imagen]
++
+El repositorio debería añadirse con éxito.
++
+image::screenshots/install/rancher/repository-added.png[Imagen]
++
+. En *Aplicaciones* > *Gráfico*, puedes ver `suse-storage` disponible para instalación.
++
+image::screenshots/install/rancher/suse-storage-app.png[Imagen]
++ 
+. Haga clic en Instalar.
++ 
+image::screenshots/install/rancher/installing-longhorn.png[Imagen]
++ 
+. Opcional: Selecciona el proyecto donde deseas instalar {longhorn-product-name}.
++
+. Opcional: Personaliza los ajustes por defecto.
++
+image::screenshots/install/rancher/installing-longhorn-2.png[Imagen]
++
+[NOTE]
+====
+Si estás utilizando {rancher-product-name}, es obligatorio habilitar **Registro de contenedores para imágenes del sistema Rancher** y establecer el valor en `dp.apps.rancher.io` para asegurar que las imágenes se extraigan del registro correcto.
+====
++
+image::screenshots/install/rancher/container-registry-setting.png[Imagen]
++
+. Haga clic en Siguiente. En el editor yaml, añade el valor `application-collection` en el campo `global.imagePullSecrets`.
++
+image::screenshots/install/rancher/installing-longhorn-3.png[Imagen]
++
+. Haz clic en Siguiente. {longhorn-product-name} se instalará en el espacio de nombres `longhorn-system`.
++
+image::screenshots/install/rancher/installed-longhorn.png[Imagen]
++
+. Haz clic en el icono de la app {longhorn-product-name} para navegar al panel de control {longhorn-product-name}.
++
+image::screenshots/install/rancher/launch-longhorn.png[Imagen]
+
+Una vez que {longhorn-product-name} esté instalado, puedes acceder a la interfaz de usuario {longhorn-product-name} navegando a la opción *Longhorn* en el panel izquierdo de Rancher.
+
+== Acceder a la interfaz de usuario con la directiva de red habilitada
+
+Ten en cuenta que cuando la directiva de red está habilitada, el acceso a la interfaz de usuario desde Rancher puede estar restringido.
+
+Rancher interactúa con la interfaz de usuario {longhorn-product-name} a través de un servicio llamado remotedialer, que facilita las conexiones entre Rancher y los clústeres en sentido descendente que gestiona. Este servicio permite a un agente de usuario acceder al clúster a través de un punto final en el servidor de Rancher. Remotedialer se conecta al servicio de interfaz de usuario {longhorn-product-name} utilizando el servidor API de Kubernetes como proxy.
+
+Sin embargo, cuando la directiva de red está habilitada, el servidor API de Kubernetes puede no ser capaz de alcanzar los pods en diferentes nodos. Esto ocurre porque el servidor API de Kubernetes opera dentro del espacio de nombres de red del host sin una dirección IP dedicada por pod. Si estás utilizando el plugin CNI de Calico, cualquier proceso en el espacio de nombres de red del host (como el servidor API) que se conecte a un pod activa a Calico para encapsular el paquete en IPIP antes de reenviarlo al host remoto. La dirección del túnel se elige como la fuente para asegurar que el host remoto sepa encapsular correctamente los paquetes de retorno.
+
+En otras palabras, para permitir que el proxy funcione con la directiva de red, se debe identificar la IP del túnel de cada nodo y permitirla explícitamente en la directiva de red.
+
+Puedes encontrar la IP del túnel mediante:
+
+[,shell]
+----
+$ kubectl get nodes -oyaml | grep "Tunnel"
+      projectcalico.org/IPv4VXLANTunnelAddr: 10.42.197.0
+      projectcalico.org/IPv4VXLANTunnelAddr: 10.42.99.0
+      projectcalico.org/IPv4VXLANTunnelAddr: 10.42.158.0
+      projectcalico.org/IPv4VXLANTunnelAddr: 10.42.80.0
+----
+
+A continuación, permite el tráfico en la directiva de red utilizando la IP del túnel. Es posible que necesites actualizar la directiva de red cada vez que se añadan nuevos nodos al clúster.
+
+[,yaml]
+----
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: longhorn-ui-frontend
+  namespace: longhorn-system
+spec:
+  podSelector:
+    matchLabels:
+      app: longhorn-ui
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: 10.42.197.0/32
+    - ipBlock:
+        cidr: 10.42.99.0/32
+    - ipBlock:
+        cidr: 10.42.158.0/32
+    - ipBlock:
+        cidr: 10.42.80.0/32
+    ports:
+      - port: 8000
+        protocol: TCP
+----
+
+Otra forma de resolver el problema es ejecutando los nodos del servidor con `egress-selector-mode: cluster`. Para más información, consulta https://documentation.suse.com/cloudnative/rke2/latest/en/reference/server_config.html#_critical_configuration_values[Referencia de Configuración del Servidor RKE2] y https://documentation.suse.com/cloudnative/k3s/latest/en/networking/basic-network-options.html#_control_plane_egress_selector_configuration[configuración del Selector de Egreso del Plano de Control K3s].

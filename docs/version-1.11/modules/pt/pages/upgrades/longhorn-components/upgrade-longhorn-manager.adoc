@@ -1,0 +1,237 @@
+= Fazer upgrade do Longhorn Manager
+:revdate: 2026-03-24
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+[WARNING]
+====
+É recomendável criar um xref:snapshots-backups/system-backups/create-system-backup.adoc[backup do sistema Longhorn] antes de fazer upgrade. Isso garante que todos os recursos críticos, como volumes e imagens de suporte, sejam submetidos a backup e possam ser restaurados caso surjam problemas.
+====
+
+== Atualizando de v1.10.x
+
+{longhorn-product-name} suporta apenas fazer upgrade para v{current-version} a partir de v1.10.x. Para outras versões, por favor, faça upgrade para v1.10.x primeiro.
+
+Para atualizações em ambientes isolados quando {longhorn-product-name} está instalado como um aplicativo Rancher, você precisará modificar os nomes das imagens e remover a parte da URL do registro.
+
+Para atualizações em ambientes isolados quando {longhorn-product-name} está instalado como um aplicativo Rancher, você precisará modificar os nomes das imagens e remover a parte da URL do registro. Por exemplo, a imagem `registry.example.com/longhorn/longhorn-manager:v{patch-version}` é alterada para `longhorn/longhorn-manager:v{patch-version}` na seção de imagens do Longhorn. Para mais informações, veja os passos de instalação em ambiente isolado xref:installation-setup/installation/airgapped-environment.adoc#_using_a_rancher_app[aqui].
+
+=== Preparando-se para fazer upgrade
+
+A StorageClass padrão atual possui os seguintes parâmetros:
+
+[,yaml]
+----
+parameters:
+  numberOfReplicas: <user specified replica count, 3 by default>
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  baseImage: ""
+----
+
+== Upgrade
+
+[IMPORTANT]
+====
+Sempre faça backup dos volumes antes de fazer upgrade. Se algo der errado, você pode restaurar o volume usando o backup.
+====
+
+=== Fazer upgrade usando a UI do {rancher-product-name}
+
+Para clusters Kubernetes gerenciados pelo {rancher-product-name}, você pode fazer upgrade do aplicativo {longhorn-product-name} atualizando o repositório para referenciar uma versão mais nova do gráfico Helm. 
+
+O seguinte procedimento descreve como fazer upgrade do aplicativo {longhorn-product-name} no {rancher-product-name}.
+
+. Vá para *Apps > Repositórios*.
+. Clique em *Criar*.
+. Selecione *Repositório OCI* como o alvo.
+. Forneça um nome para o repositório, por exemplo, `suse-storage`.
+. No campo *URL do Host do Repositório OCI*, insira:
++
+`oci://dp.apps.rancher.io/charts/suse-storage`
++
+image::screenshots/install/add-repo.png[Adicionar Repositório, width=100%]
+
+. Clique no botão *Criar*.
+. Verifique se o repositório foi adicionado com sucesso.
++
+image::screenshots/install/add-repo-success.png[Repositório Adicionado, width=100%]
+
+. Vá para *Apps > Gráficos* e encontre o gráfico `suse-storage`.
++
+image::screenshots/install/find-chart.png[Encontrar Gráfico, width=100%]
+
+. Clique no gráfico e, em seguida, clique em *Instalar*.
++
+image::screenshots/install/install-chart.png[Instalar Gráfico, width=100%]
+
+. Na próxima página, defina `global.imagePullSecrets` como `application-collection` e, em seguida, clique em *Instalar*.
++
+Consulte a https://docs.apps.rancher.io/get-started/authentication/#kubernetes[documentação de autenticação] para configuração de credenciais.
++
+[,yaml]
+----
+global:
+  cattle:
+    windowsCluster:
+      defaultSetting:
+        systemManagedComponentsNodeSelector: kubernetes.io/os:linux
+        taintToleration: cattle.io/os=linux:NoSchedule
+      enabled: false
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+        - effect: NoSchedule
+          key: cattle.io/os
+          operator: Equal
+          value: linux
+  imagePullSecrets: [application-collection]
+  imageRegistry: ''
+----
+
+. Isso faz upgrade de `suse-storage` `{current-version}`
++
+image::screenshots/install/update-repo.png[Repositório de atualização, width=100%]
+
+. Após o upgrade, vá para *Apps > Repositórios*.
++
+[NOTE]
+.Para versões do {rancher-product-name} anteriores à v2.13, siga estas etapas:
+====
+[lowerroman]
+. Selecione o repositório `suse-storage`, clique no menu de três pontos e escolha *Editar Config*.
+. *Solução:* Atualize a URL para `oci://dp.apps.rancher.io/charts/suse-storage:{patch-version}` para garantir que a versão seja detectada.
+. O repositório deve ser atualizado com sucesso.
++
+image::screenshots/install/updated-repo.png[Repositório de atualização, width=100%]
+
+. Vá para *Apps > Aplicativos Instalados*.
+. No namespace `longhorn-system`, sob a coluna *Atualizável*, procure por um rótulo `{patch-version}` destacado em amarelo.
++
+image::screenshots/install/upgradable-column.png[Versão Atualizável, width=100%]
+
+. Clique no rótulo amarelo `{patch-version}` para abrir a página de Upgrade.
++
+image::screenshots/install/upgrade-page.png[Página de Upgrade, width=100%]
+
+. Clique em *Próximo*.
+. Certifique-se de que `global.imagePullSecrets` está definido como `application-collection`, e então clique em *Fazer Upgrade*.
++
+image::screenshots/install/upgrade-progress.png[Progresso do Upgrade, width=100%]
+====
++
+. Vá para *Apps > Gráficos* e selecione o gráfico `suse-storage`.
+. Selecione a versão de upgrade desejada no painel *Versões do Gráfico*.
++
+image::screenshots/install/current-version-rancher-2-13_and_above.png[Repositório de atualização no Rancher 2.13+, width=100%]
+
+. Clique em *Fazer Upgrade para esta versão*.
+. Após a conclusão do Upgrade, verifique se a versão do gráfico `suse-storage` foi atualizada para `{patch-version}`.
++
+image::screenshots/install/upgrade-success.png[Sucesso no Upgrade, width=100%]
+
+=== Upgrade com Helm
+
+Fazer upgrade do gráfico Helm {longhorn-product-name} envolve atualizar sua implantação para uma versão mais recente ou alternar entre imagens da comunidade Longhorn e imagens {longhorn-product-name}.
+
+O comando geral do Helm para fazer upgrade é:
+
+[subs="+attributes",shell]
+----
+helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+  --namespace longhorn-system \
+  --version <version> \ # Replace with the version you would like to upgrade to
+  --set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
+  -f values.yaml
+----
+
+[NOTE]
+====
+Para criar um segredo, siga a https://docs.apps.rancher.io/get-started/authentication/#kubernetes[documentação do AppCo].
+====
+
+Ou, se estiver fazendo upgrade sem um arquivo `values.yaml` específico e apenas mudando a versão:
+
+[subs="+attributes",shell]
+----
+helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+  --namespace longhorn-system \
+  --version <version> \ # Replace with the version you would like to upgrade to
+  --set global.imagePullSecrets=<PULL_IMAGE_SECRET>
+----
+
+* *Caminho de Upgrade*: Consulte a documentação oficial de upgrade xref:upgrades/upgrades.adoc[{longhorn-product-name}] para caminhos de upgrade específicos de versão para versão, pré-requisitos e etapas de verificação pós-upgrade. Isso é importante para garantir um upgrade suave e a integridade dos dados.
+* *Mudanças de Configuração*: Se você tiver configurações personalizadas, certifique-se de transferi-las para a nova versão do gráfico, mesclando com quaisquer alterações padrão.
+
+=== Upgrade com Fleet
+
+Atualize o valor de `helm.version` no arquivo YAML `fleet` do seu repositório GitOps.
+
+[subs="+attributes",yaml]
+----
+helm:
+  repo: https://charts.longhorn.io
+  chart: longhorn
+  version: v{patch-version} # Replace with the {longhorn-product-name} version you would like to upgrade to
+  releaseName: longhorn
+----
+
+=== Upgrade com Flux
+
+Atualize o valor de `spec.chart.spec.version` no arquivo YAML `HelmRelease` do seu repositório GitOps.
+
+[subs="+attributes",yaml]
+----
+spec:
+  chart:
+    spec:
+      chart: longhorn
+      reconcileStrategy: ChartVersion
+      sourceRef:
+        kind: HelmRepository
+        name: longhorn
+      version: v{patch-version} # Replace with the {longhorn-product-name} version you would like to upgrade to
+----
+
+=== Upgrade com Argo CD
+
+Atualize o valor de `targetRevision` no arquivo YAML `Application` do seu repositório GitOps.
+
+[subs="+attributes",yaml]
+----
+spec:
+  project: default
+  sources:
+    - chart: longhorn
+      repoURL: https://charts.longhorn.io
+      targetRevision: v{patch-version} # Replace with the {longhorn-product-name} version you would like to upgrade to
+----
+
+Em seguida, aguarde todos os pods ficarem em execução e a interface {longhorn-product-name} funcionando. Por exemplo:
+
+[,shell]
+----
+$ kubectl -n longhorn-system get pod
+NAME                                                  READY   STATUS    RESTARTS      AGE
+engine-image-ei-4dbdb778-nw88l                        1/1     Running   0             4m29s
+longhorn-ui-b7c844b49-jn5g6                           1/1     Running   0             75s
+longhorn-manager-z2p8h                                1/1     Running   0             71s
+instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc     1/1     Running   0             65s
+longhorn-driver-deployer-6bd59c9f76-jp6pg             1/1     Running   0             75s
+engine-image-ei-df38d2e5-zccq5                        1/1     Running   0             65s
+csi-snapshotter-588457fcdf-h2lgc                      1/1     Running   0             30s
+csi-resizer-6d8cf5f99f-8v4sp                          1/1     Running   1 (30s ago)   37s
+csi-snapshotter-588457fcdf-6pgf4                      1/1     Running   0             30s
+csi-provisioner-869bdc4b79-7ddwd                      1/1     Running   1 (30s ago)   44s
+csi-snapshotter-588457fcdf-p4kkn                      1/1     Running   0             30s
+csi-attacher-7bf4b7f996-mfbdn                         1/1     Running   1 (30s ago)   50s
+csi-provisioner-869bdc4b79-4dc7n                      1/1     Running   1 (30s ago)   43s
+csi-resizer-6d8cf5f99f-vnspd                          1/1     Running   1 (30s ago)   37s
+csi-attacher-7bf4b7f996-hrs7w                         1/1     Running   1 (30s ago)   50s
+csi-attacher-7bf4b7f996-rt2s9                         1/1     Running   1 (30s ago)   50s
+csi-resizer-6d8cf5f99f-7vv89                          1/1     Running   1 (30s ago)   37s
+csi-provisioner-869bdc4b79-sn6zr                      1/1     Running   1 (30s ago)   43s
+longhorn-csi-plugin-b2zzj                             2/2     Running   0             24s
+----
+
+Em seguida, xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[fazer upgrade do Longhorn Engine].
