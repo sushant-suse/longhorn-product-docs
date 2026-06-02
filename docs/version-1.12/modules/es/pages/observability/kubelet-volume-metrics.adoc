@@ -1,0 +1,31 @@
+= Métricas de volumen de Kubelet
+:revdate: 27-06-2025
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Acerca de las métricas de volumen de Kubelet
+
+Kubelet expone https://github.com/kubernetes/kubernetes/blob/4b24dca228d61f4d13dcd57b46465b0df74571f6/pkg/kubelet/metrics/collectors/volume_stats.go#L27[las siguientes métricas]:
+
+. kubelet_volume_stats_capacity_bytes
+. kubelet_volume_stats_available_bytes
+. kubelet_volume_stats_used_bytes
+. kubelet_volume_stats_inodes
+. kubelet_volume_stats_inodes_free
+. kubelet_volume_stats_inodes_used
+
+Esas métricas miden información relacionada con el sistema de archivos de un PVC dentro de un dispositivo de bloque Longhorn.
+
+Son diferentes de las métricas xref:observability/longhorn-metrics.adoc[longhorn_volume_*], que miden información específica de un dispositivo de bloque Longhorn.
+
+Puedes configurar un sistema de monitoreo que extraiga los puntos finales de métricas de Kubelet para obtener el estado de un PVC y configurar alertas para eventos anormales, como que el PVC esté a punto de quedarse sin espacio de almacenamiento.
+
+Una configuración de monitoreo popular es https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack[prometheus-operator/kube-prometheus-stack,] que extrae métricas `kubelet_volume_stats_*` y proporciona un panel y reglas de alerta para ellas.
+
+== Soporte del plugin CSI de Longhorn
+
+El plugin CSI de Longhorn admite el `NodeGetVolumeStats` RPC de acuerdo con la https://github.com/container-storage-interface/spec/blob/master/spec.md#nodegetvolumestats[especificación CSI].
+
+Esto permite que el kubelet consulte el plugin CSI de Longhorn para obtener el estado de un PVC.
+
+El kubelet luego expone esa información en `kubelet_volume_stats_*` métricas.

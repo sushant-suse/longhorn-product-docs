@@ -1,0 +1,18 @@
+= Migre do driver Flexvolume para CSI
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+O driver Flexvolume não é mais suportado. Você pode migrar do driver Flexvolume para o CSI, que é a mais nova interface de armazenamento Kubernetes fora da árvore.
+
+____
+Observe que os volumes criados e utilizados através de um driver não serão reconhecidos pelo Kubernetes usando o outro driver. Portanto, por favor, não troque o driver (por exemplo, durante um fazer upgrade) se você tiver volumes existentes criados usando o driver antigo.
+____
+
+Certifique-se de que seu Longhorn app esteja atualizado. Siga o procedimento de fazer upgrade relevante antes de prosseguir.
+
+O caminho de migração entre os drivers requer o backup e a restauração de cada volume e resultará em tempo de inatividade tanto da API quanto da carga de trabalho. Isso pode ser um processo tedioso. Considere excluir cargas de trabalho não importantes usando o driver antigo para reduzir o esforço.
+
+. xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[Faça backup dos volumes existentes].
+. Na interface do Rancher, navegue até a tela `Catalog Apps`, localize o app `Longhorn` e clique no botão `Up to date`. Em `Kubernetes Driver`, selecione `flexvolume`. Recomendamos deixar `Flexvolume Path` vazio. Clique em `Upgrade`.
+. Restaure cada volume. Este xref:snapshots-backups/volume-snapshots-backups/restore-volume-statefulset.adoc[procedimento] é adaptado para a carga de trabalho StatefulSet, mas o processo é aproximadamente o mesmo para todas as cargas de trabalho.

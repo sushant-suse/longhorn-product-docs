@@ -1,0 +1,74 @@
+= RWX Volume Failover Rápido (Experimental)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+A versão 1.7.0 adiciona um recurso que minimiza o tempo de inatividade para volumes ReadWriteMany quando um nó falha.  Quando habilitado, o Longhorn utiliza um mecanismo baseado em lease para monitorar o estado do pod do servidor NFS que exporta o volume. O Longhorn reage rapidamente para movê-lo para outro nó se ele se tornar não responsivo.  Veja xref:volumes/rwx-volumes.adoc[RWX Volumes] para detalhes sobre como o servidor NFS funciona.
+
+Para habilitar o recurso, você define xref:longhorn-system/settings.adoc#_rwx_volume_fast_failover_experimental[RWX Volume Fast Failover] como "true".  Os volumes RWX existentes precisarão ser reiniciados para usar o recurso após a alteração da configuração.  Isso é feito reduzindo a carga de trabalho para zero e, em seguida, aumentando-a novamente.  Novos volumes adotarão a configuração na criação e serão configurados adequadamente.
+
+Com o recurso habilitado, quando um pod é criado ou recriado, o Longhorn também cria um objeto de lease associado no namespace `longhorn-system`, com o mesmo nome do volume.  O pod do servidor NFS mantém o lease renovado como prova de vida.  Se a renovação parar de acontecer, o Longhorn tomará medidas para criar um novo pod do servidor NFS em outro nó e reanexar a carga de trabalho, mesmo antes que o antigo nó seja marcado como `Not Ready` pelo Kubernetes.
+
+Além de adicionar o monitoramento e a reação rápida, o recurso também altera a configuração do servidor NFS para usar um período extra reduzido para a reconexão do cliente.
+
+Se a configuração for alterada de volta para "false", a verificação de lease é desativada e a realocação de pods usará as regras regulares do Kubernetes para falha de nó, mesmo em volumes existentes.  Quando o pod do servidor for reiniciado na próxima vez, ele reverterá para a configuração normal do período extra.
+
+Para obter mais informações, consulte https://github.com/longhorn/longhorn/issues/6205..
+
+[NOTE]
+====
+Em circunstâncias raras, é possível que o failover fique bloqueado. Isso acontece se a criação do pod do servidor NFS for bloqueada por uma ação de recuperação que está, por sua vez, bloqueada pelo estado de failover em processo.  Se esse for o caso, e o failover levar mais de um ou dois minutos, a solução alternativa é excluir o objeto de lease associado.  Isso limpa o estado, e um novo lease é criado junto com o pod do servidor substituto.  Por exemplo, se o volume preso se chama `pvc-2ce4e82e-7ccc-46c0-90a8-a141501fbf93` e o recurso está habilitado, haverá um lease com o mesmo nome.  Para excluir o objeto de lease associado:
+
+[subs="+attributes",bash]
+----
+kubectl -n longhorn-system delete lease pvc-2ce4e82e-7ccc-46c0-90a8-a141501fbf93
+----
+
+Veja, por exemplo, https://github.com/longhorn/longhorn/issues/9093.
+====
+
+== Consumo de Recursos e Impacto na Performance do Sistema
+
+A equipe do Longhorn investigou o impacto dos volumes RWX no consumo de recursos e na performance do sistema. Os estudos de benchmark, que foram concluídos usando 60 volumes RWX, mostram que habilitar o recurso _RWX Volume Fast Failover_ resulta no seguinte:
+
+* Mais requisições enviadas ao servidor de API do Kubernetes (kube-apiserver)
+* Mais chamadas de procedimento remoto (RPCs) enviadas do kube-apiserver para o etcd
+* Leve aumento no uso de CPU e memória
+
+=== *Ambiente:*
+
+* *Configuração:* 1 Nó de Controle + 3 Nós de Trabalho (v1.27.15+rke2r1)
+* *Carga de trabalho:* 60 Implantações com 60 volumes RWX com `soft` montagem
+
+=== *Resultados do Teste:*
+
+|===
+| *Métrica* | *Fast Failover Desativado* | *Fast Failover Ativado* | *Diferença*
+
+| *Taxa de requisições da API (kube-apiserver)*
+| 37,5 req/s
+| 59 req/s
+| +57,3%
+
+| *Taxa RPC (kube-apiserver para etcd)*
+| 37 ops/s
+| 57 ops/s
+| +54,1%
+
+| *Uso da memória*
+| Picos mais baixos/mínimos
+| Picos mais altos/mínimos
+| Uso aumentado com Fast Failover Ativado
+
+| *Uso de CPU/RAM do Longhorn Manager*
+| 405 MB / 0.1 CPU
+| 417 MB / 0,13 CPU
+| +3% RAM / +30% CPU
+
+| *Uso de CPU/RAM do Share Manager*
+| 2,2 GB / 0,235 CPU
+| 2,25 GB / 0,26 CPU
+| +2,3% RAM / +10,6% CPU
+|===
+
+Para capturas de tela detalhadas e mais contexto, consulte a https://github.com/longhorn/longhorn/issues/6205#issuecomment-2262625965[discussão do problema relacionado].

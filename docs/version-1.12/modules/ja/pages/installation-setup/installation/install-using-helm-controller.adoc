@@ -1,0 +1,137 @@
+= Helmコントローラーを使用して{longhorn-product-name}をインストールする
+:revdate: 2026-02-02
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+RKE2およびK3sに組み込まれているHelmコントローラーを使用して{longhorn-product-name}をインストールできます。
+
+== 前提条件
+
+[NOTE]
+====
+{longhorn-product-name}のインストールには、SUSEアプリケーションコレクションへの認証されたアクセスが必要です。詳細については、 https://docs.apps.rancher.io/get-started/authentication[認証ガイド]を確認してください。
+====
+
+* Kubernetesクラスタ：各ノードがxref:installation-setup/requirements.adoc[インストール要件]を満たしていることを確認してください。クラスタはRKE2またはK3sを実行している必要があります。
+
+____
+xref:longhorn-system/system-access/longhorn-cli.adoc[Longhornコマンドラインツール]を使用して、{longhorn-product-name}環境の潜在的な問題を確認できます。
+____
+
+== インストール
+
+[NOTE]
+====
+* 初期設定は、Helmオプションを使用するか、デプロイメント設定ファイルを編集することでxref:longhorn-system/customize-default-settings.adoc#_using_helm[カスタマイズできます]。
+* Kubernetes v1.25以前の場合、クラスタがPodセキュリティポリシーのAdmissionコントローラーを有効にしている場合は、helm値`enablePSP`を`true`に設定して、特権のあるLonghornポッドを起動できるPodSecurityPolicyリソース`longhorn-psp`をインストールします。
+====
+
+. 以下のようなHelmChart YAMLファイルを作成してください：
++
+[subs="+attributes",yaml]
+----
+apiVersion: helm.cattle.io/v1
+  kind: HelmChart
+  metadata:
+    annotations:
+      helmcharts.cattle.io/managed-by: helm-controller
+    finalizers:
+    - wrangler.cattle.io/on-helm-chart-remove
+    generation: 1
+    name: longhorn-install
+    namespace: default
+  spec:
+    version: v{patch-version}
+    chart: longhorn
+    repo: https://charts.longhorn.io
+    failurePolicy: abort
+    targetNamespace: longhorn-system
+    createNamespace: true
+----
++
+[IMPORTANT]
+====
+* `spec.failurePolicy`が"abort"に設定されていることを確認してください。 他の唯一の値はデフォルトの"reinstall"で、これにより{longhorn-product-name}がアンインストールされます。 "abort"を使用すると、定期的に再試行し、ユーザーに問題を修正する機会を与えます。
++
+* リポジトリ、バージョン、チャート名を指定する代わりに、yamlはチャート自体のイメージを使用することもできます：
++
+[,yaml]
+----
+spec:
+  chartContent:  <tarball of chart directory | base64 -w 0>
+----
++
+詳細については、HelmChartコントローラーのドキュメントを参照してください： https://documentation.suse.com/cloudnative/rke2/latest/en/add-ons/helm.html[{rke2-product-name} - Helm]または https://documentation.suse.com/cloudnative/k3s/latest/en/helm.html[{k3s-product-name} - Helm]。
+====
++
+. YAMLを適用してHelmChart CRとインストールジョブを作成します。
++
+[,shell]
+----
+$ kubectl apply -f helmchart_repo_install.yaml
+helmchart.helm.cattle.io/longhorn-install created
+----
++
+[NOTE]
+====
+HelmChart CRを削除すると、{longhorn-product-name}のアンインストールが開始されます。
+====
+. 作成されたリソースを確認してください。
++
+[subs="+attributes",shell]
+----
+$ kubectl get jobs
+NAME                            COMPLETIONS   DURATION   AGE
+helm-install-longhorn-install   0/1           8s         8s
+$ kubectl get pods
+NAME                                  READY   STATUS      RESTARTS   AGE
+helm-install-longhorn-install-lngm8   0/1     Completed   0          25s
+$ kubectl get helmcharts
+NAME               JOB                     CHART      TARGETNAMESPACE   VERSION   REPO                         HELMVERSION   BOOTSTRAP
+longhorn-install   helm-install-longhorn   longhorn   longhorn-system   v{patch-version}    https://charts.longhorn.io
+----
++
+. デプロイメントが成功したことを確認してください。
++
+[,bash]
+----
+kubectl -n longhorn-system get pod
+----
++
+結果の例：
++
+[,bash]
+----
+NAME                                                READY   STATUS    RESTARTS      AGE
+csi-attacher-85c7684cfd-67kqc                       1/1     Running   0             29m
+csi-attacher-85c7684cfd-jbddj                       1/1     Running   0             29m
+csi-attacher-85c7684cfd-t85bw                       1/1     Running   0             29m
+csi-provisioner-68cdb8b96-46d9q                     1/1     Running   0             29m
+csi-provisioner-68cdb8b96-dgf5f                     1/1     Running   0             29m
+csi-provisioner-68cdb8b96-mh8q7                     1/1     Running   0             29m
+csi-resizer-86dd765b9-d27cs                         1/1     Running   0             29m
+csi-resizer-86dd765b9-scqxm                         1/1     Running   0             29m
+csi-resizer-86dd765b9-zpcv7                         1/1     Running   0             29m
+csi-snapshotter-65b46b8749-dtvh2                    1/1     Running   0             29m
+csi-snapshotter-65b46b8749-g67fn                    1/1     Running   0             29m
+csi-snapshotter-65b46b8749-nfgzm                    1/1     Running   0             29m
+engine-image-ei-221c9c21-gd5d6                      1/1     Running   0             29m
+engine-image-ei-221c9c21-v6clp                      1/1     Running   0             29m
+engine-image-ei-221c9c21-zzdrt                      1/1     Running   0             29m
+instance-manager-77d11dda6091967f9b30011c9876341b   1/1     Running   0             29m
+instance-manager-870c250b69a4fe01382ed46156d33f47   1/1     Running   0             29m
+instance-manager-a4099c5ce28b423c3cc2667906f4b0b4   1/1     Running   0             29m
+longhorn-csi-plugin-jfbh5                           3/3     Running   0             29m
+longhorn-csi-plugin-w768w                           3/3     Running   0             29m
+longhorn-csi-plugin-xcghm                           3/3     Running   0             29m
+longhorn-driver-deployer-586bc86bf9-bkwk6           1/1     Running   0             30m
+longhorn-manager-c4xtv                              1/1     Running   1 (30m ago)   30m
+longhorn-manager-kgqts                              1/1     Running   0             30m
+longhorn-manager-n8xdr                              1/1     Running   0             30m
+longhorn-ui-69667f9678-2lvxn                        1/1     Running   0             30m
+longhorn-ui-69667f9678-2xmc9                        1/1     Running   0             30m
+----
++
+. xref:longhorn-system/system-access/create-ingress.adoc[基本認証付きNGINX Ingressコントローラーを作成する]と、UIにアクセスできます。UIへの認証はデフォルトでは有効になっていません。
++
+. xref:longhorn-system/system-access/system-access.adoc[UIにアクセスします]。

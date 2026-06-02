@@ -1,0 +1,197 @@
+= ボリュームの作成
+:revdate: 2025-12-09
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Kubernetesの永続ボリューム（PVs）および永続ボリューム要求（PVCs）に対応するLonghornボリュームの永続ストレージリソースを作成できます。Longhorn StorageClassを使用して、ワークロードのためにストレージを動的にプロビジョニングするためにkubectlを使用します。{longhorn-product-name} UIからボリュームを作成する方法については、<<_creating_longhorn_volumes_with_the_longhorn_ui,このセクション>>を参照してください。
+
+____
+このセクションでは、Kubernetesの永続ストレージの仕組みを理解していることを前提としています。詳細については、 https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetesドキュメント]を参照してください。
+____
+
+== アクセスモード
+
+{longhorn-product-name}は、次のKubernetes PersistentVolumeアクセスモードをサポートしています：
+
+* *ReadWriteOnce (RWO)*：ボリュームは、単一のノードによって読み書き可能としてマウントできます。同じノード上の複数のポッドがボリュームにアクセスできます。これはデフォルトで最も一般的なアクセスモードです。
+* *ReadWriteOncePod (RWOP)*：ボリュームは、クラスター内の単一のポッドによって読み書き可能としてマウントできます。このモードは最も強力な分離を提供し、同時にボリュームにアクセスできるのは1つのポッドのみであることを保証します。単一のライターアクセスを必要とするステートフルワークロードに推奨されます。
+* *ReadWriteMany (RWX)*：ボリュームは、複数のノードによって同時に読み書き可能としてマウントでき、複数のポッド間での共有アクセスを可能にします。詳細については、xref:volumes/rwx-volumes.adoc[ReadWriteMany (RWX)ボリューム]を参照してください。
+
+[NOTE]
+====
+ReadOnlyMany (ROX)はサポートされていません。複数のポッドからの読み取り専用アクセスには、ポッド仕様で読み取り専用マウントオプションを使用した ReadWriteMany を使用してください。
+====
+
+== kubectl を使用して Longhorn ボリュームを作成します。
+
+最初に、Longhorn StorageClass を作成する必要があります。Longhorn StorageClass には、PV をプロビジョニングするためのパラメータが含まれています。
+
+次に、StorageClass を参照する PersistentVolumeClaim が作成されます。最後に、PersistentVolumeClaim がポッド内のボリュームとしてマウントされます。
+
+ポッドがデプロイされると、Kubernetes マスターは PersistentVolumeClaim を確認し、リソース要求が満たされるかどうかを確認します。ストレージが利用可能な場合、Kubernetes マスターは Longhorn ボリュームを作成し、それをポッドにバインドします。
+
+. 次のコマンドを使用して、`longhorn` という名前の StorageClass を作成します：
++
+[subs="+attributes", console]
+----
+kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/storageclass.yaml
+----
++
+次の例の StorageClass が作成されます：
++
+[subs="+attributes", yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  fsType: "ext4"
+#  backupTargetName: "default"
+#  mkfsParams: "-I 256 -b 4096 -O ^metadata_csum,^64bit"
+#  diskSelector: "ssd,fast"
+#  nodeSelector: "storage,fast"
+#  recurringJobSelector: '[
+#   {
+#     "name":"snap",
+#     "isGroup":true,
+#   },
+#   {
+#     "name":"backup",
+#     "isGroup":false,
+#   }
+#  ]'
+----
++
+パラメータ `mkfsParams` は、各 StorageClass のファイルシステムフォーマットオプションを指定するために使用できます。
++
+パラメータ `backupTargetName` は、バックアップ先を指定するために使用できます。デフォルトのバックアップ先 (`default`) の名前が、`backupTargetName` が指定されていない場合に使用されます。
++
+パラメータは StorageClass の仕様から省略することができます。StorageClass を使用して PV とボリュームを作成する際に、指定されていないパラメータは一般的にグローバル設定から取得したデフォルト値を使用して設定されます。グローバル設定の完全なリストについては、xref:volumes/storageclass-parameters.adoc[StorageClass パラメータ] および xref:longhorn-system/settings.adoc[設定] を参照してください。
+
+. このコマンドを実行して Longhorn ボリュームを使用するポッドを作成します：
++
+[subs="+attributes", console]
+----
+kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/pod_with_pvc.yaml
+----
++
+`volume-test` という名前のポッドが起動され、`longhorn-volv-pvc` という名前の PersistentVolumeClaim も起動されます。PersistentVolumeClaim は Longhorn StorageClass を参照します：
++
+[subs="+attributes", yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: longhorn-volv-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi
+----
++
+PersistentVolumeClaim はポッド内のボリュームとしてマウントされます：
++
+[subs="+attributes", yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: volume-test
+  namespace: default
+spec:
+  containers:
+  - name: volume-test
+    image: nginx:stable-alpine
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+    - name: volv
+      mountPath: /data
+    ports:
+    - containerPort: 80
+  volumes:
+  - name: volv
+    persistentVolumeClaim:
+      claimName: longhorn-volv-pvc
+----
++
+より多くの例はxref:longhorn-system/examples-resources.adoc[こちら]で利用可能です。
+
+== ワークロードをKubernetesのStorageClassなしでPVsにバインドする
+
+StorageClassオブジェクトをKubernetesで作成せずに、Longhorn StorageClassを使用してワークロードをPVにバインドすることが可能です。
+
+StorageClassはPVCとPVを一致させるために使用されるフィールドでもあるため、Provisionerによって作成される必要はなく、カスタムStorageClass名でPVを手動で作成し、同じStorageClass名を要求するPVCを作成することができます。
+
+PVCがKubernetesリソースとして存在しないStorageClassを要求すると、KubernetesはPVCを同じStorageClass名のPVにバインドしようとします。StorageClassはラベルのように使用され、一致するPVを見つけるために使用され、StorageClass名でラベル付けされた既存のPVのみが使用されます。
+
+PVCがStorageClassを指定した場合、Kubernetesは：
+
+. StorageClassに一致するラベルを持つ既存のPVを探します。
+. 既存のStorageClass Kubernetesリソースを探します。StorageClassが存在する場合、それを使用してPVを作成します。
+
+== Longhorn UIを使用してLonghornボリュームを作成する
+
+PV/PVCを作成する際にLonghornボリュームがすでに存在するため、Longhornボリュームの動的プロビジョニングにはStorageClassは必要ありません。ただし、PVCバインディングの目的で使用するために、PVC/PVにフィールド`storageClassName`を設定する必要があります。ユーザーが関連するStorageClassオブジェクトを作成する必要はありません。
+
+デフォルトでは、Longhornで作成されたPV/PVCのStorageClassは`longhorn-static`です。ユーザーは必要に応じて`Setting - General - Default Longhorn Static StorageClass Name`でそれを変更できます。
+
+ユーザーは{longhorn-product-name}によって作成されたPVCとPVを手動で削除する必要があります。
+
+== 既存のLonghornボリュームのPV/PVC作成
+
+現在、ユーザーは既存のLonghornボリュームのために、私たちのLonghorn UIを通じてPV/PVCを作成できます。
+新しく作成されたポッドは、切り離されたボリュームのみを使用できます。
+
+== Longhornボリューム作成のエラー
+
+Longhornボリュームの作成は、さまざまな理由でエラーになる可能性があります。問題は次のように分類されています：
+
+* ストレージ不足
+* ディスクが見つかりません
+* ディスクが利用できません
+* タグが満たされていません
+* ノードが見つかりません
+* ノードが利用できません
+* ノード候補のいずれにも準備完了のエンジンイメージが含まれていません
+* ハードアフィニティを満たすことができません
+* レプリカのスケジューリングに失敗しました
+* 未使用の失敗したレプリカはサポートされていません
+* レプリカはすでにスケジュールされています
+* Longhornクライアント操作に失敗しました
+* 互換性のないボリュームサイズ
+
+このエラーにより、ワークロードがプロビジョニングされたPVを使用できず、警告メッセージが表示されます。
+
+[subs="+attributes", console]
+----
+# kubectl describe pod workload-test
+
+Events:
+  Type     Reason              Age                From                     Message
+  ----     ------              ----               ----                     -------
+  Warning  FailedAttachVolume  14s (x8 over 82s)  attachdetach-controller  AttachVolume.Attach
+  failed for volume "pvc-e130e369-274d-472d-98d1-f6074d2725e8" : rpc error: code = Aborted
+  desc = volume pvc-e130e369-274d-472d-98d1-f6074d2725e8 is not ready for workloads
+----
+
+ユーザーがエラーの原因を理解できるように、{longhorn-product-name}はそれらをPVアノテーション`longhorn.io/volume-scheduling-error`に要約します。エラーはこのアノテーションにまとめられ、セミコロンで区切られます。例えば、`longhorn.io/volume-scheduling-error: insufficient storage;disks are unavailable`のようになります。アノテーションは`kubectl describe pv <pvc name>`を使用して確認できます。
+
+[subs="+attributes", console]
+----
+# kubectl describe pv pvc-e130e369-274d-472d-98d1-f6074d2725e8
+Name:            pvc-e130e369-274d-472d-98d1-f6074d2725e8
+Labels:          <none>
+Annotations:     longhorn.io/volume-scheduling-error: insufficient storage
+                 pv.kubernetes.io/provisioned-by: driver.longhorn.io
+
+...
+----

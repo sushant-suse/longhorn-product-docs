@@ -1,0 +1,38 @@
+= Desalojo de réplicas en discos o nodos deshabilitados
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn admite el desalojo automático para desalojar las réplicas en los discos o nodos deshabilitados seleccionados a otros discos y nodos adecuados. Mientras tanto, se mantiene el mismo nivel de alta disponibilidad durante el desalojo.
+
+NOTE: Esta función de desalojo solo se puede habilitar cuando los discos o nodos seleccionados tienen la programación deshabilitada. Y durante el tiempo de desalojo, los discos o nodos seleccionados no pueden ser reactivados para la programación.
+
+NOTE: Esta función de desalojo funciona para volúmenes que son `Attached` y `Detached`. Si el volumen está 'Desconectado', Longhorn lo adjuntará automáticamente antes del desalojo y lo desconectará automáticamente una vez que se complete el desalojo.
+
+Por defecto, `Eviction Requested` para discos o nodos es `false`. Y para mantener el mismo nivel de alta disponibilidad durante el desalojo, Longhorn solo desaloja una réplica por volumen después de que la reconstrucción de la réplica para este volumen sea un éxito.
+
+== Seleccionar discos o nodos para desalojo
+
+Para desalojar discos para un nodo,
+
+. Dirígete a la pestaña `Node`, selecciona uno de los nodos y selecciona `Edit Node and Disks` en el menú desplegable.
+. Asegúrate de que el disco esté deshabilitado para la programación y establece `Scheduling` en `Disable`.
+. Establece `Eviction Requested` en `true` y guarda.
+
+Para desalojar un nodo,
+
+. Dirígete a la pestaña `Node`, selecciona uno o más nodos y haz clic en `Edit Node`.
+. Asegúrate de que el nodo esté deshabilitado para la programación y establece `Scheduling` en `Disable`.
+. Establece `Eviction Requested` en `true` y guarda.
+
+== Finalizar desalojo de discos o nodos
+
+Para cancelar el desalojo de un disco o un nodo, establece la configuración correspondiente `Eviction Requested` en `false`.
+
+== Comprobar el estado del desalojo
+
+El número `Replicas` en los discos o nodos seleccionados debería reducirse a 0 una vez que el desalojo sea exitoso.
+
+Si haces clic en el número `Replicas`, se mostrará el nombre de la réplica en este disco. Cuando hagas clic en el nombre de la réplica, la interfaz de Longhorn redirigirá la página web a la página del volumen correspondiente y mostrará el estado del volumen. Si hay algún error, por ejemplo, falta de espacio, o no se pudo encontrar otro disco programable (fallo de programación), se mostrará el error. Todos los errores se registrarán en el registro de eventos.
+
+Si ocurrió algún error durante el desalojo, este se suspenderá hasta que se haya liberado nuevo espacio o se cancelará. Y si se cancela el desalojo, las réplicas restantes en los discos o nodos seleccionados permanecerán en los discos o nodos.

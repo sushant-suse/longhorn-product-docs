@@ -1,0 +1,220 @@
+= {longhorn-product-name} VolumeAttachment
+:revdate: 16/07/2025
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Este documento proporciona una visión general detallada del recurso personalizado `VolumeAttachment` para {longhorn-product-name}, su integración con el `VolumeAttachment` nativo de Kubernetes, flujo operativo y escenarios comunes de resolución de problemas.
+
+== Kubernetes y {longhorn-product-name} `VolumeAttachment`
+
+Para entender cómo funcionan los adjuntos de volumen en {longhorn-product-name}, es importante distinguir entre `VolumeAttachment` de Kubernetes y `VolumeAttachment` personalizados de {longhorn-product-name}:
+
+* **Kubernetes `VolumeAttachment`**: Este es un recurso API nativo de Kubernetes que forma parte de la especificación de la Interfaz de Almacenamiento de Contenedores (CSI). Su función principal es señalar a un controlador CSI que un volumen debe ser adjuntado a un nodo específico.
+* **{longhorn-product-name} `VolumeAttachment`**: Este es un Recurso Personalizado (CR) definido por {longhorn-product-name}, con el nombre completo `volumeattachment.longhorn.io`. Este recurso interno {longhorn-product-name} es utilizado por Longhorn Manager para rastrear y gestionar todas las solicitudes de adjunto para un volumen.
+
+== {longhorn-product-name} `VolumeAttachment`
+
+=== `VolumeAttachment` CR
+
+Para recuperar un {longhorn-product-name} `VolumeAttachment` CR, utiliza el siguiente comando:
+
+[,shell]
+----
+kubectl -n longhorn-system get volumeattachment.longhorn.io <volume-name> -o yaml
+----
+
+Resultado de ejemplo:
+
+[,yaml]
+----
+apiVersion: v1
+...
+  spec:
+    attachmentTickets:
+      csi-f0471a334f0b249f964cd1dec461a5eb94c8d268cbbc904c1a8e9a37e2045208:
+        generation: 0
+        id: csi-f0471a334f0b249f964cd1dec461a5eb94c8d268cbbc904c1a8e9a37e2045208
+        nodeID: rancher60-master
+        parameters:
+          disableFrontend: "false"
+          lastAttachedBy: ""
+        type: csi-attacher
+    volume: pvc-b26e9514-aafd-46e0-b70c-4e3f187c7977
+  status:
+    attachmentTicketStatuses:
+      csi-f0471a334f0b249f964cd1dec461a5eb94c8d268cbbc904c1a8e9a37e2045208:
+        conditions:
+        - lastProbeTime: ""
+          lastTransitionTime: "2025-07-05T09:17:27Z"
+          message: ""
+          reason: ""
+          status: "True"
+          type: Satisfied
+        generation: 0
+        id: csi-f0471a334f0b249f964cd1dec461a5eb94c8d268cbbc904c1a8e9a37e2045208
+        satisfied: true
+...
+----
+
+* `spec.attachmentTickets`: Un mapa que contiene todas las solicitudes de adjunto activas, también conocido como **tickets**. Cada ticket incluye:
+ ** `id`: Un identificador único para el ticket de adjunto.
+ ** `nodeID`: El ID del nodo donde el volumen debe ser adjuntado.
+ ** `parameters`: Parámetros opcionales para el adjunto, como `disableFrontend` y `lastAttachedBy`.
+ ** `type`: El tipo de adjunto, indicando la fuente de la solicitud de adjunto.
+
+* `status.attachmentTicketStatuses`: Un mapa que contiene el estado actual de cada ticket o solicitud de adjunto activa. Cada entrada incluye:
+ ** `conditions`: La(s) condición(es) actual(es) del ticket, incluyendo si la solicitud está satisfecha.
+ ** `satisfied`: Un valor booleano que indica si la solicitud de adjunto ha sido cumplida.
+ ** `generation`: El número de generación del ticket, utilizado para rastrear actualizaciones.
+
+=== Comprendiendo los Tickets de Adjunto
+
+El {longhorn-product-name} `VolumeAttachment` recurso personalizado (CR) gestiona las solicitudes de adjunto de varios controladores de sistema internos {longhorn-product-name}. Cada solicitud se representa como un **ticket de adjunto** dentro del CR.
+
+Todos los tickets activos se almacenan en el mapa `spec.attachmentTickets`. El campo `type` en cada ticket (denominado **Tipo de Adjunto**) identifica la fuente de la solicitud. Los valores comunes de `AttacherType` incluyen:
+
+* `csi-attacher`: El tipo más común, que maneja solicitudes de adjunto estándar del plugin CSI de Kubernetes, típicamente al montar un volumen en un pod.
+* `longhorn-api`: Representa una solicitud de adjunto manual iniciada por un usuario a través de la interfaz de usuario o API {longhorn-product-name}.
+* `snapshot-controller`: Utilizado al adjuntar un volumen para crear o restaurar una instantánea.
+* `backup-controller`: Utilizado al adjuntar un volumen para realizar una copia de seguridad.
+* `volume-restore-controller`: Utilizado al adjuntar un volumen durante una operación de restauración.
+* `volume-clone-controller`: Utilizado al adjuntar un volumen para clonar desde un volumen existente.
+* `share-manager-controller`: Gestiona los adjuntos de volumen de backend para volúmenes ReadWriteMany (RWX) al adjuntarlos al pod del gestor de comparticiones.
+* `volume-expansion-controller`: Maneja los adjuntos necesarios para la expansión en línea de volúmenes.
+* `volume-rebuilding-controller`: Utilizado al adjuntar un volumen para reconstruir una réplica degradada o faltante.
+* `salvage-controller`: Utilizado durante el proceso de recuperación cuando {longhorn-product-name} intenta recuperar y volver a adjuntar un volumen problemático.
+* `volume-eviction-controller`: Gestiona los adjuntos involucrados en el desalojo de una réplica de un nodo.
+* `bim-ds-controller`: Utilizado por el controlador de la fuente de datos de imagen de respaldo al crear un volumen a partir de una imagen de respaldo.
+
+== El flujo de trabajo de adjunción y desadjunción de CSI
+
+Para entender cómo {longhorn-product-name} se integra con Kubernetes, es importante examinar cómo el recurso nativo de Kubernetes `VolumeAttachment` y el {longhorn-product-name} `VolumeAttachment` personalizado interactúan a través de la interfaz de CSI.
+
+=== Componentes centrales en el flujo de trabajo
+
+Además de los objetos de Kubernetes y {longhorn-product-name} `VolumeAttachment`, varios componentes clave trabajan juntos para gestionar la adjunción y desadjunción de volúmenes:
+
+* `external-attacher`: Un contenedor sidecar de CSI que monitoriza los objetos `VolumeAttachment` de Kubernetes y activa llamadas gRPC `ControllerPublishVolume` o `ControllerUnpublishVolume` al controlador de CSI de Longhorn.
+* `longhorn-csi-plugin`: El controlador de CSI de Longhorn que implementa los servicios gRPC de CSI requeridos.
+* `longhorn-manager`: El controlador central en {longhorn-product-name} que gestiona el ciclo de vida completo de los volúmenes de Longhorn. Incluye varios subcontroladores, incluyendo la lógica de adjunción de volúmenes.
+* `longhorn-volume-attachment-controller`: Un subcontrolador dentro de `longhorn-manager` que monitoriza el {longhorn-product-name} `VolumeAttachment` CR y realiza operaciones de adjunción o desadjunción basadas en su especificación.
+
+=== El flujo de trabajo de adjunción de volumen de CSI
+
+Cuando un pod que utiliza un Longhorn PersistentVolumeClaim (PVC) es programado en un nodo, comienza el flujo de trabajo de adjunción de volumen de CSI.
+
+. **Kubelet Request**: El kubelet en el nodo objetivo detecta que un volumen de Longhorn necesita ser montado y notifica al `attach-detach-controller` de Kubernetes.
+. **Creación de Kubernetes `VolumeAttachment`**: El `attach-detach-controller` crea un objeto `VolumeAttachment` de Kubernetes, especificando el controlador de CSI de Longhorn (`driver.longhorn.io`), el nombre del nodo objetivo y el nombre del volumen persistente.
+. **`external-attacher` Activa la llamada CSI**: El contenedor sidecar de `external-attacher` observa el nuevo objeto `VolumeAttachment` de Kubernetes y emite una llamada gRPC `ControllerPublishVolume` al `longhorn-csi-plugin`.
+. **Creación de `VolumeAttachment` CR de Longhorn**: En lugar de adjuntar el volumen directamente, el `longhorn-csi-plugin` crea un recurso personalizado (CR) de Longhorn `VolumeAttachment`. Añade un **ticket de adjunto** a la especificación del CR para representar la solicitud de adjunto.
+. **Reconciliación del Controlador de Longhorn**: El `longhorn-volume-attachment-controller`, un subcontrolador dentro de `longhorn-manager`, detecta el nuevo ticket y comienza la reconciliación. Verifica que el volumen esté disponible y actualiza el campo `spec.nodeID` del CR de Volumen correspondiente con el nombre del nodo objetivo.
+. **`longhorn-manager` Ejecuta la adjunción**: Después de detectar que `spec.nodeID` está configurado, `longhorn-manager` inicia el Longhorn Engine en el nodo especificado para completar el adjunto.
+. **Finalización de la adjunción de volumen**:
+* `longhorn-manager` actualiza el estado del CR de Volumen para reflejar que el volumen está adjunto.
+* El `longhorn-volume-attachment-controller` actualiza el estado del CR de Longhorn `VolumeAttachment` para indicar éxito.
+* El `longhorn-csi-plugin` recibe el estado exitoso y responde al `external-attacher`.
+* Finalmente, el `external-attacher` marca el campo `status.attached` del objeto Kubernetes `VolumeAttachment` como `true`.
+. **Kubelet monta el volumen**: Una vez que el volumen está marcado como adjunto, el kubelet procede con las llamadas CSI `NodeStageVolume` y `NodePublishVolume` para montar el volumen en el contenedor del pod.
+
+=== El flujo de desacoplamiento de volumen CSI
+
+Cuando un pod que utiliza un volumen de Longhorn es eliminado o reprogramado, comienza el flujo de trabajo de desacoplamiento CSI.
+
+. **Kubelet Request**: El kubelet señala al `attach-detach-controller` de Kubernetes que el volumen ya no es necesario en el nodo.
+. **Eliminación de `VolumeAttachment` de Kubernetes**: El `attach-detach-controller` elimina el objeto `VolumeAttachment` correspondiente de Kubernetes.
+. **`external-attacher` Activa la llamada CSI**: El `external-attacher` observa la eliminación e inicia una llamada gRPC `ControllerUnpublishVolume` al `longhorn-csi-plugin`.
+. **Eliminación de ticket de acoplamiento**: El `longhorn-csi-plugin` procesa la solicitud actualizando el {longhorn-product-name} `VolumeAttachment` CR para eliminar el ticket de acoplamiento relevante.
+. **Reconciliación del Controlador de Longhorn**: El `longhorn-volume-attachment-controller` detecta que el ticket ha sido eliminado. Si no existen otros tickets para el volumen, limpia el campo `spec.nodeID` en el Longhorn Volume CR.
+. **`longhorn-manager` Ejecuta Desacoplamiento**: Con el `spec.nodeID` limpio, `longhorn-manager` inicia el proceso de desacoplamiento deteniendo el Longhorn Engine en el nodo.
+. **Finalización del Desacoplamiento del Volumen**:
+* `longhorn-manager` actualiza el estado del Volume CR para indicar que el volumen está desacoplado.
+* El `longhorn-csi-plugin` recibe confirmación y responde con éxito al `external-attacher`.
+* El `external-attacher` elimina el finalizador del objeto `VolumeAttachment` de Kubernetes, permitiendo que el servidor API lo elimine completamente.
+
+=== Resumen del Flujo de Trabajo
+
+{longhorn-product-name} extiende el mecanismo nativo de adjunto de volúmenes de Kubernetes introduciendo un `VolumeAttachment` CR personalizado. Este diseño proporciona varias ventajas:
+
+* **Desacoplamiento y Abstracción**: El recurso personalizado encapsula la lógica compleja de acoplamiento o desacoplamiento dentro de {longhorn-product-name}, reduciendo las responsabilidades del `longhorn-csi-plugin`.
+* **Control Detallado**: El sistema de tickets de acoplamiento permite a {longhorn-product-name} manejar solicitudes de múltiples fuentes (por ejemplo, pods, instantáneas, copias de seguridad) mientras asegura que solo haya un acoplamiento válido por volumen en cualquier momento.
+* **Observabilidad y Solución de Problemas**: El CR proporciona una visibilidad clara del estado y el historial de acoplamiento del volumen, simplificando la monitorización y la solución de problemas.
+
+En resumen, el objeto `VolumeAttachment` de Kubernetes inicia el proceso de acoplamiento o desacoplamiento, mientras que el CR personalizado de {longhorn-product-name} orquesta y gestiona las operaciones reales internamente.
+
+== Resolución de problemas de acoplamiento de volumen
+
+Esta sección describe problemas comunes relacionados con la adjunción de volúmenes y proporciona pasos de resolución recomendados. Antes de realizar cualquier cambio, inspecciona cuidadosamente los registros del sistema y los recursos personalizados relevantes para evitar interrumpir las cargas de trabajo activas.
+
+=== El volumen está atascado en el estado `Attaching` o `Detaching`
+
+Cuando un volumen permanece en el estado `Attaching` o `Detaching` durante un período prolongado, la causa suele estar relacionada con tickets de adjunto obsoletos o en conflicto en el CR {longhorn-product-name} `VolumeAttachment`.
+
+==== Causas posibles
+
+* **Tickets Obsoletos o Huérfanos**: Un ticket de una carga de trabajo anterior (por ejemplo, un pod eliminado o un trabajo de copia de seguridad completado) no fue eliminado correctamente y todavía existe bajo `spec.attachmentTickets`.
+* **Tickets en Conflicto**: Un ticket existente (por ejemplo, del adjuntador CSI) bloquea una nueva solicitud (por ejemplo, un desanclaje manual o un movimiento a otro nodo).
+
+==== Pasos de Resolución
+
+. **Inspecciona el {longhorn-product-name} `VolumeAttachment` CR**: Utiliza el siguiente comando para ver los tickets de adjunto:
++
+[,shell]
+----
+kubectl -n longhorn-system get volumeattachment.longhorn.io <volume-name> -o yaml
+----
++
+. **Analizar Fuentes de Tickets**: Mira bajo `spec.attachmentTickets` y verifica el campo `type` para cada ticket para identificar su fuente (por ejemplo, `csi-attacher`, `backup-controller`, etc.).
+. **Eliminar Tickets Inválidos con Precaución**: Si confirmas que un ticket ya no es necesario (por ejemplo, su pod correspondiente ha sido eliminado), puedes eliminarlo editando el CR.
++
+[WARNING]
+====
+Eliminar un ticket activo puede causar interrupciones graves. Si eliminas un ticket que aún es requerido por una carga de trabajo en ejecución, {longhorn-product-name} interpreta esto como una solicitud de desanclaje:
+
+* El motor de volumen se detendrá en el nodo, causando que el pod pierda acceso al almacenamiento y encuentre errores de entrada-salida, lo que probablemente hará que el pod se bloquee.
+* Kubernetes CSI eventualmente detectará el problema y volverá a adjuntar el volumen, recreando el ticket, pero esto causa tiempo de inactividad y puede requerir un reinicio manual del pod.
+
+Siempre verifica que la carga de trabajo relacionada con el ticket esté inactiva antes de eliminarla.
+====
++
+. **Verificar el Estado**: Después de eliminar tickets inválidos, {longhorn-product-name} debería poder completar la operación de adjuntar o desanclar con éxito.
+
+=== Estudio de caso
+
+==== Caso 1: Fallo al Adjuntar Volumen Debido a Ticket de Adjunto `longhorn-ui` Inesperado
+
+* **Problema**: https://github.com/longhorn/longhorn/issues/8339[#8339]
+* **Síntoma**:
+ ** Las cargas de trabajo que utilizan el volumen afectado permanecen atascadas en el estado `Pending`.
+ ** El {longhorn-product-name} `VolumeAttachment` CR contiene un ticket inesperado de `longhorn-ui`.
+* **Solución**:
+ ** Inspecciona el `VolumeAttachment` CR:
++
+[,shell]
+----
+kubectl -n longhorn-system get volumeattachment.longhorn.io <volume-name> -o yaml
+----
++
+ ** Si encuentras un `longhorn-ui` ticket de adjunto, elimina todo el bloque de tickets del CR.
+
+==== Caso 2: El Volumen No Se Adjunta al Nuevo Nodo Debido a un Trabajo de Copia de Seguridad Atascado en Estado Pendiente
+
+* **Problema**: https://github.com/longhorn/longhorn/issues/10090[#10090]
+* **Síntoma**:
+ ** Cuando una carga de trabajo se reprograma a un nodo diferente, el volumen no sigue.
+ ** Los trabajos de copia de seguridad que hacen referencia a instantáneas no existentes permanecen atascados en estado `Pending`, con `status.message` conteniendo `failed to get the snapshot ... not found`.
+ ** Estos trabajos de copia de seguridad atascados retienen el volumen, bloqueando las operaciones de desanclar o de volver a adjuntar.
+* **Solución**:
+. Revisa el {longhorn-product-name} `VolumeAttachment` CR por cualquier ticket que bloquee el volumen:
++
+[,shell]
+----
+kubectl -n longhorn-system get volumeattachment.longhorn.io <volume-name> -o yaml
+----
++
+. Si ves un ticket del controlador de copia de seguridad, un trabajo de copia de seguridad está bloqueando el volumen.
+. **No elimines directamente el `backup-*` ticket de adjunto**, ya que {longhorn-product-name} lo recreará.
+. En su lugar, resuelve el trabajo de copia de seguridad atascado eliminando cualquier `Backup` CR con:
+ ** `status.state = pending`
+ ** `status.message` que contenga `Failed to get the Snapshot...`
++
+Esto libera el volumen y permite que se vuelva a adjuntar.

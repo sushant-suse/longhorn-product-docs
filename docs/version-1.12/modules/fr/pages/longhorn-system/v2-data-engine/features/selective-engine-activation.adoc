@@ -1,0 +1,26 @@
+= Activation sélective du moteur de données V2
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/features/selective-v2-data-engine-activation.md"]
+:current-version: {page-component-version}
+
+Longhorn vous permet d'activer ou de désactiver le moteur de données V2 sur des nœuds de cluster spécifiques. Vous pouvez choisir d'activer le moteur de données V2 uniquement sur des nœuds puissants dans un cluster avec des états de puissance variés. Cela n'est pas possible dans la version 1.5.0, qui active le moteur de données V2 sur tous les nœuds.
+
+== Désactivation du moteur de données V2 sur des nœuds spécifiques
+
+. Identifiez les nœuds qui ne doivent pas exécuter le moteur de données V2.
+. Ajoutez l'étiquette `node.longhorn.io/disable-v2-data-engine: "true"` aux nœuds sélectionnés.
+. Activez le paramètre global `v2-data-engine`.
+
+En conséquence, les éléments suivants se produisent uniquement sur _nœuds sans l'étiquette_ :
+
+* Les pods du gestionnaire d'instances pour le moteur de données V2 sont créés.
+* La fonctionnalité du moteur de données V2 reste disponible.
+
+== Remarque :
+
+La création de volumes V2 n'est possible que sur les nœuds où le moteur de données V2 est activé. Vous devez planifier des charges de travail utilisant des volumes V2 sur de tels nœuds.
+
+== Référence
+
+Pour plus d'informations, voir https://github.com/longhorn/longhorn/issues/7015[[FEATURE\] Activation sélective du moteur de données V2].

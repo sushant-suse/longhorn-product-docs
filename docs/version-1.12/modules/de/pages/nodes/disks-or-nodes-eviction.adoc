@@ -1,0 +1,38 @@
+= Replikate von deaktivierten Festplatten oder Knoten entfernen
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn unterstützt die automatische Entfernung von Replikaten auf den ausgewählten deaktivierten Festplatten oder Knoten zu anderen geeigneten Festplatten und Knoten. In der Zwischenzeit wird das gleiche Maß an hoher Verfügbarkeit während der Entfernung aufrechterhalten.
+
+NOTE: Diese Funktion zur Entfernung kann nur aktiviert werden, wenn die ausgewählten Festplatten oder Knoten die Planung deaktiviert haben. Und während der Zeit der Entfernung können die ausgewählten Festplatten oder Knoten nicht wieder für die Planung aktiviert werden.
+
+NOTE: Diese Funktion zur Entfernung funktioniert für Volumes, die `Attached` und `Detached` sind. Wenn das Volume 'Getrennt' ist, wird Longhorn es vor der Entfernung automatisch anhängen und nach Abschluss der Entfernung automatisch abtrennen.
+
+Standardmäßig ist `Eviction Requested` für Festplatten oder Knoten `false`. Und um das gleiche Maß an hoher Verfügbarkeit während der Entfernung aufrechtzuerhalten, entfernt Longhorn nur ein Replikat pro Volume, nachdem der Replikataufbau für dieses Volume erfolgreich war.
+
+== Festplatten oder Knoten zur Entfernung auswählen
+
+Um Festplatten für einen Knoten zu entfernen,
+
+. Gehe zum `Node` Tab, wähle einen der Knoten aus und wähle `Edit Node and Disks` im Dropdown-Menü.
+. Stelle sicher, dass die Festplatte für die Planung deaktiviert ist und setze `Scheduling` auf `Disable`.
+. Setze `Eviction Requested` auf `true` und speichere.
+
+Um einen Knoten zu entfernen,
+
+. Gehe zum `Node` Tab, wähle einen oder mehrere Knoten aus und klicke auf `Edit Node`.
+. Stelle sicher, dass der Knoten für die Planung deaktiviert ist und setze `Scheduling` auf `Disable`.
+. Setze `Eviction Requested` auf `true` und speichere.
+
+== Entfernung von Festplatten oder Knoten stoppen
+
+Um die Entfernung für eine Festplatte oder einen Knoten zu stoppen, setzen Sie die entsprechende `Eviction Requested` Einstellung auf `false`.
+
+== Überprüfen Sie den Entfernungstatus
+
+Die `Replicas` Nummer auf den ausgewählten Festplatten oder Knoten sollte auf 0 reduziert werden, sobald die Entfernung erfolgreich ist.
+
+Wenn Sie auf die `Replicas` Nummer klicken, wird der Replikatname auf dieser Festplatte angezeigt. Wenn Sie auf den Replikatnamen klicken, wird die Longhorn-Benutzeroberfläche die Webseite zur entsprechenden Volume-Seite umleiten und den Volume-Status anzeigen. Wenn ein Fehler auftritt, zum Beispiel kein Speicherplatz oder keine andere planbare Festplatte gefunden werden konnte (Planungsfehler), wird der Fehler angezeigt. Alle Fehler werden im Ereignisprotokoll protokolliert.
+
+Wenn während der Entfernung ein Fehler aufgetreten ist, wird die Entfernung ausgesetzt, bis neuer Speicherplatz freigegeben wurde, oder sie wird gestoppt. Und wenn die Entfernung gestoppt wird, bleiben die verbleibenden Replikate auf den ausgewählten Festplatten oder Knoten.

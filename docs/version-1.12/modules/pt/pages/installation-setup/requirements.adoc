@@ -1,0 +1,383 @@
+= Requisitos
+:revdate: 2026-02-05
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Cada nó no cluster Kubernetes onde {longhorn-product-name} está instalado deve atender aos seguintes requisitos:
+
+* Um tempo de execução do contêiner compatível com Kubernetes (Docker v1.13+, containerd v1.3.7+, etc.)
+* Kubernetes v1.25 ou posterior
+* `open-iscsi` está instalado e o daemon `iscsid` está em execução em todos os nós. Isso é necessário, uma vez que {longhorn-product-name} depende de `iscsiadm` no host para fornecer volumes persistentes ao Kubernetes. Para ajuda na instalação do `open-iscsi`, consulte <<_installing_open_iscsi,Instalando open-iscsi>>.
+* O suporte a RWX requer que cada nó tenha um cliente NFSv4 instalado.
+ ** Para instalar um cliente NFSv4, consulte <<_installing_nfsv4_client,Instalando Cliente NFSv4>>.
+* O sistema de arquivos do host suporta o recurso `file extents` para armazenar os dados. Atualmente, suportamos:
+ ** ext4
+ ** XFS
+* `bash`, `curl`, `findmnt`, `grep`, `awk`, `blkid`, `lsblk` devem ser instalados.
+* https://kubernetes-csi.github.io/docs/deploying.html#enabling-mount-propagation[Propagação de montagem] deve estar habilitada.
+
+As cargas de trabalho {longhorn-product-name} devem ser capazes de ser executadas como root para que {longhorn-product-name} seja implantado e operado corretamente.
+
+A xref:longhorn-system/system-access/longhorn-cli.adoc[ferramenta de linha de comando Longhorn] pode ser usada para verificar o ambiente Longhorn em busca de problemas potenciais.
+
+Para o hardware mínimo recomendado, consulte o xref:installation-setup/best-practices.adoc#_minimum_recommended_hardware[guia de melhores práticas].
+
+[discrete]
+== Configuração Específica de SO/Distro
+
+Você deve realizar configurações adicionais antes de usar {longhorn-product-name} com certos sistemas operacionais e distribuições.
+
+* Google Kubernetes Engine (GKE): Veja xref:installation-setup/os-distro/gke.adoc[GKE].
+* Clusters K3s: Veja xref:installation-setup/os-distro/k3s.adoc[K3s].
+
+[discrete]
+== Verificando a Versão do Kubernetes
+
+Use o seguinte comando para verificar a versão do seu servidor Kubernetes:
+
+[,shell]
+----
+kubectl version
+----
+
+Resultado:
+
+[,shell]
+----
+Client Version: version.Info{Major:"1", Minor:"26", GitVersion:"v1.26.10", GitCommit:"b8609d4dd75c5d6fba4a5eaa63a5507cb39a6e99", GitTreeState:"clean", BuildDate:"2023-10-18T11:44:31Z", GoVersion:"go1.20.10", Compiler:"gc", Platform:"linux/amd64"}
+Server Version: version.Info{Major:"1", Minor:"26", GitVersion:"v1.26.10+k3s2", GitCommit:"cb5cb5557f34e240e38c68a8c4ca2506c68b1d86", GitTreeState:"clean", BuildDate:"2023-11-08T03:21:46Z", GoVersion:"go1.20.10", Compiler:"gc", Platform:"linux/amd64"}
+----
+
+O `Server Version` deve ser maior ou igual a v1.25.
+
+[discrete]
+=== Política de Segurança de Pod
+
+{longhorn-product-name} é fornecido com uma Política de Segurança de Pod padrão que dará a {longhorn-product-name} os privilégios necessários para funcionar corretamente.
+
+Nenhuma configuração especial é necessária para que {longhorn-product-name} funcione corretamente em clusters com a Política de Segurança de Pod habilitada.
+
+[discrete]
+=== Notas sobre Propagação de Montagem
+
+Se seu cluster Kubernetes foi provisionado pelo Rancher v2.0.7+ ou posterior, o recurso de Propagação de Montagem está habilitado por padrão.
+
+Se a Propagação de Montagem estiver desabilitada, o recurso de Imagem Base será desabilitado.
+
+[discrete]
+=== Permissão de Root e Privilegiada
+
+Os componentes de {longhorn-product-name} requerem acesso root com permissões privilegiadas para realizar operações e gerenciamento de volumes, porque {longhorn-product-name} depende de recursos do sistema no host em diferentes namespaces. Por exemplo, {longhorn-product-name} usa `nsenter` para entender o uso de dispositivos de bloco ou criptografar/descriptografar volumes no host.
+
+Abaixo estão os diretórios que os componentes de {longhorn-product-name} requerem acesso com permissões root e privilegiadas:
+
+* Longhorn Manager
+ ** /boot: Obtenha informações sobre os módulos necessários de `/boot/config-$(uname -r)` no host.
+ ** /dev: Dispositivos de bloco criados pelo Longhorn estão sob o caminho `/dev`.
+ ** /proc: Encontre o processo do host reconhecido, como o tempo de execução do contêiner, e use `nsenter` para acessar as montagens no host para entender o uso dos discos.
+ ** /var/lib/longhorn: O caminho padrão para armazenar dados de volume em um host.
+* Imagem do Longhorn Engine
+ ** /var/lib/longhorn/engine-binaries: O caminho padrão para armazenar os binários do Longhorn Engine.
+* Gerenciador de Instâncias Longhorn
+ ** /: Acesse qualquer caminho de dados neste nó e acesse os binários do Longhorn Engine.
+ ** /dev: Dispositivos de bloco criados pelo Longhorn estão sob o caminho `/dev`.
+ ** /proc: Encontre o processo do host reconhecido, como o tempo de execução do contêiner, e use `nsenter` para gerenciar os alvos e iniciadores iSCSI, além de alguns sistemas de arquivos.
+* Gerenciador de Compartilhamento Longhorn
+ ** /dev: Dispositivos de bloco criados pelo Longhorn estão sob o caminho `/dev`.
+ ** /lib/modules: Módulos do kernel necessários para `cryptsetup` na criptografia de volumes.
+ ** /proc: Encontre o processo de host reconhecido, como o tempo de execução do contêiner, e use `nsenter` para a criptografia de volumes.
+ ** /sys: Suporte à criptografia de volume por `cryptsetup`.
+* Plugin Longhorn CSI
+ ** /: Para verificações de host via o montador NFS do cliente (descontinuado). Observe que isso será removido na próxima versão.
+ ** /dev: Dispositivos de bloco criados pelo Longhorn estão sob o caminho `/dev`.
+ ** /lib/modules: Módulos do kernel necessários pelo plugin Longhorn CSI.
+ ** /sys: Suporte à criptografia de volume por `cryptsetup`.
+ ** /var/lib/kubelet/plugins/kubernetes.io/csi: O caminho onde o plugin Longhorn CSI cria o caminho de preparação (via `NodeStageVolume`) de um dispositivo de bloco. O caminho de preparação será montado no caminho de destino `/var/lib/kubelet/pods` (via `NodePublishVolume`) para que um único volume possa ser montado em vários Pods.
+ ** /var/lib/kubelet/plugins_registry: O caminho onde o registrador do driver do nó registra o plugin CSI com o kubelet.
+ ** /var/lib/kubelet/plugins/driver.longhorn.io: O caminho onde o socket para a comunicação entre o kubelet e o driver CSI do Longhorn está localizado.
+ ** /var/lib/kubelet/pods: O caminho onde o driver CSI do Longhorn monta volumes a partir do caminho de destino (via `NodePublishVolume`).
+* Longhorn CSI Attacher/Provisioner/Resizer/Snapshotter
+ ** /var/lib/kubelet/plugins/driver.longhorn.io: O caminho onde o socket para a comunicação entre o kubelet e o driver CSI do Longhorn está localizado.
+* Gerenciador de Imagens de Apoio do Longhorn
+ ** /var/lib/longhorn: O caminho padrão para armazenar dados no host.
+* Fonte de Dados de Imagem de Apoio do Longhorn
+ ** /var/lib/longhorn: O caminho padrão para armazenar dados no host.
+* Implantação de Restauração do Sistema Longhorn
+ ** /var/lib/longhorn/engine-binaries: O caminho padrão para armazenar os binários do Longhorn Engine.
+
+[discrete]
+== Instalando open-iscsi
+
+O comando usado para instalar `open-iscsi` difere dependendo da distribuição Linux.
+
+Para GKE, recomendamos usar o Ubuntu como a imagem do sistema operacional convidado, pois já contém ``open-iscsi``.
+
+Você pode precisar editar o grupo de segurança do cluster para permitir o acesso SSH.
+
+* SUSE e openSUSE: Execute o seguinte comando:
++
+----
+zypper install open-iscsi
+systemctl enable iscsid
+systemctl start iscsid
+----
+
+* Debian e Ubuntu: Execute o seguinte comando:
++
+----
+apt-get install open-iscsi
+----
+
+* RHEL, CentOS e EKS _(EKS Kubernetes Worker AMI com imagem AmazonLinux2)_: Execute os seguintes comandos:
++
+----
+yum --setopt=tsflags=noscripts install iscsi-initiator-utils
+echo "InitiatorName=$(/sbin/iscsi-iname)" > /etc/iscsi/initiatorname.iscsi
+systemctl enable iscsid
+systemctl start iscsid
+----
+
+Por favor, certifique-se de que o módulo iscsi_tcp foi carregado antes que o serviço iscsid inicie. Geralmente, ele deve ser carregado automaticamente junto com a instalação do pacote.
+
+----
+modprobe iscsi_tcp
+----
+
+IMPORTANT: No SUSE e openSUSE, o módulo `iscsi_tcp` está incluído apenas no pacote `kernel-default`. Se o pacote `kernel-default-base` estiver instalado em seu sistema, você deve substituí-lo por `kernel-default`.
+
+Também fornecemos um instalador `iscsi` para facilitar a instalação automática do `open-iscsi` para os usuários. Você pode usar o xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI] para instalar os pré-requisitos.
+
+Você pode usar o comando `longhornctl check preflight`. Este comando verifica o ambiente do seu cluster Kubernetes para garantir que ele atenda aos requisitos do {longhorn-product-name}. Ele realiza uma série de verificações que podem ajudar a identificar problemas potenciais que podem impedir o funcionamento correto do {longhorn-product-name}.
+
+Exemplo:
+
+[,shell]
+----
+> longhornctl check preflight
+INFO[2025-08-22T12:58:40+08:00] Initializing preflight checker
+INFO[2025-08-22T12:58:40+08:00] Cleaning up preflight checker
+INFO[2025-08-22T12:58:42+08:00] Running preflight checker
+INFO[2025-08-22T12:58:49+08:00] Retrieved preflight checker result:
+ip-10-0-1-132:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-client is installed
+  - Package open-iscsi is installed
+  - Package cryptsetup is installed
+  - Package device-mapper is installed
+  - Module dm_crypt is loaded
+  warn:
+  - Kube DNS "coredns" is set with fewer than 2 replicas; consider increasing replica count for high availability
+INFO[2025-08-22T12:58:49+08:00] Cleaning up preflight checker
+INFO[2025-08-22T12:58:50+08:00] Completed preflight checker
+----
+
+Em casos raros, pode ser necessário modificar a política SELinux instalada para fazer o {longhorn-product-name} funcionar. Se você estiver executando uma versão atualizada de uma distribuição downstream do Fedora (por exemplo, Fedora, RHEL, Rocky, CentOS, etc.) e planeja manter o SELinux habilitado, consulte link:https://longhorn.io/kb/troubleshooting-volume-attachment-fails-due-to-selinux-denials[o KB] para mais detalhes.
+
+[discrete]
+== Instalando o cliente NFSv4
+
+O recurso de backup requer NFSv4, v4.1 ou v4.2, e o recurso de volume ReadWriteMany (RWX) requer NFSv4.1. Antes de instalar o daemon e utilitários do espaço do usuário do cliente NFSv4, certifique-se de que o suporte do kernel do cliente esteja habilitado em cada nó {longhorn-product-name}.
+
+* Verifique se o suporte `NFSv4.1` está habilitado no kernel.
++
+----
+cat /boot/config-`uname -r`| grep CONFIG_NFS_V4_1
+----
+
+* Verifique se o suporte `NFSv4.2` está habilitado no kernel.
++
+----
+cat /boot/config-`uname -r`| grep CONFIG_NFS_V4_2
+----
+
+O comando usado para instalar um cliente NFSv4 difere dependendo da distribuição Linux.
+
+* Para Debian e Ubuntu, use este comando:
++
+----
+apt-get install nfs-common
+----
+
+* Para RHEL, CentOS e EKS com `EKS Kubernetes Worker AMI with AmazonLinux2 image`, use este comando:
++
+----
+yum install nfs-utils
+----
+
+* Para SUSE/OpenSUSE, você pode instalar um cliente NFSv4 via:
++
+----
+zypper install nfs-client
+----
+
+* Para Talos Linux, https://www.talos.dev/v1.6/kubernetes-guides/configuration/storage/#nfs[o cliente NFS faz parte da imagem `kubelet` mantida pela equipe Talos].
+* Para Container-Optimized OS, https://cloud.google.com/kubernetes-engine/docs/concepts/node-images#storage_driver_support[o NFS é suportado com a imagem do nó].
+
+Nós também disponibilizamos um instalador `nfs` para facilitar que os usuários instalem automaticamente o `nfs-client`. Você pode usar o xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI] para instalar os pré-requisitos.
+
+Você pode usar o `longhornctl check preflight` comando. Este comando verifica o ambiente do seu cluster Kubernetes para garantir que atenda a {longhorn-product-name}.  Ele realiza uma série de verificações que podem ajudar a identificar problemas potenciais que podem impedir o funcionamento correto do {longhorn-product-name}.
+
+Exemplo:
+
+[,shell]
+----
+> longhornctl check preflight
+INFO[2025-08-22T12:58:40+08:00] Initializing preflight checker
+INFO[2025-08-22T12:58:40+08:00] Cleaning up preflight checker
+INFO[2025-08-22T12:58:42+08:00] Running preflight checker
+INFO[2025-08-22T12:58:49+08:00] Retrieved preflight checker result:
+ip-10-0-1-132:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-client is installed
+  - Package open-iscsi is installed
+  - Package cryptsetup is installed
+  - Package device-mapper is installed
+  - Module dm_crypt is loaded
+  warn:
+  - Kube DNS "coredns" is set with fewer than 2 replicas; consider increasing replica count for high availability
+INFO[2025-08-22T12:58:49+08:00] Cleaning up preflight checker
+INFO[2025-08-22T12:58:50+08:00] Completed preflight checker
+----
+
+[discrete]
+== Instalando o Cryptsetup e LUKS
+
+https://gitlab.com/cryptsetup/cryptsetup[Cryptsetup] é uma ferramenta de código aberto usada para configurar convenientemente alvos de mapeamento de dispositivos baseados em `dm-crypt` e {longhorn-product-name} utiliza https://gitlab.com/cryptsetup/cryptsetup#luks-design[LUKS2] (Linux Unified Key Setup), que é o padrão para criptografia de disco no Linux para suportar a criptografia de volumes.
+
+O comando usado para instalar a ferramenta cryptsetup varia dependendo da distribuição Linux.
+
+* Para Debian e Ubuntu, use este comando:
++
+[subs="+attributes",shell]
+----
+apt-get install cryptsetup
+----
+
+* Para RHEL, CentOS, Rocky Linux e EKS com `EKS Kubernetes Worker AMI with AmazonLinux2 image`, use este comando:
++
+[subs="+attributes",shell]
+----
+yum install cryptsetup
+----
+
+* Para SUSE/OpenSUSE, use este comando:
++
+[subs="+attributes",shell]
+----
+zypper install cryptsetup
+----
+
+[discrete]
+== Instalando a Ferramenta de Espaço de Usuário do Device Mapper
+
+O device mapper é uma estrutura fornecida pelo kernel do Linux para mapear dispositivos de bloco físicos em dispositivos de bloco virtuais de nível superior. Ele forma a base da `dm-crypt` criptografia de disco e fornece o dispositivo dm linear no topo do volume v2. O device mapper é tipicamente incluído por padrão em muitas distribuições Linux. Algumas distribuições leves ou altamente personalizadas ou uma instalação mínima de uma distribuição podem excluí-lo para economizar espaço ou reduzir a complexidade.
+
+O comando usado para instalar o device mapper varia dependendo da distribuição Linux.
+
+* Para Debian e Ubuntu, use este comando:
++
+[subs="+attributes",shell]
+----
+apt-get install dmsetup
+----
+
+* Para RHEL, CentOS, Rocky Linux e EKS com `EKS Kubernetes Worker AMI with AmazonLinux2 image`, use este comando:
++
+[subs="+attributes",shell]
+----
+yum install device-mapper
+----
+
+* Para SUSE/OpenSUSE, use este comando:
++
+[subs="+attributes",shell]
+----
+zypper install device-mapper
+----
+
+== Ferramenta de Linha de Comando Longhorn
+
+=== Verificando Pré-requisitos Usando a Ferramenta de Linha de Comando Longhorn
+
+A ferramenta `longhornctl` é uma interface de linha de comando (CLI) para operações do Longhorn. Para mais informações, consulte xref:longhorn-system/system-access/install-longhorn-cli.adoc[Ferramenta de Linha de Comando (longhornctl)].
+
+Para verificar pré-requisitos e configurações, baixe a ferramenta `longhornctl` e, em seguida, execute o subcomando `check`:
+
+[subs="+attributes",bash]
+----
+# For AMD64 platform
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-amd64
+# For ARM platform
+curl -sSfL -o longhornctl https://github.com/longhorn/cli/releases/download/v{patch-version}/longhornctl-linux-arm64
+
+chmod +x longhornctl
+./longhornctl check preflight
+----
+
+Exemplo de resultado:
+
+[,text]
+----
+INFO[2024-01-01T00:00:01Z] Initializing preflight checker
+INFO[2024-01-01T00:00:01Z] Cleaning up preflight checker
+INFO[2024-01-01T00:00:01Z] Running preflight checker
+INFO[2024-01-01T00:00:02Z] Retrieved preflight checker result:
+worker1:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-common is installed
+  - Package open-iscsi is installed
+  warn:
+  - multipathd.service is running. Please refer to https://longhorn.io/kb/troubleshooting-volume-with-multipath/ for more information.
+worker2:
+  info:
+  - Service iscsid is running
+  - NFS4 is supported
+  - Package nfs-common is not installed
+  - Package open-iscsi is installed
+----
+
+=== Instalando Pré-requisitos Usando a Ferramenta de Linha de Comando Longhorn
+
+Use o `install` subcomando para instalar e configurar as dependências de pré-voo antes de instalar o Longhorn. Isso envolve operações que podem exigir uma reinicialização do sistema em certas distribuições Linux.
+
+Aqui estão exemplos de como usar o `install` subcomando:
+
+. Para executar a partir de um `longhornctl` binário baixado localmente:
++
+[,bash]
+----
+./longhornctl install preflight
+----
+
+. Para executar com parâmetros explícitos `kube-config` e `image`:
++
+[subs="+attributes",bash]
+----
+longhornctl --kubeconfig ~/.kube/config --image longhornio/longhorn-cli:v{patch-version} install preflight
+----
+
+Exemplo de resultado após executar o comando de instalação:
+
+[,text]
+----
+INFO[2025-03-11T08:17:57+08:00] Initializing preflight installer
+INFO[2025-03-11T08:17:57+08:00] Cleaning up preflight installer
+INFO[2025-03-11T08:17:57+08:00] Running preflight installer
+INFO[2025-03-11T08:17:57+08:00] Installing dependencies with package manager
+INFO[2025-03-11T08:18:28+08:00] Installed dependencies with package manager
+INFO[2025-03-11T08:18:28+08:00] Cleaning up preflight installer
+INFO[2025-03-11T08:18:28+08:00] Completed preflight installer. Use 'longhornctl check preflight' to check the result.
+----
+
+[NOTE]
+====
+Em algumas distribuições Linux imutáveis, como o SUSE Linux Enterprise Micro (SLE Micro), pode ser necessário reiniciar os nós de trabalho após executar o `install` subcomando para que as alterações tenham efeito. Após a reinicialização, você deve executar o `install` subcomando novamente para completar a operação.
+
+A documentação da distribuição Linux que você está usando deve descrever tais requisitos. Por exemplo, a documentação link:https://documentation.suse.com/sle-micro/6.0/html/Micro-transactional-updates/index.html#reference-transactional-update-usage[SLE Micro] explica como todas as alterações feitas pelo comando `transactional-update` se tornam ativas somente após a reinicialização do nó.
+====

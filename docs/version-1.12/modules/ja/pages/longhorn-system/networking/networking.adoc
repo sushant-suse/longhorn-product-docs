@@ -1,0 +1,213 @@
+= ネットワーキング
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 概要
+
+次の情報を使用して、Longhornコンポーネント間のインバウンド/アウトバウンドトラフィックを制御するKubernetes NetworkPolicyを作成できます。これにより、悪意のあるポッドがクラスター内ネットワークに侵入した際の被害を軽減できます。
+
+https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[networkPolicies.enabledの値]が`true`に設定されている場合、helmチャートはNetworkPolicyオブジェクトをインストールします。
+これらのオブジェクトのマニフェストは、 https://github.com/longhorn/longhorn/tree/v{patch-version}/chart/templates/network-policies[gitリポジトリ]で表示できます。
+デプロイされた https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/[CNI]によっては、すべてのKubernetesクラスターがNetworkPolicyをサポートしているわけではないことに注意してください。
+詳細については、 https://kubernetes.io/docs/concepts/services-networking/network-policies/[Kubernetesのドキュメント]を参照してください。
+
+NOTE: ネットワークポリシーを作成している場合は、Longhornをアップグレードする前にこのページを再確認し、ネットワークポリシーに必要な調整を行ってください。
+注意:クラスターのネットワークに使用しているCNIによっては、Kubernetesがポッドにネットワークポリシーを適用する際に遅延が発生することがあります。この遅延により、Longhornのスナップショットやボリュームのバックアップを取得する定期ジョブが失敗する可能性があります。最初にLonghorn Managerにアクセスできないためです。これは、K3sとTraefikで見つかった既知の問題であり、Longhornの制御を超えています。
+
+== Longhorn Manager
+
+=== Ingress:
+
+From | Port | Protocol
+-- | -- | --
+`Other Longhorn Manager` | 9500 | TCP
+`UI` | 9500 | TCP
+`Longhorn CSI plugin` | 9500 | TCP
+`Backup/Snapshot Recurring Job Pod` | 9500 | TCP
+`Longhorn Driver Deployer` | 9500 | TCP
+`Conversion Webhook Server` | 9501 | TCP
+`Admission Webhook Server` | 9502 | TCP
+`Recovery Backend Server` | 9503 | TCP
+
+=== Egress:
+
+To | Port | Protocol
+-- | -- | --
+`Other Longhorn Manager` | 9500 | TCP
+`Instance Manager` | 8500 (プロセスマネージャーサービス); 8501 (プロキシサービス); 8502 (ディスクサービス); 8503 (インスタンスサービス); 8504 (spdkサービス) | TCP
+`Backing Image Manager` | 8000 | TCP
+`Backing Image Data Source` | 8000 | TCP
+`External Backupstore` | ユーザー定義 | TCP
+`Kubernetes API server` | `Kubernetes API server port` | TCP
+
+== UI
+
+=== ingress:
+
+ユーザー定義
+
+=== egress:
+
+To | Port | Protocol
+-- | -- | --
+`Longhorn Manager` | 9500 | TCP
+
+== インスタンスマネージャー
+
+=== ingress
+
+送信元 | ポート | プロトコル
+-- | -- | --
+`Longhorn Manager` | 8500 (プロセスマネージャーサービス); 8501 (プロキシサービス); 8502 (ディスクサービス); 8503 (インスタンスサービス); 8504 (spdkサービス) | TCP
+`Other Instance Manager` | 10000-30000 | TCP
+`Node in the Cluster` | 3260 | TCP
+`Backing Image Data Source` | 10000-30000 | TCP
+
+=== egress:
+
+To | Port | Protocol
+-- | -- | --
+`Other Instance Manager` | 10000-30000 | TCP
+`Backing Image Data Source` | 8002 | TCP
+`External Backupstore` | ユーザー定義 | TCP
+
+== Longhorn CSIプラグイン
+
+=== ingress
+
+なし
+
+=== egress:
+
+To | Port | Protocol
+-- | -- | --
+`Longhorn Manager` | 9500 | TCP
+
+=== 追加情報
+
+`Longhorn CSI plugin` ポッドは `CSI sidecar` ポッドと `<Kuberlet-Directory>/plugins/driver.longhorn.io/csi.sock` のUnixドメインソケットを介して通信します
+
+== CSIサイドカー (csi-attacher, csi-provisioner, csi-resizer, csi-snapshotter)
+
+=== ingress:
+
+なし
+
+=== egress:
+
+To | Port | Protocol
+-- | -- | --
+`Kubernetes API server` | `Kubernetes API server port` | TCP
+
+=== 追加情報
+
+`CSI sidecar` ポッドは `Longhorn CSI plugin` ポッドと `<Kuberlet-Directory>/plugins/driver.longhorn.io/csi.sock` のUnixドメインソケットを介して通信します
+
+== ドライバデプロイヤー
+
+=== ingress:
+
+なし
+
+=== egress:
+
+To | Port | Protocol
+-- | -- | --
+`Longhorn Manager` | 9500 | TCP
+`Kubernetes API server` | `Kubernetes API server port` | TCP
+
+== エンジンイメージ
+
+=== ingress:
+
+なし
+
+=== egress:
+
+なし
+
+== バックイメージマネージャー
+
+=== ingress:
+
+From | Port | Protocol
+-- | -- | --
+`Longhorn Manager` | 8000 | TCP
+`Other Backing Image Manager` | 30001-31000 | TCP
+
+=== egress:
+
+To | Port | Protocol
+-- | -- | --
+`Instance Manager` | 10000-30000 | TCP
+`Other Backing Image Manager` | 30001-31000 | TCP
+`Backing Image Data Source` | 8000 | TCP
+
+== バックイメージデータソース
+
+=== ingress:
+
+From | Port | Protocol
+-- | -- | --
+`Longhorn Manager` | 8000 | TCP
+`Instance Manager` | 8002 | TCP
+`Backing Image Manager` | 8000 | TCP
+
+=== egress:
+
+To | Port | Protocol
+-- | -- | --
+`Instance Manager` | 10000-30000 | TCP
+`User provided server IP to download the images from` | ユーザー定義 | TCP
+
+== シェアマネージャー
+
+=== ingress
+
+From | Port | Protocol
+-- | -- | --
+`Node in the cluster` | 2049 | TCP
+
+=== egress:
+
+なし
+
+== バックアップ/スナップショット定期ジョブポッド
+
+=== ingress:
+
+なし
+
+=== egress:
+
+To | Port | Protocol
+-- | -- | --
+`Longhorn Manager` | 9500 | TCP
+
+== アンインストーラー
+
+=== ingress:
+
+なし
+
+=== egress:
+
+To | Port | Protocol
+-- | -- | --
+`Kubernetes API server` | `Kubernetes API server port` | TCP
+
+== Proc Kubelet Cmdlineの検出
+
+=== ingress:
+
+なし
+
+=== egress:
+
+なし
+
+'''
+
+元のGitHubの問題:
+https://github.com/longhorn/longhorn/issues/1805

@@ -1,0 +1,45 @@
+= 性能
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/performance.md"]
+:doctype: book
+:current-version: {page-component-version}
+
+== 性能测量工具
+
+* https://github.com/yasker/kbench[KBench]：用于基准测试集群存储性能
+* https://github.com/rancher/local-path-provisioner[本地路径供应器]:用于测量数据磁盘的基线性能
+
+== Equinix (m3.small.x86)
+
+* 计算机：Japan/m3.small.x86
+* CPU：Intel(R) Xeon(R) E-2378G CPU @ 2.80GHz
+* RAM：64 GiB
+* Kubernetes: v1.23.6+rke2r2
+* 节点：3（每个节点既是主节点也是工作节点）
+* OS：Ubuntu 22.04 / 5.15.0-33-generic
+* 存储：1 SSD (Micron_5300_MTFD)
+* 节点之间的网络吞吐量（通过iperf测试，持续60秒）：15.0 Gbits/sec
+
+image::diagrams/v2-data-engine/equinix-iops.svg[镜像]
+
+image::diagrams/v2-data-engine/equinix-bw.svg[镜像]
+
+image::diagrams/v2-data-engine/equinix-latency.svg[镜像]
+
+== AWS EC2 (c5d.xlarge)
+
+* 计算机：Tokyo/c5d.xlarge
+* CPU：Intel(R) Xeon(R) Platinum 8124M CPU @ 3.00GHz
+* RAM：8 GiB
+* Kubernetes: v1.25.10+rke2r1
+* 节点：3（每个节点既是主节点也是工作节点）
+* OS：Ubuntu 22.04.2 LTS / 5.19.0-1025-aws
+* 存储：1 SSD (Amazon EC2 NVMe 实例存储/本地 NVMe 存储)
+* 节点之间的网络吞吐量（通过iperf测试，持续60秒）：7.9 Gbits/sec
+
+image::diagrams/v2-data-engine/aws-c5d-xlarge-iops.svg[镜像]
+
+image::diagrams/v2-data-engine/aws-c5d-xlarge-bw.svg[镜像]
+
+image::diagrams/v2-data-engine/aws-c5d-xlarge-latency.svg[镜像]

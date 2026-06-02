@@ -1,0 +1,157 @@
+= Créez un Ingress avec une authentification de base (nginx)
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+[NOTE]
+====
+À partir de novembre 2025, le projet Kubernetes a annoncé le retrait du contrôleur ingress-nginx. Pour plus de détails, https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/[consultez l'annonce officielle].
+
+*Alternative recommandée*{nbsp}:
+
+* **Traefik Ingress**{nbsp}: Le paramètre par défaut actuel pour les environnements RKE2/K3s. Voir xref:longhorn-system/system-access/longhorn-ingress-traefik.adoc[Créer un Ingress avec Traefik].
+* **API Passerelle**{nbsp}: Le successeur moderne de l'Ingress pour un routage avancé. Voir xref:longhorn-system/system-access/longhorn-httproute.adoc[Créer un HTTPRoute avec l'API Passerelle].
+====
+
+Si vous installez {longhorn-product-name} sur un cluster Kubernetes avec kubectl ou Helm, vous devrez créer un Ingress pour permettre au trafic externe d'atteindre l'interface utilisateur {longhorn-product-name}.
+
+L'authentification n'est pas activée par défaut pour les installations kubectl et Helm. Dans ces étapes, vous apprendrez à créer un Ingress avec une authentification de base en utilisant des annotations pour le contrôleur Ingress nginx.
+
+. Créez un fichier d'authentification `auth`. Il est important que le fichier généré soit nommé auth (en fait - que le secret ait une clé `data.auth`), sinon l'Ingress renvoie un 503.
++
+[,console]
+----
+$ USER=<USERNAME_HERE>; PASSWORD=<PASSWORD_HERE>; echo "${USER}:$(openssl passwd -stdin -apr1 <<< ${PASSWORD})" >> auth
+----
+
+. Créez un secret{nbsp}:
++
+[subs="+attributes",bash]
+----
+$ kubectl -n longhorn-system create secret generic basic-auth --from-file=auth
+----
+
+. Créez un manifeste Ingress `longhorn-ingress.yml`{nbsp}:
++
+____
+Depuis la version v1.2.0, {longhorn-product-name} prend en charge le téléchargement d'images de fond depuis l'interface utilisateur, veuillez donc spécifier `nginx.ingress.kubernetes.io/proxy-body-size: 10000m` comme ci-dessous pour garantir que le téléchargement des images fonctionne comme prévu.
+____
++
+[subs="+attributes",yaml]
+----
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: longhorn-ingress
+  namespace: longhorn-system
+  annotations:
+    # type of authentication
+    nginx.ingress.kubernetes.io/auth-type: basic
+    # prevent the controller from redirecting (308) to HTTPS
+    nginx.ingress.kubernetes.io/ssl-redirect: 'false'
+    # name of the secret that contains the user/password definitions
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth
+    # message to display with an appropriate context why the authentication is required
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required '
+    # custom max body size for file uploading like backing image uploading
+    nginx.ingress.kubernetes.io/proxy-body-size: 10000m
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: longhorn-frontend
+            port:
+              number: 80
+----
+
+. Créez l'Ingress{nbsp}:
++
+[subs="+attributes",bash]
+----
+$ kubectl -n longhorn-system apply -f longhorn-ingress.yml
+----
+
+Par exemple :
+
+[,console]
+----
+$ USER=foo; PASSWORD=bar; echo "$\{USER}:$(openssl passwd -stdin -apr1 <<< $\{PASSWORD})" >> auth
+$ cat auth
+foo:$apr1$FnyKCYKb$6IP2C45fZxMcoLwkOwf7k0
+
+$ kubectl -n longhorn-system create secret generic basic-auth --from-file=auth
+secret/basic-auth created
+$ kubectl -n longhorn-system get secret basic-auth -o yaml
+apiVersion: v1
+data:
+  auth: Zm9vOiRhcHIxJEZueUtDWUtiJDZJUDJDNDVmWnhNY29Md2tPd2Y3azAK
+kind: Secret
+metadata:
+  creationTimestamp: "2020-05-29T10:10:16Z"
+  name: basic-auth
+  namespace: longhorn-system
+  resourceVersion: "2168509"
+  selfLink: /api/v1/namespaces/longhorn-system/secrets/basic-auth
+  uid: 9f66233f-b12f-4204-9c9d-5bcaca794bb7
+type: Opaque
+
+$ echo "
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: longhorn-ingress
+  namespace: longhorn-system
+  annotations:
+    # type of authentication
+    nginx.ingress.kubernetes.io/auth-type: basic
+    # prevent the controller from redirecting (308) to HTTPS
+    nginx.ingress.kubernetes.io/ssl-redirect: 'false'
+    # name of the secret that contains the user/password definitions
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth
+    # message to display with an appropriate context why the authentication is required
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required '
+spec:
+  rules:
+
+* http:
+  paths:
+ ** pathType: Prefix
+path: "/"
+backend:
+  service:
+    name: longhorn-frontend
+    port:
+      number: 80
+" | kubectl -n longhorn-system create -f -
+ingress.networking.k8s.io/longhorn-ingress created
+
+$ kubectl -n longhorn-system get ingress
+NAME               HOSTS   ADDRESS                                     PORTS   AGE
+longhorn-ingress   *       45.79.165.114,66.228.45.37,97.107.142.125   80      2m7s
+
+$ curl -v http://97.107.142.125/
+
+* Trying 97.107.142.125...
+* TCP_NODELAY set
+* Connected to 97.107.142.125 (97.107.142.125) port 80 (#0)
++
+____
+GET / HTTP/1.1
+Host: 97.107.142.125
+User-Agent: curl/7.64.1
+Accept: _/_
+
+< HTTP/1.1 401 Unauthorized
+< Server: openresty/1.15.8.1
+< Date: Fri, 29 May 2020 11:47:33 GMT
+< Content-Type: text/html
+< Content-Length: 185
+< Connection: keep-alive
+< WWW-Authenticate: Basic realm="Authentication Required"
+<
+----

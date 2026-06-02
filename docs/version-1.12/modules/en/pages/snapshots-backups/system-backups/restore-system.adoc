@@ -1,30 +1,31 @@
 = Restore the SUSE® Storage System
-:revdate: 2025-06-27
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 == Longhorn System Restore Rollouts
 
-* Longhorn restores the resource from the xref:snapshots-backups/system-backups/create-system-backup.adoc#_longhorn_system_backup_bundle[Longhorn System Backup Bundle].
-* Longhorn does not restore existing `Volumes` and their associated `PersistentVolume` and `PersistentVolumeClaim`.
-* Longhorn automatically restores a `Volume` from its latest backup.
-* To prevent overwriting eligible settings, Longhorn does not restore the `ConfigMap/longhorn-default-setting`.
-* Longhorn does not restore <<_configurable_settings,configurable settings>>.
-* Since Longhorn does not back up V2 Data Engine backing images, you must ensure that those images are available in the cluster before you restore the Longhorn system. This allows Longhorn to restore volumes that use V2 Data Engine backing images.
+* {longhorn-product-name} restores the resource from the xref:snapshots-backups/system-backups/create-system-backup.adoc#_longhorn_system_backup_bundle[Longhorn System Backup Bundle].
+* {longhorn-product-name} does not restore existing `Volumes` and their associated `PersistentVolume` and `PersistentVolumeClaim`.
+* {longhorn-product-name} automatically restores a `Volume` from its latest backup.
+* To prevent overwriting eligible settings, {longhorn-product-name} does not restore the `ConfigMap/longhorn-default-setting`.
+* {longhorn-product-name} does not restore xref:_configurable_settings[configurable settings].
+* Since {longhorn-product-name} does not back up V2 Data Engine backing images, you must ensure that those images are available in the cluster before you restore the Longhorn system. This allows {longhorn-product-name} to restore volumes that use V2 Data Engine backing images.
 
 == Limitations
 
 === Restore Path
 
-Longhorn does not support cross-major/minor version system restore except for upgrade failures, ex: 1.4.x \-> 1.5.
+{longhorn-product-name} does not support cross-major or minor version system restore except for upgrade failures, ex: 1.4.x \-> 1.5.
 
+[#_create_longhorn_system_restore]
 == Create Longhorn System Restore
 
-You can restore the Longhorn system using Longhorn UI. Or with the `kubectl` command.
+You can restore the Longhorn system using {longhorn-product-name} UI. Or with the `kubectl` command.
 
 === Prerequisite
 
-* A running Longhorn cluster for Longhorn to roll out the resources in the system backup bundle.
+* A running Longhorn cluster for {longhorn-product-name} to roll out the resources in the system backup bundle.
 * Set up the `Nodes` and disk tags for `StorageClass`.
 * Have a Longhorn system backup.
 +
@@ -32,17 +33,17 @@ See xref:snapshots-backups/system-backups/create-system-backup.adoc#_create_long
 
 * All existing `Volumes` are detached.
 
-=== Using Longhorn UI
+=== Using {longhorn-product-name} UI
 
 . Go to the `System Backups` page in the `Backup and Restore`.
 . Select a system backup to restore.
-. Click `Restore` in the `Operation` drop-down menu.
+. Click `Restore` in the `Operation` drop-down list.
 . Give a `Name` for the system restore.
 . The system restore starts and show the `Completed` state when done.
 
 == Using `kubectl` Command
 
-. Find the Longhorn `SystemBackup` to restore.
+. Find the {longhorn-product-name} `SystemBackup` to restore.
 +
 ----
 > kubectl -n longhorn-system get systembackup
@@ -51,7 +52,7 @@ demo     v1.4.0    Ready   2022-11-24T04:23:24Z
 demo-2   v1.4.0    Ready   2022-11-24T05:00:59Z
 ----
 
-. Execute `kubectl create` to create a Longhorn `SystemRestore` of the `SystemBackup`.
+. Execute `kubectl create` to create a {longhorn-product-name} `SystemRestore` of the `SystemBackup`.
 +
 [subs="+attributes",yaml]
 ----
@@ -73,20 +74,24 @@ NAME           STATE       AGE
 restore-demo   Completed   59s
 ----
 
+[#_delete_longhorn_system_restore]
 == Delete Longhorn System Restore
 
-WARNING: Deleting the SystemRestore also deletes the associated job and will abort the remaining resource rollouts. You can <<_restart_longhorn_system_restore,Restart the Longhorn System Restore>> to roll out the remaining resources.
+[WARNING]
+====
+Deleting the SystemRestore also deletes the associated job and abort the remaining resource rollouts. You can xref:_restart_longhorn_system_restore[Restart the Longhorn System Restore] to roll out the remaining resources.
+====
 
-You can abort or remove a completed Longhorn system restore using Longhorn UI. Or with the `kubectl` command.
+You can abort or remove a completed Longhorn system restore using {longhorn-product-name} UI. Or with the `kubectl` command.
 
-=== Using Longhorn UI
+=== Using {longhorn-product-name} UI
 
 . Go to the `System Backups` page in the `Backup and Restore`.
-. Delete a single system restore in the `Operation` drop-down menu next to the system restore. Or delete in batch with the `Delete` button.
+. Delete a single system restore in the `Operation` drop-down list next to the system restore. Or delete in batch with the `Delete` button.
 
 === Using `kubectl` Command
 
-. Execute `kubectl delete` to delete a Longhorn `SystemRestore`.
+. Execute `kubectl delete` to delete a {longhorn-product-name} `SystemRestore`.
 +
 ----
 > kubectl -n longhorn-system get systemrestore
@@ -97,11 +102,13 @@ restore-demo   Completed   2m37s
 systemrestore.longhorn.io "restore-demo" deleted
 ----
 
+[#_restart_longhorn_system_restore]
 == Restart Longhorn System Restore
 
-. <<_delete_longhorn_system_restore,Delete Longhorn System Restore>> that is in progress.
-. <<_create_longhorn_system_restore,Create Longhorn System Restore>>.
+. xref:_delete_longhorn_system_restore[Delete Longhorn System Restore] that is in progress.
+. xref:_create_longhorn_system_restore[Create Longhorn System Restore].
 
+[#_configurable_settings]
 == Configurable Settings
 
 Some settings are excluded as configurable before the Longhorn system restore.
@@ -122,7 +129,7 @@ Some settings are excluded as configurable before the Longhorn system restore.
 ----
 
 . Resolve if the issue is identifiable, ex: remove the problematic restoring resource.
-. <<_restart_longhorn_system_restore,Restart the Longhorn system restore>>.
+. xref:_restart_longhorn_system_restore[Restart the Longhorn system restore].
 
 == History
 

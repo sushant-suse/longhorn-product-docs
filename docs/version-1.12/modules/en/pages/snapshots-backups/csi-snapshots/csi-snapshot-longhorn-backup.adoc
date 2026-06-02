@@ -1,9 +1,9 @@
 = CSI Volume Snapshot Associated with a SUSE® Storage Backup
-:revdate: 2025-07-26
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
-Backups in Longhorn are objects in an off-cluster backupstore, and the endpoint to access the backupstore is the backup target. For more information, see xref:introduction/concepts.adoc#_3_1_how_backups_work[this section.]
+Backups in Longhorn are objects in an off-cluster backupstore, and the endpoint to access the backupstore is the backup target. For more information, see xref:introduction/concepts.adoc#_3_1_how_backups_work[this section].
 
 To programmatically create backups, you can use the generic Kubernetes CSI VolumeSnapshot mechanism. To learn more about the CSI VolumeSnapshot mechanism, click https://kubernetes.io/docs/concepts/storage/volume-snapshots/[here].
 
@@ -71,10 +71,11 @@ Then a backup of that snapshot is initiated, and the CSI request returns.
 
 Afterwards a `VolumeSnapshotContent` object named `snapcontent-uuid` is created.
 
-The CSI snapshotter sidecar periodically queries the Longhorn CSI plugin to evaluate the backup status.
+The CSI snapshotter sidecar periodically queries the Longhorn CSI plug-in to evaluate the backup status.
 
 Once the backup is completed, the `VolumeSnapshotContent.readyToUse` flag is set to *true*.
 
+[#_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backup]
 == Restore PVC from CSI VolumeSnapshot Associated With Longhorn Backup
 
 Create a `PersistentVolumeClaim` object where the `dataSource` field points to an existing `VolumeSnapshot` object that is associated with Longhorn backup.
@@ -151,4 +152,5 @@ spec:
 ----
 
 Now you can create a `PerstistantVolumeClaim` object that refers to the newly created `VolumeSnapshot` object.
-For an example see <<_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backup,Restore PVC from CSI VolumeSnapshot Associated With Longhorn Backup>> above.
+
+For an example see xref:_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_backup[Restore PVC from CSI VolumeSnapshot Associated With Longhorn Backup] above.

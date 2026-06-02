@@ -1,0 +1,29 @@
+= Condiciones del volumen
+:revdate: 22-12-2025
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Condiciones del volumen
+
+Las condiciones del volumen describen el estado actual de un volumen y los problemas potenciales que pueden ocurrir.
+
+* `Scheduled`: Todas las réplicas se programaron con éxito.
+  Si Longhorn no pudo programar ninguna de las réplicas, la condición se establece en `false` y se muestran mensajes de error. La condición se establece en `true` cuando la configuración xref:longhorn-system/settings.adoc#_allow_volume_creation_with_degraded_availability[Permitir la creación de volúmenes con disponibilidad degradada] está habilitada y al menos una réplica está programada.
+* `TooManySnapshots`: Este volumen específico tiene más de 100 instantáneas.
+  Longhorn permite crear un máximo de 250 instantáneas para cada volumen. Para más información sobre cómo configurar el número máximo de instantáneas, consulte xref:snapshots-backups/volume-snapshots-backups/snapshot-space-management.adoc[Gestión del espacio de instantáneas].
+* `Restore`: Longhorn está restaurando el volumen desde una copia de seguridad.
+* `WaitForBackingImage`: Las réplicas no han comenzado porque las imágenes de respaldo deben sincronizarse primero con sus discos.
+* `OfflineRebuildingInProgress`: El volumen se está reconstruyendo utilizando la reconstrucción fuera de línea.
+
+== Condiciones del motor
+
+Las condiciones del motor describen el estado actual de un motor y los problemas potenciales que pueden ocurrir.
+`FilesystemReadOnly`: El estado del punto de montaje del volumen actual ha cambiado a solo lectura.
+Este cambio puede impedir que las cargas de trabajo escriban datos en el volumen. Para obtener información sobre la resolución de problemas, consulte xref:high-availability/volume-recovery.adoc[].
+
+== Condiciones de la réplica
+
+Las condiciones de la réplica describen el estado actual de una réplica y los problemas potenciales que pueden ocurrir.
+
+* `RebuildFailed`: La réplica no se pudo reconstruir.
+* `WaitForBackingImage`: Las réplicas no han comenzado porque primero se deben sincronizar las imágenes de respaldo con sus discos.

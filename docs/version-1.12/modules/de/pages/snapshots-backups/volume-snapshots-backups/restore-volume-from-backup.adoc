@@ -1,0 +1,21 @@
+= Stellen Sie ein Volume aus einer Sicherung wieder her
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn kann Sicherungen problemlos auf ein Volume wiederherstellen.
+
+Für weitere Informationen darüber, wie Sicherungen funktionieren, siehe den Abschnitt xref:introduction/concepts.adoc#_3_backups_and_secondary_storage[Konzepte].
+
+Wenn Sie eine Sicherung wiederherstellen, wird standardmäßig ein Volume mit demselben Namen erstellt. Wenn bereits ein Volume mit demselben Namen wie die Sicherung existiert, wird die Sicherung nicht wiederhergestellt.
+
+Um eine Sicherung wiederherzustellen,
+
+. Navigieren Sie zu *Sicherung.* Menü
+. Wählen Sie die Sicherung(en) aus, die Sie wiederherstellen möchten, und klicken Sie auf *Neueste Sicherung wiederherstellen.*
+. Im Feld *Name* wählen Sie das Volume aus, das Sie wiederherstellen möchten.
+. Klicken Sie auf *OK.*
+
+Sie können dann das PV/PVC aus dem Volume erstellen, nachdem Sie ein Volume aus einer Sicherung wiederhergestellt haben. Hier können Sie das `storageClassName` angeben oder es leer lassen, um das `storageClassName` zu verwenden, das vom PVC des Sicherungsvolumes geerbt wurde. Das `StorageClass` sollte bereits im Cluster vorhanden sein, um weitere Probleme zu vermeiden.
+
+*Ergebnis:* Das wiederhergestellte Volume ist auf der Seite *Volume* verfügbar.

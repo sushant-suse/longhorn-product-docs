@@ -1,0 +1,66 @@
+= Überarbeitungszähler
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+Der Überarbeitungszähler ist ein Mechanismus, den {longhorn-product-name} verwendet, um die Aktualisierungen jeder Replik zu verfolgen.
+
+Während der Erstellung der Replik wird {longhorn-product-name} eine `revision.counter` Datei erstellen, deren anfänglicher Zähler auf 0 gesetzt ist. Und für jeden Schreibvorgang auf der Replik wird der Zähler in der `revision.counter` Datei um 1 erhöht.
+
+Die {longhorn-product-name} Engine verwendet diese Zähler als Heuristik, um eine bestmögliche Konsistenz zwischen den Replikaten während des Starts zu erreichen. Beachten Sie, dass die Schreib-IOs in {longhorn-product-name} parallel sind, sodass die Aktivierung des Überarbeitungszählers keine Datenkonsistenz garantiert. {longhorn-product-name} verwendet diese Zähler auch während der automatischen Wiederherstellung, um die Replik mit der neuesten Aktualisierung zu identifizieren.
+
+Die Deaktivierung des Überarbeitungszählers ist eine Option, bei der jeder Schreibvorgang auf Replikaten nicht verfolgt wird. Wenn diese Einstellung verwendet wird, wird die Leistung verbessert. Diese Option kann hilfreich sein, wenn Sie eine höhere Leistung bevorzugen und über eine stabile Netzwerk-Infrastruktur (z. B. ein internes Netzwerk) mit ausreichenden CPU-Ressourcen verfügen. Wenn der Überarbeitungszähler deaktiviert ist, überspringt die Longhorn Engine die Überprüfung des Überarbeitungszählers für alle Replikate beim Start. Die automatische Wiederherstellung funktioniert jedoch weiterhin, da {longhorn-product-name} die Kopfdatei der Replik verwenden kann, um die Replik zu identifizieren, die für die Wiederherstellung verwendet werden soll. Für weitere Informationen darüber, wie die automatische Wiederherstellung ohne den Überarbeitungszähler funktioniert, siehe <<_auto_salvage_support_with_revision_counter_disabled,Unterstützung für automatische Wiederherstellung mit deaktiviertem Überarbeitungszähler>>.
+
+Standardmäßig ist der Überarbeitungszähler deaktiviert.
+
+[NOTE]
+====
+Salvage ist {longhorn-product-name}, das versucht, ein Volume in einem fehlerhaften Zustand wiederherzustellen. Ein Volume befindet sich in einem fehlerhaften Zustand, wenn die Longhorn Engine die Verbindung zu allen Replikaten verliert und alle Replikate als fehlerhaft markiert sind.
+====
+
+= Überarbeitungszähler deaktivieren
+
+== Verwendung der {longhorn-product-name} Benutzeroberfläche
+
+Um den Überarbeitungszähler über die {longhorn-product-name} Benutzeroberfläche zu deaktivieren oder zu aktivieren, klicken Sie auf menu:Einstellungen[Überarbeitungszähler deaktivieren].
+
+Um einzelne Volumes mit Einstellungen zu erstellen, die von den allgemeinen Einstellungen abweichen, gehen Sie zur Seite *Volumes* und klicken Sie auf *Volume erstellen*.
+
+== Verwendung einer Manifestdatei
+
+Eine `StorageClass` kann angepasst werden, um einen `disableRevisionCounter` Parameter hinzuzufügen.
+
+Standardmäßig ist die `disableRevisionCounter` falsch, sodass der Überarbeitungszähler aktiviert ist.
+
+Setzen Sie `disableRevisionCounter` auf wahr, um den Überarbeitungszähler zu deaktivieren:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: best-effort-longhorn
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "1"
+  disableRevisionCounter: "true"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+----
+
+== Auto-Salvage-Unterstützung mit deaktiviertem Überarbeitungszähler
+
+Die Logik für Auto-Salvage ist anders, wenn der Überarbeitungszähler deaktiviert ist.
+
+Wenn der Überarbeitungszähler aktiviert ist und alle Replikate im Volumen im 'ERR'-Zustand sind, befindet sich der Engine-Controller in einem fehlerhaften Zustand, und um das Volumen wiederherzustellen, wird er das Replikat mit dem größten Überarbeitungszähler als 'Quelle der Wahrheit' verwenden, um die restlichen Replikate wiederherzustellen.
+
+Wenn der Überarbeitungszähler in diesem Fall deaktiviert ist, erhält der Engine-Controller die `volume-head-xxx.img` letzte Änderungszeit und die Dateigröße der Kopfdatei aller Replikate. Es wird auch die folgenden Schritte ausführen:
+
+. Das Replikat mit dem aktuellsten Änderungszeitstempel wird identifiziert, basierend darauf, wann `volume-head-xxx.img` zuletzt geändert wurde.
+. Alle Replikate mit einem Änderungszeitstempel innerhalb von 5 s des Änderungszeitstempels des obigen Replikats werden ausgewählt.
+. Von den Replikatkandidaten aus dem obigen Schritt wird die Dateigröße der Kopfdatei verglichen, und diejenigen mit der größten Dateigröße werden ausgewählt.
+. Aus den Replikatkandidaten des obigen Schrittes wird das beste Replikat mit dem aktuellsten Änderungszeitstempel ausgewählt.
+. Das beste Replikat wird in den 'RW'-Modus versetzt, und die anderen Replikate werden in den 'ERR'-Modus versetzt. Die fehlerhaften Replikate werden basierend auf dem besten Replikat wiederhergestellt.

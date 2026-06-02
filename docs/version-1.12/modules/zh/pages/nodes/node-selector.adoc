@@ -1,0 +1,121 @@
+= 节点选择器
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+如果您想限制 Longhorn 组件仅在特定节点集上运行，可以为所有 Longhorn 组件设置节点选择器。
+例如，您想在一个同时具有 Linux 节点和 Windows 节点的集群中安装 Longhorn，但 Longhorn 不能在 Windows 节点上运行。
+在这种情况下，您可以设置节点选择器以限制 Longhorn 仅在 Linux 节点上运行。
+
+有关节点选择器如何工作的更多信息，请参阅 https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector[官方 Kubernetes 文档。]
+
+== 为 Longhorn 设置节点选择器
+
+Longhorn 由用户部署的组件（例如，Longhorn 管理器、Longhorn 驱动程序和 Longhorn UI）和系统管理的组件（例如，实例管理器、备份镜像管理器、共享管理器、CSI 驱动程序和引擎镜像）组成。
+您需要为这两种类型的组件设置节点选择器。请参见下面的更多详细信息。
+
+[discrete]
+=== 在安装 Longhorn 时设置节点选择器
+
+. 为用户部署的组件（例如，Longhorn 管理器、Longhorn 驱动程序和 Longhorn UI）设置节点选择器。
+ ** 如果您通过 Rancher 安装 Longhorn，您必须将以下参数复制并粘贴到 Rancher UI 上的 YAML 中（在安装过程中点击 *Edit as YAML*）以将值应用于所有用户部署的组件。
++
+[subs="+attributes",yaml]
+----
+   global:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** 您还可以为每个用户部署的组件指定节点选择器，它将覆盖全局设置。
++
+[subs="+attributes",yaml]
+----
+   longhornManager:
+     nodeSelector:
+       label-key1: "label-value1"
+   longhornDriver:
+     nodeSelector:
+       label-key1: "label-value1"
+   longhornUI:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** 如果您使用 `kubectl` 来应用 https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml[部署 YAML]，则需要修改 Longhorn 管理器、Longhorn UI 和 Longhorn 驱动程序部署者的节点选择器部分。
+ 然后应用 YAML 文件。
+ ** 如果您使用 Helm 安装 Longhorn，可以在安装 Helm chart 之前更改 `values.yaml` 文件中的 `global.nodeSelector`、`longhornManager.nodeSelector`、`longhornUI.nodeSelector`、`longhornDriver.nodeSelector` 的 Helm 值。
+. 为系统管理的组件（例如，实例管理器、备份镜像管理器、共享管理器、CSI 驱动程序和引擎镜像）设置节点选择器。
++
+按照 xref:longhorn-system/customize-default-settings.adoc[自定义默认设置] 通过更改 `system-managed-components-node-selector` 默认设置的值来设置节点选择器。
++
+[NOTE]
+====
+由于 Rancher 2.5.x 的限制，如果您使用 Rancher UI 安装 Longhorn，您需要点击 `Edit As Yaml` 并将设置 `systemManagedComponentsNodeSelector` 添加到 `defaultSettings`。
+
+例如：
+
+[subs="+attributes",yaml]
+----
+defaultSettings:
+  systemManagedComponentsNodeSelector: "label-key1:label-value1"
+----
+====
+
+[discrete]
+=== 在 Longhorn 安装后设置节点选择器
+
+____
+*警告*：
+
+* 由于所有 Longhorn 组件将被重启，Longhorn 系统暂时不可用。
+* 当所有 Longhorn 卷被分离时，自定义设置会立即应用于系统管理的组件（例如，实例管理器、CSI 驱动程序和引擎镜像）。
+* 当一个或多个 Longhorn 卷仍然附加时，只有在没有引擎和副本实例运行时，自定义设置才会应用于实例管理器。在分离剩余卷后，您需要重新配置。或者，您可以等待下一个设置同步，这将在一小时内发生。
+* 在节点选择器设置更新和 Longhorn 组件重启时，请勿操作 Longhorn 系统。
+____
+
+. 准备
+ ** 为了确保您的首选设置立即应用，请在应用之前停止所有工作负载并分离所有 Longhorn 卷。
+. 为用户部署的组件（例如，Longhorn 管理器、Longhorn 驱动程序和 Longhorn UI）设置节点选择器。
+ ** 如果您通过 Rancher 安装 Longhorn，您必须将以下参数复制并粘贴到 Rancher UI 上的 YAML 中（在升级期间点击 *Edit as YAML*）以将值应用于所有用户部署的组件。
++
+[subs="+attributes",yaml]
+----
+   global:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** 您还可以为每个用户部署的组件指定节点选择器，它将覆盖全局设置。
++
+[subs="+attributes",yaml]
+----
+  longhornManager:
+    nodeSelector:
+      label-key1: "label-value1"
+  longhornDriver:
+    nodeSelector:
+      label-key1: "label-value1"
+  longhornUI:
+    nodeSelector:
+      label-key1: "label-value1"
+----
+
+ ** 如果您使用 `kubectl` 来应用 https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml[部署 YAML]，则需要修改 Longhorn 管理器、Longhorn UI 和 Longhorn 驱动程序部署者的节点选择器部分。
+然后重新应用 YAML 文件。
+ ** 如果您使用 Helm 安装 Longhorn，可以在 `values.yaml` 文件中更改 `global.nodeSelector`、`longhornManager.nodeSelector`、`longhornUI.nodeSelector`、`longhornDriverDeployer.nodeSelector` 的 Helm 值，然后运行 `helm upgrade` 以升级到新版本的 Helm chart。
+. 为系统管理的组件（例如，实例管理器、备份镜像管理器、共享管理器、CSI 驱动程序和引擎镜像）设置节点选择器。
++
+节点选择器设置可以在 Longhorn UI 的 menu:设置[系统管理组件节点选择器] 下找到。
+
+. 清理
++
+如果您以某种方式更改节点选择器，使得 Longhorn 无法在当前运行的某些节点上运行，
+这些节点在此过程后将变为 `down` 状态。验证这些节点上没有剩余副本。
+禁用这些节点的调度，并在 Longhorn UI 中删除它们。
+
+== 历史记录
+
+* https://github.com/longhorn/longhorn/issues/2199[原始功能请求]

@@ -1,0 +1,73 @@
+= 卷展开
+:revdate: 2025-09-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+从 v1.10.0 开始，{longhorn-product-name} 支持对使用 NVMe 前端的 v2 数据引擎卷进行在线扩展。此功能允许您在保持工作负载运行的同时，将卷展开到请求的大小。
+
+在展开过程中，{longhorn-product-name} 会自动调整所有副本的大小，以匹配用户请求的大小。这消除了停止或从卷中分离应用程序的需要，确保存储的无缝和非中断展开。
+
+此功能显著提高了存储管理的灵活性，使卷能够在没有任何停机时间的情况下进行展开。
+
+== 如何使用
+
+=== 从 {longhorn-product-name} UI 创建 V2 卷时
+
+. 选择一个以 `Block Device` 或 `NVMf` 作为前端的卷。
+. 在 {longhorn-product-name} UI 中，导航到卷页面。
+. 从卷操作菜单中点击 *展开卷*。
+. 输入新的期望大小并确认。展开将自动开始。
+
+=== 从清单创建 v2 卷时
+
+. 为 v2 数据引擎创建一个 StorageClass。确保 `allowVolumeExpansion` 设置为 `true`。例如：
++
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+    name: longhorn-v2-data-engine
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  fsType: "ext4"
+  dataEngine: "v2"
+----
+. 创建一个引用此 StorageClass 的持久卷声明 (PVC)：
++
+[,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: longhorn-volv-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-v2-data-engine
+  resources:
+    requests:
+      storage: 2Gi
+----
+. 要展开卷，请编辑 PVC 清单，将存储请求增加到更大的大小（如下所示），然后应用更新后的清单。
++
+[,yaml]
+----
+  resources:
+    requests:
+      storage: 3Gi
+----
+
+== 已知限制
+
+截至 v1.10.0，`UBLK` 前端不支持在线展开。您不允许展开使用 `UBLK` 前端的卷。
+
+== 参考手册
+
+有关更多信息，请参见 https://github.com/longhorn/longhorn/issues/8022[问题 #8022]。

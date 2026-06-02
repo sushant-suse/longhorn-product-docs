@@ -1,0 +1,146 @@
+= テイントとトレランス
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+ユーザーがLonghorn専用の大容量ストレージスペースやCPUリソースを持つノードを作成し、他の一般的なワークロードを拒否したい場合、これらのノードにテイントを設定し、Longhornコンポーネントのためのトレランスを追加することができます。その後、Longhornはそのノードにデプロイすることができます。
+
+1つのワークロードのテイントとトレランスの設定は、対応するテイントを含まないノードにスケジュールされるのを防ぐことはありません。
+
+テイントとトレランスの動作についての詳細は、 https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/[公式Kubernetesドキュメントを参照してください。]
+
+= テイントとトレランスの設定
+
+Longhornは、ユーザーがデプロイしたコンポーネント（例：Longhorn Manager、Longhorn Driver、Longhorn UI）とシステム管理のコンポーネント（例：インスタンスマネージャー、バックイメージマネージャー、シェアマネージャー、CSIドライバー、エンジンイメージ）で構成されています。
+両方のタイプのコンポーネントに対してトレランスを設定する必要があります。以下に詳細を示します。
+
+[discrete]
+=== Longhornをインストールする際のテイントとトレランスの設定
+
+. ユーザーがデプロイしたコンポーネント（例：Longhorn Manager、Longhorn Driver、Longhorn UI）に対してテイントとトレランスを設定します。
+ ** Rancherを通じてLonghornをインストールする場合、インストール中にRancher UIで*Edit as YAML*をクリックし、以下のパラメータをYAMLにコピー＆ペーストして、すべてのユーザーがデプロイしたコンポーネントに値を適用する必要があります。
++
+[subs="+attributes",yaml]
+----
+  global:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+----
+
+ ** 各ユーザーがデプロイしたコンポーネントのトレランスを指定することもでき、グローバル設定を上書きします。
++
+[subs="+attributes",yaml]
+----
+  longhornManager:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+  longhornDriver:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+  longhornUI:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+----
+
+ ** `kubectl`を使用して https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml[デプロイメントYAML]を適用する場合、Longhorn Manager、Longhorn UI、およびLonghorn Driver Deployerのテイントとトレランスのセクションを修正する必要があります。
+ その後、YAMLファイルを適用します。
+ ** Helmを使用してLonghornをインストールする場合、チャートをインストールする前に`values.yaml`ファイル内の`global.tolerations`、`longhornManager.tolerations`、`longhornUI.tolerations`、`longhornDriver.tolerations`のHelm値を変更できます。
+. システム管理のコンポーネント（例：インスタンスマネージャー、CSIドライバー、エンジンイメージ）に対してテイントとトレランスを設定します。
++
+xref:longhorn-system/customize-default-settings.adoc[デフォルト設定をカスタマイズする]に従って、`taint-toleratio`のデフォルト設定の値を変更してテイントとトレランスを設定します。
++
+[NOTE]
+====
+Rancher 2.5.xの制限により、Rancher UIを使用してLonghornをインストールする場合、`Edit As Yaml`をクリックして設定`taintToleration`を`defaultSettings`に追加する必要があります。
+
+次に例を示します。
+
+[subs="+attributes",yaml]
+----
+defaultSettings:
+  taintToleration: "key=value:NoSchedule"
+----
+====
+
+[discrete]
+=== Longhornがインストールされた後のテイントとトレランスの設定
+
+____
+*警告*:
+
+設定を即座に適用するために、すべてのワークロードを停止し、設定を構成する前にすべてのLonghornボリュームを切り離してください。
+
+すべてのLonghornコンポーネントが再起動されるため、Longhornシステムは一時的に利用できません。
+
+すべてのLonghornボリュームが切り離されると、カスタマイズされた設定がシステム管理コンポーネントに即座に適用されます。
+1つ以上のLonghornボリュームがまだ接続されている場合、エンジンとレプリカインスタンスが実行されていないときにのみ、カスタマイズされた設定がインスタンスマネージャーに適用されます。残りのボリュームを切り離した後、設定を再構成する必要があります。または、次の設定の同期を1時間待つこともできます。
+
+許容設定が更新され、Longhornコンポーネントが再起動している間は、Longhornシステムを操作しないでください。 → トレランス設定が更新され、Longhornコンポーネントが再起動している間は、Longhornシステムを操作しないでください。
+____
+
+. 準備
++
+設定を即座に適用するために、すべてのワークロードを停止し、設定を構成する前にすべてのLonghornボリュームを切り離してください。
+
+. ユーザーがデプロイしたコンポーネント（例：Longhorn Manager、Longhorn Driver、Longhorn UI）に対してテイントとトレランスを設定します。
+ ** Rancherを通じてLonghornをインストールする場合、アップグレード中にRancher UIで*Edit as YAML*をクリックし、次のパラメータをYAMLにコピー＆ペーストして、すべてのユーザーがデプロイしたコンポーネントに値を適用する必要があります。
++
+[subs="+attributes",yaml]
+----
+  global:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+----
+
+ ** 各ユーザーがデプロイしたコンポーネントのトレランスを指定することもでき、グローバル設定を上書きします。
++
+[subs="+attributes",yaml]
+----
+  longhornManager:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+  longhornDriver:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+  longhornUI:
+    tolerations:
+    - key: "key"
+      operator: "Equal"
+      value: "value"
+      effect: "NoSchedule"
+----
+
+ ** `kubectl`を使用して https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml[デプロイメントYAML]を適用する場合、Longhorn Manager、Longhorn UI、およびLonghorn Driver Deployerのテイントとトレランスのセクションを修正する必要があります。
+その後、YAMLファイルを再適用してください。
+ ** Helmを使用してLonghornをインストールする場合、`values.yaml`ファイル内の`global.tolerations`、`longhornManager.tolerations`、`longhornUI.tolerations`、`longhornDriver.tolerations`のHelm値を変更し、`helm upgrade`を実行してチャートの新しいバージョンにアップグレードできます。
+. システム管理コンポーネント（例：インスタンスマネージャー、バックイメージマネージャー、シェアマネージャー、CSIドライバー、エンジンイメージ）に対してテイントとトレランスを設定します。
++
+テイントとトレランス設定は、Longhorn UIのmenu:設定[Kubernetesテイントとトレランス]の下にあります。
+
+== 履歴
+
+* https://github.com/longhorn/longhorn/issues/584[元の機能リクエスト]
+* https://github.com/longhorn/longhorn/issues/2120[GitOpsで問題を解決する]

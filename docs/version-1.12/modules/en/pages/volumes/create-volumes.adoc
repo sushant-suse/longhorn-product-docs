@@ -26,6 +26,7 @@ ReadOnlyMany (ROX) is not supported. For read-only access from multiple pods, us
 
 == Create Longhorn Volumes
 
+[#_creating_v1_longhorn_volumes_with_kubectl]
 === Creating V1 Longhorn Volumes with kubectl
 
 Before creating a V1 volume, ensure that Longhorn has at least one available file system-type disk. V1 volumes are scheduled only to file system-type disks. For more information, see xref:nodes/multiple-disks.adoc#_add_a_filesystem-type_disk[Add a Filesystem-Type Disk].
@@ -129,6 +130,7 @@ apiVersion: v1
         claimName: longhorn-volv-pvc
 ----
 
+[#_creating_v2_longhorn_volumes_with_kubectl]
 === Creating V2 Longhorn Volumes with kubectl
 
 Before creating a V2 volume, ensure that the V2 Data Engine is enabled and Longhorn has available block-type disks. V2 volumes are scheduled only to block-type disks. For more information, see xref:v1-v2-volume-behavior-and-feature-parity.adoc[V2 Data Engine Guide] and xref:nodes/multiple-disks.adoc#_add_a_block-type-disk[Add a Block-Type Disk].
@@ -230,6 +232,7 @@ If the PVC names a StorageClass, Kubernetes:
 . Look for an existing PV that has the label matching the StorageClass
 . Look for an existing StorageClass Kubernetes resource. If the StorageClass exists, it is used to create a PV.
 
+[#_creating_longhorn_volumes_with_the_ui]
 == Creating Longhorn Volumes with the UI
 
 Since the Longhorn volume already exists while creating PV or PVC, a StorageClass is not needed for dynamically provisioning Longhorn volume. However, the field `storageClassName` should be set in PVC or PV, to be used for PVC binding purposes. It is not necessary for users to create the related StorageClass object.

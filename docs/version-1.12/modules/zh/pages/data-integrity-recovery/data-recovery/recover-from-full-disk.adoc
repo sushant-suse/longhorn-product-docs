@@ -1,0 +1,21 @@
+= 从满磁盘中恢复
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+如果一个由 Longhorn 副本使用的磁盘已满，该副本将进入错误状态，Longhorn 将在另一个节点/磁盘上重建另一个副本。
+
+要从满磁盘中恢复，
+
+. 禁用满磁盘的调度。
++
+Longhorn 应该已经将该磁盘标记为 `unschedulable`。
++
+此步骤是为了确保在释放更多空间后，磁盘不会意外被调度。
+
+. 使用 Longhorn UI 的磁盘页面识别磁盘上处于错误状态的副本。
+. 去除处于错误状态的副本。
+
+== 恢复后推荐
+
+我们建议为出现这种情况的节点添加更多磁盘或更多空间。

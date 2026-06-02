@@ -1,0 +1,25 @@
+= Reconstrucción rápida de réplicas
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn soporta la reconstrucción rápida de réplicas basada en las sumas de comprobación de los archivos de disco de instantáneas.
+
+== Introducción
+
+El proceso heredado de reconstrucción de réplicas recorre todos los archivos de disco de instantáneas. Para cada bloque de datos, el cliente (réplica saludable) calcula el hash del bloque de datos local y solicita la suma de comprobación del bloque de datos correspondiente en el lado remoto (réplica reconstruida). Luego, el cliente compara las dos sumas de comprobación para determinar si el bloque de datos necesita ser enviado al lado remoto y sobrescribir el bloque de datos. Así, es un proceso intensivo en IO y computación, especialmente si el volumen es grande o contiene un gran número de archivos de instantáneas.
+
+Si los usuarios habilitan la función de verificación de integridad de datos de instantáneas configurando `snapshot-data-integrity` a `enabled` o `fast-check`, las marcas de tiempo de cambio y las sumas de comprobación de los archivos de disco de instantáneas se registran. Siempre que se cumplan las dos condiciones a continuación, podemos omitir la sincronización del archivo de disco de instantáneas.
+
+* Las marcas de tiempo de cambio en el archivo de disco de instantáneas y el valor registrado son los mismos.
+* Tanto los archivos de disco de instantáneas locales como remotos tienen la misma suma de comprobación.
+
+Entonces, una reducción en el número de cálculos innecesarios puede acelerar todo el proceso y reducir el impacto en el rendimiento del sistema.
+
+== Settings (Configuración posterior al failback)
+
+=== Valores globales
+
+* fast-replica-rebuild-enabled +
++
+La configuración habilita la función de reconstrucción rápida de réplicas. Se basa en las sumas de comprobación de los archivos de disco de instantáneas, por lo que establecer la integridad de datos de instantáneas a *enable* o *fast-check* es un requisito previo. Por favor, consulta xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[Verificación de Integridad de Datos de Instantáneas].

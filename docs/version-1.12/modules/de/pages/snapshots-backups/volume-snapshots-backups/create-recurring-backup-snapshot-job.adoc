@@ -1,0 +1,250 @@
+= Erstellen Sie einen wiederkehrenden Snapshot- oder Sicherungs-Job
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Im {longhorn-product-name} UI kann das Volume wiederkehrende Snapshots und Sicherungen entweder als unabhängige Jobs oder als Gruppen wiederkehrender Jobs darstellen.
+
+Um einen wiederkehrenden Job zu erstellen, können Sie zur `Recurring Jobs` Seite in {longhorn-product-name} und `Create Recurring Job` oder in die Detailansicht des Volumes in {longhorn-product-name} gehen.
+
+Sie können konfigurieren,
+
+* Alle Gruppen, zu denen der Job gehören soll
+* Die Art des Zeitplans, entweder `backup`, `backup-force-create`, `snapshot`, `snapshot-force-create`, `snapshot-cleanup`, `snapshot-delete` oder `filesystem-trim`
+* Die Zeit, zu der die Sicherung oder der Snapshot erstellt wird, in Form eines https://en.wikipedia.org/wiki/Cron#CRON_expression[CRON-Ausdruck]
+* Die Anzahl der Sicherungen oder Snapshots, die aufbewahrt werden sollen
+* Die Anzahl der Jobs, die gleichzeitig ausgeführt werden sollen
+* Alle Labels, die auf die Sicherung oder den Snapshot angewendet werden sollen
+* Parameter, die auf die Sicherung angewendet werden sollen
+ ** `full-backup-interval`: Anzahl der inkrementellen Sicherungen, die abgeschlossen sein müssen, bevor {longhorn-product-name} eine vollständige Sicherung durchführt. Dieser ganzzahlige Parameter wird nur auf die Sicherung angewendet. Beachten Sie, dass {longhorn-product-name} bei einem Wert von 0 jedes Mal eine inkrementelle Sicherung durchführt. Für weitere Informationen siehe <<_periodic_full_backup,Periodische Vollsicherung>> und xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[Erstellen Sie eine Sicherung].
+
+Wiederkehrende Jobs können über das {longhorn-product-name} UI, `kubectl` oder durch Verwendung eines {longhorn-product-name} `RecurringJob` eingerichtet werden.
+
+Um einen wiederkehrenden Job zu einem Volume hinzuzufügen, gehen Sie zur Detailansicht des Volumes in {longhorn-product-name}. Dann können Sie `Recurring Jobs Schedule` festlegen.
+
+* Erstellen Sie einen neuen wiederkehrenden Job
+* Wählen Sie aus vorhandenen wiederkehrenden Jobs
+* Wählen Sie aus vorhandenen Gruppen wiederkehrender Jobs
+
+Dann wird {longhorn-product-name} automatisch Snapshots oder Sicherungen für das Volume zur geplanten Zeit des wiederkehrenden Jobs erstellen, solange das Volume an einen Knoten angeschlossen ist.
+Wenn Sie wiederkehrende Snapshots und Sicherungen einrichten möchten, auch wenn die Volumes getrennt sind, siehe den Abschnitt <<_allow_recurring_job_while_volume_is_detached,Wiederkehrenden Job zulassen, während das Volume getrennt ist>>
+
+Sie können wiederkehrende Jobs auf einem Longhorn-Volume, einem Kubernetes Persistent Volume Claim (PVC) oder einer Kubernetes StorageClass einrichten.
+
+[NOTE]
+====
+Wenn der PVC wiederkehrende Job-Labels hat, überschreiben diese alle wiederkehrenden Job-Labels des zugehörigen Volumes.
+====
+
+Für weitere Informationen darüber, wie Snapshots und Sicherungen funktionieren, siehe den Abschnitt xref:introduction/concepts.adoc[Konzepte].
+
+[NOTE]
+====
+Um das Problem zu vermeiden, dass wiederkehrende Jobs die alten Sicherungen/Snapshots mit identischen Sicherungen und leeren Snapshots überschreiben, wenn das Volume lange Zeit keine neuen Daten hat, führt Longhorn Folgendes durch:
+
+. Der wiederkehrende Sicherungs-Job erstellt nur eine neue Sicherung, wenn das Volume seit der letzten Sicherung neue Daten hat.
+. Der wiederkehrende Snapshot-Job erstellt nur einen neuen Snapshot, wenn das Volume neue Daten im Volume-Head (den Live-Daten) hat.
+====
+
+== Richten Sie wiederkehrende Jobs ein
+
+=== Verwendung der {longhorn-product-name} Benutzeroberfläche
+
+Wiederkehrende Snapshots und Sicherungen können von der `Recurring Job` Seite oder der Detailseite des Volumes konfiguriert werden.
+
+=== Verwendung des Manifests
+
+Sie können den wiederkehrenden Job auch konfigurieren, indem Sie direkt mit der Longhorn RecurringJob benutzerdefinierten Ressource interagieren.
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: snapshot-1
+  namespace: longhorn-system
+spec:
+  cron: "* * * * *"
+  task: "snapshot"
+  groups:
+  - default
+  - group1
+  retain: 1
+  concurrency: 2
+  labels:
+    label/1: a
+    label/2: b
+----
+
+Die folgenden Parameter sollten für jeden wiederkehrenden Job-Selector angegeben werden:
+
+* `name`: Name des wiederkehrenden Jobs. Verwenden Sie keine doppelten Namen. Und die Länge von `name` sollte nicht mehr als 40 Zeichen betragen.
+* `task`: Art des Jobs. {longhorn-product-name} unterstützt Folgendes:
+ ** `backup`: regelmäßig Snapshots erstellen und anschließend nach der Bereinigung veralteter Snapshots Sicherungen durchführen
+ ** `backup-force-create`: regelmäßig Snapshots erstellen und anschließend Sicherungen durchführen
+ ** `snapshot`: regelmäßig Snapshots erstellen, nachdem veraltete Snapshots bereinigt wurden
+ ** `snapshot-force-create`: regelmäßig Snapshots erstellen
+ ** `snapshot-cleanup`: regelmäßig entbehrliche Snapshots und Systemsnapshots bereinigen
++
+NOTE: Der Wert für die Beibehaltung hat keinen Einfluss auf diese Aufgabe, {longhorn-product-name} ändert den Wert von `retain` automatisch auf 0.
+
+ ** `snapshot-delete`: regelmäßig alle Arten von Snapshots entfernen und bereinigen, die die Aufbewahrungsanzahl überschreiten.
++
+[NOTE]
+====
+Der Wert von `retain` ist unabhängig von jedem wiederkehrenden Job.
+
+Verwendung eines Volumens mit 2 wiederkehrenden Jobs als Beispiel:
+
+* `snapshot` mit einem Beibehaltungswert von 5
+* `snapshot-delete`: mit einem Beibehaltungswert von 2
+
+Schließlich werden nach der vollständigen Ausführung der `snapshot-delete`-Aufgabe 2 Snapshots beibehalten.
+====
+
+ ** `filesystem-trim`: regelmäßig das Dateisystem bereinigen, um Speicherplatz zurückzugewinnen
+* `cron`: Cron-Ausdruck. Er gibt die Ausführungszeit des Jobs an.
+* `retain`: Wie viele Snapshots/Sicherungen {longhorn-product-name} für jeden Volumenjob beibehalten werden. Es sollte nicht weniger als 1 sein.
+* `concurrency`: Die Anzahl der Jobs, die gleichzeitig ausgeführt werden sollen. Es sollte nicht weniger als 1 sein.
+
+Optionale Parameter können angegeben werden:
+
+* `groups`: Alle Gruppen, zu denen der Job gehören soll. Das Vorhandensein von `default` in Gruppen plant diesen wiederkehrenden Job automatisch für jedes Volume ohne wiederkehrenden Job.
+* `labels`: Alle Labels, die auf die Sicherung oder den Snapshot angewendet werden sollen.
+
+== Wiederkehrende Jobs zur Standardgruppe hinzufügen
+
+Standard wiederkehrende Jobs können festgelegt werden, indem das Kontrollkästchen `default` in der Benutzeroberfläche aktiviert oder `default` zum wiederkehrenden Job `groups` hinzugefügt wird.
+
+{longhorn-product-name} fügt automatisch ein Volume zur Gruppe `default` hinzu, wenn das Volume keinen wiederkehrenden Job hat.
+
+== Wiederkehrende Jobs löschen
+
+{longhorn-product-name} entfernt automatisch die Labels für wiederkehrende Jobs von Volume und PVC, wenn eine entsprechende benutzerdefinierte Ressource für den wiederkehrenden Job gelöscht wird. Wenn jedoch ein Label für einen wiederkehrenden Job ohne eine vorhandene benutzerdefinierte Ressource für den wiederkehrenden Job hinzugefügt wird, führt {longhorn-product-name} den Bereinigungsprozess für dieses Label nicht durch.
+
+== Wiederkehrenden Job auf {longhorn-product-name} Volume anwenden
+
+=== Verwendung der {longhorn-product-name} Benutzeroberfläche
+
+Der wiederkehrende Job kann auf der Detailseite des Volumes zugewiesen werden. Um zur Detailseite des Volumes zu navigieren, klicken Sie auf *Volume* und dann auf den Namen des Volumes.
+
+== Mit kubectl
+
+Wiederkehrende Jobgruppe hinzufügen:
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job-group.longhorn.io/<RECURRING-JOB-GROUP-NAME≥enabled
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job-group.longhorn.io/default=enabled
+----
+
+Wiederkehrenden Job hinzufügen:
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job.longhorn.io/<RECURRING-JOB-NAME≥enabled
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job.longhorn.io/backup=enabled
+----
+
+Wiederkehrenden Job entfernen:
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> <RECURRING-JOB-LABEL>-
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job.longhorn.io/backup-
+----
+
+== Mit einem PersistentVolumeClaim unter Verwendung von kubectl
+
+Standardmäßig hat das Anwenden eines wiederkehrenden Jobs auf einen Persistent Volume Claim (PVC) keine Auswirkungen. Sie können diese Funktion aktivieren oder deaktivieren, indem Sie das Label für die Quelle des wiederkehrenden Jobs verwenden.
+
+Sobald der PVC als Quelle gekennzeichnet ist, werden alle Labels für wiederkehrende Jobs, die dem PVC hinzugefügt oder entfernt werden, von {longhorn-product-name} regelmäßig mit dem zugehörigen Volume synchronisiert.
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job.longhorn.io/source=enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/source=enabled
+----
+
+Wiederkehrende Jobgruppe hinzufügen:
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job-group.longhorn.io/<RECURRING-JOB-GROUP-NAME≥enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job-group.longhorn.io/default=enabled
+----
+
+Wiederkehrenden Job hinzufügen:
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job.longhorn.io/<RECURRING-JOB-NAME≥enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/backup=enabled
+----
+
+Wiederkehrenden Job entfernen:
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> <RECURRING-JOB-LABEL>-
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/backup-
+----
+
+== Mit StorageClass-Parametern
+
+Die wiederkehrende Jobzuweisung kann in den `recurringJobSelector` Parametern in einer StorageClass konfiguriert werden.
+
+Alle zukünftigen Volumes, die mit dieser StorageClass erstellt werden, erhalten diese wiederkehrenden Jobs automatisch zugewiesen.
+
+Das `recurringJobSelector` Feld sollte dem JSON-Format folgen:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  recurringJobSelector: '[
+    {
+      "name":"snap",
+      "isGroup":true
+    },
+    {
+      "name":"backup",
+      "isGroup":false
+    }
+  ]'
+----
+
+Die folgenden Parameter sollten für jeden wiederkehrenden Job-Selector angegeben werden:
+
+. `name`: Name eines bestehenden wiederkehrenden Jobs oder einer bestehenden wiederkehrenden Jobgruppe.
+. `isGroup`: ist der Name, der zu einem wiederkehrenden Job oder einer wiederkehrenden Jobgruppe gehört, entweder `true` oder `false`.
+
+== Wiederkehrenden Job erlauben, während das Volume abgetrennt ist
+
+{longhorn-product-name} bietet die Einstellung `allow-recurring-job-while-volume-detached`, die es Ihnen ermöglicht, wiederkehrende Backups durchzuführen, selbst wenn ein Volume abgetrennt ist.
+Sie finden die Einstellung in der {longhorn-product-name} Benutzeroberfläche.
+
+Wenn die Einstellung aktiviert ist, wird {longhorn-product-name} das Volume automatisch anhängen und einen Snapshot bzw. eine Sicherung erstellen, wenn es Zeit für einen wiederkehrenden Snapshot bzw. eine Sicherung ist.
+
+Beachten Sie, dass das Volume während der Zeit, in der es automatisch angehängt wurde, nicht bereit für die Arbeitslast ist. Die Arbeitslast muss warten, bis der wiederkehrende Job abgeschlossen ist.
+
+== Periodisches Voll-Backup
+
+{longhorn-product-name} führt standardmäßig Delta-Sicherungen durch, was bedeutet, dass nur Daten, die seit der letzten Sicherung geändert wurden, hochgeladen werden. Wenn jedoch ein Datenblock im Backupstore beschädigt wird, ersetzt {longhorn-product-name} diesen Datenblock während nachfolgender Sicherungsvorgänge nicht durch einen intakten Datenblock. Beschädigte Datenblöcke im Backupstore können dazu führen, dass Wiederherstellungsoperationen fehlschlagen.
+Wenn ein nicht null `full-backup-interval` Parameter gesetzt ist, führt {longhorn-product-name} alle `full-backup-interval` inkrementellen Sicherungen eine Vollsicherung durch. Während einer Vollsicherung lädt {longhorn-product-name} alle Datenblöcke im Volume hoch. Datenblöcke, die im Backupstore existieren, einschließlich der beschädigten, werden überschrieben.
+
+IMPORTANT: Die Durchführung einer Vollsicherung kann länger dauern und einen höheren Netzwerkdurchsatz sowie höhere Kosten verursachen als die standardmäßige inkrementelle Sicherung.

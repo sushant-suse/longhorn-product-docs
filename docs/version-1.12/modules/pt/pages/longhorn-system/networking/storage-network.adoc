@@ -1,0 +1,66 @@
+= Rede de Armazenamento
+:revdate: 2025-11-19
+:page-revdate: {revdate}
+:doctype: book
+:current-version: {page-component-version}
+
+Por padrão, {longhorn-product-name} utiliza a rede CNI do cluster Kubernetes padrão que é limitada a uma única interface e compartilhada com outras cargas de trabalho em todo o cluster. Caso você tenha uma situação onde a segregação de rede é necessária, {longhorn-product-name} suporta isolar {longhorn-product-name} o tráfego de dados dentro do cluster com a configuração da Rede de Armazenamento.
+
+A configuração da Rede de Armazenamento utiliza o Multus NetworkAttachmentDefinition no formato `<NAMESPACE>/<NAME>`.
+
+Você pode consultar https://github.com/k8snetworkplumbingwg/multus-cni#comprehensive-documentation[Documento Abrangente] para saber como instalar e configurar o Multus NetworkAttachmentDefinition.
+
+Aplicar a configuração adicionará a anotação `k8s.v1.cni.cncf.io/networks` e recriará todos os pods existentes do gerenciador de instâncias e do gerenciador de imagens de backup. {longhorn-product-name} aplicará a mesma anotação a qualquer novo pod de gerenciador de instâncias, gerenciador de imagens de backup e fonte de dados de imagens de backup.
+
+[IMPORTANT]
+====
+Para garantir que suas configurações preferidas sejam aplicadas imediatamente, pare todas as cargas de trabalho e desanexe todos os volumes Longhorn antes de configurar as configurações.
+
+Quando todos os volumes estiverem desanexados, {longhorn-product-name} tentará reiniciar todos os pods do Gerenciador de Instâncias e do Gerenciador de Imagens de Backup para aplicar a configuração.
+Quando um ou mais volumes Longhorn ainda estiverem anexados, a configuração personalizada é aplicada ao Gerenciador de Instâncias somente quando nenhum motor e instâncias de réplica estiverem em execução. Você deve reconfigurar a configuração após desanexar os volumes restantes. Alternativamente, você pode aguardar a próxima sincronização de configuração, que ocorrerá em uma hora.
+====
+
+== Configurando a Rede de Armazenamento
+
+=== Pré-requisitos
+
+A rede Multus NetworkAttachmentDefinition para a configuração da rede de armazenamento deve ser acessível em pods em diferentes nós do cluster.
+
+Você pode verificar criando um DaemonSet simples e tentando fazer ping entre os pods.
+
+=== Configurando a Rede de Armazenamento Durante a Instalação do {longhorn-product-name}
+
+Siga o xref:longhorn-system/customize-default-settings.adoc[Personalizar configurações padrão] para definir a Rede de Armazenamento alterando o valor da configuração padrão `storage-network`
+
+[WARNING]
+====
+O gerenciador de instâncias do Longhorn não iniciará se a configuração da Rede de Armazenamento for inválida.
+
+Você pode verificar os eventos do Pod do gerenciador de instâncias para ver se está relacionado a uma NetworkAttachmentDefinition inválida com `kubectl -n longhorn-system describe pods -l longhorn.io/component=instance-manager`.
+
+Se este for o caso, forneça um `NetworkAttachmentDefinition` válido e execute novamente a instalação {longhorn-product-name}.
+====
+
+=== Configurando a Rede de Armazenamento Após a Instalação {longhorn-product-name}
+
+Defina a configuração xref:longhorn-system/settings.adoc#_storage_network[Rede de Armazenamento].
+
+[WARNING]
+====
+Não modifique o recurso personalizado NetworkAttachmentDefinition após aplicá-lo à configuração.
+
+{longhorn-product-name} não está ciente das atualizações. Portanto, isso causará mau funcionamento e erro. Em vez disso, você pode criar um novo recurso personalizado NetworkAttachmentDefinition e atualizá-lo para a configuração.
+====
+
+=== Configurando a Rede de Endpoint Para Volumes RWX
+
+Configure a configuração xref:longhorn-system/settings.adoc#_network_for_rwx_volume[Rede de Endpoint Para Volume RWX].
+
+== Limitação
+
+Quando um volume RWX está anexado à rede de endpoint, a conexão do ponto de montagem NFS deve ser restabelecida quando o pod do plugin CSI reiniciar. {longhorn-product-name} fornece a configuração xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[Excluir Automaticamente o Pod de Trabalho Quando o Volume É Desanexado Inesperadamente], que exclui automaticamente os pods de trabalho do volume RWX quando o pod do plugin CSI reinicia. No entanto, o ponto de montagem NFS do pod de trabalho pode se tornar inativo quando a configuração está desativada ou o pod não é gerenciado por um controlador. Nesses casos, você deve reiniciar manualmente o pod do plugin CSI.
+
+== Histórico
+
+* https://github.com/longhorn/longhorn/issues/2285[Solicitação de Recurso Original (desde v1.3.0)]
+* https://github.com/longhorn/longhorn/issues/8184[[FEATURE\] Suporte à rede de armazenamento para volumes RWX (desde v1.7.0)]

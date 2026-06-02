@@ -1,0 +1,12 @@
+= システムアクセス
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== アクセスおよび認証の前提条件
+
+これらの指示は、{longhorn-product-name}がインストールされていることを前提としています。
+
+{longhorn-product-name} YAMLマニフェストをインストールした場合、クラスターへの外部トラフィックを許可するためにIngressコントローラーを設定する必要があり、認証はデフォルトでは有効になっていません。これはHelmおよびkubectlのインストールに適用されます。基本認証を使用したNGINX Ingressコントローラーの作成に関する情報は、xref:longhorn-system/system-access/create-ingress.adoc[このセクション]を参照してください。また、xref:longhorn-system/system-access/longhorn-httproute.adoc[Gateway API HTTPRoute]を使用して、{longhorn-product-name} UIを公開する現代的なアプローチとして利用することもできます。
+
+もし{longhorn-product-name}がRancherカタログアプリとしてインストールされていた場合、Rancherは自動的にアクセス制御機能（rancher-proxy）を備えたIngressコントローラーを作成しました。

@@ -1,0 +1,119 @@
+= 配置默认节点和磁盘设置
+:revdate: 2025-07-11
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+此功能允许用户使用 Kubernetes 标签和注释，在 {longhorn-product-name} 中为新添加的节点自定义默认磁盘和节点配置，而不是使用 {longhorn-product-name} 用户界面或 API。
+
+自定义磁盘和节点的默认配置对于扩展集群非常有用，因为如果节点包含多个磁盘，或者新节点的磁盘配置不同，则无需手动为每个新节点配置 {longhorn-product-name}。
+
+{longhorn-product-name} 不会将节点标签或注释与当前 Longhorn 节点磁盘或标签保持同步。{longhorn-product-name} 也不会在创建默认磁盘或标签后将节点磁盘或标签与节点、标签或注释保持同步。
+
+== 为新节点添加节点标签
+
+当节点没有标签时，您可以使用节点注释设置节点标签，作为使用 {longhorn-product-name} 用户界面或 API 的替代方案。
+
+. 扩展 Kubernetes 集群。新添加的节点没有节点标签。
+. 为新的 Kubernetes 节点添加注释，以指定默认节点标签应是什么。注释格式为：
++
+[,yaml]
+----
+node.longhorn.io/default-node-tags: <node tag list with JSON string format>
+----
++
+例如：
++
+[,yaml]
+----
+node.longhorn.io/default-node-tags: '["fast","storage"]'
+----
+
+. 等待 {longhorn-product-name} 自动同步节点标签。如果节点标签列表最初为空，{longhorn-product-name} 将使用标签列表更新节点，您将看到该节点的标签根据注释进行更新。如果节点已经有标签，您将不会看到标签列表有任何变化。
+
+== 为新节点自定义默认磁盘
+
+{longhorn-product-name} 使用 *Create Default Disk on Labeled Nodes* 设置来启用默认磁盘自定义。
+
+如果该设置被禁用，{longhorn-product-name} 将在所有新节点上使用 `setting.default-data-path` 创建默认磁盘。
+
+如果该设置被启用，{longhorn-product-name} 将根据节点的标签值 `node.longhorn.io/create-default-disk` 决定是否创建默认磁盘。
+
+* 如果节点的标签值为 `true`，{longhorn-product-name} 将在该节点上使用 `settings.default-data-path` 创建默认磁盘。如果节点已经有现有磁盘，{longhorn-product-name} 将不会更改任何内容。
+* 如果节点的标签值为`config`，{longhorn-product-name}将检查`node.longhorn.io/default-disks-config`注释并根据其创建默认磁盘。如果没有注释，或者注释无效，或者标签值无效，{longhorn-product-name}将不会更改任何内容。
+
+标签的值仅在设置启用时生效。
+
+如果未设置 `create-default-disk` 标签，当设置启用时，默认磁盘不会在新节点上自动创建。
+
+注释中描述的配置仅在节点上没有现有磁盘或标签时生效。
+
+如果标签或注释未通过验证，则整个注释将被忽略。
+
+=== 先决条件
+
+必须启用 {longhorn-product-name} 设置 *Create Default Disk on Labeled Nodes*。
+
+. 向 Kubernetes 集群添加新节点。
+. 将标签添加到节点。{longhorn-product-name} 依赖于标签来决定如何自定义默认磁盘：
++
+[,yaml]
+----
+node.longhorn.io/create-default-disk: 'config'
+----
+
+. 然后将注释添加到节点。注释用于指定默认磁盘的配置。格式为：
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config: <disks configuration with JSON string format>
+----
++
+例如，可以在注释中指定以下磁盘配置：
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config:
+'[
+    {
+        "path":"/mnt/disk1",
+        "allowScheduling":true
+    },
+    {
+        "name":"fast-ssd-disk",
+        "path":"/mnt/disk2",
+        "allowScheduling":false,
+        "storageReserved":10485760,
+        "tags":[
+            "ssd",
+            "fast"
+        ]
+    }
+]'
+----
++
+[NOTE]
+====
+如果为不同的磁盘指定相同的名称，则该配置将被视为无效。
+====
+
+. 等待 {longhorn-product-name} 根据注释自动创建自定义的默认磁盘。
+
+== 使用多个磁盘启动{longhorn-product-name}。
+
+. 在启动{longhorn-product-name}之前，将标签添加到所有节点。
++
+[,yaml]
+----
+node.longhorn.io/create-default-disk: 'config'
+----
+
+. 然后将磁盘配置注释添加到所有节点：
++
+[,yaml]
+----
+node.longhorn.io/default-disks-config: '[ { "path":"/var/lib/longhorn", "allowScheduling":true
+  }, { "name":"fast-ssd-disk", "path":"/mnt/extra", "allowScheduling":false, "storageReserved":10485760,
+  "tags":[ "ssd", "fast" ] }]'
+----
+
+. 使用{longhorn-product-name}部署`create-default-disk-labeled-nodes: true`，请查看xref:longhorn-system//customize-default-settings.adoc[这里]以自定义{longhorn-product-name}的默认设置。

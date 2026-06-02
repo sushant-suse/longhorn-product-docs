@@ -1,0 +1,57 @@
+= Datenlokalität
+:revdate: 2025-07-26
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Die Einstellung zur Datenlokalität soll in Situationen aktiviert werden, in denen mindestens eine Replik eines Longhorn-Volumes auf demselben Knoten wie der Pod, der das Volume verwendet, geplant werden sollte, wann immer dies möglich ist. Wir bezeichnen die Eigenschaft, eine lokale Replik zu haben, als `data locality`.
+
+Zum Beispiel kann die Datenlokalität nützlich sein, wenn das Netzwerk des Clusters schlecht ist, da eine lokale Replik die Verfügbarkeit des Volumes erhöht.
+
+Datenlokalität kann auch für verteilte Anwendungen (z. B. Datenbanken) nützlich sein, bei denen hohe Verfügbarkeit auf Anwendungsebene anstelle von Volumeneebene erreicht wird. In diesem Fall wird für jeden Pod nur ein Volume benötigt, sodass jedes Volume auf demselben Knoten wie der Pod, der es verwendet, geplant werden sollte.  Darüber hinaus könnte das Standardverhalten von Longhorn bei der Volumenplanung ein Problem für verteilte Anwendungen verursachen. Das Problem ist, dass, wenn es zwei Repliken eines Pods gibt und jede Pod-Replik ein Volume hat, Longhorn nicht weiß, dass diese Volumes die gleichen Daten haben und nicht auf demselben Knoten geplant werden sollten. Daher könnte Longhorn identische Repliken auf demselben Knoten planen, was verhindert, dass sie hohe Verfügbarkeit für die Arbeitslast bieten.
+
+Wenn die Datenlokalität deaktiviert ist, kann ein Longhorn-Volume von Repliken auf beliebigen Knoten im Cluster unterstützt werden und von einem Pod, der auf einem beliebigen Knoten im Cluster läuft, zugegriffen werden.
+
+== Einstellungen zur Datenlokalität
+
+Longhorn unterstützt derzeit zwei Modi für die Einstellungen zur Datenlokalität:
+
+* `disabled`: Dies ist die Standardoption. Es kann eine Replik auf demselben Knoten wie das angehängte Volume (Arbeitslast) vorhanden sein oder auch nicht.
+* `best-effort`: Diese Option weist Longhorn an, zu versuchen, eine Replik auf demselben Knoten wie das angehängte Volume (Arbeitslast) zu halten. Longhorn wird das Volume nicht beenden, selbst wenn es aufgrund einer Umgebungsbeschränkung, z. B. nicht genügend Speicherplatz, inkompatible Festplatten-Tags usw., keine lokale Replik des angehängten Volumes (Arbeitslast) halten kann.
+* `strict-local`: Diese Option zwingt Longhorn, *nur eine Replik* auf demselben Knoten wie das angehängte Volume zu halten, und bietet daher höhere IOPS und eine geringere Latenzleistung. Diese Option ist inkompatibel mit xref:volumes/rwx-volumes.adoc[ReadWriteMany (RWX) Volumes].
+
+== Anleitung zum Festlegen der Datenlokalität für Volumes
+
+Es gibt drei Möglichkeiten, die Datenlokalität für Longhorn-Volumes festzulegen:
+
+=== Ändern Sie die standardmäßige globale Einstellung
+
+Sie können die globale Standardeinstellung für die Datenlokalität in den Longhorn UI-Einstellungen ändern.
+Die globale Einstellung fungiert nur als Standardwert, ähnlich der Anzahl der Replikate.
+Es ändert keine Einstellungen vorhandener Volumes.
+Wenn ein Volume erstellt wird, ohne die Datenlokalität anzugeben, verwendet Longhorn die globale Standardeinstellung, um die Datenlokalität für das Volume zu bestimmen.
+
+=== Ändern Sie die Datenlokalität für ein einzelnes Volume über die Longhorn UI
+
+Sie können die Longhorn UI verwenden, um die Datenlokalität für das Volume bei der Erstellung festzulegen.
+Sie können die Einstellung zur Datenlokalität für das Volume auch nach der Erstellung auf der Detailseite des Volumes ändern.
+
+=== Legen Sie die Datenlokalität für einzelne Volumes mithilfe einer StorageClass fest.
+
+Longhorn stellt die Einstellung zur Datenlokalität auch als Parameter in einer StorageClass zur Verfügung.
+Sie können eine StorageClass mit einer festgelegten Einstellung zur Datenlokalität erstellen und dann PVCs mit der StorageClass erstellen.
+Zum Beispiel definiert die folgende YAML-Datei eine StorageClass, die dem Longhorn CSI-Treiber mitteilt, die Datenlokalität auf `best-effort` zu setzen:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: hyper-converged
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "2"
+  dataLocality: "best-effort"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+----

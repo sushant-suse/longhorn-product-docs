@@ -1,0 +1,49 @@
+= Restaurar un clúster utilizando una instantánea de Rancher
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Premisas:
+
+* La mayor parte de los datos y los discos subyacentes todavía existen en el clúster antes de la restauración y, posteriormente, pueden reutilizarse directamente.
+* Hay una copia de seguridad que contiene todos los datos de volumen.
+* La configuración xref:longhorn-system/settings.adoc#_disable_revision_counter[`Disable Revision Counter`] es falsa. (Es falsa por defecto.) De lo contrario, los usuarios necesitan comprobar manualmente si los datos entre las réplicas de volumen son consistentes, o restaurar directamente los volúmenes desde la copia de seguridad.
+
+== Expectativa:
+
+* Todas las configuraciones y las configuraciones de nodo y disco serán restauradas.
+* Siempre que los datos válidos aún existan, los volúmenes pueden ser recuperados sin utilizar una copia de seguridad. En otras palabras, intentaremos evitar restaurar copias de seguridad, lo que puede ayudar a reducir el Objetivo de Tiempo de Recuperación (RTO) así como a ahorrar ancho de banda.
+* Detectar las réplicas inválidas o fuera de sincronización siempre que el volumen relacionado aún contenga una réplica válida después de la restauración.
+
+== Comportamientos y requisitos de la restauración de Rancher
+
+* Tienes que reiniciar los componentes de Kubernetes en todos los nodos. De lo contrario, habrá toneladas de conflictos de actualización de recursos en Longhorn.
+
+== Acciones después de la restauración
+
+* Reinicia todos los componentes de Kubernetes para todos los nodos. Consulta el enlace anterior para más detalles.
+* Elimina todos los pods de Longhorn Manager y luego Kubernetes los reiniciará automáticamente. Espera a que los conflictos en los pods de Longhorn Manager desaparezcan.
+* Todos los volúmenes pueden volver a adjuntarse. Si un volumen de Longhorn es utilizado por un solo pod, los usuarios necesitan apagarlo y luego recrearlo. Para Deployments o Statefulsets, Longhorn matará automáticamente y luego reiniciará los pods relacionados.
+* Si ocurre lo siguiente después de la instantánea y antes de la restauración del clúster:
+ ** Un volumen no ha cambiado: Los usuarios no necesitan hacer nada.
+ ** Los datos están actualizados: Los usuarios no necesitan hacer nada normalmente. Longhorn fallará automáticamente las réplicas que no contengan los últimos datos.
+ ** Se crea un nuevo volumen: Este volumen desaparecerá después de la restauración. Los usuarios necesitan recrear un nuevo volumen, lanzar xref:data-integrity-recovery/data-recovery/retrieve-volume-data-from-replica.adoc[un volumen de réplica única] basado en la réplica del volumen desaparecido, y luego transferir los datos al nuevo volumen.
+ ** Un volumen es eliminado: Dado que los datos se eliminan cuando se elimina el volumen, el volumen restaurado no contiene datos. Los usuarios pueden necesitar volver a eliminarlo.
+ ** Para volúmenes de DR: Los usuarios no necesitan hacer nada. Longhorn realizará nuevamente una restauración completa.
+ ** Algunas operaciones se aplican a un volumen:
+  *** Copia de seguridad: La información de la copia de seguridad del volumen debería ser resincronizada automáticamente.
+  *** Instantánea: La información de la instantánea del volumen debe ser resincronizada una vez que el volumen esté adjunto.
+  *** Reconstrucción de réplicas y eliminación de réplicas:
+   **** Si hay nuevas réplicas reconstruidas, esas réplicas desaparecerán del sistema Longhorn después de la restauración. Los usuarios necesitan limpiar manualmente los datos de las réplicas, o usar los directorios de datos de estas réplicas para exportar un volumen de réplica única y luego realizar la recuperación de datos si es necesario.
+   **** Si hay algunas réplicas fallidas/eliminadas y hay al menos una réplica saludable, esas réplicas fallidas/eliminadas volverán después de la restauración. Entonces Longhorn puede detectar que estas réplicas restauradas no contienen ningún dato y copiar los datos más recientes de la réplica saludable a estas réplicas.
+   **** Si todas las réplicas son reemplazadas por nuevas réplicas después de la instantánea, el volumen contendrá solo réplicas inválidas después de la restauración. Entonces los usuarios necesitan exportar xref:data-integrity-recovery/data-recovery/retrieve-volume-data-from-replica.adoc[un volumen de réplica única] para la recuperación de datos.
+  *** Actualización de la imagen del motor: Los usuarios necesitan rehacer la actualización.
+  *** Expansión: El tamaño especificado del volumen será menor que el tamaño actual. Esto es como si alguien solicitara reducir el volumen, pero en realidad Longhorn se negará a manejarlo internamente. Para recuperar el volumen, los usuarios necesitan reducir las cargas de trabajo y rehacer la expansión.
+ ** *Aviso*: Si los usuarios no saben cómo recuperar un volumen problemático, la forma más sencilla es siempre restaurar un nuevo volumen desde la copia de seguridad.
+* Si el sistema Longhorn se actualiza después de la instantánea, la nueva configuración y las modificaciones en la configuración del nodo desaparecerán. Los usuarios necesitan rehacer la actualización, luego volver a modificar la configuración y la configuración del nodo.
+* Si un nodo es eliminado del sistema Longhorn después de la instantánea, el nodo no volverá, pero los pods en el nodo eliminado serán restaurados. Los usuarios necesitan limpiarlos manualmente ya que estos pods pueden quedar atascados en el estado `Terminating`.
+* Si se añade un nodo al sistema Longhorn después de la instantánea, Longhorn debería relanzar automáticamente todas las cargas de trabajo necesarias en el nodo tras la restauración del clúster. Pero los usuarios deben ser conscientes de que todas las nuevas réplicas o motores en este nodo desaparecerán después de la restauración.
+
+== Referencias
+
+* El problema relacionado en GitHub es https://github.com/longhorn/longhorn/issues/2228.. En esta publicación de GitHub, un usuario está proporcionando una forma de restaurar Longhorn a un nuevo clúster que no contiene ningún dato.

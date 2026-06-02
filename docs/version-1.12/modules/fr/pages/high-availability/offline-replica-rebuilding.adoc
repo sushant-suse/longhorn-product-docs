@@ -1,0 +1,121 @@
+= Reconstruction de répliques hors ligne
+:revdate: 2025-09-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+À partir de la version v1.9.0, {longhorn-product-name} prend en charge la reconstruction de répliques hors ligne. Cette fonctionnalité permet aux volumes dégradés de reconstruire automatiquement des répliques pendant que les volumes sont détachés.
+
+== Paramètre global `offline-replica-rebuilding`
+
+* Lorsqu'il est activé, {longhorn-product-name} initie automatiquement la reconstruction hors ligne pour les volumes éligibles.
+* Pour plus d'informations sur ce paramètre global, voir xref:longhorn-system/settings.adoc#_offline_replica_rebuilding[paramètres].
+
+== Surcharge par volume
+
+* Vous pouvez remplacer le paramètre global `offline-replica-rebuilding` pour chaque volume individuellement. Cela peut être fait via l'interface utilisateur {longhorn-product-name} ou en modifiant la ressource personnalisée du volume. Pour utiliser `kubectl`, exécutez la commande suivante puis modifiez le champ `spec.offlineRebuilding` :
++
+[,bash]
+----
+kubectl -n longhorn-system edit volume <volume-name>
+----
++
+Remplacez `<volume-name>` par le nom de votre volume spécifique.
+* Lorsque le champ `spec.offlineRebuilding` par volume est défini sur `enabled` ou `disabled`, ce paramètre prend le pas sur la configuration globale. La valeur par défaut pour `spec.offlineRebuilding` est `ignored`.
+
+Le tableau suivant montre comment les paramètres globaux et par volume interagissent :
+
+|===
+| Paramètre global (`offline-replica-rebuilding`)
+| Paramètre par volume (`spec.offlineRebuilding`)
+| Reconstruction hors ligne activée
+
+| `true`
+| `ignored`
+| Oui
+
+| `false`
+| `ignored`
+| Non
+
+| `true`
+| `enabled`
+| Oui
+
+| `false`
+| `enabled`
+| Oui
+
+| `true`
+| `disabled`
+| Non
+
+| `false`
+| `disabled`
+| Non
+|===
+
+== Processus de reconstruction
+
+* Lorsque la reconstruction de répliques hors ligne est déclenchée, {longhorn-product-name} attache le volume sans activer le frontend, reconstruit les répliques manquantes, puis détache le volume après la fin du processus de reconstruction.
+* Ce processus peut être interrompu si la charge de travail associée augmente et nécessite le volume.
+
+== Reconstruction non commencée ou annulée
+
+Lorsque la reconstruction hors ligne commence, les volumes dégradés peuvent rester bloqués dans l'état attaché si les conditions de reconstruction ne sont pas remplies. Pour éviter cela, si les conditions nécessaires ne sont pas satisfaites, la reconstruction hors ligne ne commencera pas ou sera annulée.
+
+* *Avantages* :
+** Cela garantit que les volumes ne restent pas bloqués dans l'état attaché si la reconstruction ne se termine jamais.
+** Cela empêche des tentatives de reconstruction inutiles.
+** Cela réduit les cycles d'attachement et de détachement de volume inutiles.
+** Cela fournit un comportement de reconstruction prévisible basé sur la disponibilité des ressources.
+
+* *Conditions requises* : La reconstruction hors ligne commence automatiquement pour les volumes dégradés une fois que les conditions requises sont remplies. Ces conditions comprennent :
+** Une réplique échouée réutilisable existe, ou
+** Un disque candidat existe :
+*** Le gestionnaire d'instance sur le nœud hébergeant le disque doit être prêt.
+*** Le nœud contenant le disque est planifiable.
+*** Le disque lui-même est planifiable.
+
+=== Avant que la reconstruction hors ligne ne commence
+
+Lorsque la reconstruction hors ligne est activée, {longhorn-product-name} détermine si elle doit commencer.
+
+. {longhorn-product-name} détecte un volume dégradé et détaché.
+. Le système valide si les conditions requises sont remplies avant de commencer la reconstruction.
+. Si les conditions sont remplies, la reconstruction se poursuit. Sinon, le volume reste détaché.
+. Les conditions requises sont réévaluées lorsqu'un nœud est ajouté, devient prêt ou devient planifiable.
+
+=== Lors de la reconstruction hors ligne
+
+{longhorn-product-name} détermine si un processus de reconstruction doit être annulé pendant son déroulement.
+
+. {longhorn-product-name} détecte l'état du volume lorsque la reconstruction hors ligne commence et que le volume est attaché.
+. Si l'état de condition `Scheduled` du volume devient `False`, la reconstruction hors ligne est annulée et le volume est détaché.
+. Si les conditions requises sont à nouveau remplies, la reconstruction hors ligne redémarre{nbsp}; sinon, le volume reste détaché.
+
+=== Exemples
+
+* *Reconstruction hors ligne réussie* :
+. Un volume est créé avec 3 répliques dans un cluster de 3 nœuds de travail.
+. La reconstruction hors ligne est activée.
+. Le volume est détaché puis une réplique du volume est supprimée.
+. La reconstruction hors ligne commence et le volume est attaché.
+. Après la fin de la reconstruction, le volume est détaché.
+* *La reconstruction hors ligne ne commence pas même lorsqu'elle est activée* :
+. Un volume est créé avec 3 répliques dans un cluster de 3 nœuds de travail (A, B et C).
+. La reconstruction hors ligne est activée.
+. Le nœud de travail A n'est pas planifiable.
+. La réplique du volume sur le nœud de travail A est supprimée.
+. Comme il n'existe que deux nœuds de travail planifiables, la reconstruction hors ligne ne commencera pas.
+* *Un nœud de travail est drainé pendant la reconstruction hors ligne* :
+. Un volume est créé avec 3 répliques dans un cluster de 3 nœuds de travail (A, B et C).
+. La reconstruction hors ligne est activée.
+. Le volume est détaché, puis la réplique du volume sur le nœud de travail A est supprimée.
+. La reconstruction hors ligne commence, et le volume est attaché pour reconstruire une réplique sur le nœud de travail A.
+. Le nœud de travail A est vidé, le rendant non planifiable, et la réplique du volume sur le nœud de travail A est supprimée.
+. Le volume reste attaché jusqu'à ce que l'état de condition du volume `Scheduled` devienne `False`.
+. Le volume est détaché jusqu'à ce que le nœud de travail A soit de nouveau planifiable ou qu'un nouveau nœud planifiable soit ajouté.
+
+== limites
+
+La reconstruction hors ligne n'est pas prise en charge pour les volumes défectueux.

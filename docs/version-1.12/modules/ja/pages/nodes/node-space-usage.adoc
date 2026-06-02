@@ -1,0 +1,61 @@
+= ノードのスペース使用状況
+:revdate: 2025-11-19
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== クラスター全体のスペース使用状況
+
+`Dashboard`ページでは、{longhorn-product-name}がクラスターのスペース使用情報を示します:
+
+image::screenshots/volumes-and-nodes/space-usage-info-dashboard-page.png[イメージ]
+
+`Schedulable`:Longhornボリュームスケジューリングに使用できる実際のスペース。
+
+`Reserved`:他のアプリケーションとシステムのために予約されたスペース。
+
+`Used`:Longhornシステムと他のアプリケーションによって使用されている実際のスペース。
+
+`Disabled`:Longhornボリュームのスケジューリングが許可されていないディスク/ノードの合計スペース。
+
+== 各ノードのスペース使用状況
+
+`Nodes`ページでは、{longhorn-product-name}が各ノードのスペース割り当て、スケジュール、および使用情報を示します:
+
+image::screenshots/volumes-and-nodes/space-usage-info-node-page.png[イメージ]
+
+`Size`列:Longhornボリュームによって使用できる*最大実際利用可能スペース*。それはノードの総ディスクスペースから予約スペースを引いたものに等しい。
+
+`Allocated`列:左側の数値は*ボリュームスケジューリング*に使用されたサイズであり、Longhornボリュームデータストアのために使用されたスペースを意味するものではありません。右側の数値はボリュームスケジューリングのための*最大*サイズであり、`Size`と`Storage Over Provisioning Percentage`の積の結果です。（上の図では、`Storage Over Provisioning Percentage`は500です。）したがって、2つの数値の差（これを割り当て可能なスペースと呼びましょう）は、ボリュームレプリカがこのノードにスケジュールできるかどうかを決定します。
+
+`Used`列:左側の部分は、このノードの現在使用されているスペースを示します。全体のバーはノードの総スペースを示します。
+
+`Storage Over Provisioning Percentage`を100より大きい値に設定すると、割り当て可能なスペースがノードの実際の利用可能スペースよりも大きくなる可能性があることに注意してください。ボリュームが頻繁に使用され、ボリュームスナップショットに多くの履歴データが保存される場合は、この設定に大きな値を使用する際に注意してください。設定に関する詳細情報については、xref:longhorn-system/settings.adoc#_storage_over_provisioning_percentage[こちら]をご覧ください。
+
+=== ディスクのスケジュール可能性ステータスとトラブルシューティングメッセージ
+
+ディスクが*スケジュール不可*になると、{longhorn-product-name}はUIに直接根本的な理由を表示します。
+*ノード*ページでは、ディスクの内部`Schedulable`条件が`False`の場合、UIは`node.diskStatus[x].conditions[Schedulable]`からの正確なメッセージを表示します。
+この情報は、スペース制限や過剰プロビジョニングに関連する問題を診断するために不可欠です。
+
+*例のトラブルシューティングメッセージ*:
+
+[,bash]
+----
+Disk default-disk-1030100000000 (/var/lib/longhorn/) on the node ip-192-168-203-144.ap-southeast-1.compute.internal is not schedulable for more replica; Scheduling space condition failed: ScheduledTotal = 4294967296 (Size + StorageScheduled) is greater than ProvisionedLimit = -64504221696 (100% of StorageMax - StorageReserved).
+----
+
+*このメッセージの解釈方法*:
+
+* *`ScheduledTotal`*:このディスク上のレプリカ（既存および保留中）のために現在*スケジュールされている*合計スペース。
++
+[NOTE]
+====
+これは実際のディスク使用量を表していません。
+====
+
+* *`ProvisionedLimit`*:このディスクの*最大許可スケジューリング容量*。これは以下から派生します:
+** ディスクの物理サイズ (`StorageMax`)
+** 予約されたスペース (`StorageReserved`)
+** クラスタの`Storage Over Provisioning Percentage`を乗じたもの
+
+`ScheduledTotal`が`ProvisionedLimit`を超えると、ディスクはスケジュール不可になり、ディスクの設定またはクラスタ設定が調整されるまで新しいレプリカを受け入れません。

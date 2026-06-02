@@ -1,0 +1,280 @@
+= Imagens de backup
+:revdate: 2025-12-10
+:page-revdate: {revdate}
+:experimental:
+:current-version: {page-component-version}
+
+{longhorn-product-name} suporta nativamente imagens de backup.
+
+Uma imagem QCOW2 ou RAW pode ser definida como a imagem base de um volume {longhorn-product-name}, o que permite que {longhorn-product-name} seja integrado a uma solução de virtualização como https://www.suse.com/products/rancher/virtualization[{harvester-product-name}].
+
+[IMPORTANT]
+====
+O tamanho da imagem deve ser *um múltiplo de 512 bytes*. {longhorn-product-name} utiliza E/S direta, o que requer o alinhamento dos tamanhos de arquivo com o tamanho do bloco de armazenamento subjacente.
+====
+
+== Criar uma Imagem de backup do Motor de Dados V1
+
+=== Parâmetros
+
+==== Fonte de Dados
+
+Você pode preparar uma imagem de backup V1 usando qualquer uma das fontes de dados suportadas.
+
+. Baixar um arquivo de imagem de backup (usando uma URL).
+. Enviar um arquivo do seu computador local. Esta opção está disponível para usuários da interface {longhorn-product-name}.
+. Exportar um volume existente no cluster como uma imagem de backup.
+. Restaurar uma imagem de backup do backupstore. Para mais informações, veja xref:snapshots-backups/backing-image-backups.adoc[Backup de Imagem de backup].
+. Clonar uma imagem de backup.
+
+==== Exportação de volume
+
+Uma imagem de backup serve como o instantâneo inicial na cadeia de instantâneos de um volume {longhorn-product-name}. Quando você exporta um volume com uma imagem de backup associada, {longhorn-product-name} mescla essa imagem com as alterações delta, resultando em uma nova imagem de backup consolidada.
+
+==== Checksum
+
+* O checksum de uma imagem de backup é *o checksum SHA512* de toda a imagem de backup *arquivo* em vez de ser do conteúdo real.
+Qual é a diferença? Quando {longhorn-product-name} calcula o checksum de um arquivo qcow2, ele lerá o arquivo como um arquivo bruto em vez de usar a biblioteca qcow para ler o conteúdo correto. Em outras palavras, os usuários sempre obtêm o checksum correto ao executar `shasum -a 512 <the file path>`, independentemente do formato do arquivo.
+* Recomenda-se fornecer o checksum esperado durante a criação da imagem de backup.
+Caso contrário, {longhorn-product-name} considerará o checksum do primeiro arquivo como o correto. Uma vez que há algo errado com a preparação do primeiro arquivo, o que leva a um checksum incorreto em relação ao valor esperado, esta imagem de backup provavelmente não estará disponível.
+
+==== Programação
+
+* {longhorn-product-name} primeiro prepara e armazena o arquivo da imagem de backup em um nó e disco aleatórios, e depois duplica o arquivo para os discos que estão armazenando as réplicas.
+* Para melhorar a eficiência do espaço, você pode adicionar `nodeSelector` e `diskSelector` para forçar o armazenamento dos arquivos de imagem de backup em um conjunto específico de nós e discos.
+* As réplicas não podem ser agendadas em nós ou discos onde a imagem de backup não pode ser agendada.
+
+==== Número de Cópias
+
+* Você pode adicionar `minNumberOfCopies` para garantir que múltiplos arquivos de imagem de backup existam no cluster.
+* Você pode ajustar o `minNumberOfCopies` na configuração global para aplicar o valor padrão à Imagem de backup.
+
+=== Métodos de Criação de uma Imagem de backup
+
+==== Crie uma Imagem de backup Usando a UI {longhorn-product-name}
+
+Na página menu:Avançado[Imagens de backup], os usuários podem criar imagens de backup com qualquer tipo de fonte de dados.
+
+==== Crie uma Imagem de backup V1 Usando YAML
+
+Você pode baixar um arquivo ou exportar um volume existente como uma imagem de backup via YAML.
+É melhor não enviar um arquivo via YAML. Caso contrário, você precisará gerenciar manualmente o upload de dados via requisições HTTP.
+
+Aqui estão alguns exemplos:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: bi-download
+  namespace: longhorn-system
+spec:
+  dataEngine: v1
+  minNumberOfCopies: 2
+  nodeSelector:
+    - "node1"
+  diskSelector:
+    - "disk1"
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: bi-export
+  namespace: longhorn-system
+spec:
+  dataEngine: v1
+  minNumberOfCopies: 2
+  nodeSelector:
+    - "node1"
+  diskSelector:
+    - "disk1"
+  sourceType: export-from-volume
+  sourceParameters:
+    volume-name: vol-export-src
+    export-type: qcow2
+----
+
+==== Crie uma Imagem de backup Usando uma StorageClass e PVC
+
+. Em uma StorageClass do Longhorn.
+. Definir o parâmetro `backingImageName` significa pedir a {longhorn-product-name} para usar esta imagem de backup durante a criação do volume.
+. Se você quiser criar a imagem de backup, desde que ela não exista durante a criação do volume CSI, os parâmetros `backingImageDataSourceType` e `backingImageDataSourceParameters` devem ser definidos. Assim como no YAML, é melhor não criar uma imagem de backup via "upload" no StorageClass. Observe que, se todos esses parâmetros estiverem definidos e a imagem de backup já existir, {longhorn-product-name} validará se os parâmetros correspondem ao existente antes de usá-la.
+
+ ** No caso da `download`:
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-backing-image-example
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  backingImage: "bi-download"
+  backingImageDataSourceType: "download"
+  backingImageDataSourceParameters: '{"url": "https://backing-image-example.s3-region.amazonaws.com/test-backing-image"}'
+  backingImageChecksum: "SHA512 checksum of the backing image"
+  backingImageMinNumberOfCopies: "2"
+  backingImageNodeSelector: "node1"
+  backingImageDiskSelector: "disk1"
+  dataEngine: "v1"
+----
+
+ ** No caso da `export-from-volume`:
++
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-backing-image-example
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"
+  backingImage: "bi-export-from-volume"
+  backingImageDataSourceType: "export-from-volume"
+  backingImageDataSourceParameters: '{"volume-name": "vol-export-src", "export-type": "qcow2"}'
+  backingImageMinNumberOfCopies: "2"
+  backingImageNodeSelector: "node1"
+  backingImageDiskSelector: "disk1"
+  dataEngine: "v1"
+----
+. Crie um PVC com o StorageClass. Então, a imagem de backup será criada (com o volume {longhorn-product-name}) se não existir.
+. {longhorn-product-name} começa a preparar as imagens de backup para os discos das réplicas quando um volume que utiliza a imagem de backup é anexado a um nó.
+
+[NOTE]
+====
+* Por favor, tenha cuidado com o caractere de escape `\` ao inserir uma URL de download em um StorageClass.
+* Uma imagem de backup criada usando um StorageClass tem o mesmo mecanismo de dados que o volume.
+====
+
+== Use uma Imagem de backup em um Volume.
+
+Os usuários podem <<Create a Backing Image Using a StorageClass and PVC, criar diretamente e então usar imediatamente uma imagem de backup via StorageClass>> ou utilizar uma imagem de backup existente, conforme mencionado abaixo.
+
+[discrete]
+==== Use uma Imagem de backup Existente.
+
+[discrete]
+===== Use uma Imagem de backup Existente Durante a Criação do Volume.
+
+. Clique em menu:Avançado[Imagens de backup] na interface do {longhorn-product-name}.
+. Clique em *Criar Imagem de backup* para criar uma imagem de backup com um nome único e uma URL válida.
+. Selecione uma imagem de backup da lista. O volume e a imagem de backup devem usar o mesmo mecanismo de dados.
+. {longhorn-product-name} começa a baixar a imagem de backup para os discos das réplicas quando um volume que utiliza a imagem de backup é anexado a um nó.
+
+[discrete]
+===== Use uma Imagem de backup Existente Durante a Restauração do Volume.
+
+. Clique em `Backup` e escolha um volume de backup para a restauração.
+. Desde que a imagem de backup já esteja definida para o volume de backup, {longhorn-product-name} escolherá automaticamente a imagem de backup durante a restauração.
+. {longhorn-product-name} permite que você reespecifique ou substitua a imagem de backup durante a restauração.
+
+[discrete]
+==== Baixar um Arquivo de Imagem de backup.
+
+Desde a versão 1.3.0, os usuários podem baixar arquivos de imagem de backup existentes para a máquina local através da interface do usuário.
+
+[NOTE]
+====
+* Os usuários precisam garantir a existência da imagem de backup ao usar a interface do usuário para criar ou restaurar um volume com uma imagem de backup especificada.
+* Antes de baixar um arquivo de imagem de backup existente para o local, os usuários precisam garantir que há um arquivo pronto para isso.
+* O download de imagens de backup do V2 Data Engine atualmente não é suportado.
+====
+
+== Criar uma Imagem de backup do V2 Data Engine.
+
+A partir da versão 1.8.0, você pode criar uma imagem de backup que é suportada pelo V2 Data Engine configurando `Data Engine` no YAML (através da interface do usuário ou de uma StorageClass).
+
+=== Parâmetros
+
+Todos os parâmetros são os mesmos que os da imagem de backup do V1 Data Engine, exceto por `Data Engine`.
+
+==== Fontes de Dados
+
+Você pode preparar uma imagem de backup do V2 Data Engine usando qualquer uma das fontes de dados suportadas.
+
+* Baixar um arquivo de imagem de backup (usando uma URL).
+* Enviar um arquivo do seu computador local. Esta opção está disponível para usuários da interface {longhorn-product-name}.
+* Exportar um volume V1 Data Engine existente no cluster como uma imagem de backup.
+* Restaurar uma imagem de backup do backupstore. Para mais informações, veja xref:snapshots-backups/backing-image-backups.adoc[Backup de Imagem de backup].
+* Clonar uma imagem de backup V1.
+
+[NOTE]
+====
+* As seguintes operações atualmente não são suportadas:
+ ** Exportação de um volume do V2 Data Engine
+ ** Clonagem de uma imagem de backup V2.
+ ** Backup de uma imagem de backup V2.
+* Ao contrário do V1 Data Engine, que é baseado em arquivos, o V2 Data Engine requer {longhorn-product-name} para armazenar os dados da imagem de backup em um volume lógico SPDK. Como resultado, para imagens qcow2, {longhorn-product-name} deve primeiro converter a imagem qcow2 para um formato bruto antes de armazenar os dados na imagem de backup do V2 Data Engine, permitindo que ele leia os dados corretos.
+====
+
+== Limpar Imagens de Backup
+
+[discrete]
+==== Limpar Imagens de Backup em Discos
+
+* {longhorn-product-name} limpa automaticamente os arquivos de imagem de backup não utilizados nos discos com base na xref:longhorn-system/settings.adoc#_backing_image_cleanup_wait_interval[configuração `Backing Image Cleanup Wait Interval`]. Mas {longhorn-product-name} reterá pelo menos um arquivo em um disco para cada imagem de backup.
+* Você pode remover manualmente as imagens de backup dos discos usando a interface {longhorn-product-name}. Vá para *Configuração* > *Imagem de backup*, e então clique no nome de uma imagem de backup específica. Na janela que se abre, selecione um ou mais discos e clique em *Limpar*.
+* Uma vez que há uma réplica em um disco usando uma imagem de backup, não importa qual seja o estado atual da réplica, o arquivo de imagem de backup neste disco não pode ser limpo.
+
+[discrete]
+==== Excluir Imagens de Backup.
+
+* A imagem de backup só pode ser excluída quando não há volume utilizando-a.
+
+== Recuperação de Imagem de Backup.
+
+* Se ainda houver um arquivo de imagem de backup pronto em um disco, {longhorn-product-name} limpará automaticamente os arquivos de imagem de backup com falha e, em seguida, relançará esses arquivos a partir do pronto.
+* Se de alguma forma todos os arquivos de uma imagem de backup falharem, e o primeiro arquivo for:
+ ** baixado de uma URL, {longhorn-product-name} reiniciará o download.
+ ** exportado de um volume existente, {longhorn-product-name} (anexará o volume se necessário e então) reiniciará a exportação.
+ ** enviado do ambiente local do usuário, não há como recuperá-lo. Os usuários precisam excluir esta imagem de backup e então recriar uma nova fazendo o reenvio do arquivo.
+* Quando um nó está fora do ar ou o pod do gerenciador de imagem de backup no nó está indisponível, todos os arquivos de imagem de backup no nó se tornarão `unknown`. Mais tarde, se o nó voltar e o pod estiver em execução, {longhorn-product-name} detectará isso e reutilizará os arquivos existentes automaticamente.
+
+== Expulsão de Imagem de Suporte
+
+* Você pode expulsar manualmente todos os arquivos de imagem de suporte de um nó ou disco definindo `Scheduling` para `Disabled` e `Eviction Requested` para `True` na interface {longhorn-product-name}.
+* Se apenas um arquivo de imagem de suporte existir no cluster, {longhorn-product-name} primeiro duplica o arquivo para outro disco e depois exclui o arquivo.
+* Se o arquivo de imagem de suporte não puder ser duplicado para outros discos, {longhorn-product-name} não exclui o arquivo. Você pode atualizar as configurações para resolver o problema.
+
+== Fluxo de Trabalho da Imagem de Suporte
+
+. Para gerenciar todos os arquivos de imagem de suporte em um disco, {longhorn-product-name} cria um único pod gerenciador de imagem de suporte para cada disco. Uma vez que o disco não tem mais requisitos de arquivo de imagem de suporte, o gerenciador de imagem de suporte é removido automaticamente.
+. Uma vez que um arquivo de imagem de suporte é preparado pelo gerenciador de imagem de suporte para um disco, o arquivo será compartilhado entre todas as réplicas de volume neste disco.
+. Quando uma imagem de suporte é criada, {longhorn-product-name} inicia um pod de fonte de dados de imagem de suporte para preparar o arquivo inicial. Os dados do arquivo vêm de uma fonte especificada pelo usuário—como um download de um local remoto, um upload de um arquivo local ou uma exportação de um volume existente. Uma vez que a preparação é concluída, o pod gerenciador de imagem de suporte no mesmo disco assume o arquivo, e {longhorn-product-name} para o pod de fonte de dados.
+. Uma vez que uma nova imagem de suporte é usada por um volume, os pods gerenciadores de imagem de suporte nos discos onde as réplicas do volume residem serão solicitados a sincronizar o arquivo dos pods gerenciadores de imagem de suporte que já contêm o arquivo.
+. Conforme mencionado na seção <<_clean_up_backing_images_in_disks,#clean_up_backing_images_in_disks>>, o arquivo será limpo automaticamente se todas as réplicas em um disco não utilizarem um arquivo de imagem de suporte.
+
+== Limite Concorrente de Sincronização de Imagem de Suporte
+
+* `Concurrent Backing Image Replenish Per Node Limit` nas configurações globais controla quantas cópias de imagens de suporte em um nó podem ser reabastecidas simultaneamente.
+* Quando definido como 0, {longhorn-product-name} não reabastece automaticamente a cópia, mesmo que esteja abaixo do minNumberOfCopies.
+
+== Aviso
+
+* A URL de download da imagem de suporte deve ser pública. Nós melhoraremos esta parte no futuro.
+* Se houver alto uso de memória de um pod gerenciador de imagem de suporte após <<_download_a_backing_image_file,download do arquivo>>, isso é causado pelo cache/buffer do sistema. O uso de memória diminuirá automaticamente, portanto, você não precisa se preocupar com isso. Veja https://github.com/longhorn/longhorn/issues/4055[o ticket do GitHub] para mais detalhes.
+
+== Histórico
+
+* https://github.com/Longhorn/Longhorn/issues/2006[Ativar recurso de imagem de suporte em {longhorn-product-name}]
+* Suporte https://github.com/longhorn/longhorn/issues/2404[upload] e https://github.com/longhorn/longhorn/issues/2403[exportação de volume]
+* Suporte https://github.com/longhorn/longhorn/issues/2404[download para local] e https://github.com/longhorn/longhorn/issues/3155[exportação de volume]

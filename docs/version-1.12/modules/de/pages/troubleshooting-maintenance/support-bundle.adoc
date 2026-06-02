@@ -1,0 +1,22 @@
+= Support-Bundle
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn hat die interne Generierung von Support-Bundles durch ein allgemeines https://github.com/rancher/support-bundle-kit[Support-Bundle-Kit] ersetzt.
+
+Sie können auf das `Generate Support Bundle` am unteren Ende der Longhorn-Benutzeroberfläche klicken, um eine Zip-Datei mit Cluster-Manifests und Protokollen herunterzuladen.
+
+Während der Generierung des Support-Bundles wird Longhorn eine Implementierung für den Support-Bundle-Manager erstellen.
+
+NOTE: Der Support-Bundle-Manager verwendet ein dediziertes `longhorn-support-bundle` Dienstkonto und eine `longhorn-support-bundle` Cluster-Rollenbindung mit `cluster-admin` Zugriff zur Sammlung des Bundles.
+
+Mit dem Support-Bundle können Sie einen simulierten Kubernetes-Cluster simulieren, der mit dem `kubectl` Befehl interagierbar ist. Siehe https://github.com/rancher/support-bundle-kit#simulator-command[Simulationsbefehl] für weitere Details.
+
+== Nutzungsbeschränkungen
+
+Longhorn unterstützt derzeit nicht die gleichzeitige Generierung mehrerer Support-Bundles. Wir empfehlen, bis zum Abschluss des laufenden Support-Bundles zu warten, bevor Sie ein neues initiieren. Wenn ein neues Support-Bundle erstellt wird, während ein anderes noch in Bearbeitung ist, wird Longhorn das ältere Support-Bundle überschreiben.
+
+== Verlauf
+
+https://github.com/longhorn/longhorn/issues/2759[Ursprüngliche Funktionsanforderung]

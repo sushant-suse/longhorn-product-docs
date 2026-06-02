@@ -1,0 +1,178 @@
+= トポロジー対応プロビジョニング
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+トポロジー対応プロビジョニングにより、KubernetesがPersistentVolume（PV）を作成する際に書き込む`nodeAffinity`ルールを制御できます。これは、ボリュームを特定のゾーンやリージョンに固定したい場合に便利で、ポッドとそのデータが常に同じ障害ドメインに配置されるようにします。
+
+{longhorn-product-name}は、次の2つの補完的な機能を通じてこれをサポートします：
+
+* *`csi-allowed-topology-keys`設定*：PV `nodeAffinity`に表示されるトポロジーキー（例えば、`topology.kubernetes.io/zone`）を制御します。
+* *`strictTopology` StorageClassパラメータ*：有効にすると、スケジューラーが選択した特定のノードのトポロジーにPVが固定され、他の一致するトポロジーには固定されなくなります。
+
+== 前提条件
+
+. クラスター内のノードには、使用する予定のトポロジーキーでラベル付けされている必要があります。Kubernetesは、ほとんどのクラウド環境でよく知られたラベル`topology.kubernetes.io/zone`を自動的に適用します。次のコマンドで確認します。
++
+[source,shell]
+----
+kubectl get nodes --label-columns topology.kubernetes.io/zone
+----
+
+. {longhorn-product-name}で*CSI許可されたトポロジーキー*設定を構成します。{longhorn-product-name}がKubernetesに渡すべきトポロジーキーのカンマ区切りリストに値を設定します。
++
+* *{longhorn-product-name} UI*：*設定 > 一般 > CSI許可されたトポロジーキー*に移動し、例えば`topology.kubernetes.io/zone`を入力します。
+* *Longhorn API / kubectl*：
++
+[source,shell]
+----
+kubectl -n longhorn-system edit settings.longhorn.io csi-allowed-topology-keys
+----
++
+`value`フィールドを`topology.kubernetes.io/zone`に設定します。
++
+[NOTE]
+====
+この設定を変更した後、変更を有効にするために`longhorn-csi-plugin` DaemonSetを手動で再起動する必要があります。トポロジーは、各ノードのCSIプラグインポッドが再起動した後にのみ正しく適用されます。
+====
+
+== 機能のしくみ
+
+PVCがLonghorn CSIドライバーを使用するStorageClassに対して作成されると、いくつかのフィールドが相互作用して、結果として得られるPVが受け取る`nodeAffinity`を決定します：
+
+[cols="1,3"]
+|===
+| フィールド | Role
+
+| `csi-allowed-topology-keys`（Longhorn設定）
+| CSIドライバーにどのトポロジーキーを公開するかを指示します。空の場合（デフォルト）、トポロジー情報はKubernetesに渡されず、PVはトポロジーベースの`nodeAffinity`を受け取りません。
+
+| `allowedTopologies`（StorageClassフィールド）
+| どのトポロジー値が対象となるかを制限します。例えば、`a`、`b`、`c`の中からゾーン`a`と`b`にプロビジョニングを制限できます。
+
+| `volumeBindingMode`（StorageClassフィールド）
+| `WaitForFirstConsumer`（WFFC）は、ポッドがスケジュールされるまでプロビジョニングを遅延させ、スケジューラーに優先ノードを与えます。`Immediate`はすぐにプロビジョニングします。
+
+| `strictTopology`（StorageClassパラメータ）
+| `"true"`と`WaitForFirstConsumer`を使用する場合、PVはポッドがスケジュールされたノードのゾーンのみに固定され、許可されたすべてのゾーンには固定されません。この設定は、`csi-allowed-topology-keys`が関連するトポロジーキーを含む場合にのみ効果があります。
+|===
+
+== 例
+
+以下の例は、3つのゾーンにまたがる6つのノードを持つクラスターを前提としています：
+
+[cols="1,1"]
+|===
+| ノード | ゾーン
+
+| node2 | a
+| node3 | b
+| node4 | c
+| node5 | a
+| node6 | b
+| node7 | c
+|===
+
+=== 基本的なゾーンレベルのアフィニティ
+
+`WaitForFirstConsumer`を`allowedTopologies`と`csi-allowed-topology-keys`と一緒に使用して、ボリュームを特定のゾーンに制限します。
+
+*Longhorn設定*：
+
+----
+csi-allowed-topology-keys = topology.kubernetes.io/zone
+----
+
+*StorageClass*：
+
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-zone-ab
+provisioner: driver.longhorn.io
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  numberOfReplicas: "3"
+allowedTopologies:
+  - matchLabelExpressions:
+      - key: topology.kubernetes.io/zone
+        values:
+          - a
+          - b
+----
+
+*結果*：PV `nodeAffinity`は`zone in [a, b]`に設定されています。PVは、ゾーン`a`または`b`のノードにのみ接続できます。
+
+=== 厳密なトポロジーピンニング
+
+PVをスケジュールされたノードの正確なゾーンにピン留めするには、`strictTopology: "true"`を追加してください。
+
+*Longhorn設定*：
+
+----
+csi-allowed-topology-keys = topology.kubernetes.io/zone
+----
+
+*StorageClass*：
+
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-strict-zone
+provisioner: driver.longhorn.io
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  numberOfReplicas: "3"
+  strictTopology: "true"
+allowedTopologies:
+  - matchLabelExpressions:
+      - key: topology.kubernetes.io/zone
+        values:
+          - a
+          - b
+          - c
+----
+
+*結果*：すべての3つのゾーンが`allowedTopologies`にリストされているにもかかわらず、PV `nodeAffinity`はポッドがスケジュールされたノードのゾーンのみに設定されています（例えば、ポッドが`node2`または`node5`に配置される場合は`zone in [a]`）。
+
+== 動作参照
+
+以下の表では、ゾーン`[a, b, c]`は上記の例のクラスターに存在するすべてのゾーンを表します。
+
+[cols=">1,2,2,2,1,2"]
+|===
+| # | `volumeBindingMode` | `allowedTopologies` | `csi-allowed-topology-keys` | `strictTopology` | PV `nodeAffinity`
+
+| 1 | 直ちに | なし | `""`（空） | false | なし
+| 2 | 直ちに | なし | `zone` | false | [a, b, c]のゾーン
+| 3 | 直ちに | ゾーン: [a, b] | `zone` | false | [a, b]のゾーン
+| 4 | WFFC | なし | `""`（空） | false | なし
+| 5 | WFFC | なし | `zone` | false | [a, b, c]のゾーン
+| 6 | WFFC | なし | `zone` | true | [selected]のゾーン
+| 7 | WFFC | ゾーン: [a] | `zone` | false | [a]のゾーン
+| 8 | WFFC | ゾーン: [a, b, c] | `zone` | true | [selected]のゾーン
+|===
+
+> この表では、`zone`は`topology.kubernetes.io/zone`の略語であり、`[selected]`はKubernetesスケジューラーによって選択されたノードのゾーンを意味します。
+
+*重要なポイント*：
+
+* `csi-allowed-topology-keys`がないと、トポロジー情報は渡されず、PVはトポロジーベースの`nodeAffinity`を受け取りません（シナリオ1、4）。
+* `strictTopology`は、`WaitForFirstConsumer`と一緒に使用されると、スケジュールされたポッドのトポロジーにPVをピン留めします。`Immediate`を使用すると、PVはポッドがスケジュールされる前に作成されるため、そのトポロジーはランダムに選択されます。
+* `allowedTopologies`は適格なゾーンのセットを絞り込み、`strictTopology`はさらに単一の選択されたゾーンに絞り込みます。
+
+== メモおよび警告
+
+* **使用しないでください** `allowedTopologies` と `dataLocality: strict-local` を一緒に使わないでください。PV `nodeAffinity` は一度設定されると変更できず、{longhorn-product-name} の厳密なローカルボリュームピンニングと衝突します。詳細については xref:high-availability/data-locality.adoc[データのローカリティ] を参照してください。
+* トポロジーを意識したプロビジョニングが*不要*なユーザーに最も一般的な構成は、`csi-allowed-topology-keys` を空のままにすることです（シナリオ 1 と 4）。これがデフォルトの設定です。
+* トポロジーを意識したプロビジョニングを希望するユーザーには、推奨される設定はシナリオ 7 と 8 です — `WaitForFirstConsumer` を `allowedTopologies` と `csi-allowed-topology-keys` と一緒に使用してください。
+
+== 関連文書
+
+* xref:volumes/storageclass-parameters.adoc[ストレージクラスパラメータ]
+* xref:longhorn-system/settings.adoc#_csi_allowed_topology_keys[CSI 許可されたトポロジーキー設定]
+* xref:nodes/scheduling.adoc[スケジューリング]

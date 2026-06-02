@@ -1,0 +1,165 @@
+= {longhorn-product-name} システムバックアップを作成する
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== システムバックアップバンドル
+
+Longhorn システムバックアップはリソースバンドルを作成し、それをリモートバックアップターゲットにアップロードします。
+
+以下のリソースが Longhorn システムに関連しています：
+
+* バックイメージ
+* クラスター役割
+* ClusterRoleBindings
+* ConfigMap
+* カスタムリソース定義
+* DaemonSets
+* デプロイメント
+* EngineImages
+* PersistentVolumes
+* PersistentVolumeClaims
+* RecurringJobs
+* 役割
+* RoleBindings
+* 設定
+* サービス
+* ServiceAccounts
+* ストレージクラス
+* ボリューム
+
+[NOTE]
+====
+* デフォルトのバックアップターゲット (`default`) は常にシステムバックアップを保存するために使用されます。
+* Longhorn システムバックアップバンドルには、Longhorn によって操作されるリソースのみが含まれます。
+* Longhorn は `Nodes` リソースをバックアップしません。ターゲットクラスターの Longhorn Manager は、自身の Longhorn `Node` カスタムリソースを作成する責任があります。
+* Longhorn は V2 データエンジンのバックイメージをバックアップすることができません。
+====
+
+== システムバックアップを作成する
+
+Longhorn UI を使用して Longhorn システムバックアップを作成できます。または、`kubectl` コマンドを使用します。
+
+=== 前提条件
+
+* xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[].Longhorn はシステムバックアップをリモートバックアップストアに保存します。バックアップターゲットが設定されていない場合、作成中にエラーが表示されます。
++
+NOTE: バックアップターゲットを解除すると、既存の`SystemBackup`カスタムリソースがクリアされます。Longhorn はバックアップターゲットを設定した後、リモートバックアップストアに同期します。バックアップターゲットが同じ場合、別のクラスターも同じシステムバックアップのリストに同期できます。
+
+* すべてのボリュームのバックアップを作成します（オプション）。
++
+NOTE: Longhorn システムは最新のバックアップでボリュームを復元します。すべてのボリュームの最新バックアップを更新することをお勧めします。ボリュームバックアップを取得することで、データがシステムバックアップと最新の状態であることを保証します。詳細については、<<_volume_backup_policy,設定 - ボリュームバックアップポリシー>>セクションを参照してください。
+
+=== 設定
+
+==== ボリュームバックアップポリシー
+
+Longhorn システムバックアップは、以下のボリュームバックアップポリシーオプションを提供します：
+
+* `if-not-present`:Longhorn は、既存のバックアップがないか、最新のバックアップが古いボリュームのバックアップを作成します。
+* `always`:Longhorn は、既存のバックアップに関係なく、すべてのボリュームのバックアップを作成します。
+* `disabled`:Longhorn はボリュームのバックアップを作成しません。
+
+=== ワンタイムバックアップ
+
+==== UIを使用してシステムバックアップを作成する
+
+. `Backup and Restore`のドロップダウンリストで`System Backups`ページに移動します。
+. `Create`の下にある`System Backup`をクリックします。
+. システムバックアップのための`Name`を指定します。
+. システムバックアップのための`Volume Backup Policy`を選択します。
+. 状態が`Ready`に変わると、システムバックアップは使用可能になります。
+
+==== `kubectl`を使用してシステムバックアップを作成する
+
+. {longhorn-product-name} `SystemBackup`のカスタムリソースを作成するために`kubectl create`を実行します。
++
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: SystemBackup
+metadata:
+  name: demo
+  namespace: longhorn-system
+spec:
+  volumeBackupPolicy: if-not-present
+----
+
+. 状態が`Ready`に変わると、システムバックアップは使用可能になります。
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME   VERSION   STATE   CREATED
+demo   v1.4.0    Ready   2022-11-24T04:23:24Z
+----
+
+=== 定期ジョブ
+
+==== UIを使用して定期バックアップジョブを作成する
+
+. *定期ジョブ*画面に移動します。
+
+. *定期ジョブを作成*をクリックします。
+
+. 次の設定を行います。
++
+* *名前*:定期ジョブの名前を指定します。
+* *タスク*:*システムバックアップ*を選択します。
+* *保持*:{longhorn-product-name}が保持する必要があるシステムバックアップの数を指定します。
+* *cron*:スケジュールプロパティを定義する、空白で区切られたフィールドからなる文字列であるcron式を指定します。
+* *パラメータ*:*ボリュームバックアップポリシー*を選択します。
+
+. [OK] をクリックします。
+
+{longhorn-product-name}は、*cron*フィールドに定義されたスケジュールに従ってシステムバックアップを作成します。
+
+==== `kubectl`を使用して定期バックアップジョブを作成します。
+
+`kubectl create`を実行して、タスクを持つ{longhorn-product-name}`RecurringJob``system-backup`カスタムリソースを作成します。
+
+例:
+
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: demo
+  namespace: longhorn-system
+spec:
+  task: system-backup
+  cron: '* * * * *'
+  retain: 1
+  parameters:
+    volume-backup-policy: if-not-present
+----
+
+{longhorn-product-name}は、`cron`フィールドに定義されたスケジュールに従ってシステムバックアップを作成します。
+
+== システムバックアップを削除します。
+
+Longhorn UIを使用して、リモートバックアップターゲット内のLonghornシステムバックアップを削除できます。または、`kubectl` コマンドを使用します。
+
+=== Longhorn UIを使用してシステムバックアップを削除します。
+
+. `Setting`のドロップダウンリストで`System Backup`ページに移動します。
+. システムバックアップの隣にある`Operation`ドロップダウンメニューで単一のシステムバックアップを削除します。または、`Delete`ボタンでバッチ削除します。
++
+NOTE: システムバックアップを削除すると、バックアップストア内でも削除が行われます。
+
+=== `kubectl`を使用してシステムバックアップを削除します。
+
+. `kubectl delete`を実行して、Longhorn の `SystemBackup`カスタムリソースを削除します。
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME   VERSION   STATE   CREATED
+demo   v1.4.0    Ready   2022-11-24T04:23:24Z
+
+> kubectl -n longhorn-system delete systembackup/demo
+systembackup.longhorn.io "demo" deleted
+----
+
+== 履歴
+
+https://github.com/longhorn/longhorn/issues/1455[オリジナル機能リクエスト]

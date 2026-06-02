@@ -1,0 +1,38 @@
+= Identificar e Recuperar de Erros de Dados
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Se você encontrou uma mensagem de erro como a seguinte:
+
+ 'fsck' found errors on device /dev/longhorn/pvc-6288f5ea-5eea-4524-a84f-afa14b85780d but could not correct them.
+
+Então você tem uma situação de corrupção de dados. Esta seção descreve como resolver o problema.
+
+== Disco Subjacente Defeituoso
+
+Para determinar se o erro foi causado porque um dos discos subjacentes falhou, siga xref:data-integrity-recovery/data-recovery/identify-corrupted-replicas.adoc[estes passos] para identificar réplicas corrompidas.
+
+Se a maioria das réplicas no disco falhar, isso significa que o disco não é mais confiável e deve ser substituído.
+
+Se apenas uma réplica no disco falhou, pode ser uma situação conhecida como `bit rot`. Neste caso, remover a réplica é suficiente.
+
+== Recuperar de um instantâneo
+
+Se todas as réplicas forem idênticas, então o volume precisa ser recuperado usando instantâneos.
+
+A razão para isso provavelmente é que o bit defeituoso foi escrito pela carga de trabalho à qual o volume estava anexado.
+
+Para reverter a um instantâneo anterior:
+
+. No modo de manutenção, anexe o volume a qualquer nó.
+. Reverter para um instantâneo. Você deve começar com o mais recente.
+. Desanexe o volume do modo de manutenção de qualquer nó.
+. Re-anexe o volume a um nó ao qual você tenha acesso.
+. Monte o volume de `/dev/longhorn/<volume_name>` e verifique o conteúdo do volume.
+. Se o conteúdo do volume ainda estiver incorreto, repita a partir do passo 1.
+. Uma vez que você encontre um instantâneo utilizável, faça um novo instantâneo a partir daí e comece a usar o volume normalmente.
+
+== Recuperar do Backup
+
+Se todos os métodos acima falharem, use um backup para xref:snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[recuperar o volume.]

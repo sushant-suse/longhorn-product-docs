@@ -1,0 +1,54 @@
+= Azure Kubernetes Service (AKS) の管理ノードグループ
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+詳細については、 https://docs.microsoft.com/en-us/azure/aks/use-multiple-node-pools[Azure Kubernetes Service (AKS) のクラスターに対して複数のノードプールを作成および管理する]を参照してください。
+
+以下は、クラスターのノードを新しいストレージサイズに置き換える例です。
+
+== ストレージの拡張
+
+AKS は、 https://docs.microsoft.com/en-us/azure/templates/Microsoft.ContainerService/2022-01-01/managedclusters?tabs=bicep#template-format[テンプレート]に追加のディスクをサポートしていません。手動でディスクを接続することは可能です。その後、未加工のデバイスは、VM内で手動でマウントするか、AKS では https://docs.microsoft.com/en-us/azure/aks/support-policies#user-customization-of-agent-nodes[サポートされていない] CustomScriptExtension を使用して起動時にマウントする必要があります。
+
+. Longhorn で、`replica-replenishment-wait-interval` を `0` に設定します。
+. 新しいノードプールを追加します。後で、Longhorn コンポーネントはこのプール内のノードに自動的にデプロイすることになります。
++
+----
+ AKS_NODEPOOL_NAME_NEW=<new-nodepool-name>
+ AKS_RESOURCE_GROUP=<aks-resource-group>
+ AKS_CLUSTER_NAME=<aks-cluster-name>
+ AKS_DISK_SIZE_NEW=<new-disk-size-in-gb>
+ AKS_NODE_NUM=<number-of-nodes>
+ AKS_K8S_VERSION=<kubernetes-version>
+
+ az aks nodepool add \
+   --resource-group ${AKS_RESOURCE_GROUP} \
+   --cluster-name ${AKS_CLUSTER_NAME} \
+   --name ${AKS_NODEPOOL_NAME_NEW} \
+   --node-count ${AKS_NODE_NUM} \
+   --node-osdisk-size ${AKS_DISK_SIZE_NEW} \
+   --kubernetes-version ${AKS_K8S_VERSION} \
+   --mode System
+----
+
+. Longhorn UI を使用して、古いノードプール内のノードのディスクスケジューリングを無効にし、エビクションを要求します。
+. 古いノードプール内の Kubernetes ノードをコーディンし、ドレインします。
++
+----
+ AKS_NODEPOOL_NAME_OLD=<old-nodepool-name>
+
+ for n in `kubectl get nodes | grep ${AKS_NODEPOOL_NAME_OLD}- | awk '{print $1}'`; do
+   kubectl cordon $n && \
+   kubectl drain $n --ignore-daemonsets --delete-emptydir-data
+ done
+----
+
+. 古いノードプールを削除します。
++
+----
+ az aks nodepool delete \
+   --cluster-name ${AKS_CLUSTER_NAME} \
+   --name ${AKS_NODEPOOL_NAME_OLD} \
+   --resource-group ${AKS_RESOURCE_GROUP}
+----

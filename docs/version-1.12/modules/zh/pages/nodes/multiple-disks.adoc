@@ -1,0 +1,123 @@
+= 多个磁盘
+:revdate: 2025-07-04
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} 支持在节点上使用多个磁盘来存储卷数据。
+
+默认情况下，{longhorn-product-name} 将卷数据存储在主机的 `/var/lib/longhorn` 目录中。要使用不同的磁盘进行存储，您可以添加一个新磁盘并禁用默认目录的调度。这种方法提供了根据您的具体需求管理存储的灵活性。
+
+== 添加磁盘
+
+在将磁盘添加到 {longhorn-product-name} 之前，请将其挂载到 Longhorn 节点主机上的目录。
+
+. **选择磁盘**:选择用于 Longhorn 存储的物理或虚拟磁盘，并使用基于扩展的文件系统格式化它（例如，ext4 或 XFS）。
+. **挂载磁盘**:将磁盘挂载到主机上的目录，例如 `/mnt/example-disk`。确保该目录可访问并正确配置。
+
+磁盘挂载后，您可以通过使用 UI 或 `kubectl` 命令行工具将其添加到 {longhorn-product-name}。
+
+*使用 {longhorn-product-name} UI*
+
+. 转到 *节点* 选项卡，选择一个节点，然后从下拉菜单中选择 *编辑磁盘*。
+. 将磁盘的挂载路径添加到磁盘列表中。
+
+*使用 `kubectl`*
+
+. 运行 `kubectl edit node.longhorn.io <node-name>` 以修改 Longhorn 节点资源。
+. 将磁盘路径添加到 `spec.disks`。例如：
++
+[,yaml]
+----
+...
+spec:
+  ...
+  disks:
+    ...
+    example-disk:
+      allowScheduling: true
+      diskDriver: ""
+      diskType: filesystem
+      evictionRequested: false
+      path: /mnt/example-disk
+      storageReserved: 0
+      tags: []
+...
+----
++
+. 保存并退出编辑器。
+
+一旦添加了磁盘:
+
+* {longhorn-product-name} 自动检测磁盘的存储详细信息，例如最大容量和可用容量。
+* 如果磁盘适合存储卷数据，{longhorn-product-name} 将开始将卷调度到该磁盘。
+
+[NOTE]
+====
+. 您不能添加另一个 {longhorn-product-name} 磁盘已经使用的磁盘路径。
+. {longhorn-product-name} 使用文件系统 ID 来检测重复挂载。因此，您不能添加与同一节点上另一个磁盘具有 *相同文件系统 ID* 的磁盘。
++
+有关更多信息，请参见问题 https://github.com/longhorn/longhorn/issues/2477[#2477]。
+====
+
+=== 根磁盘保留
+
+可选地，您可以在 UI 或 `spec.disks.<disk-name>.storageReserved` 中使用 *保留空间* 字段来为其他目的保留一部分磁盘空间（以字节为单位）。{longhorn-product-name} 不会将此保留空间用于卷数据。
+
+为了在计算资源（例如内存或磁盘）受到压力时保持节点稳定，`kubelet` 需要保留一些空间。如果这些关键资源耗尽，可能会导致节点不稳定。
+
+默认情况下，{longhorn-product-name} 保留 30% 的根磁盘空间（`/var/lib/longhorn`），以防止在调度多个卷后出现 `DiskPressure` 条件等问题。`storage-reserved-percentage-for-default-disk` 设置控制此行为。
+
+=== 为节点上的磁盘使用替代路径
+
+如果您希望为磁盘使用不同的路径（而不是原始安装点），可以使用 `mount --bind` 创建替代路径。请 *不要* 使用软链接 (`ln -s`)，因为软链接在 Longhorn pod 内部无法正确解析。
+
+确保在节点重启后重新挂载替代路径，例如，通过将其添加到 `/etc/fstab`。
+
+== 去除磁盘
+
+节点和磁盘可以被排除在未来的调度之外。请注意，任何已经在节点上调度的存储在该节点的调度被禁用时不会自动释放。
+
+要去除磁盘：
+
+. 禁用磁盘的调度。
+. 确保磁盘上没有副本或支撑映像，包括任何处于错误状态的。有关如何从禁用磁盘中驱逐副本的说明，请参见xref:nodes/disks-or-nodes-eviction.adoc#_select_disks_or_nodes_for_eviction[选择驱逐磁盘或节点]。
+
+一旦磁盘为空且调度被禁用，您可以安全地将其从节点配置中去除。
+
+== 配置
+
+两个全局设置影响卷调度：
+
+* `StorageOverProvisioningPercentage` 定义了相对于磁盘可用容量而言，在磁盘上可以调度的最大总存储量。公式为：
+
+[,text]
+----
+ScheduledStorage / (MaximumStorage - ReservedStorage)
+----
+
+默认情况下，此设置为`100`%。
+
+例如，在一个200 GiB的磁盘上，保留50 GiB，{longhorn-product-name}认为可用空间为150 GiB。使用默认设置，{longhorn-product-name}可以调度最多150 GiB的卷数据。
+
+由于工作负载通常不会消耗整个分配的卷大小，并且{longhorn-product-name}使用稀疏文件存储数据，因此增加此设置通常是安全的，并且可以帮助优化磁盘利用率。
+
+* `StorageMinimalAvailablePercentage`指定必须在磁盘上保留的最小空闲空间百分比，以调度新的副本。公式为：
+
+[,text]
+----
+AvailableStorage / MaximumStorage
+----
+
+默认情况下，此设置为`25`%。
+
+例如，对于一个200 GiB的磁盘，保留50 GiB，{longhorn-product-name}在可用空间低于37.5 GiB（150 GiB的25%）时停止调度新的副本。如果新卷的大小会使可用空间低于该限制，则也不会调度新卷。
+
+此设置有助于防止磁盘过满，这可能导致调度失败或卷操作问题。
+
+[WARNING]
+====
+{longhorn-product-name}目前无法在所有场景中完全执行`StorageMinimalAvailablePercentage`限制，因为：
+
+. Longhorn卷可能使用的空间超过其请求的大小，特别是在创建快照时。
+. {longhorn-product-name}默认情况下允许超额配置。
+====

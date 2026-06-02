@@ -1,0 +1,54 @@
+= ユーザーインターフェイスにアクセスする
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name}のUIを公開することで、管理コンソールへの外部アクセスが可能になります。Ingressコントローラーの選択（例えば、*Traefik*、*HAProxy*など）は、UIへのアクセス方法にのみ影響します。これは、*{longhorn-product-name}バックエンド、ストレージ操作、またはデータ整合性に影響しません*。
+
+[NOTE]
+====
+2025年11月現在、Kubernetesプロジェクトはingress-nginxコントローラーの廃止を発表しました。詳細については、 https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement[公式発表を参照してください]。
+====
+
+== アクセスと認証の前提条件
+
+これらの手順は、{longhorn-product-name}がすでにクラスターにインストールされていることを前提としています。
+
+YAMLマニフェストを使用して{longhorn-product-name}をインストールした場合、クラスターへの外部からのトラフィックを可能にするためにIngressコントローラーを設定する必要があります。認証は*デフォルトでは有効になっていません*。これは、Helmと`kubectl`の両方のインストールに適用されます。
+
+基本認証を使用したTraefik Ingressコントローラーの作成に関する情報は、xref:longhorn-system/system-access/longhorn-ingress-traefik.adoc[このセクションを参照してください]。また、xref:longhorn-system/system-access/longhorn-httproute.adoc[Gateway API HTTPRoute]を使用して{longhorn-product-name} UIを公開する現代的なアプローチもあります。
+
+{longhorn-product-name}がRancherカタログアプリとしてインストールされた場合、Rancherは自動的にアクセス制御を持つIngressコントローラー（`rancher-proxy`）を作成します。
+
+== {longhorn-product-name} UIにアクセスする
+
+{longhorn-product-name}がKubernetesクラスターにインストールされた後、次の手順に従ってUIダッシュボードにアクセスできます。
+
+. {longhorn-product-name}サービス情報を取得します：
++
+[,shell]
+----
+kubectl -n longhorn-system get svc
+----
++
+{longhorn-product-name} v0.8.0以降、出力は以下のようになります。UIにアクセスするには、`CLUSTER-IP`サービスの`longhorn-frontend`を使用します：
++
+[,shell]
+----
+NAME                TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+longhorn-backend    ClusterIP   10.20.248.250   <none>        9500/TCP   58m
+longhorn-frontend   ClusterIP   10.20.245.110   <none>        80/TCP     58m
+----
++
+この例では、UIは`10.20.245.110`でアクセス可能です。
++
+[NOTE]
+====
+{longhorn-product-name} v0.8.0から、UIサービスの種類が`LoadBalancer`から`ClusterIP`に変更されました。
+====
+
+. ブラウザを開き、`longhorn-frontend`サービスのIPアドレスに移動してください。
++
+{longhorn-product-name}のUIはこのようになります：
++
+image::screenshots/getting-started/v1.10.0/longhorn-ui.png[イメージ]

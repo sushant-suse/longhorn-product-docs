@@ -1,0 +1,66 @@
+= Speichernetzwerk
+:revdate: 2025-11-19
+:page-revdate: {revdate}
+:doctype: book
+:current-version: {page-component-version}
+
+Standardmäßig verwendet {longhorn-product-name} das Standard-Kubernetes-Cluster-CNI-Netzwerk, das auf eine einzige Schnittstelle beschränkt ist und mit anderen Workloads clusterweit geteilt wird. Falls Sie eine Situation haben, in der eine Netzwerktrennung erforderlich ist, unterstützt {longhorn-product-name} die Isolierung des {longhorn-product-name} internen Datenverkehrs mit der Einstellung Speichernetzwerk.
+
+Die Einstellung Speichernetzwerk verwendet die Multus NetworkAttachmentDefinition im `<NAMESPACE>/<NAME>`-Format.
+
+Sie können sich auf https://github.com/k8snetworkplumbingwg/multus-cni#comprehensive-documentation[Umfassendes Dokument] beziehen, um zu erfahren, wie Sie die Multus NetworkAttachmentDefinition installieren und einrichten.
+
+Die Anwendung der Einstellung fügt die `k8s.v1.cni.cncf.io/networks`-Annotation hinzu und erstellt alle vorhandenen Pods des Instance-Managers und des Backing-Image-Managers neu. {longhorn-product-name} wird dieselbe Annotation auf alle neuen Pods des Instance-Managers, des Backing-Image-Managers und des Backing-Image-Datenquellen anwenden.
+
+[IMPORTANT]
+====
+Um sicherzustellen, dass Ihre bevorzugten Einstellungen sofort angewendet werden, beenden Sie alle Workloads und trennen Sie alle Longhorn-Volumes, bevor Sie die Einstellungen konfigurieren.
+
+Wenn alle Volumes getrennt sind, versucht {longhorn-product-name} alle Pods des Instance-Managers und des Backing-Image-Managers neu zu starten, um die Einstellung anzuwenden.
+Wenn ein oder mehrere Longhorn-Volumes noch angeschlossen sind, wird die benutzerdefinierte Einstellung nur auf den Instance-Manager angewendet, wenn keine Engines und Replikatinstanzen ausgeführt werden. Sie müssen die Einstellung nach dem Trennen der verbleibenden Volumes neu konfigurieren. Alternativ können Sie auf die nächste Einstellungssynchronisierung warten, die in einer Stunde stattfinden wird.
+====
+
+== Einstellung Speichernetzwerk
+
+=== Voraussetzung
+
+Das Multus NetworkAttachmentDefinition-Netzwerk für die Speichernetzwerkeinstellung muss in Pods über verschiedene Clusterknoten hinweg erreichbar sein.
+
+Sie können dies überprüfen, indem Sie ein einfaches DaemonSet erstellen und versuchen, zwischen Pods zu pingen.
+
+=== Einstellung Speichernetzwerk während der {longhorn-product-name}-Installation
+
+Befolgen Sie die Anleitung xref:longhorn-system/customize-default-settings.adoc[Standardwerte anpassen], um das Speichernetzwerk einzustellen, indem Sie den Wert der `storage-network`Standardeinstellung` ändern.
+
+[WARNING]
+====
+Der Longhorn-Instance-Manager wird nicht gestartet, wenn die Einstellung Speichernetzwerk ungültig ist.
+
+Sie können die Ereignisse des Instance-Manager-Pods überprüfen, um zu sehen, ob sie mit einer ungültigen NetworkAttachmentDefinition mit `kubectl -n longhorn-system describe pods -l longhorn.io/component=instance-manager` zusammenhängen.
+
+Wenn dies der Fall ist, geben Sie ein gültiges `NetworkAttachmentDefinition` an und führen Sie die {longhorn-product-name}-Installation erneut aus.
+====
+
+=== Einstellung Speichernetzwerk nach der {longhorn-product-name}-Installation
+
+Stellen Sie die Einstellung xref:longhorn-system/settings.adoc#_storage_network[Speichernetzwerk] ein.
+
+[WARNING]
+====
+Ändern Sie nicht die benutzerdefinierte NetworkAttachmentDefinition-Ressource, nachdem Sie sie auf die Einstellung angewendet haben.
+
+{longhorn-product-name} ist sich der Updates nicht bewusst. Daher wird dies zu Fehlfunktionen und Fehlern führen. Stattdessen können Sie eine neue NetworkAttachmentDefinition benutzerdefinierte Ressource erstellen und sie auf die Einstellung aktualisieren.
+====
+
+=== Einstellung des Endpunktnetzwerks für RWX-Volumes
+
+Konfigurieren Sie die Einstellung xref:longhorn-system/settings.adoc#_network_for_rwx_volume[Endpunktnetzwerk für RWX Volume].
+
+== Einschränkung
+
+Wenn ein RWX Volume mit dem Endpunktnetzwerk verbunden ist, muss die Verbindung des NFS-Einhängepunkts wiederhergestellt werden, wenn der CSI-Plugin-Pod neu gestartet wird. {longhorn-product-name} bietet die Einstellung xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[Automatisch Arbeitslast-Pod löschen, wenn das Volume unerwartet getrennt wird], die automatisch die RWX-Volume-Arbeitslast-Pods löscht, wenn der CSI-Plugin-Pod neu gestartet wird. Allerdings könnte der NFS-Einhängepunkt des Arbeitslast-Pods nicht mehr reagieren, wenn die Einstellung deaktiviert ist oder der Pod nicht von einem Controller verwaltet wird. In solchen Fällen müssen Sie den CSI-Plugin-Pod manuell neu starten.
+
+== Verlauf
+
+* https://github.com/longhorn/longhorn/issues/2285[Ursprüngliche Funktionsanfrage (seit v1.3.0)]
+* https://github.com/longhorn/longhorn/issues/8184[[FEATURE\] Unterstützung des Speichernetzwerks für RWX Volumes (seit v1.7.0)]

@@ -1,0 +1,57 @@
+= Localidade dos Dados
+:revdate: 2025-07-26
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+A configuração de localidade dos dados deve ser habilitada em situações onde pelo menos uma réplica de um volume Longhorn deve ser agendada no mesmo nó que o pod que utiliza o volume, sempre que possível. Chamamos de `data locality` a propriedade de ter uma réplica local.
+
+Por exemplo, a localidade dos dados pode ser útil quando a rede do cluster está ruim, pois ter uma réplica local aumenta a disponibilidade do volume.
+
+A localidade dos dados também pode ser útil para aplicativos distribuídos (por exemplo, bancos de dados), nos quais a alta disponibilidade é alcançada no nível do aplicativo em vez do nível do volume. Nesse caso, apenas um volume é necessário para cada pod, então cada volume deve ser agendado no mesmo nó que o pod que o utiliza.  Além disso, o comportamento padrão do Longhorn para agendamento de volumes pode causar um problema para aplicativos distribuídos. O problema é que se houver duas réplicas de um pod, e cada réplica do pod tiver um volume, o Longhorn não está ciente de que esses volumes têm os mesmos dados e não devem ser agendados no mesmo nó. Portanto, o Longhorn pode agendar réplicas idênticas no mesmo nó, impedindo assim que elas ofereçam alta disponibilidade para a carga de trabalho.
+
+Quando a localidade dos dados está desabilitada, um volume Longhorn pode ser respaldado por réplicas em qualquer nó do cluster e acessado por um pod em execução em qualquer nó do cluster.
+
+== Configurações de Localidade dos Dados
+
+Atualmente, o Longhorn suporta dois modos para configurações de localidade dos dados:
+
+* `disabled`: Ela é a opção padrão. Pode ou não haver uma réplica no mesmo nó que o volume anexado (carga de trabalho).
+* `best-effort`: Esta opção instrui o Longhorn a tentar manter uma réplica no mesmo nó que o volume anexado (carga de trabalho). O Longhorn não para o volume, mesmo que não consiga manter uma réplica local ao volume anexado (carga de trabalho) devido a uma limitação do ambiente, por exemplo, espaço em disco insuficiente, tags de disco incompatíveis, etc.
+* `strict-local`: Esta opção força o Longhorn a manter a *apenas uma réplica* no mesmo nó que o volume anexado, e, portanto, oferece maior IOPS e menor latência de desempenho. Esta opção é incompatível com xref:volumes/rwx-volumes.adoc[volumes ReadWriteMany (RWX)].
+
+== Como Definir a Localidade dos Dados para Volumes
+
+Existem três maneiras de definir a localidade dos dados para volumes Longhorn:
+
+=== Altere a configuração global padrão
+
+Você pode alterar a configuração global padrão para a localidade de dados nas configurações da interface do Longhorn.
+A configuração global funciona apenas como um valor padrão, semelhante à contagem de réplicas.
+Isso não altera as configurações de nenhum volume existente.
+Quando um volume é criado sem especificar a localidade de dados, o Longhorn usará a configuração global padrão para determinar a localidade de dados do volume.
+
+=== Altere a localidade de dados para um volume individual usando a interface do Longhorn
+
+Você pode usar a interface do Longhorn para definir a localidade de dados para o volume na criação.
+Você também pode alterar a configuração de localidade de dados para o volume após a criação na página de detalhes do volume.
+
+=== Defina a localidade de dados para volumes individuais usando um StorageClass.
+
+O Longhorn também expõe a configuração de localidade de dados como um parâmetro em um StorageClass.
+Você pode criar um StorageClass com uma configuração de localidade de dados especificada e, em seguida, criar PVCs usando o StorageClass.
+Por exemplo, o arquivo YAML abaixo define um StorageClass que informa ao driver CSI do Longhorn para definir a localidade de dados como `best-effort`:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: hyper-converged
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "2"
+  dataLocality: "best-effort"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+----

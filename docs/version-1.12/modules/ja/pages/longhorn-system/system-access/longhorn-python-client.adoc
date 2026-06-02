@@ -1,0 +1,73 @@
+= Pythonクライアント
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Pythonバインディングを使用してLonghorn APIにアクセスできます。
+
+. Longhornエンドポイントを取得する
++
+Longhornと通信する方法の一つは、`longhorn-frontend`サービスを通じてです。
++
+Longhornがインストールされている同じクラスター内で自動化/スクリプトツールを実行する場合は、エンドポイント`http://longhorn-frontend.longhorn-system/v1`に接続してください。
++
+ローカルマシンで自動化/スクリプトツールを実行する場合は、`kubectl port-forward`を使用して`longhorn-frontend`サービスをlocalhostに転送します：
++
+----
+kubectl port-forward services/longhorn-frontend 8080:http -n longhorn-system
+----
++
+そしてエンドポイント`http://localhost:8080/v1`に接続します。
+
+. Pythonクライアントを使用する
++
+PythonスクリプトにPythonクライアントを含むファイル https://github.com/longhorn/longhorn-tests/blob/master/manager/integration/tests/longhorn.py[longhorn.py]をインポートし、エンドポイントからクライアントを作成します。
++
+[subs="+attributes",python]
+----
+ import longhorn
+
+ # If automation/scripting tool is inside the same cluster in which Longhorn is installed
+ longhorn_url = 'http://longhorn-frontend.longhorn-system/v1'
+ # If forwarding `longhorn-frontend` service to localhost
+ longhorn_url = 'http://localhost:8080/v1'
+
+ client = longhorn.Client(url=longhorn_url)
+
+ # Volume operations
+ # List all volumes
+ volumes = client.list_volume()
+ # Get volume by NAME/ID
+ testvol1 = client.by_id_volume(id="testvol1")
+ # Attach TESTVOL1
+ testvol1 = testvol1.attach(hostId="worker-1")
+ # Detach TESTVOL1
+ testvol1.detach()
+ # Create a snapshot of TESTVOL1 with NAME
+ snapshot1 = testvol1.snapshotCreate(name="snapshot1")
+ # Create a backup from a snapshot NAME
+ testvol1.snapshotBackup(name=snapshot1.name)
+ # Update the number of replicas of TESTVOL1
+ testvol1.updateReplicaCount(replicaCount=2)
+ # Find more examples in Longhorn integration tests https://github.com/longhorn/longhorn-tests/tree/master/manager/integration/tests
+
+ # Node operations
+ # List all nodes
+ nodes = client.list_node()
+ # Get node by NAME/ID
+ node1 = client.by_id_node(id="worker-1")
+ # Disable scheduling for NODE1
+ client.update(node1, allowScheduling=False)
+ # Enable scheduling for NODE1
+ client.update(node1, allowScheduling=True)
+ # Find more examples in Longhorn integration tests https://github.com/longhorn/longhorn-tests/tree/master/manager/integration/tests
+
+ # Setting operations
+ # List all settings
+ settings = client.list_setting()
+ # Get setting by NAME/ID
+ backupTargetsetting = client.by_id_setting(id="backup-target")
+ # Update a setting
+ backupTargetsetting = client.update(backupTargetsetting, value="s3://backupbucket@us-east-1/")
+ # Find more examples in Longhorn integration tests https://github.com/longhorn/longhorn-tests/tree/master/manager/integration/tests
+----

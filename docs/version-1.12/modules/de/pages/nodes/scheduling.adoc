@@ -1,0 +1,287 @@
+= Planung
+:revdate: 2026-03-06
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} plant Replikate basierend auf mehreren Faktoren.
+
+== Planungsrichtlinie
+
+Die Planungsrichtlinie von {longhorn-product-name} hat zwei Phasen. Der Scheduler geht nur zur nächsten Phase über, wenn die vorherige Phase erfüllt ist. Andernfalls schlägt die Planung fehl.
+
+Wenn ein Tag für die Planung ausgewählt wurde, müssen der Knotentag und der Festplattentag übereinstimmen, wenn der Knoten oder die Festplatte ausgewählt wird.
+
+Die erste Phase ist die *Knoten- und Zonenwahlphase*. {longhorn-product-name} filtert den Knoten und die Zone basierend auf den `Replica Node Level Soft Anti-Affinity` und `Replica Zone Level Soft Anti-Affinity` Einstellungen.
+
+Die zweite Phase ist die *Festplattenauswahlphase*. {longhorn-product-name} filtert die Festplatten, die die erste Phase erfüllen, basierend auf den `Replica Disk Level Soft Anti-Affinity`, `Storage Minimal Available Percentage`, `Storage Over Provisioning Percentage` und anderen festplattenbezogenen Faktoren wie dem angeforderten Speicherplatz.
+
+=== Die Knoten- und Zonenwahlphase
+
+{longhorn-product-name} bewertet, welche Knoten für die Planung einer neuen Replikation basierend auf einer Reihe von Kriterien geeignet sind. Der Entscheidungsprozess folgt einer bestimmten Reihenfolge, um eine optimale Platzierung für Fehlertoleranz zu gewährleisten.
+
+==== 1. Knotentag-Abgleich
+
+{longhorn-product-name} überprüft zuerst die Knotenauswahl-Tags auf dem Volumen.
+
+* Wenn das Volumen Knotenauswahl-Tags hat, sind nur Knoten mit übereinstimmenden Tags berechtigt.
+* Wenn das Volumen *keine Knotenauswahl* hat, hängt das Verhalten von der Einstellung *Leeres Knotenauswahlvolumen erlauben* ab:
+* `true` (Standard): Plant auf Knoten *mit oder ohne Tags*.
+* `false`: Plant *nur* auf Knoten *ohne Tags*.
+
+==== 2. Umgang mit gesperrten Knoten
+
+Die Einstellung *Planung auf gesperrten Knoten deaktivieren* bestimmt, ob gesperrte Knoten für die Replikationsplanung berechtigt sind:
+
+* `true` (Standard): Gesperrte Knoten sind ausgeschlossen.
+* `false`: Gesperrte Knoten sind berechtigt.
+
+==== 3. Anti-Affinitätsregeln über Knoten und Zonen
+
+{longhorn-product-name} priorisiert die Verteilung von Replikaten über verschiedene *Knoten* und *Zonen*, um die Fehlertoleranz zu verbessern. Ein *"neuer"* Knoten oder eine Zone ist eine, die *nicht* derzeit ein Replikat des Volumens hostet, während ein *"bestehender"* Knoten oder eine Zone bereits ein Replikat des Volumens hostet.
+
+Der Scheduler versucht, das neue Replikat an dem isoliertesten Ort zu platzieren, der möglich ist, und folgt dieser Präferenzhierarchie:
+
+. *Neuer Knoten in einer neuen Zone* (am meisten bevorzugt)
+. *Neuer Knoten in einer bestehenden Zone*
+. *Bestehender Knoten in einer bestehenden Zone* (am wenigsten bevorzugt)
+
+Die folgende Tabelle beschreibt die erforderlichen Einstellungen, damit ein Replikat in jedem Szenario geplant werden kann:
+
+[cols="3,3,3,3a", options="header"]
+|===
+|Szenario |Replikat Zonenebene Weiche Anti-Affinität |Replikat Knotenebene Weiche Anti-Affinität |Scheduler-Aktion
+
+| *Neuer Knoten in einer neuen Zone*
+| `false`
+| `false`
+| *Plant* das Replikat.
+
+|
+| Jeder andere Wert
+| Jeder andere Wert
+| *Plant* das Replikat nicht.
+
+| *Neuer Knoten in einer bestehenden Zone*
+| `true`
+| `false`
+| *Plant* das Replikat, wenn keine neue Zone verfügbar ist.
+
+|
+| Jeder andere Wert
+| Jeder andere Wert
+| *Plant* das Replikat nicht.
+
+| *Bestehender Knoten in einer bestehenden Zone*
+| `true`
+| `true`
+| *Plant* das Replikat, wenn keine anderen Optionen verfügbar sind.
+
+|
+| Jeder andere Wert
+| Jeder andere Wert
+| *Plant* das Replikat nicht.
+|===
+
+=== Festplattenauswahlphase
+
+Nach der Auswahlphase für Knoten und Zonen bestimmt {longhorn-product-name}, ob es das Replikat auf einer beliebigen Festplatte des ausgewählten Knotens planen kann. Es überprüft die verfügbaren Festplatten basierend auf übereinstimmenden Tags, dem gesamten Festplattenspeicher und dem verfügbaren Festplattenspeicher. Es berücksichtigt auch, ob bereits ein anderes Replikat existiert und die Anti-Affinitätseinstellungen.
+
+{longhorn-product-name} überprüft alle verfügbaren Festplatten auf dem ausgewählten Knoten, um sicherzustellen, dass sie die folgenden Kriterien erfüllen:
+
+. *Festplattentag-Abgleich*:
+* Wenn das Volume Festplattentags hat, muss die Festplatte mit den für das Replikat erforderlichen angegebenen Tags übereinstimmen.
+* Wenn das Volume keine Festplattentags hat, hängt das Verhalten von der Einstellung *Leeres Festplattenauswahlvolumen erlauben* ab:
+** `true` (Standard): Erlaubt die Planung auf Festplatten mit oder ohne Tags.
+** `false`: Erlaubt nur die Planung auf Festplatten ohne Tags.
+. *Überprüfung des verfügbaren Speicherplatzes*:
+* Die Festplatte muss über ausreichend verfügbaren Speicherplatz basierend auf dem konfigurierten `Storage Minimal Available Percentage` verfügen.
+. *Anti-Affinitätseinstellungen*:
+* *Harte Anti-Affinität*: Verhindert die Planung eines Replikats auf einer Festplatte, die bereits ein anderes Replikat des gleichen Volumes hostet.
+* *Weiche Anti-Affinität* (wenn aktiviert): Bevorzugt die Planung des Replikats auf einer Festplatte ohne ein vorhandenes Replikat, auch wenn dies in Bezug auf Speicher oder andere Faktoren eine suboptimale Wahl ist.
+. *Speicherbedingungen*: Zwei Formeln bestimmen, ob eine Festplatte planbar ist:
+* *Aktuelle Speicherplatznutzungsbedingung*: Stellt sicher, dass nach Berücksichtigung des aktuell genutzten Speicherplatzes ausreichend nutzbarer Speicherplatz verbleibt.
+** Formel: `(Storage Available - Actual Size) > (Storage Maximum × Minimal Available Percentage) / 100`
+* *Planungsraum-Bedingung*: Stellt sicher, dass die Größe der Replik (plus alle geplanten, aber nicht geschriebenen Daten) innerhalb des Überprovisionierungsgrenzwerts liegt.
+** Formel: `(Size + Storage Scheduled) <= ((Storage Maximum - Storage Reserved) × Over Provisioning Percentage) / 100`
+
+[NOTE]
+====
+Während der Festplattenauswertung, da noch kein spezifisches Replikat geplant wird, werden `Actual Size` und `Size` vorübergehend als `0` in diesen Formeln behandelt.
+====
+
+Wenn eine dieser Bedingungen fehlschlägt, einschließlich Festplattentag, Anti-Affinität oder Speicheranforderungen, wird die Festplatte als nicht planbar markiert, und {longhorn-product-name} würde das Replikat nicht auf dieser Festplatte platzieren.
+
+==== Beispielszenario
+
+Betrachten Sie einen Knoten (*Knoten A*) mit zwei Festplatten:
+
+* *Festplatte X*: 1 GB verfügbar, 4 GB maximaler Speicherplatz
+* *Festplatte Y*: 2 GB verfügbar, 8 GB maximaler Speicherplatz
+
+===== Phase 1: Erste Festplattenauswertung
+
+Während der ersten Festplattenauswahl führt {longhorn-product-name} eine grundlegende Überprüfung aller verfügbaren Festplatten durch. Zu diesem Zeitpunkt wurde noch kein spezifisches Replikat ausgewählt, daher werden `Actual Size` und `Size` als `0` behandelt.
+
+*Bewertung der Festplatte X*
+
+* *Verfügbarer Speicherplatz*: 1 GB
+* *`Storage Minimal Available Percentage`*: 25% (Standardwert)
+* *Minimal erforderlicher verfügbarer Speicherplatz*: `(4 GB × 25) / 100 = 1 GB`
+* *Ergebnis*: *Festplatte X* erfüllt nicht die `Actual Space Usage Condition`, da der verfügbare Speicherplatz (1 GB) nicht größer ist als das erforderliche Minimum (1 GB). Daher ist Festplatte X nicht planbar, es sei denn, die `Storage Minimal Available Percentage` wird auf `0` gesetzt.
+
+*Bewertung der Festplatte Y*
+
+* *Verfügbarer Speicherplatz*: 2 GB
+* *`Storage Minimal Available Percentage`*: 10 %
+* *Minimal erforderlicher verfügbarer Speicherplatz*: `(8 GB × 10) / 100 = 0.8 GB`
+* *Ergebnis*: *Festplatte Y* erfüllt die `Actual Space Usage Condition`, da der verfügbare Speicherplatz (2 GB) größer ist als das erforderliche Minimum (0,8 GB).
+
+Als Nächstes überprüfen wir die `Scheduling Space Condition`:
+
+* *Geplanter Speicherplatz*: 2 GB
+* *`Storage Reserved`*: 1 GB
+* *`Over Provisioning Percentage`*: 100 % (Standardwert)
+* *Maximal bereitstellbarer Speicher*: `(8 GB - 1 GB) × 100 / 100 = 7 GB`
+* *Ergebnis*: *Festplatte Y* erfüllt die `Scheduling Space Condition`, da der derzeit geplante Speicherplatz (2 GB) kleiner ist als der maximal bereitstellbare Speicher (7 GB).
+
+Da Festplatte Y alle Bedingungen erfüllt, wird sie als planbarer Festplattenkandidat markiert.
+
+===== Phase 2: Anti-Affinitätsregeln
+
+Angenommen, sowohl Festplatte X als auch Festplatte Y bestehen die ersten Speicherprüfungen und Festplatte X hostet bereits ein Replikat für dasselbe Volume.
+
+*Harte Anti-Affinität*
+
+* {longhorn-product-name} würde das neue Replikat nicht auf Festplatte X planen. Stattdessen würde sie versuchen, es auf Festplatte Y zu planen.
+* Wenn Festplatte Y nicht geeignet ist (zum Beispiel aufgrund nicht übereinstimmender Festplattentags), würde die Planung für dieses Replikat fehlschlagen.
+
+*Weiche Anti-Affinität*
+
+* Wenn *weiche Anti-Affinität* aktiviert ist, {longhorn-product-name} *bevorzugt* es, das Replikat auf Festplatte Y zu planen, um die gleichzeitige Platzierung von Replikaten zu vermeiden.
+* Wenn Festplatte Y jedoch aus irgendeinem Grund ungeeignet ist, {longhorn-product-name} *kann dennoch das Replikat* auf Festplatte X planen. Dies ermöglicht die gemeinsame Nutzung einer Festplatte als Notfalloption, wenn keine anderen geeigneten Kandidaten verfügbar sind.
+
+== Planungsalgorithmus
+
+Nachdem die Kandidatenfestplatten identifiziert wurden, die alle Planungsanforderungen erfüllen, besteht der letzte Schritt darin, die optimale Festplatte für das Replikat auszuwählen. Diese Auswahl wird mit dem Balance-Algorithmus bestimmt, der darauf abzielt, Replikate gleichmäßig über Knoten und Festplatten zu verteilen.
+
+=== Balancefaktor-Formel nach nutzbarem Speicher
+
+* `Disk_Usable_Storage = (Disk.StorageAvailable - Disk.StorageReserved) - Disk.StorageScheduled`
+* Niedrigere Punktzahl = ausgewogenere Verteilung.
+
+*Formel:*
+
+----
+BalanceScore(X) = (max(X) - min(X)) / mean(X)
+----
+
+Ort:
+
+* `X` = Menge der nutzbaren Speicherwerte (pro Knoten oder pro Festplatte).
+
+*Auswahlprozess:*
+
+. Simulieren Sie die Platzierung des Replikats auf jedem Kandidatenknoten und berechnen Sie die resultierende Punktzahl. +
+  → Wählen Sie den Knoten mit der niedrigsten Punktzahl (ausgewogenste Verteilung).
+
+. Innerhalb des ausgewählten Knotens simulieren Sie die Platzierung auf jeder Kandidatenfestplatte und berechnen Sie erneut die Punktzahl. +
+  → Wählen Sie die Festplatte mit der niedrigsten Punktzahl unter ihnen.
+
+==== Beispielszenario
+
+Angenommen, der Cluster hat zwei Knoten, und jeder Knoten enthält zwei Kandidatenfestplatten, die für die Replikatplanung geeignet sind.
+
+Replikatgröße = 100 GiB.
+
+[cols="1,1,1", options="header"]
+|===
+| Knoten | Festplatte | Nutzbarer Speicher (GiB)
+
+| Knoten A | A1 | 900
+| Knoten A | A2 | 100
+| Knoten B | B1 | 600
+| Knoten B | B2 | 700
+|===
+
+*Schritt 1: Knotenauswahl*
+
+*Simulieren Sie die Platzierung auf Knoten A*
+
+Neue Gesamtsummen:
+
+* Knoten A = (900 + 100) − 100 = 900
+* Knoten B = (600 + 700) = 1300
+
+Knoten-Bilanzpunktzahl:
+
+----
+BalanceScore_NodeA  = (1300 - 900) / ((1300 + 900) / 2)
+                    = 400 / 1100
+                    ≈ 0.364
+----
+
+*Simulieren Sie das Platzieren auf Knoten B*
+
+Neue Gesamtsummen:
+
+* Knoten A = (900 + 100) = 1000
+* Knoten B = (600 + 700) - 100 = 1200
+
+Knoten-Bilanzpunktzahl:
+
+----
+BalanceScore_NodeB  = (1200 - 1000) / ((1200 + 1000) / 2)
+                    = 200 / 1100
+                    ≈ 0.182
+----
+
+Wählen Sie *Knoten B* (niedrigerer Punktestand, ausgewogener).
+
+*Schritt 2: Festplattenauswahl*
+
+*Simulieren Sie das Platzieren auf B1 (600 → 500)*
+
+Neuer nutzbarer Speicher: B1 = 500, B2 = 700
+
+Festplattenbilanzpunktestand:
+
+----
+BalanceScore_DiskB1 = (700 - 500) / ((700 + 500) / 2)
+                    = 200 / 600
+                    ≈ 0.333
+----
+
+*Simulieren Sie das Platzieren auf B2 (700 → 600)*
+
+Neuer nutzbarer Speicher: B1 = 600, B2 = 600
+
+Festplatten-Bilanzpunktzahl:
+
+----
+BalanceScore_DiskB2 = (600 - 600) / ((600 + 600) / 2)
+                    = 0 / 600
+                    = 0
+----
+
+Wählen Sie *Festplatte B2* (perfekte Balance zwischen B1 und B2).
+
+== Einstellungen
+
+Für weitere Informationen zu Einstellungen, die für die Planung von Replikaten auf Knoten und Festplatten relevant sind, siehe das Einstellungsreferenzdokument:
+
+* xref:longhorn-system/settings.adoc#_disable_scheduling_on_cordoned_node[Planung auf einem abgeriegelten Knoten deaktivieren]
+* xref:longhorn-system/settings.adoc#_replica_node_level_soft_anti_affinity[Replica Soft Anti-Affinity] (auch genannt Replica Node Level Soft Anti-Affinity)
+* xref:longhorn-system/settings.adoc#_replica_zone_level_soft_anti_affinity[Replica Zone Level Soft Anti-Affinity]
+* xref:longhorn-system/settings.adoc#_replica_disk_level_soft_anti_affinity[Replica-Disk-Level Soft Anti-Affinity]
+* xref:longhorn-system/settings.adoc#_storage_minimal_available_percentage[Minimal verfügbarer Speicherprozentsatz]
+* xref:longhorn-system/settings.adoc#_storage_over_provisioning_percentage[Speicherüberprovisionierungsprozentsatz]
+* xref:longhorn-system/settings.adoc#_allow_empty_node_selector_volume[Leeres Node-Selector-Volume erlauben]
+* xref:longhorn-system/settings.adoc#_allow_empty_disk_selector_volume[Leeres Disk-Selector-Volume erlauben]
+
+[NOTE]
+====
+{longhorn-product-name} stützt sich auf das Label `topology.kubernetes.io/zone=<Zone name of the node>` oder `topology.kubernetes.io/region=<Region name of the node>` im Kubernetes-Knotenobjekt, um die Zone oder die Region zu identifizieren.
+
+Da diese von Kubernetes als https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone[wohlbekannte Labels] reserviert und verwendet werden.
+====
+

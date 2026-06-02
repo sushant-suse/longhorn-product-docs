@@ -1,0 +1,64 @@
+= Vérification de l'intégrité des données de l'instantané
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn est capable de hacher les fichiers de disque d'instantané et de vérifier périodiquement leur intégrité.
+
+== Introduction
+
+Le système Longhorn prend en charge la création d'instantanés de volume et stocke les fichiers de disque d'instantané sur le disque local. Cependant, il est impossible de vérifier l'intégrité des données des instantanés en raison de l'absence de sommes de contrôle des instantanés précédents. En conséquence, lorsque les données sont corrompues en raison, par exemple, de la dégradation des bits dans le stockage sous-jacent, il n'y a aucun moyen de détecter la corruption et de réparer les répliques. Après avoir appliqué la fonctionnalité, Longhorn est capable de hacher les fichiers de disque d'instantané et de vérifier périodiquement leur intégrité. Lorsqu'un fichier de disque d'instantané dans une réplique est corrompu, Longhorn commencera automatiquement le processus de reconstruction pour le réparer.
+
+== Paramètres
+
+=== Paramètres globaux
+
+* *snapshot-data-integrity* +
++
+Ce paramètre permet aux utilisateurs d'activer ou de désactiver le hachage des instantanés et la vérification de l'intégrité des données. Les options disponibles sont{nbsp}:
+
+ ** *désactivé*{nbsp}: Désactiver le hachage des fichiers de disque d'instantané et la vérification de l'intégrité des données.
+ ** *activé*{nbsp}: Active le hachage périodique des fichiers de disque d'instantané et la vérification de l'intégrité des données. Pour détecter les corruptions que le système de fichiers ne repère pas, causées par la dégradation des bits ou d'autres problèmes dans les fichiers de disque d'instantané, le système Longhorn hache périodiquement les fichiers et identifie ceux qui sont corrompus. Ainsi, les performances du système seront impactées pendant la vérification périodique.
+ ** *vérification-rapide*{nbsp}: Activer le hachage des fichiers de disque d'instantané et la vérification rapide de l'intégrité des données. Le système Longhorn ne hache les fichiers de disque d'instantané que s'ils ne sont pas hachés ou si les temps de modification ont changé. Dans ce mode, la corruption que le système de fichiers ne détecte pas ne peut être repérée, mais l'impact sur les performances du système peut être minimisé.
+
+* *snapshot-data-integrity-immediate-check-after-snapshot-creation* +
++
+Le hachage des fichiers de disque d'instantané impacte les performances du système. Le hachage et la vérification immédiats des instantanés peuvent être désactivés pour minimiser l'impact après la création d'un instantané.
+
+* *snapshot-data-integrity-cronjob* +
++
+Un calendrier défini à l'aide du format de chaîne unix-cron spécifie quand Longhorn vérifie l'intégrité des données des fichiers de disque d'instantané.
++
+WARNING: Le hachage des fichiers de disque d'instantané impacte les performances du système. Il est recommandé d'effectuer des vérifications de l'intégrité des données pendant les heures creuses et de réduire la fréquence des vérifications.
+
+=== Paramètres par volume
+
+Longhorn prend également en charge le paramètre par volume en configurant `Volume.Spec.SnapshotDataIntegrity`. La valeur est `ignored` par défaut, donc la vérification de l'intégrité des données est déterminée par le paramètre global `snapshot-data-integrity`. `Volume.Spec.SnapshotDataIntegrity` prend en charge `ignored`, `disabled`, `enabled` et `fast-check`. Chaque volume peut avoir son paramètre de vérification de l'intégrité des données personnalisé.
+
+== Impact sur les performances
+
+Pour détecter la corruption des données, les sommes de contrôle des fichiers de disque d'instantané doivent être calculées. Les calculs consomment des ressources de stockage et de calcul. Par conséquent, les performances de stockage seront négativement impactées. Afin de fournir une compréhension claire de l'impact, nous avons mesuré les performances de stockage lors du calcul de la somme de contrôle des fichiers de disque d'instantané. Les IOPS de lecture, la bande passante et la latence sont négativement impactés.
+
+* de confiance
+ ** Hôte: AWS EC2 c5d.2xlarge
+ ** CPU : Intel(R) Xeon(R) Platinum 8124M CPU @ 3.00GHz
+ ** Mémoire : 16 Go
+ ** Réseau : Jusqu'à 10Gbps
+ ** Kubernetes{nbsp}: v1.24.4+rke2r1
+* Résultat
+ ** Disque{nbsp}: 200 GiB de disque SSD NVMe comme stockage d'instance
+  *** 100 GiB d'instantané avec des données aléatoires complètes
++
+image::diagrams/snapshot/snapshot_hash_ssd_perf.png[Image]
++
+ ** Disque{nbsp}: 200 GiB HDD optimisé pour le débit (st1)
+  *** 30 GiB d'instantané avec des données aléatoires complètes
++
+image::diagrams/snapshot/snapshot_hash_hdd_perf.png[Image]
+
+== Recommandation
+
+La fonctionnalité aide à détecter la corruption des données dans les fichiers de disque d'instantané des volumes. Cependant, le calcul de la somme de contrôle impacte négativement les performances de stockage. Pour réduire cet impact, les recommandations sont
+
+* Le hachage et la vérification des fichiers de disque d'instantané peuvent être programmés en dehors des heures de pointe par le paramètre global `snapshot-data-integrity-cronjob`.
+* Désactiver le paramètre global `snapshot-data-integrity-immediate-check-after-snapshot-creation`.

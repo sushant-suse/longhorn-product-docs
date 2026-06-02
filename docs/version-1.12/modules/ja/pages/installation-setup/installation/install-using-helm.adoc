@@ -1,0 +1,88 @@
+= Helmを使用して{longhorn-product-name}をインストールします。
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 前提条件
+
+[NOTE]
+====
+{longhorn-product-name}のインストールには、SUSE Application Collectionへの認証されたアクセスが必要です。詳細については、 https://docs.apps.rancher.io/get-started/authentication[認証ガイド]を確認してください。
+====
+
+=== [ツール]
+
+* https://helm.sh/docs/[Helm]のバージョン3.0以降が必要です。
+* xref:longhorn-system/system-access/longhorn-cli.adoc[Longhornコマンドラインツール]を使用して、{longhorn-product-name}環境の潜在的な問題を確認できます。
+
+=== Kubernetes環境
+
+* 各ノードがxref:installation-setup/requirements.adoc[インストール要件]を満たすKubernetesクラスターが必要です。
+
+=== 認証
+
+* SUSE Application Collection OCIチャートリポジトリにHelmを認証するには、 https://docs.apps.rancher.io/get-started/authentication/#helm[Helm認証ドキュメント]を参照してください。
+* Kubernetesがレジストリからイメージをプルできるようにするには、 https://docs.apps.rancher.io/get-started/authentication/#kubernetes[Kubernetes認証ドキュメント]に従ってシークレットを作成し、`global.imagePullSecrets`チャート値を設定してください。
+
+== インストール
+
+. デフォルト設定で{longhorn-product-name}をインストールするには、次のコマンドを実行します：
++
+[subs="+attributes",shell]
+----
+helm install longhorn oci://dp.apps.rancher.io/charts/suse-storage \
+  --namespace longhorn-system \
+  --create-namespace \
+  --version <version> \ # Replace with the version you would like to install
+  --set global.imagePullSecrets=<PULL_IMAGE_SECRET>
+----
+
+. デプロイメントが成功したことを確認するには、次のコマンドを実行します：
++
+[,bash]
+----
+kubectl -n longhorn-system get pod
+----
++
+結果は次のようになります：
++
+[,bash]
+----
+NAME                                                READY   STATUS    RESTARTS   AGE
+longhorn-ui-b7c844b49-w25g5                         1/1     Running   0          2m41s
+longhorn-manager-pzgsp                              1/1     Running   0          2m41s
+longhorn-driver-deployer-6bd59c9f76-lqczw           1/1     Running   0          2m41s
+longhorn-csi-plugin-mbwqz                           2/2     Running   0          100s
+csi-snapshotter-588457fcdf-22bqp                    1/1     Running   0          100s
+csi-snapshotter-588457fcdf-2wd6g                    1/1     Running   0          100s
+csi-provisioner-869bdc4b79-mzrwf                    1/1     Running   0          101s
+csi-provisioner-869bdc4b79-klgfm                    1/1     Running   0          101s
+csi-resizer-6d8cf5f99f-fd2ck                        1/1     Running   0          101s
+csi-provisioner-869bdc4b79-j46rx                    1/1     Running   0          101s
+csi-snapshotter-588457fcdf-bvjdt                    1/1     Running   0          100s
+csi-resizer-6d8cf5f99f-68cw7                        1/1     Running   0          101s
+csi-attacher-7bf4b7f996-df8v6                       1/1     Running   0          101s
+csi-attacher-7bf4b7f996-g9cwc                       1/1     Running   0          101s
+csi-attacher-7bf4b7f996-8l9sw                       1/1     Running   0          101s
+csi-resizer-6d8cf5f99f-smdjw                        1/1     Running   0          101s
+instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc   1/1     Running   0          114s
+engine-image-ei-df38d2e5-cv6nc                      1/1     Running   0          114s
+----
+
+. UIへのアクセスを有効にするには、Ingressコントローラーを設定する必要があります。UIへの認証はデフォルトで有効になっていません。基本認証を使用したNGINX Ingressコントローラーの作成に関する情報は、xref:longhorn-system/system-access/create-ingress.adoc[Ingressセクションの作成]を参照してください。
+. xref:longhorn-system/system-access/system-access.adoc[システムアクセス手順]を使用してUIにアクセスします。
+
+=== 設定
+
+{longhorn-product-name} Helmチャートは、特定のニーズに応じた広範な設定オプションを提供します。これらのオプションは、`values.yaml`ファイルを提供するか、`--set`フラグを使用して`helm install`または`helm upgrade`の際に設定できます。
+
+一般的に設定可能な側面には以下が含まれます：
+
+* **ストレージクラス**:デフォルトのStorageClass設定です。
+* **UI設定**:{longhorn-product-name} UIのためのIngress構成、サービスタイプ、および認証オプション。
+* **マネージャーとエンジンの設定**:{longhorn-product-name} コアコンポーネントのリソース制限、レプリカ数、およびその他の運用パラメータ。
+* **ノードとディスクの管理**:自動ディスクプロビジョニング、ノードセレクター、およびトレランス。
+* **CSIドライバー**:コンテナストレージインターフェースコンポーネントに特有の設定。
+* **ネットワーキング**:サービスタイプとネットワークポリシー。
+
+すべての利用可能なパラメータとその説明の包括的なリストについては、公式のxref:installation-setup/installation/helm-values.adoc[{longhorn-product-name} Helm Chartドキュメント]およびチャートのリポジトリ内の`values.yaml`ファイルを参照してください。

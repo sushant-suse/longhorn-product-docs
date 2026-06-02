@@ -1,0 +1,71 @@
+= Volumes trennen
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Fahren Sie alle Kubernetes-Pods herunter, die Longhorn-Volumes verwenden, um die Volumes zu trennen. Der einfachste Weg, dies zu erreichen, besteht darin, alle Workloads zu löschen und sie später nach dem Upgrade erneut zu erstellen. Wenn dies nicht wünschenswert ist, können einige Workloads pausiert werden.
+
+Jeder Workload kann so modifiziert werden, dass seine Pods heruntergefahren werden.
+
+== Bereitstellung
+
+Bearbeiten Sie die Implementierung mit `kubectl edit deploy/<name>`.
+
+Setzen Sie `.spec.replicas` auf `0`.
+
+== StatefulSet
+
+Bearbeiten Sie das StatefulSet mit `kubectl edit statefulset/<name>`.
+
+Setzen Sie `.spec.replicas` auf `0`.
+
+== DaemonSet
+
+Bearbeiten Sie das DaemonSet mit `kubectl edit ds/<name>`.
+
+Fügen Sie einen nodeSelector zur Pod-Spezifikation hinzu:
+
+[,yaml]
+----
+spec:
+  template:
+    spec:
+      nodeSelector:
+        no-schedule: "true"
+----
+
+== Pod
+
+Löschen Sie den Pod mit `kubectl delete pod/<name>`.
+
+Es gibt keine Möglichkeit, einen Pod, der nicht von einem Workload-Controller verwaltet wird, zu pausieren.
+
+== CronJob
+
+Bearbeiten Sie den CronJob mit `kubectl edit cronjob/<name>`.
+
+Setzen Sie `.spec.suspend` auf `true`.
+
+Warten Sie, bis alle derzeit ausgeführten Jobs abgeschlossen sind, oder beenden Sie sie, indem Sie die entsprechenden Pods löschen.
+
+== Auftrag
+
+Erwägen Sie, den einmaligen Job abzuschließen.
+
+Andernfalls löschen Sie den Job mit `kubectl delete job/<name>`.
+
+== ReplicaSet
+
+Bearbeiten Sie das ReplicaSet mit `kubectl edit replicaset/<name>`.
+
+Setzen Sie `.spec.replicas` auf `0`.
+
+== ReplicationController
+
+Bearbeiten Sie den Replikationscontroller mit `kubectl edit rc/<name>`.
+
+Setzen Sie `.spec.replicas` auf `0`.
+
+Warten Sie, bis die von Kubernetes verwendeten Volumes das Trennen abgeschlossen haben.
+
+Trennen Sie dann alle verbleibenden Volumes über die Longhorn-Benutzeroberfläche. Diese Volumes wurden höchstwahrscheinlich außerhalb von Kubernetes über die Longhorn-Benutzeroberfläche oder die REST-API erstellt und angehängt.

@@ -1,0 +1,22 @@
+= コマンドラインインタフェース（CLI）
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:description: Longhornの操作とトラブルシューティングのためのコマンドラインインタフェース（CLI）。
+:current-version: {page-component-version}
+
+`longhornctl`ツールはLonghorn操作のためのコマンドラインインタフェース（CLI）です。Kubernetesカスタムリソース（CR）を作成し、クラスター内およびホスト操作のために専用のPod内でコマンドを実行することで、Longhornと対話します。
+
+== 一般的な使用シナリオ
+
+* *［Installation (インストール)］:*
+ ** `longhornctl install preflight`:Longhornをインストールする前に、事前依存関係のインストールとセットアップを行います。
+* *操作:*
+ ** `longhornctl export replica`:Longhornレプリカのデータディレクトリから、ホストマシンの指定されたディレクトリにデータを抽出します。これは、Longhornが利用できないときにデータを回復するのに役立ちます。
+ ** `longhornctl trim volume`:Longhornボリューム内の未使用のストレージスペースを回収します。
+* *問題解決:*
+ ** `longhornctl check preflight`:使用前に潜在的な問題を特定します。
+ ** `longhornctl get replica`:ホスト上のLonghornレプリカに関する詳細を取得します。
+
+== 使用方法
+
+利用可能なコマンドに関する詳細は、GitHubリポジトリの https://github.com/longhorn/cli/tree/v{patch-version}/docs/longhornctl.md[このドキュメント]を参照するか、ターミナルで`longhornctl help`を実行してください。

@@ -1,0 +1,80 @@
+= CSIコンポーネントポッドのアンチアフィニティ
+:revdate: 2025-12-02
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+この文書では、Longhorn CSIコンポーネントのポッドアンチアフィニティを構成する方法について説明します。
+ポッドアンチアフィニティは、複数のCSIコンポーネントのレプリカが同じノードで実行されないようにすることで、特に小規模クラスターにおいてストレージの耐障害性を高めます。
+
+ポッドアンチアフィニティの詳細については、Kubernetesのドキュメントを参照してください。 https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity[ポッド間のアフィニティとアンチアフィニティ]。
+
+== Longhorn CSIコンポーネントのポッドアンチアフィニティの構成
+
+これらのLonghorn CSIコンポーネントのポッドアンチアフィニティを構成できます：
+
+* `csi-attacher`
+* `csi-provisioner`
+* `csi-resizer`
+* `csi-snapshotter`
+
+`podAntiAffinityPreset`設定は次の値を受け入れます：
+
+* *ソフト*（デフォルト）：`preferredDuringSchedulingIgnoredDuringExecution`を使用したベストエフォートルール。スケジューラーは、複数のCSIレプリカを同じノードに配置しないように試みますが、これは保証されません。
+
+* *ハード*：`requiredDuringSchedulingIgnoredDuringExecution`を使用した厳格なルール。スケジューラーは、アンチアフィニティルールに違反するノードへのポッド配置をブロックします。適切なノードが存在しない場合、ポッドは`Pending`状態のままになることがあります。
+
+== {longhorn-product-name}インストール中の構成
+
+初期インストール中に、次のいずれかの方法を使用してポッドアンチアフィニティを設定できます。
+
+=== Rancherを使用する
+
+Rancher UIを通じて{longhorn-product-name}をインストールする際に、*YAMLとして編集*を選択し、YAMLに次のパラメータを追加します：
+
+[source, yaml]
+----
+csi:
+    podAntiAffinityPreset: "hard"
+----
+
+=== Helmを使用する
+
+Helmを使用して{longhorn-product-name}をインストールする際に、`csi.podAntiAffinityPreset`ファイル内の`values.yaml`値を設定します：
+
+[source, yaml]
+----
+csi:
+  podAntiAffinityPreset: hard
+----
+
+`values.yaml`ファイルに追加した後、通常通りチャートをインストールします。
+
+=== Kubectlの使用
+
+{longhorn-product-name}を使用して`kubectl`をデプロイする場合は、`longhorn-driver-deployer`デプロイメントを手動で編集し、コンテナ仕様に次の環境変数を追加します：
+
+[source, yaml]
+----
+- name: CSI_POD_ANTIAFFINITY_PRESET
+  value: hard
+----
+
+== {longhorn-product-name}のインストール後の設定
+
+[WARNING]
+====
+デプロイメントの編集は、`longhorn-driver-deployer`とすべてのCSIポッドを再デプロイします。
+====
+
+既存のインストールを更新するには、`longhorn-driver-deployer`デプロイメントを手動で編集し、コンテナ仕様に次の環境変数を追加します：
+
+[source, yaml]
+----
+- name: CSI_POD_ANTIAFFINITY_PRESET
+  value: hard
+----
+
+
+== 履歴
+
+* https://github.com/longhorn/longhorn/issues/11617[元の機能リクエスト]。

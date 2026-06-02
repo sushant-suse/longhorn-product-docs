@@ -1,0 +1,21 @@
+= Von einer vollen Festplatte wiederherstellen
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Wenn eine Festplatte, die von einem der Longhorn-Replikate verwendet wird, voll ist, gerät dieses Replikat in einen Fehlerzustand, und Longhorn baut ein neues Replikat auf einem anderen Knoten bzw. einer anderen Festplatte auf.
+
+Um eine volle Festplatte wiederherzustellen,
+
+. Deaktivieren Sie die Planung für die volle Festplatte.
++
+Longhorn sollte die Festplatte bereits als `unschedulable` markiert haben.
++
+Dieser Schritt dient dazu, sicherzustellen, dass die Festplatte nach der Freigabe von mehr Speicherplatz nicht versehentlich wieder eingeplant wird.
+
+. Identifizieren Sie die Replikate im Fehlerzustand auf der Festplatte über die Festplattenseite der Longhorn-Benutzeroberfläche.
+. Entfernen Sie die Replikate im Fehlerzustand.
+
+== Empfohlen nach der Wiederherstellung
+
+Wir empfehlen, dem Knoten, bei dem diese Situation aufgetreten ist, entweder weitere Festplatten oder mehr Speicherplatz hinzuzufügen.

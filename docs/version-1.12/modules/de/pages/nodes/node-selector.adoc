@@ -1,0 +1,120 @@
+= Knotenauswahl
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+Wenn Sie die Longhorn-Komponenten auf eine bestimmte Gruppe von Knoten beschränken möchten, können Sie die Knotenauswahl für alle Longhorn-Komponenten festlegen.
+Zum Beispiel möchten Sie Longhorn in einem Cluster installieren, der sowohl Linux-Knoten als auch Windows-Knoten hat, aber Longhorn kann nicht auf Windows-Knoten ausgeführt werden.
+In diesem Fall können Sie die Knotenauswahl festlegen, um Longhorn nur auf Linux-Knoten auszuführen.
+
+Für weitere Informationen darüber, wie die Knotenauswahl funktioniert, siehe die https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector[offizielle Kubernetes-Dokumentation.]
+
+== Einrichten der Knotenauswahl für Longhorn
+
+Longhorn besteht aus benutzerbereitgestellten Komponenten (zum Beispiel Longhorn Manager, Longhorn Driver und Longhorn UI) und systemverwalteten Komponenten (zum Beispiel Instance Manager, Backing Image Manager, Share Manager, CSI Driver und Engine Image).
+Sie müssen die Knotenauswahl für beide Arten von Komponenten festlegen. Siehe weitere Details unten.
+
+[discrete]
+=== Einrichten der Knotenauswahl während der Installation von Longhorn
+
+. Legen Sie die Knotenauswahl für benutzerbereitgestellte Komponenten (zum Beispiel Longhorn Manager, Longhorn Driver und Longhorn UI) fest.
+ ** Wenn Sie Longhorn über Rancher installieren, müssen Sie die folgenden Parameter in das YAML auf der Rancher UI kopieren und einfügen (klicken Sie während der Installation auf *Bearbeiten als YAML*), um den Wert auf alle benutzerbereitgestellten Komponenten anzuwenden.
++
+[subs="+attributes",yaml]
+----
+   global:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** Sie können auch die Knotenauswahl für jede benutzerbereitgestellte Komponente angeben, und sie wird die globale Einstellung überschreiben.
++
+[subs="+attributes",yaml]
+----
+   longhornManager:
+     nodeSelector:
+       label-key1: "label-value1"
+   longhornDriver:
+     nodeSelector:
+       label-key1: "label-value1"
+   longhornUI:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** Wenn Sie Longhorn mit `kubectl` installieren, um https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml[das Bereitstellungs-YAML] anzuwenden, müssen Sie den Abschnitt zur Knotenauswahl für Longhorn Manager, Longhorn UI und Longhorn Driver Deployer ändern.
+ Wenden Sie dann die YAML-Dateien an.
+ ** Wenn Sie Longhorn mit Helm installieren, können Sie die Helm-Werte für `global.nodeSelector`, `longhornManager.nodeSelector`, `longhornUI.nodeSelector`, `longhornDriver.nodeSelector` in der `values.yaml` Datei vor der Installation des Charts ändern.
+. Legen Sie die Knotenauswahl für systemverwaltete Komponenten (zum Beispiel Instance Manager, Backing Image Manager, Share Manager, CSI Driver und Engine Image) fest.
++
+Befolgen Sie die xref:longhorn-system/customize-default-settings.adoc[Standardwerte anpassen], um die Knotenauswahl festzulegen, indem Sie den Wert für die `system-managed-components-node-selector` Standardeinstellung ändern.
++
+[NOTE]
+====
+Aufgrund der Einschränkung von Rancher 2.5.x müssen Sie, wenn Sie die Rancher UI verwenden, um Longhorn zu installieren, auf `Edit As Yaml` klicken und die Einstellung `systemManagedComponentsNodeSelector` zu `defaultSettings` hinzufügen.
+
+Beispiel:
+
+[subs="+attributes",yaml]
+----
+defaultSettings:
+  systemManagedComponentsNodeSelector: "label-key1:label-value1"
+----
+====
+
+[discrete]
+=== Knotenauswahl nach der Installation von Longhorn einrichten
+
+____
+*Warnung*:
+
+* Da alle Longhorn-Komponenten neu gestartet werden, ist das Longhorn-System vorübergehend nicht verfügbar.
+* Wenn alle Longhorn-Volumes getrennt sind, werden die benutzerdefinierten Einstellungen sofort auf die systemverwalteten Komponenten (zum Beispiel Instance Manager, CSI Driver und Engine Images) angewendet.
+* Wenn eines oder mehrere Longhorn-Volumes noch angeschlossen sind, wird die benutzerdefinierte Einstellung nur auf den Instance Manager angewendet, wenn keine Engines und Replikatinstanzen ausgeführt werden. Sie müssen die Einstellung nach dem Trennen der verbleibenden Volumes neu konfigurieren. Alternativ können Sie auf die nächste Einstellungssynchronisierung warten, die in einer Stunde stattfinden wird.
+* Betreiben Sie das Longhorn-System nicht, während die Knotenauswahl-Einstellungen aktualisiert werden und die Longhorn-Komponenten neu gestartet werden.
+____
+
+. Bereiten Sie sich
+ ** Um sicherzustellen, dass Ihre bevorzugten Einstellungen sofort angewendet werden, stoppen Sie alle Arbeitslasten und trennen Sie alle Longhorn-Volumes, bevor Sie sie anwenden.
+. Legen Sie die Knotenauswahl für benutzerbereitgestellte Komponenten (zum Beispiel Longhorn Manager, Longhorn Driver und Longhorn UI) fest.
+ ** Wenn Sie Longhorn über Rancher installieren, müssen Sie die folgenden Parameter in das YAML auf der Rancher-Benutzeroberfläche kopieren und einfügen (klicken Sie *Edit as YAML* während des Upgrades), um den Wert auf alle benutzerbereitgestellten Komponenten anzuwenden.
++
+[subs="+attributes",yaml]
+----
+   global:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** Sie können auch die Knotenauswahl für jede benutzerbereitgestellte Komponente angeben, und diese wird die globale Einstellung überschreiben.
++
+[subs="+attributes",yaml]
+----
+  longhornManager:
+    nodeSelector:
+      label-key1: "label-value1"
+  longhornDriver:
+    nodeSelector:
+      label-key1: "label-value1"
+  longhornUI:
+    nodeSelector:
+      label-key1: "label-value1"
+----
+
+ ** Wenn Sie Longhorn mit `kubectl` installieren, um https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml[das Bereitstellungs-YAML] anzuwenden, müssen Sie den Abschnitt zur Knotenauswahl für Longhorn Manager, Longhorn UI und Longhorn Driver Deployer ändern.
+Wenden Sie dann die YAML-Dateien erneut an.
+ ** Wenn Sie Longhorn mit Helm installieren, können Sie die Helm-Werte für `global.nodeSelector`, `longhornManager.nodeSelector`, `longhornUI.nodeSelector`, `longhornDriverDeployer.nodeSelector` in der `values.yaml`-Datei ändern und dann `helm upgrade` ausführen, um auf die neue Version des Charts zu aktualisieren.
+. Legen Sie die Knotenauswahl für systemverwaltete Komponenten (zum Beispiel Instance Manager, Backing Image Manager, Share Manager, CSI Driver und Engine Image) fest.
++
+Die Einstellung der Knotenauswahl finden Sie in der Longhorn-Benutzeroberfläche unter menu:Einstellungen[Knotenauswahl für systemverwaltete Komponenten].
+
+. Aufräumen
++
+Wenn Sie die Knotenauswahl so ändern, dass Longhorn auf einigen Knoten, auf denen Longhorn derzeit ausgeführt wird, nicht mehr ausgeführt werden kann, werden diese Knoten nach diesem Prozess den Zustand `down` annehmen. Überprüfen Sie, dass auf diesen Knoten keine Replikate mehr vorhanden sind.
+Deaktivieren Sie die Planung für diese Knoten und löschen Sie sie in der Longhorn-Benutzeroberfläche.
+
+== Verlauf
+
+* https://github.com/longhorn/longhorn/issues/2199[Ursprüngliche Funktionsanforderung]

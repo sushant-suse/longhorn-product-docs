@@ -1,0 +1,112 @@
+= Trim o Sistema de Arquivos
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+O Longhorn suporta trim do sistema de arquivos dentro dos volumes Longhorn. O trim irá recuperar espaço desperdiçado pelos arquivos removidos do sistema de arquivos.
+
+[NOTE]
+====
+
+
+* O trim de arquivos removidos em instantâneos não tem efeito no sistema de arquivos porque instantâneos válidos são imutáveis. O sistema de arquivos lembra sempre que realizou trim em blocos associados a um instantâneo. Por causa disso, pode ser necessário desmontar e montar novamente o sistema de arquivos antes de tentar fazer trim em um instantâneo que foi marcado como removido.
+* Se você permitir a remoção automática de instantâneos durante o trim do sistema de arquivos, use a opção de montagem `discard` com cautela. `discard` frequentemente aciona a remoção de instantâneos e interrompe operações como a criação de backups.
+====
+
+== Pré-requisitos
+
+* A versão do Longhorn deve ser v1.4.0 ou superior.
+* Há um sistema de arquivos compatível com trim, como EXT4 ou XFS, dentro do volume Longhorn.
+* O volume está anexado e montado em um ponto de montagem antes do ajuste.
+
+== Trim o sistema de arquivos em um volume Longhorn
+
+Você pode fazer trim em um volume Longhorn usando a interface do Longhorn ou o comando `fstrim`.
+
+=== Via interface do Longhorn
+
+Você pode clicar diretamente na operação do volume `Trim Filesystem` para volumes anexados.
+
+Então o Longhorn irá *fazer o seu melhor* para descobrir o ponto de montagem e executar `fstrim <the mount point>`.  Se algo estiver errado ou o sistema de arquivos não existir, a interface retornará um erro.
+
+=== Via comando de shell
+
+Ao usar `fstrim`, você deve identificar o ponto de montagem do volume e, em seguida, executar o comando `fstrim <the mount point>`.
+
+* Volume RWO: O ponto de montagem é um pod da carga de trabalho ou o nó ao qual o volume foi anexado manualmente.
+* Volume RWX: O ponto de montagem é o pod do gerenciador de compartilhamento do volume. O pod do gerenciador de compartilhamento contém o servidor NFS e geralmente é nomeado como `share-manager-<volume name>`.
+
+Para fazer trim em um volume RWX, execute os seguintes passos:
+
+. Identifique e, em seguida, abra um shell dentro do pod do gerenciador de compartilhamento do volume.
++
+----
+ kubectl -n longhorn-system exec -it <the share manager pod> -- bash
+----
+
+. Identifique o diretório de trabalho do servidor NFS (por exemplo, `/export/<volume name>`).
++
+----
+ mount | grep <volume name>
+ /dev/longhorn/<volume name> on /export/<volume name> type ext4 (rw,relatime)
+----
+
+. Trim o diretório de trabalho.
++
+----
+ fstrim /export/<volume name>
+----
+
+==== Trim periodicamente o sistema de arquivos
+
+Você pode configurar um xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc#_set_up_recurring_jobs[RecurringJob] para fazer trim periodicamente no sistema de arquivos.
+
+== Remover automaticamente instantâneos durante o trim do sistema de arquivos
+
+Por design, instantâneos válidos de volumes Longhorn são imutáveis, portanto, você só pode usar o recurso de trim do sistema de arquivos com os seguintes:
+
+* Cabeça do volume
+* Cadeia contínua anterior de instantâneos criados pelo sistema ou marcados como removidos
+
+Se a maior parte do espaço real consumido por um volume estiver associada a instantâneos válidos, a operação de trim não é muito eficaz.
+
+=== Configuração Global: "Remover Instantâneos Durante o Trim do Sistema de Arquivos"
+
+Se você quiser que o Longhorn recupere automaticamente a maior quantidade de espaço, pode habilitar a configuração xref:longhorn-system/settings.adoc#_remove_snapshots_during_filesystem_trim[_Remover Instantâneos Durante o Trim do Sistema de Arquivos_].
+Quando esta configuração global está habilitada, o instantâneo mais recente e a cadeia contínua anterior de instantâneos são automaticamente marcados como removidos, permitindo que o Longhorn recupere espaço para o maior número possível de instantâneos. No entanto, a configuração pode causar a remoção (e eventual purgação) de instantâneos que você criou intencionalmente.
+
+=== O campo de especificação de volume "UnmapMarkSnapChainRemoved"
+
+Há um campo por volume `volume.Spec.UnmapMarkSnapChainRemoved` que sobrescreve a configuração global mencionada acima.
+
+As opções para essa configuração específica de volume são "desativado", "ativado" e "ignorado". Quando o valor é "ignorado", a configuração global entra em vigor.
+
+Você pode configurar essa definição em uma StorageClass para que o valor seja aplicado a todos os volumes criados usando essa StorageClass.
+
+== Problemas Conhecidos e Limitações
+
+=== Reconstruindo Volumes
+
+Por design, o Longhorn desassocia blocos no cabeçalho do volume e na cadeia contínua anterior de instantâneos marcados como removidos. Alguns desses instantâneos podem ser movidos de uma réplica para outra durante a reconstrução do volume, então o Longhorn não consegue fazer trim no sistema de arquivos dos volumes afetados enquanto a reconstrução está em andamento.
+
+Como a reconstrução pode levar muito tempo, o Longhorn simplesmente não desassocia blocos durante uma reconstrução em vez de retornar um erro de E/S para o sistema de arquivos. Esse comportamento beneficia especialmente cargas de trabalho de VM, que respondem mal quando tentativas repetidas de completar uma redução retornam erros. Consulte https://github.com/longhorn/longhorn/issues/7103[Issue #7103] para mais informações.
+
+Uma operação de redução que é iniciada durante a reconstrução não tem efeito. Futuras operações de redução no mesmo volume montado também podem não ter efeito porque o sistema de arquivos se lembra de quais blocos foram reduzidos. Você pode precisar desmontar e montar novamente o sistema de arquivos antes de tentar iniciar a operação de redução novamente.
+
+=== Expandindo Volumes
+
+O Longhorn não consegue fazer trim no sistema de arquivos durante a expansão do volume. Como a expansão é rápida, o Longhorn retorna um erro de E/S sempre que o problema é encontrado. O sistema de arquivos reconhece que os blocos não foram submetidos ao trim e pode tentar novamente sem uma nova montagem.
+
+=== Volumes Criptografados
+
+* Por padrão, os comandos TRIM não estão habilitados pelo device-mapper. Você pode verificar https://wiki.archlinux.org/title/Dm-crypt/Specialties#Discard/TRIM_support_for_solid_state_drives_(SSD)[este documento] para mais detalhes.
+* Se você ainda quiser fazer o trim de um volume Longhorn criptografado, você pode:
+ .. Acesse o nó host ao qual o volume está anexado.
+ .. Habilite a flag `discards` para o volume criptografado. A frase secreta está registrada no segredo correspondente:
++
+[subs="+attributes",shell]
+----
+  cryptsetup --allow-discards --persistent refresh <Longhorn volume name>
+----
+
+ .. Use diretamente a interface do Longhorn para fazer o trim do volume ou execute `fstrim` para *o ponto de montagem* de `/dev/mapper/<volume name>` manualmente.

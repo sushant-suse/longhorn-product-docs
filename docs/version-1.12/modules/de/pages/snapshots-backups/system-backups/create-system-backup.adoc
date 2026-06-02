@@ -1,0 +1,165 @@
+= Erstellen Sie eine {longhorn-product-name} System-Sicherung
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== System-Sicherungs-Bundle
+
+Die Longhorn-System-Sicherung erstellt ein Ressourcen-Bundle und lädt es in das entfernte Sicherungs-Ziel hoch.
+
+Es umfasst die folgenden Ressourcen, die mit dem Longhorn-System verbunden sind:
+
+* BackingImages
+* ClusterRoles
+* ClusterRoleBindings
+* ConfigMaps
+* CustomResourceDefinitions
+* DaemonSets
+* Implementierungen
+* EngineImages
+* PersistentVolumes
+* PersistentVolumeClaims
+* RecurringJobs
+* Rollen
+* RoleBindings
+* Einstellungen
+* Services
+* ServiceAccounts
+* StorageClasses
+* Volumes
+
+[NOTE]
+====
+* Das Standard-Sicherungs-Ziel (`default`) wird immer verwendet, um System-Sicherungen zu speichern.
+* Das Longhorn-System-Sicherungs-Bundle umfasst nur Ressourcen, die von Longhorn betrieben werden.
+* Longhorn sichert die `Nodes` Ressource nicht. Der Longhorn-Manager im Ziel-Cluster ist verantwortlich für die Erstellung seiner eigenen Longhorn `Node` benutzerdefinierten Ressourcen.
+* Longhorn kann V2 Data Engine Sicherungsabbilder nicht sichern.
+====
+
+== Erstellen Sie eine System-Sicherung
+
+Sie können eine Longhorn-System-Sicherung über die Longhorn-Benutzeroberfläche erstellen. Oder mit dem `kubectl` Befehl.
+
+=== Voraussetzungen
+
+* xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[]. Longhorn speichert die System-Sicherungen im entfernten Sicherungs-Speicher. Sie werden während der Erstellung einen Fehler sehen, wenn das Sicherungs-Ziel nicht festgelegt ist.
++
+NOTE: Das Entfernen des Sicherungs-Ziels löscht die vorhandene `SystemBackup` benutzerdefinierte Ressource. Longhorn synchronisiert mit dem entfernten Sicherungs-Speicher, nachdem das Sicherungs-Ziel festgelegt wurde. Ein anderer Cluster kann ebenfalls mit derselben Liste von System-Sicherungen synchronisieren, wenn das Sicherungs-Ziel dasselbe ist.
+
+* Erstellen Sie eine Sicherung für alle Volumes (optional).
++
+NOTE: Longhorn stellt das Volume mit der neuesten Sicherung wieder her. Wir empfehlen, die letzte Sicherung für alle Volumes zu aktualisieren. Durch das Erstellen von Volume-Sicherungen stellen Sie sicher, dass die Daten mit der System-Sicherung auf dem neuesten Stand sind. Für weitere Informationen verweisen Sie bitte auf den Abschnitt <<_volume_backup_policy,Konfiguration - Volume-Sicherungs-Richtlinie>>.
+
+=== Konfiguration
+
+==== Volume-Sicherungs-Richtlinie
+
+Die Longhorn-System-Sicherung bietet die folgenden Optionen für die Volume-Sicherungs-Richtlinie:
+
+* `if-not-present`: Longhorn erstellt eine Sicherung für Volumes, die entweder keine vorhandene Sicherung haben oder eine veraltete neueste Sicherung besitzen.
+* `always`: Longhorn erstellt eine Sicherung für alle Volumes, unabhängig von ihren vorhandenen Sicherungen.
+* `disabled`: Longhorn erstellt keine Sicherungen für Volumes.
+
+=== Einmalige Sicherung
+
+==== Erstellen Sie eine System-Sicherung über die Benutzeroberfläche
+
+. Gehen Sie zur `System Backups` Seite in der `Backup and Restore` Dropdownliste.
+. Klicken Sie auf `Create` unter `System Backup`.
+. Geben Sie ein `Name` für die System-Sicherung an.
+. Wählen Sie ein `Volume Backup Policy` für die System-Sicherung aus.
+. Die System-Sicherung ist einsatzbereit, wenn der Status auf `Ready` wechselt.
+
+==== Erstellen Sie eine System-Sicherung über `kubectl`
+
+. Führen Sie `kubectl create` aus, um eine {longhorn-product-name} `SystemBackup` benutzerdefinierte Ressource zu erstellen.
++
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: SystemBackup
+metadata:
+  name: demo
+  namespace: longhorn-system
+spec:
+  volumeBackupPolicy: if-not-present
+----
+
+. Die System-Sicherung wird einsatzbereit sein, wenn der Status auf `Ready` wechselt.
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME   VERSION   STATE   CREATED
+demo   v1.4.0    Ready   2022-11-24T04:23:24Z
+----
+
+=== Wiederkehrender Job
+
+==== Erstellen Sie einen wiederkehrenden Sicherungsjob über die Benutzeroberfläche
+
+. Gehen Sie zum Bildschirm *Wiederkehrende Jobs*.
+
+. Klicken Sie auf *Wiederkehrenden Job erstellen*.
+
+. Konfigurieren Sie die folgenden Einstellungen:
++
+* *Name*: Geben Sie einen Namen für den wiederkehrenden Job an.
+* *Aufgabe*: Wählen Sie *System-Sicherung* aus.
+* *Beibehalten*: Geben Sie die Anzahl der System-Sicherungen an, die {longhorn-product-name} beibehalten muss.
+* *Cron*: Geben Sie den Cron-Ausdruck an (eine Zeichenfolge, die aus durch Leerzeichen getrennten Feldern besteht), der die Zeitplan-Eigenschaften definiert.
+* *Parameter*: Wählen Sie *Volume-Sicherungs-Richtlinie*.
+
+. Klicken Sie auf *OK*.
+
+{longhorn-product-name} erstellt System-Sicherungen gemäß dem im *Cron* Feld definierten Zeitplan.
+
+==== Erstellen Sie einen wiederkehrenden Sicherungsjob mit `kubectl`
+
+Führen Sie `kubectl create` aus, um eine {longhorn-product-name} `RecurringJob` benutzerdefinierte Ressource mit der Aufgabe `system-backup` zu erstellen.
+
+Beispiel:
+
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: demo
+  namespace: longhorn-system
+spec:
+  task: system-backup
+  cron: '* * * * *'
+  retain: 1
+  parameters:
+    volume-backup-policy: if-not-present
+----
+
+{longhorn-product-name} erstellt System-Sicherungen gemäß dem im `cron` Feld definierten Zeitplan.
+
+== System-Sicherungen löschen
+
+Sie können die Longhorn-System-Sicherung im Remote-Backup-Ziel über die Longhorn-Benutzeroberfläche löschen. Oder mit dem `kubectl` Befehl.
+
+=== Löschen einer System-Sicherung über die Longhorn-Benutzeroberfläche
+
+. Gehen Sie zur `System Backup` Seite in der `Setting` Dropdownliste.
+. Löschen Sie eine einzelne System-Sicherung im `Operation` Dropdown-Menü neben der System-Sicherung. Oder löschen Sie im Batch mit der `Delete` Schaltfläche.
++
+NOTE: Das Löschen der System-Sicherung führt auch zu einer Löschung im Sicherungs-Speicher.
+
+=== Löschen einer System-Sicherung über `kubectl`
+
+. Führen Sie `kubectl delete` aus, um eine Longhorn `SystemBackup` benutzerdefinierte Ressource zu löschen.
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME   VERSION   STATE   CREATED
+demo   v1.4.0    Ready   2022-11-24T04:23:24Z
+
+> kubectl -n longhorn-system delete systembackup/demo
+systembackup.longhorn.io "demo" deleted
+----
+
+== Verlauf
+
+https://github.com/longhorn/longhorn/issues/1455[Ursprüngliche Funktionsanforderung]

@@ -1,0 +1,146 @@
+= 使用 Argo CD 安装 {longhorn-product-name}
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 先决条件
+
+[NOTE]
+====
+{longhorn-product-name} 安装需要对 SUSE 应用程序集合的认证访问。有关更多详细信息，请查看 https://docs.apps.rancher.io/get-started/authentication[认证指南]。
+====
+
+* 您的工作站：安装 https://argo-cd.readthedocs.io/en/stable/cli_installation/[Argo CD CLI]。
+* Kubernetes 集群：
+ ** 确保每个节点满足 xref:installation-setup/requirements.adoc[安装要求]。
+ ** 安装 https://argo-cd.readthedocs.io/en/stable/[Argo CD]。
++
+[,bash]
+----
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/core-install.yaml
+----
++
+请等待一段时间，以便在 `argocd` 名称空间中部署 Argo CD 组件。
+
+____
+xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn 命令行工具] 可用于检查 {longhorn-product-name} 环境中的潜在问题。
+____
+
+== 安装
+
+. 登录 Argo CD。
++
+[,bash]
+----
+ argocd login --core
+----
+
+. 将当前名称空间设置为 `argocd`。
++
+[,bash]
+----
+ kubectl config set-context --current --namespace=argocd
+----
+
+. 创建 {longhorn-product-name} 应用程序自定义资源。
++
+[subs="+attributes",bash]
+----
+cat > longhorn-application.yaml <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn
+  namespace: argocd
+spec:
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+  project: default
+  sources:
+    - chart: longhorn
+      repoURL: https://charts.longhorn.io/
+      targetRevision: v{{<current-version>}} # Replace with the Longhorn version you'd like to install or upgrade to
+      helm:
+        values: |
+          preUpgradeChecker:
+            jobEnabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: longhorn-system
+  # add ignoreDifferences to prevent preserveUnknownFields field from make causing the application to be out of sync
+  ignoreDifferences:
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: engineimages.longhorn.io
+      jsonPointers: ["/spec/preserveUnknownFields"]
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: engines.longhorn.io
+      jsonPointers: ["/spec/preserveUnknownFields"]
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: instancemanagers.longhorn.io
+      jsonPointers: ["/spec/preserveUnknownFields"]
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: nodes.longhorn.io
+      jsonPointers: ["/spec/preserveUnknownFields"]
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: replicas.longhorn.io
+      jsonPointers: ["/spec/preserveUnknownFields"]
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: settings.longhorn.io
+      jsonPointers: ["/spec/preserveUnknownFields"]
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: volumes.longhorn.io
+      jsonPointers: ["/spec/preserveUnknownFields"]
+EOF
+kubectl apply -f longhorn-application.yaml
+----
+
+. 使用配置的设置部署 {longhorn-product-name}。
++
+[,bash]
+----
+ argocd app sync longhorn
+----
+
+. 验证 {longhorn-product-name} 是否成功安装。
++
+[,bash]
+----
+ kubectl -n longhorn-system get pod
+----
++
+成功安装的示例：
++
+[,bash]
+----
+ NAME                                                READY   STATUS    RESTARTS   AGE
+ longhorn-ui-b7c844b49-w25g5                         1/1     Running   0          2m41s
+ longhorn-manager-pzgsp                              1/1     Running   0          2m41s
+ longhorn-driver-deployer-6bd59c9f76-lqczw           1/1     Running   0          2m41s
+ longhorn-csi-plugin-mbwqz                           2/2     Running   0          100s
+ csi-snapshotter-588457fcdf-22bqp                    1/1     Running   0          100s
+ csi-snapshotter-588457fcdf-2wd6g                    1/1     Running   0          100s
+ csi-provisioner-869bdc4b79-mzrwf                    1/1     Running   0          101s
+ csi-provisioner-869bdc4b79-klgfm                    1/1     Running   0          101s
+ csi-resizer-6d8cf5f99f-fd2ck                        1/1     Running   0          101s
+ csi-provisioner-869bdc4b79-j46rx                    1/1     Running   0          101s
+ csi-snapshotter-588457fcdf-bvjdt                    1/1     Running   0          100s
+ csi-resizer-6d8cf5f99f-68cw7                        1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-df8v6                       1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-g9cwc                       1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-8l9sw                       1/1     Running   0          101s
+ csi-resizer-6d8cf5f99f-smdjw                        1/1     Running   0          101s
+ instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc   1/1     Running   0          114s
+ engine-image-ei-df38d2e5-cv6nc                      1/1     Running   0          114s
+----
+
+. xref:longhorn-system/system-access/create-ingress.adoc[创建一个带基本认证的 NGINX Ingress 控制器] 以访问 UI。默认情况下，UI 的认证未启用。
+. xref:longhorn-system/system-access/system-access.adoc[访问 UI]。

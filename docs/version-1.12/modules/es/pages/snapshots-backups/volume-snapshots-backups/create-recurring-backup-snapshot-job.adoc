@@ -1,0 +1,250 @@
+= Crear un trabajo de instantánea o copia de seguridad recurrente
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Desde la interfaz de usuario de {longhorn-product-name}, el volumen puede referirse a instantáneas y copias de seguridad recurrentes como trabajos independientes o como grupos de trabajos recurrentes.
+
+Para crear un trabajo recurrente, puedes ir a la página `Recurring Jobs` en {longhorn-product-name} y `Create Recurring Job` o en la vista de detalle del volumen en {longhorn-product-name}.
+
+Puedes configurar,
+
+* Cualquier grupo al que deba pertenecer el trabajo
+* El tipo de programación, ya sea `backup`, `backup-force-create`, `snapshot`, `snapshot-force-create`, `snapshot-cleanup`, `snapshot-delete` o `filesystem-trim`
+* La hora en que se creará la copia de seguridad o la instantánea, en forma de una expresión https://en.wikipedia.org/wiki/Cron#CRON_expression[CRON]
+* El número de copias de seguridad o instantáneas a retener
+* El número de trabajos que se ejecutarán de forma concurrente
+* Cualquier etiqueta que deba aplicarse a la copia de seguridad o la instantánea
+* Parámetros que deben aplicarse a la copia de seguridad
+ ** `full-backup-interval`: Número de copias de seguridad incrementales que deben completarse antes de que {longhorn-product-name} realice una copia de seguridad completa. Este parámetro entero se aplica solo a la copia de seguridad. Ten en cuenta que si el valor es 0, {longhorn-product-name} realiza una copia de seguridad incremental cada vez. Para más información, consulta <<_periodic_full_backup,Periodic Full Backup>> y xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[Create a Backup].
+
+Los trabajos recurrentes se pueden configurar utilizando la interfaz de usuario de {longhorn-product-name}, `kubectl`, o mediante el uso de un {longhorn-product-name} `RecurringJob`.
+
+Para añadir un trabajo recurrente a un volumen, irás a la vista de detalle del volumen en {longhorn-product-name}. Luego puedes establecer `Recurring Jobs Schedule`.
+
+* Crear un nuevo trabajo recurrente
+* Selecciona de trabajos recurrentes existentes
+* Selecciona de grupos de trabajos recurrentes existentes
+
+Entonces {longhorn-product-name} creará automáticamente instantáneas o copias de seguridad para el volumen en el momento programado del trabajo recurrente, siempre que el volumen esté adjunto a un nodo.
+Si deseas configurar instantáneas y copias de seguridad recurrentes incluso cuando los volúmenes están desconectados, consulta la sección <<_allow_recurring_job_while_volume_is_detached,Permitir trabajo recurrente mientras el volumen está desconectado>>
+
+Puedes establecer trabajos recurrentes en un volumen Longhorn, una reclamación de volumen persistente de Kubernetes (PVC) o una StorageClass de Kubernetes.
+
+[NOTE]
+====
+Cuando el PVC tiene etiquetas de trabajo recurrente, estas anularán todas las etiquetas de trabajo recurrente del volumen asociado.
+====
+
+Para más información sobre cómo funcionan las instantáneas y las copias de seguridad, consulta la sección xref:introduction/concepts.adoc[conceptos].
+
+[NOTE]
+====
+Para evitar el problema de que los trabajos recurrentes puedan sobrescribir las copias de seguridad/instantáneas antiguas con copias de seguridad idénticas e instantáneas vacías cuando el volumen no tiene nuevos datos durante mucho tiempo, Longhorn hace lo siguiente:
+
+. El trabajo de copia de seguridad recurrente solo toma una nueva copia de seguridad cuando el volumen tiene nuevos datos desde la última copia de seguridad.
+. El trabajo de instantánea recurrente solo toma una nueva instantánea cuando el volumen tiene nuevos datos en su parte activa (los datos en vivo).
+====
+
+== Configura Trabajos Recurrentes
+
+=== Usando la interfaz de usuario {longhorn-product-name}
+
+Las instantáneas y copias de seguridad recurrentes se pueden configurar desde la página `Recurring Job` o la página de detalles del volumen.
+
+=== Usando el manifiesto
+
+También puedes configurar el trabajo recurrente interactuando directamente con el recurso personalizado Longhorn RecurringJob.
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: snapshot-1
+  namespace: longhorn-system
+spec:
+  cron: "* * * * *"
+  task: "snapshot"
+  groups:
+  - default
+  - group1
+  retain: 1
+  concurrency: 2
+  labels:
+    label/1: a
+    label/2: b
+----
+
+Los siguientes parámetros deben especificarse para cada selector de trabajo recurrente:
+
+* `name`: Nombre del trabajo recurrente. No utilices nombres duplicados. Y la longitud de `name` no debe ser mayor de 40 caracteres.
+* `task`: Tipo de trabajo. {longhorn-product-name} admite lo siguiente:
+ ** `backup`: crear instantáneas periódicamente y luego hacer copias de seguridad tras limpiar las instantáneas obsoletas
+ ** `backup-force-create`: crear instantáneas periódicamente y luego hacer copias de seguridad
+ ** `snapshot`: crear instantáneas periódicamente tras limpiar las instantáneas obsoletas
+ ** `snapshot-force-create`: crear instantáneas periódicamente
+ ** `snapshot-cleanup`: purgar periódicamente las instantáneas removibles y las instantáneas del sistema
++
+NOTE: el valor de retención no tiene efecto para esta tarea, {longhorn-product-name} muta automáticamente el valor de `retain` a 0.
+
+ ** `snapshot-delete`: eliminar y purgar periódicamente todo tipo de instantáneas que superen el conteo de retención.
++
+[NOTE]
+====
+El valor de `retain` es independiente de cada trabajo recurrente.
+
+Usando un volumen con 2 trabajos recurrentes como ejemplo:
+
+* `snapshot` con el valor de retención establecido en 5
+* `snapshot-delete`: con el valor de retención establecido en 2
+
+Eventualmente, habrá 2 instantáneas retenidas tras la ejecución completa del trabajo `snapshot-delete`.
+====
+
+ ** `filesystem-trim`: recortar periódicamente el sistema de archivos para recuperar espacio en disco
+* `cron`: Expresión de CRON. Indica el tiempo de ejecución del trabajo.
+* `retain`: Cuántas instantáneas/copias de seguridad {longhorn-product-name} retendrá para cada trabajo de volumen. No debe ser menos de 1.
+* `concurrency`: El número de trabajos que se ejecutarán de forma concurrente. No debe ser menos de 1.
+
+Se pueden especificar parámetros opcionales:
+
+* `groups`: Cualquier grupo al que deba pertenecer el trabajo. Tener `default` en grupos programará automáticamente este trabajo recurrente en cualquier volumen sin trabajo recurrente.
+* `labels`: Cualquier etiqueta que deba aplicarse a la copia de seguridad o instantánea.
+
+== Añadir trabajos recurrentes al grupo predeterminado
+
+Los trabajos recurrentes predeterminados se pueden establecer marcando la casilla `default` utilizando la interfaz de usuario o añadiendo `default` al trabajo recurrente `groups`.
+
+{longhorn-product-name} añadirá automáticamente un volumen al grupo `default` cuando el volumen no tenga trabajo recurrente.
+
+== Eliminar trabajos recurrentes
+
+{longhorn-product-name} elimina automáticamente las etiquetas de trabajo recurrente de Volumen y PVC cuando se elimina un recurso personalizado RecurringJob correspondiente. Sin embargo, si se añade una etiqueta de trabajo recurrente sin un recurso personalizado RecurringJob existente, {longhorn-product-name} no realiza el proceso de limpieza para esa etiqueta.
+
+== Aplicar trabajo recurrente al Volumen {longhorn-product-name}
+
+=== Usando la interfaz de usuario {longhorn-product-name}
+
+El trabajo recurrente se puede asignar en la página de detalles del volumen. Para navegar a la página de detalles del volumen, haz clic en *Volumen* y luego haz clic en el nombre del volumen.
+
+== Usando kubectl
+
+Añadir grupo de trabajo recurrente:
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job-group.longhorn.io/<RECURRING-JOB-GROUP-NAME≥enabled
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job-group.longhorn.io/default=enabled
+----
+
+Añadir trabajo recurrente:
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job.longhorn.io/<RECURRING-JOB-NAME≥enabled
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job.longhorn.io/backup=enabled
+----
+
+Eliminar trabajo recurrente:
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> <RECURRING-JOB-LABEL>-
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job.longhorn.io/backup-
+----
+
+== Con un PersistentVolumeClaim usando kubectl
+
+Por defecto, aplicar un trabajo recurrente a un Persistent Volume Claim (PVC) no tiene ningún efecto. Puedes habilitar o deshabilitar esta función utilizando la etiqueta de origen del trabajo recurrente.
+
+Una vez que el PVC está etiquetado como origen, cualquier etiqueta de trabajo recurrente añadida o eliminada del PVC será sincronizada periódicamente por {longhorn-product-name} con el Volumen asociado.
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job.longhorn.io/source=enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/source=enabled
+----
+
+Añadir grupo de trabajo recurrente:
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job-group.longhorn.io/<RECURRING-JOB-GROUP-NAME≥enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job-group.longhorn.io/default=enabled
+----
+
+Añadir trabajo recurrente:
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job.longhorn.io/<RECURRING-JOB-NAME≥enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/backup=enabled
+----
+
+Eliminar trabajo recurrente:
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> <RECURRING-JOB-LABEL>-
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/backup-
+----
+
+== Con parámetros de StorageClass
+
+La asignación de trabajos recurrentes se puede configurar en los parámetros `recurringJobSelector` en una StorageClass.
+
+Cualquier volumen futuro creado utilizando esta StorageClass tendrá esos trabajos recurrentes asignados automáticamente.
+
+El campo `recurringJobSelector` debe seguir el formato JSON:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  recurringJobSelector: '[
+    {
+      "name":"snap",
+      "isGroup":true
+    },
+    {
+      "name":"backup",
+      "isGroup":false
+    }
+  ]'
+----
+
+Los siguientes parámetros deben especificarse para cada selector de trabajo recurrente:
+
+. `name`: Nombre de un trabajo recurrente existente o de un grupo de trabajos recurrentes existente.
+. `isGroup`: es el nombre que pertenece a un trabajo recurrente o a un grupo de trabajos recurrentes, ya sea `true` o `false`.
+
+== Permitir trabajo recurrente mientras el volumen está desconectado
+
+{longhorn-product-name} proporciona la configuración `allow-recurring-job-while-volume-detached` que te permite realizar copias de seguridad recurrentes incluso cuando un volumen está desconectado.
+Puedes encontrar la configuración en la interfaz de usuario de {longhorn-product-name}.
+
+Cuando la configuración está habilitada, {longhorn-product-name} adjuntará automáticamente el volumen y tomará una instantánea/copia de seguridad cuando sea el momento de realizar una instantánea/copia de seguridad recurrente.
+
+Ten en cuenta que durante el tiempo en que el volumen fue adjuntado automáticamente, el volumen no está listo para la carga de trabajo. La carga de trabajo tendrá que esperar hasta que finalice el trabajo recurrente.
+
+== Copia de seguridad completa periódica
+
+{longhorn-product-name} realiza copias de seguridad delta por defecto, lo que significa que solo se sube la información que ha cambiado desde la última copia de seguridad. Sin embargo, cuando un bloque de datos en el backupstore se corrompe, {longhorn-product-name} no reemplaza ese bloque de datos con uno sano durante las operaciones de copia de seguridad subsiguientes. Los bloques de datos corruptos en el backupstore pueden causar que las operaciones de restauración fallen.
+Cuando se establece un parámetro `full-backup-interval` distinto de cero, {longhorn-product-name} realiza una copia de seguridad completa cada `full-backup-interval` copias de seguridad incrementales. Durante una copia de seguridad completa, {longhorn-product-name} sube todos los bloques de datos en el volumen. Los bloques de datos que existen en el backupstore, incluidos los corruptos, son sobrescritos.
+
+IMPORTANT: Realizar una copia de seguridad completa puede tardar más y generar un mayor rendimiento de red y costos que la copia de seguridad incremental por defecto.

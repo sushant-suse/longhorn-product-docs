@@ -1,0 +1,56 @@
+= Google Kubernetes Engine (GKE) の管理ノードプール
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+詳細については、 https://cloud.google.com/kubernetes-engine/docs/tutorials/migrating-node-pool[異なるマシンタイプへのワークロードの移行]を参照してください。
+
+以下は、クラスター・ノードを新しいストレージサイズに置き換える例です。
+
+== ストレージの拡張
+
+GKE は、`local-ssd-count` を使用してディスクを追加することをサポートしています。ただし、各ローカル SSD のサイズは 375 GB に固定されています。ノードプールの置き換えを通じてノードサイズを拡張することをお勧めします。
+
+. Longhorn で、`replica-replenishment-wait-interval` を `0` に設定します。
+. 新しいノードプールを追加します。後で Longhorn コンポーネントはこのプール内のノードに自動的にデプロイされます。
++
+----
+ GKE_NODEPOOL_NAME_NEW=<new-nodepool-name>
+ GKE_REGION=<gke-region>
+ GKE_CLUSTER_NAME=<gke-cluster-name>
+ GKE_IMAGE_TYPE=Ubuntu
+ GKE_MACHINE_TYPE=<gcp-machine-type>
+ GKE_DISK_SIZE_NEW=<new-disk-size-in-gb>
+ GKE_NODE_NUM=<number-of-nodes>
+
+ gcloud container node-pools create ${GKE_NODEPOOL_NAME_NEW} \
+   --region ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME} \
+   --image-type ${GKE_IMAGE_TYPE} \
+   --machine-type ${GKE_MACHINE_TYPE} \
+   --disk-size ${GKE_DISK_SIZE_NEW} \
+   --num-nodes ${GKE_NODE_NUM}
+
+ gcloud container node-pools list \
+   --zone ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME}
+----
+
+. Longhorn UI を使用して、古いノードプール内のノードのディスクスケジューリングを無効にし、エビクションを要求します。
+. 古いノードプール内の Kubernetes ノードをコードンし、ドレインします。
++
+----
+ GKE_NODEPOOL_NAME_OLD=<old-nodepool-name>
+ for n in `kubectl get nodes | grep ${GKE_CLUSTER_NAME}-${GKE_NODEPOOL_NAME_OLD}- | awk '{print $1}'`; do
+   kubectl cordon $n && \
+   kubectl drain $n --ignore-daemonsets --delete-emptydir-data
+ done
+----
+
+. 古いノードプールを削除します。
++
+----
+ gcloud container node-pools delete ${GKE_NODEPOOL_NAME_OLD}\
+   --zone ${GKE_REGION} \
+   --cluster ${GKE_CLUSTER_NAME}
+----

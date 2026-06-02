@@ -1,0 +1,25 @@
+= Reconstrução Rápida de Réplicas
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+O Longhorn suporta a reconstrução rápida de réplicas com base nos checksums dos arquivos de disco instantâneo.
+
+== Introdução
+
+O processo legado de reconstrução de réplicas percorre todos os arquivos de disco instantâneo. Para cada bloco de dados, o cliente (réplica saudável) faz o hash do bloco de dados local e solicita o checksum do bloco de dados correspondente no lado remoto (réplica reconstruída). Em seguida, o cliente compara os dois checksums para determinar se o bloco de dados precisa ser enviado para o lado remoto e substituir o bloco de dados. Assim, é um processo intensivo em I/O e computação, especialmente se o volume for grande ou contiver um grande número de arquivos de instantâneo.
+
+Se os usuários ativarem o recurso de verificação de integridade dos dados de instantâneo configurando `snapshot-data-integrity` para `enabled` ou `fast-check`, os carimbos de data/hora de alteração e os checksums dos arquivos de disco instantâneo são registrados. Desde que as duas condições abaixo sejam atendidas, podemos pular a sincronização do arquivo de disco instantâneo.
+
+* Os carimbos de data/hora de alteração no arquivo de disco instantâneo e o valor registrado são os mesmos.
+* Tanto os arquivos de disco instantâneo locais quanto os remotos têm o mesmo checksum.
+
+Assim, uma redução no número de cálculos desnecessários pode acelerar todo o processo, além de reduzir o impacto no desempenho do sistema.
+
+== Categoria de
+
+=== Configurações Globais
+
+* reconstrução-rápida-de-réplica-habilitada +
++
+A configuração habilita o recurso de reconstrução rápida de réplicas. Ela se baseia nos checksums dos arquivos de disco instantâneo, portanto, configurar a integridade dos dados de instantâneo para *habilitar* ou *verificação-rápida* é um pré-requisito. Por favor, consulte xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[Verificação de Integridade dos Dados de Instantâneo].

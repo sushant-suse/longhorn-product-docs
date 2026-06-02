@@ -1,0 +1,71 @@
+= Desassociar Volumes
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Desligue todos os Pods do Kubernetes usando volumes Longhorn para desassociar os volumes. A maneira mais fácil de conseguir isso é excluindo todas as cargas de trabalho e recriando-as depois de fazer upgrade. Se isso não for desejável, algumas cargas de trabalho podem ser suspensas.
+
+Cada carga de trabalho pode ser modificada para desligar seus pods.
+
+== Implantação
+
+Edite a implantação com `kubectl edit deploy/<name>`.
+
+Defina `.spec.replicas` como `0`.
+
+== StatefulSet
+
+Edite o StatefulSet com `kubectl edit statefulset/<name>`.
+
+Defina `.spec.replicas` como `0`.
+
+== DaemonSet
+
+Edite o DaemonSet com `kubectl edit ds/<name>`.
+
+Adicione um nodeSelector à especificação do pod:
+
+[,yaml]
+----
+spec:
+  template:
+    spec:
+      nodeSelector:
+        no-schedule: "true"
+----
+
+== Pod
+
+Exclua o pod com `kubectl delete pod/<name>`.
+
+Não há como suspender um pod que não é gerenciado por um controlador de carga de trabalho.
+
+== CronJob
+
+Edite o CronJob com `kubectl edit cronjob/<name>`.
+
+Defina `.spec.suspend` como `true`.
+
+Aguarde a conclusão de quaisquer trabalhos em execução atualmente ou termine-os excluindo os pods relevantes.
+
+== Job
+
+Considere permitir que o trabalho de execução única seja concluído.
+
+Caso contrário, exclua o trabalho com `kubectl delete job/<name>`.
+
+== ReplicaSet
+
+Edite o ReplicaSet com `kubectl edit replicaset/<name>`.
+
+Defina `.spec.replicas` como `0`.
+
+== ReplicationController
+
+Edite o ReplicationController com `kubectl edit rc/<name>`.
+
+Defina `.spec.replicas` como `0`.
+
+Aguarde os volumes utilizados pelo Kubernetes concluírem a desassociação.
+
+Em seguida, desassocie todos os volumes restantes da interface do Longhorn. Esses volumes foram provavelmente criados e anexados fora do Kubernetes através da interface do Longhorn ou da API REST.

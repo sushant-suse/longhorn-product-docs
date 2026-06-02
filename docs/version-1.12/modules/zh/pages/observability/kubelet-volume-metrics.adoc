@@ -1,0 +1,31 @@
+= Kubelet 卷指标
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 关于 Kubelet 卷指标
+
+Kubelet 暴露了 https://github.com/kubernetes/kubernetes/blob/4b24dca228d61f4d13dcd57b46465b0df74571f6/pkg/kubelet/metrics/collectors/volume_stats.go#L27[以下指标]：
+
+. kubelet_volume_stats_capacity_bytes
+. kubelet_volume_stats_available_bytes
+. kubelet_volume_stats_used_bytes
+. kubelet_volume_stats_inodes
+. kubelet_volume_stats_inodes_free
+. kubelet_volume_stats_inodes_used
+
+这些指标用于衡量与 Longhorn 块设备内 PVC 文件系统相关的信息。
+
+它们与 xref:observability/longhorn-metrics.adoc[longhorn_volume_*] 指标不同，后者衡量特定于 Longhorn 块设备的信息。
+
+您可以设置一个监控系统，抓取 Kubelet 指标端点以获取 PVC 的状态，并为异常事件设置警报，例如 PVC 即将用尽存储空间。
+
+一个流行的监控设置是 https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack[prometheus-operator/kube-prometheus-stack,]，它抓取 `kubelet_volume_stats_*` 指标并为其提供仪表板和警报规则。
+
+== Longhorn CSI 插件支持
+
+Longhorn CSI 插件根据 https://github.com/container-storage-interface/spec/blob/master/spec.md#nodegetvolumestats[CSI 规范] 支持 `NodeGetVolumeStats` RPC。
+
+这允许 kubelet 查询 Longhorn CSI 插件以获取 PVC 的状态。
+
+然后 kubelet 在 `kubelet_volume_stats_*` 指标中暴露该信息。

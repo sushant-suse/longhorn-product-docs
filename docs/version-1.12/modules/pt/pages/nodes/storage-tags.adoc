@@ -1,0 +1,79 @@
+= Tags de Armazenamento
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Visão Geral
+
+O recurso de tags de armazenamento permite que apenas certos nós ou discos sejam usados para armazenar dados de volume do Longhorn. Por exemplo, dados sensíveis a desempenho podem usar apenas os discos de alto desempenho que podem ser marcados como `fast`, `ssd` ou `nvme`, ou apenas o nó de alto desempenho marcado como `baremetal`.
+
+Este recurso suporta tanto discos quanto nós.
+
+== Configuração
+
+As tags podem ser configuradas usando a interface do Longhorn:
+
+. _Nó \-> Selecionar um nó \-> Editar Nó e Discos_
+. Clique em `+Nova Tag de Nó` ou `+Nova Tag de Disco` para adicionar novas tags.
+
+Todas as réplicas agendadas existentes no nó ou disco não serão afetadas pelas novas tags.
+
+== Uso
+
+Quando várias tags são especificadas para um volume, o disco e o nó (ao qual o disco pertence) devem ter todas as tags especificadas para se tornarem utilizáveis.
+
+=== UI
+
+Ao criar um volume, especifique a tag do disco e a tag do nó na interface do Longhorn.
+
+=== Kubernetes
+
+Use os parâmetros do StorageClass do Kubernetes para especificar tags.
+
+Você pode especificar tags no StorageClass padrão do Longhorn adicionando o parâmetro `nodeSelector: "storage,fast"` no ConfigMap chamado `longhorn-storageclass`.
+Por exemplo:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: ConfigMap
+data:
+  storageclass.yaml: |
+    kind: StorageClass
+    apiVersion: storage.k8s.io/v1
+    metadata:
+      name: longhorn
+      annotations:
+        storageclass.kubernetes.io/is-default-class: "true"
+    provisioner: driver.longhorn.io
+    allowVolumeExpansion: true
+    reclaimPolicy: "Delete"
+    volumeBindingMode: Immediate
+    parameters:
+      numberOfReplicas: "3"
+      staleReplicaTimeout: "480"
+      diskSelector: "ssd"
+      nodeSelector: "storage,fast"
+----
+
+Se o Longhorn for instalado via Helm, você pode fazer isso editando `persistence.defaultNodeSelector` em https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[`values.yaml`].
+
+Alternativamente, uma configuração de storageClass personalizada pode ser usada, por exemplo:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-fast
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "480" # 8 hours in minutes
+  diskSelector: "ssd"
+  nodeSelector: "storage,fast"
+----
+
+== Histórico
+
+* https://github.com/longhorn/longhorn/issues/311[Solicitação de recurso original]

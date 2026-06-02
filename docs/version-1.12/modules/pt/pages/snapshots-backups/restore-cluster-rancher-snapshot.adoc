@@ -1,0 +1,50 @@
+= Restaurar um cluster usando um instantâneo do Rancher
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Suposições:
+
+* A maior parte dos dados e os discos subjacentes ainda existem no cluster antes da restauração e podem ser reutilizados diretamente.
+* Existe um repositório de backup que contém todos os dados dos volumes.
+* A configuração xref:longhorn-system/settings.adoc#_disable_revision_counter[`Disable Revision Counter`] é falsa. (É falsa por padrão.) Caso contrário, os usuários precisam verificar manualmente se os dados entre as réplicas dos volumes estão consistentes, ou restaurar os volumes diretamente do backup.
+
+== Expectativa:
+
+* Todas as configurações e as configurações de nós e discos serão restauradas.
+* Desde que os dados válidos ainda existam, os volumes podem ser recuperados sem usar um backup. Em outras palavras, tentaremos evitar restaurar backups, o que pode ajudar a reduzir o Tempo de Recuperação Objetivo (RTO) e também economizar largura de banda.
+* Detectar as réplicas inválidas ou fora de sincronia, desde que o volume relacionado ainda contenha uma réplica válida após a restauração.
+
+== Comportamentos e Requisitos da restauração do Rancher
+
+* Você precisa reiniciar os componentes do Kubernetes em todos os nós. Caso contrário, haverá muitos conflitos de atualização de recursos no Longhorn.
+
+== Ações após a restauração
+
+* Reinicie todos os componentes do Kubernetes para todos os nós. Veja o link acima para mais detalhes.
+* Mate todos os pods do Longhorn Manager, e o Kubernetes os reiniciará automaticamente. Aguarde os conflitos nos pods do Longhorn Manager desaparecerem.
+* Todos os volumes podem ser reanexados. Se um volume Longhorn for usado por um único pod, os usuários precisam desligá-lo e, em seguida, recriá-lo. Para Implantações (Deployments) ou Statefulsets, o Longhorn irá automaticamente encerrar e reiniciar os pods relacionados.
+* Se o seguinte acontecer após o instantâneo e antes da restauração do cluster:
+ ** Um volume não é alterado: Os usuários não precisam fazer nada.
+ ** Os dados são atualizados: Os usuários normalmente não precisam fazer nada. O Longhorn irá automaticamente falhar as réplicas que não contêm os dados mais recentes.
+ ** Um novo volume é criado: Este volume desaparecerá após a restauração. Os usuários precisam recriar um novo volume, lançar xref:data-integrity-recovery/data-recovery/retrieve-volume-data-from-replica.adoc[um volume de réplica única] com base na réplica do volume desaparecido e, em seguida, transferir os dados para o novo volume.
+ ** Um volume é excluído: Como os dados são limpos quando o volume é removido, o volume restaurado não contém dados. Os usuários podem precisar excluí-lo novamente.
+ ** Para volumes de DR: Os usuários não precisam fazer nada. O Longhorn irá refazer uma restauração completa.
+ ** Algumas operações são aplicadas a um volume:
+  *** Backup: As informações de backup do volume devem ser ressincronizadas automaticamente.
+  *** Instantâneo: As informações do instantâneo do volume devem ser ressincronizadas assim que o volume for anexado.
+  *** Reconstrução de réplica e remoção de réplica:
+   **** Se houver novas réplicas reconstruídas, essas réplicas desaparecerão do sistema Longhorn após a restauração. Os usuários precisam limpar os dados da réplica manualmente ou usar os diretórios de dados dessas réplicas para exportar um único volume de réplica e, em seguida, fazer a recuperação de dados, se necessário.
+   **** Se houver algumas réplicas falhadas/removidas e houver pelo menos uma réplica saudável, essas réplicas falhadas/removidas voltarão após a restauração. Então, o Longhorn pode detectar que essas réplicas restauradas não contêm dados e copiar os dados mais recentes da réplica saudável para essas réplicas.
+   **** Se todas as réplicas forem substituídas por novas réplicas após o instantâneo, o volume conterá apenas réplicas inválidas após a restauração. Então, os usuários precisam exportar xref:data-integrity-recovery/data-recovery/retrieve-volume-data-from-replica.adoc[um volume de réplica única] para a recuperação de dados.
+  *** Atualização da imagem do mecanismo: Os usuários precisam refazer o upgrade.
+  *** ExpansÃ£o: O tamanho especificado do volume será menor do que o tamanho atual. Isso é como alguém solicitando a redução do volume, mas na verdade o Longhorn se recusará a lidar com isso internamente. Para recuperar o volume, os usuários precisam reduzir as cargas de trabalho e refazer a expansão.
+ ** *Aviso*: Se os usuários não souberem como recuperar um volume problemático, a maneira mais simples é sempre restaurar um novo volume a partir do backup.
+* Se o sistema Longhorn for atualizado após o instantâneo, as novas configurações e as modificações na configuração do nó desaparecerão. Os usuários precisam refazer o upgrade, e então modificar novamente as configurações e as configurações do nó.
+* Se um nó for excluído do sistema Longhorn após o instantâneo, o nó não voltará, mas os pods no nó removido serão restaurados. Os usuários precisam limpá-los manualmente, pois esses pods podem ficar presos no estado `Terminating`.
+* Se um nó for adicionado ao sistema Longhorn após o instantâneo, o Longhorn deve relançar automaticamente todas as cargas de trabalho necessárias no nó após a restauração do cluster. Mas os usuários devem estar cientes de que todas as novas réplicas ou mecanismos neste nó serão removidos após a restauração.
+
+== Referências
+
+* A questão relacionada no GitHub é https://github.com/longhorn/longhorn/issues/2228.
+Neste post do GitHub, um usuário está fornecendo uma maneira de restaurar o Longhorn para um novo cluster que não contém nenhum dado.

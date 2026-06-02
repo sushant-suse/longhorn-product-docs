@@ -1,0 +1,48 @@
+= 识别使用卷的工作负载
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+现在用户可以识别当前的工作负载或现有 Longhorn 持久卷 (PVs) 的工作负载历史，以及它们与持久卷声明 (PVCs) 的绑定历史。
+
+在 Longhorn 用户界面中，转到 *卷* 选项卡。每个 Longhorn 卷都在页面上列出。*附加到* 列显示使用该卷的工作负载的名称。如果您点击工作负载名称，您将能够看到更多详细信息，包括工作负载类型、Pod 名称和状态。
+
+工作负载信息也可以在 Longhorn 卷详细信息页面上找到。要查看详细信息，请点击卷名称：
+
+----
+State: attached
+...
+Namespace:default
+PVC Name:longhorn-volv-pvc
+PV Name:pvc-0edf00f3-1d67-4783-bbce-27d4458f6db7
+PV Status:Bound
+Pod Name:teststatefulset-0
+Pod Status:Running
+Workload Name:teststatefulset
+Workload Type:StatefulSet
+----
+
+== 历史记录
+
+当工作负载不再使用 Longhorn 卷时，卷详细信息页面将显示最近使用该卷的工作负载的历史状态：
+
+----
+Last time used by Pod: a few seconds ago
+...
+Last Pod Name: teststatefulset-0
+Last Workload Name: teststatefulset
+Last Workload Type: Statefulset
+----
+
+如果这些字段被设置，则表示当前没有工作负载使用此卷。
+
+当 PVC 不再与卷绑定时，将显示以下状态：
+
+----
+Last time bound with PVC:a few seconds ago
+Last time used by Pod:32 minutes ago
+Last Namespace:default
+Last Bounded PVC Name:longhorn-volv-pvc
+----
+
+如果 `Last time bound with PVC` 字段被设置，则表示当前没有与此卷绑定的 PVC。相关字段将显示最近使用此卷的工作负载。

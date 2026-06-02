@@ -1,0 +1,21 @@
+= Kubernetes 集群自动扩缩容支持（实验性）
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+默认情况下，Longhorn 阻止 Kubernetes 集群自动扩缩容缩减节点，因为：
+
+* Longhorn 为所有引擎和副本实例管理器 Pod 创建了 Pod 中断预算。
+* Longhorn 实例管理器 Pod 具有严格的 Pod 中断预算。
+* Longhorn 实例管理器 Pod 并不由 Kubernetes 内置工作负载控制器支持。
+* Longhorn Pod 使用本地存储卷挂载。
+
+有关更多信息，请参见 https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/FAQ.md#what-types-of-pods-can-prevent-ca-from-removing-a-node[哪些类型的 Pod 可以阻止 CA 去除节点？]
+
+如果您想解除 Kubernetes 集群自动扩缩容的限制，可以设置 xref:longhorn-system/settings.adoc#_kubernetes_cluster_autoscaler_enabled_experimental[Kubernetes 集群自动扩缩容启用]。
+
+当此设置启用时，Longhorn 会尽可能减少保留实例管理器 Pod 的中断预算数量。在不存在冗余的 Pod 中断预算阻止集群自动扩缩容缩减的情况下，每个卷至少会有一个副本受到实例管理器 Pod 中断预算的保护。
+
+当此设置启用时，Longhorn 还会向未由 Kubernetes 内置工作负载控制器支持或使用本地存储挂载的 Longhorn 工作负载添加 `cluster-autoscaler.kubernetes.io/safe-to-evict` 注释。
+
+WARNING: 副本重建可能会很昂贵，因为具有可重用副本的节点可能会被 Kubernetes 集群自动扩缩容去除。

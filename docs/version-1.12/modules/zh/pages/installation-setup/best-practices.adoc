@@ -1,0 +1,261 @@
+= 最佳实践
+:revdate: 2026-02-03
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+以下设置建议用于生产环境。
+
+== 最低推荐硬件
+
+* 3 个节点
+* 每个节点 4 个 vCPU
+* 每个节点 4 GiB
+* 节点上使用 SSD/NVMe 或类似性能的块设备进行存储（推荐）
+* 节点上使用 HDD/旋转磁盘或类似性能的块设备进行存储（已验证）
+ ** 每个卷最大 500/250 IOPS（1 MiB I/O）
+ ** 每个卷最大 500/250 吞吐量（MiB/s）
+
+[WARNING]
+====
+虽然 {longhorn-product-name} 可以使用 HDD（旋转磁盘）作为存储，但重要的是要理解 *延迟* 在卷稳定性中比 IOPS 或吞吐量更为重要。这是因为 HDD 是机械的，依赖于旋转的盘片和移动的读写头来访问数据。这种物理移动引入了固有的延迟（寻道时间和旋转延迟），导致与使用闪存且没有活动部件的 SSD 或 NVMe 驱动器相比，延迟更高。这可能直接导致不稳定，特别是在运行多个输入/输出密集型任务时，例如：
+
+* 对副本的前台 I/O
+* 来自副本的前台 I/O
+* 重建卷
+* 备份或其他工作负载
+
+由于使用 HDD 而导致的延迟增加，加上其他输入/输出工作负载，可能导致 *卷不稳定*。因此，我们建议使用 *SSD 或 NVMe* 驱动器以获得更好的性能和稳定性，特别是对于生产工作负载。
+
+提到的 IOPS 和吞吐量（每个卷最大 500/250 IOPS 和每个卷最大 500/250 吞吐量）仅作为基于测试设置的一般参考，但 *不应视为硬性要求*。延迟，而不仅仅是吞吐量，是确保系统稳定性最重要的因素。
+====
+
+== 体系结构
+
+{longhorn-product-name} 支持以下架构：
+
+. AMD64
+. ARM64
+
+== 操作系统
+
+[NOTE]
+====
+CentOS Linux 已从下面的验证操作系统列表中移除，因为它已被停止支持，转而支持 CentOS Stream [https://www.redhat.com/en/blog/faq-centos-stream-updates#Q5[ref]]，这是一种滚动发布的 Linux 发行套件。针对基于 RHEL 的下游开源发行套件的测试集中在企业级版本上，例如 Rocky Linux 和 Oracle Linux。
+====
+
+在 v{patch-version} 版本测试期间，以下 Linux 操作系统发行版和版本已被验证。然而，这并不意味着 {longhorn-product-name} 仅支持这些发行套件。{longhorn-product-name} 应该能够在任何运行在 Linux 节点上的经过认证的 Kubernetes 集群上良好运行，支持广泛的通用操作系统，以及经过验证的容器优化操作系统，如 SLE Micro。
+
+|===
+| 否.| OS | 版本
+
+| 1.
+| Ubuntu
+| 24.04
+
+| 2.
+| SUSE Linux Enterprise Server
+| 16
+
+| 3.
+| SUSE Linux Enterprise Micro
+| 6.1
+
+| 4.
+| Red Hat Enterprise Linux
+| 10.1
+|===
+
+{longhorn-product-name} 在很大程度上依赖于内核功能，并在某些内核版本上表现更好。以下活动，特别是，受益于使用特定的内核版本。
+
+* 优化或改进文件系统：使用版本 `v5.8` 或更高版本的内核。有关详细信息，请参见 https://github.com/longhorn/longhorn/issues/2507#issuecomment-857195496[问题 #2507]。
+* 启用 xref:longhorn-system/settings.adoc#_freeze_filesystem_for_snapshot[冻结文件系统以进行快照] 设置：使用版本 `5.17` 或更高版本的内核，以确保在文件系统冻结期间卷崩溃不会锁定节点。
+* 启用 xref:longhorn-system/v2-data-engine/prerequisites.adoc[V2 数据引擎]：使用版本 `5.19` 或更高版本的内核以确保
+
+下面的列表包含用户应避免使用的已知损坏的内核版本：
+
+|===
+| 否.| 版本 | 发行套件 | 附加上下文
+
+| 1.
+| 6.5.6
+| 原生内核
+| 与此错误相关 https://longhorn.io/kb/troubleshooting-rwx-volume-fails-to-attached-caused-by-protocol-not-supported/
+
+| 2.
+| 5.15.0-94
+| Ubuntu
+| 与此错误相关 https://longhorn.io/kb/troubleshooting-rwx-volume-fails-to-attached-caused-by-protocol-not-supported/
+
+| 3.
+| 6.5.0-21
+| Ubuntu
+| 与此错误相关 https://longhorn.io/kb/troubleshooting-rwx-volume-fails-to-attached-caused-by-protocol-not-supported/
+
+| 4.
+| 6.5.0-1014-aws
+| Ubuntu
+| 与此错误相关 https://longhorn.io/kb/troubleshooting-rwx-volume-fails-to-attached-caused-by-protocol-not-supported/
+|===
+
+== Kubernetes
+
+=== Kubernetes 版本
+
+在升级 {longhorn-product-name} 之前，请确保您的集群正在运行 Kubernetes v1.21 或更高版本。
+
+我们建议在以下版本之一上运行您的 Kubernetes 集群。这些版本是在 {longhorn-product-name} 发布之前的活跃支持版本，并已与 {longhorn-product-name} v{patch-version} 进行了测试。
+
+|===
+| 发布 | 已发布 | 终止服务
+
+| 1.35
+| 2025 年 12 月 17 日
+| 2027 年 2 月 28 日
+
+| 1.34
+| 2025 年 8 月 27 日
+| 2026 年 10 月 27 日
+
+| 1.33
+| 2025 年 4 月 23 日
+| 2026 年 6 月 28 日
+
+| 1.32
+| 2024 年 12 月 11 日
+| 2026 年 2 月 28 日
+|===
+
+参考 https://endoflife.date/kubernetes.
+
+=== CoreDNS 设置
+
+确保 CoreDNS 至少运行两个副本以保持高可用性。此设置在一个 CoreDNS pod 发生临时中断时，最小化 DNS 解析中的中断。
+
+== 节点和磁盘设置
+
+我们建议以下节点和磁盘设置。
+
+=== 使用专用磁盘
+
+建议为{longhorn-product-name}存储专用磁盘，而不是使用根磁盘。
+
+=== 最小可用存储和过度配置
+
+如果需要使用根磁盘，请使用默认的`minimal available storage percentage`设置，即25%，并将`overprovisioning percentage`设置为100%，以最小化磁盘压力的可能性。
+
+如果您使用专用磁盘用于{longhorn-product-name}，可以将设置`minimal available storage percentage`降低到10%。
+
+对于过度配置百分比，取决于您的卷平均使用了多少空间。例如，如果您的工作负载仅使用可用卷大小的一半，则可以将过度配置百分比设置为`200`，这意味着{longhorn-product-name}认为磁盘的可调度大小是其完整大小减去保留空间的两倍。
+
+=== 磁盘空间管理
+
+由于{longhorn-product-name}目前不支持不同磁盘之间的分片，我们建议使用 https://en.wikipedia.org/wiki/Logical_Volume_Manager_(Linux)[LVM]将所有磁盘聚合到{longhorn-product-name}的单个分区中，以便将来可以轻松扩展。
+
+=== 设置额外磁盘
+
+任何额外的磁盘必须写入`/etc/fstab`文件，以便在机器重启后自动挂载。
+
+请勿为额外磁盘使用软链接。使用`mount --bind`而不是`ln -s`，并确保它在`fstab`文件中。有关详细信息，请参见xref:nodes/multiple-disks.adoc#_use_an_alternative_path_for_a_disk_on_the_node[有关多个磁盘支持的章节。]
+
+=== 安装前后默认磁盘的配置
+
+要使用除默认`/var/lib/longhorn`以外的目录用于存储，可以在安装系统之前更改`Default Data Path`配置。有关更改安装前设置的详细信息，请参阅xref:longhorn-system/customize-default-settings.adoc[本节内容。]
+
+xref:nodes/default-disk-and-node-config.adoc[默认节点/磁盘配置]功能可用于在安装后自定义默认磁盘设置。自定义磁盘和节点的默认配置对于扩展集群非常有用，因为如果节点包含多个磁盘，或者新节点的磁盘配置不同，则无需为每个新节点手动配置 {longhorn-product-name}。如果适用，请务必启用`Create default disk only on labeled node`。
+
+== 卷性能优化
+
+在配置工作负载之前，请确保您已设置以下基本要求以实现最佳卷性能。
+
+* SATA/NVMe SSD 或具有类似性能的磁盘驱动器
+* 节点之间的 10 Gbps 网络带宽
+* 为系统管理和用户部署的 {longhorn-product-name} 组件分配专用优先级类别。默认情况下，{longhorn-product-name} 安装默认优先级类别 `longhorn-critical`。
+
+以下部分概述了生产环境的其他建议。
+
+=== I/O 性能
+
+* *存储网络*:使用 xref:longhorn-system/networking/storage-network.adoc#_setting_storage_network[专用存储网络] 来提高 I/O 性能和稳定性。
+* *{longhorn-product-name} 磁盘*:使用 xref:nodes/multiple-disks.adoc#_add_a_disk[专用磁盘] 进行 {longhorn-product-name} 存储，而不是使用根磁盘。
+* *副本数量*:将 xref:longhorn-system/settings.adoc#_default_replica_count[默认副本数量] 设置为 "2" 以实现数据可用性，同时更好地利用磁盘空间或减少对系统性能的影响。这一做法对数据密集型应用程序特别有利。
+* *存储标签*:使用 xref:nodes/storage-tags.adoc[存储标签] 为数据密集型应用程序定义存储分层。例如，仅高性能磁盘可以用于存储对性能敏感的数据。
+* *数据局部性*:将 `best-effort` 用作 {longhorn-product-name} StorageClasses 的默认 xref:high-availability/data-locality.adoc[数据局部性]。
++
+对于支持数据复制的应用（例如，分布式数据库），您可以使用 `strict-local` 选项以确保每个卷仅创建一个副本。此做法可以防止与卷复制相关的额外磁盘空间使用和 I/O 性能开销。
++
+对于数据密集型应用程序，您可以使用Pod调度功能，例如节点选择器或污点容忍。这些功能允许您将工作负载调度到具有存储标签的特定节点，并与一个副本一起使用。
+
+=== 空间效率
+
+* *定期快照*:定期清理系统生成的快照，仅保留对您的实现有意义的快照数量。
++
+对于具有复制能力的应用程序，定期xref:introduction/concepts.adoc#_2_4_3_deleting_snapshots[删除所有类型的快照]。
+
+* *定期文件系统修剪*:定期xref:volumes/trim-filesystem.adoc[修剪卷内的文件系统]以回收磁盘空间。
+* *快照空间管理*:xref:snapshots-backups/volume-snapshots-backups/snapshot-space-management.adoc[配置全局和卷特定设置]以防止意外的磁盘空间耗尽。
+
+=== 灾难恢复
+
+* *定期备份*:为关键任务的应用程序卷创建xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[定期备份作业]。
+* *系统备份*:创建定期的xref:snapshots-backups/system-backups/create-system-backup.adoc#_create_a_longhorn_system_backup[系统备份]。
+
+== 部署工作负载
+
+如果您使用`ext4`作为卷的文件系统，我们建议为工作负载添加活跃性检查，以帮助自动恢复因网络中断、节点重启或Docker重启造成的中断。有关详细信息，请参见xref:high-availability/volume-recovery.adoc[本节]。
+
+== 卷维护
+
+强烈建议使用{longhorn-product-name}的内置备份功能。您可以将备份保存到对象存储（如 S3）或 NFS 服务器。保存到对象存储是更可取的，因为它通常提供更好的可靠性。另一个优点是您不需要挂载和卸载目标，这可能会使故障转移和升级变得复杂。
+
+对于每个卷，至少安排一次定期备份。如果您必须在没有备份存储的情况下在生产环境中运行 {longhorn-product-name}，则至少为每个卷安排一次定期快照。
+
+{longhorn-product-name} 在重建副本时自动创建快照。定期快照或备份也可以自动清理系统生成的快照。
+
+=== 保证实例管理器处理器
+
+我们建议为 {longhorn-product-name} 实例管理器 Pod 设置处理器请求。
+
+=== V1 数据引擎
+
+当启用 V1 数据引擎时，`Guaranteed Instance Manager CPU` 设置允许您为每个实例管理器 Pod 在每个节点上保留一定比例的可分配处理器资源。默认值为 12。
+
+通过更新该节点的实例管理器处理器请求字段，为特定节点上的实例管理器 Pod 设置特定的毫处理器值。
+
+[NOTE]
+====
+该字段会覆盖指定节点的上述设置。
+====
+
+有关更多详细信息，请参阅 xref:longhorn-system/settings.adoc#_guaranteed_instance_manager_cpu[保证实例管理器处理器]。
+
+=== V2 数据引擎
+
+当启用 V2 数据引擎时，`Guaranteed Instance Manager CPU for V2 Data Engine` 设置允许您为每个实例管理器 Pod 在每个节点上保留特定数量的毫处理器。默认情况下，每个实例管理器 Pod 中的存储性能开发工具包（SPDK）目标守护程序使用 1 个处理器内核。配置最低处理器使用值对于维护引擎和副本的稳定性至关重要，特别是在节点负载高的时期。默认值为 1250。
+
+== StorageClass
+
+避免修改名为 `longhorn` 的默认存储类。更改其参数可能会在未来的升级中导致问题。要更改存储类中设置的参数，您可以通过参考 xref:longhorn-system/examples-resources.adoc#_storageclass[存储类示例] 创建一个新的存储类。
+
+== 调度设置
+
+=== 副本节点级软反亲和性
+
+建议：`false`
+
+在生产环境中，此设置应设置为 `false` 以确保卷的最佳高可用性。否则，一个节点故障事件可能会导致一个卷的多个副本同时失效。
+
+=== 允许以降级可用性创建卷
+
+建议：`false`
+
+在生产环境中禁用此设置（`false`）以确保创建时的最大卷可用性。当启用时（`true`），即使系统只能调度一个副本，卷创建也会成功。这会带来风险，即集群在没有立即通知用户的情况下耗尽空间。
+
+=== 副本自动平衡
+
+建议：`least-effort`
+
+对于生产环境，我们建议将副本自动平衡设置为 `least-effort`。此设置确保每个区域至少有一个副本放置在不同的节点上，从而提供额外的高可用性（HA）。
+
+在某些边缘情况下，您可能考虑使用 `best-effort`，它会持续尝试在节点和区域之间均匀分配副本。然而，如果集群不稳定，此设置可能会导致频繁重建。
+
+对于大多数用户，拥有多个副本而不设置副本自动平衡就足以实现基本的高可用性，特别是如果您希望避免过度重建和资源使用。

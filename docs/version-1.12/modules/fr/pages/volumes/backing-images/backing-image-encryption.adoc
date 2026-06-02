@@ -1,0 +1,280 @@
+= Chiffrement de l'image de sauvegarde
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn vous permet de chiffrer et de déchiffrer une image de sauvegarde en la clonant. Le mécanisme de chiffrement de l'image de sauvegarde utilise le module de kernel Linux `dm_crypt` et l'utilitaire en ligne de commande `cryptsetup`.
+
+== Cloner une image de sauvegarde
+
+Vous pouvez cloner une image de sauvegarde en utilisant du code YAML. Notez que cela créera une toute nouvelle image de sauvegarde avec le même contenu que l'originale. L'image de sauvegarde consomme également de l'espace disque.
+
+Exemple d'une image de sauvegarde téléchargée{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+Exemple de code YAML utilisé pour cloner l'image de sauvegarde d'exemple{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: ignore
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image` : Spécifiez le nom de l'image de sauvegarde à cloner.
+* `encryption` : Définissez la valeur à `ignore` pour cloner directement l'image de sauvegarde. Si la valeur n'est pas donnée, Longhorn utilise `ignore` comme valeur par défaut.
+====
+
+Vous pouvez également cloner une image de sauvegarde en utilisant l'interface utilisateur de Longhorn.
+
+. Allez à *Paramètres* > *Image de sauvegarde*.
+. Cliquez sur *Créer une image de sauvegarde*.
+. Configurez les paramètres suivants :
+ ** *Créé à partir de*{nbsp}: Sélectionnez *Cloner à partir d'une image de sauvegarde existante*.
+ ** *Chiffrement*{nbsp}: Sélectionnez *Ignorer*.
+. Cliquez sur *OK*.
+
+image::screenshots/backing-image/clone.png[Image]
+
+== Chiffrer une image de sauvegarde
+
+Vous pouvez activer le chiffrement lors du clonage d'une image de sauvegarde afin que l'image puisse être utilisée avec un volume chiffré.
+
+Exemple d'une image de sauvegarde téléchargée{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+Exemple de code YAML utilisé pour cloner et chiffrer l'image de sauvegarde d'exemple{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-encrypted
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: encrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+Exemple de code YAML utilisé pour chiffrer l'image de sauvegarde{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image` : Spécifiez le nom de l'image de sauvegarde à cloner.
+* `encryption` : Définissez la valeur à `encrypt` pour chiffrer l'image de sauvegarde lors du clonage.
+* `secret` : Spécifiez le secret utilisé pour chiffrer l'image de sauvegarde.
+* `secret-namespace` : Spécifiez l'espace de noms du secret utilisé pour chiffrer l'image de sauvegarde.
+====
+
+Vous pouvez également créer une copie chiffrée d'une image de sauvegarde en utilisant l'interface utilisateur de Longhorn.
+
+. Allez à *Paramètres* > *Image de sauvegarde*.
+. Cliquez sur *Créer une image de sauvegarde*.
+. Configurez les paramètres suivants :
+ ** *Créé à partir de*{nbsp}: Sélectionnez *Cloner à partir d'une image de sauvegarde existante*.
+ ** *Chiffrement*{nbsp}: Sélectionnez *Chiffrer*.
+. Spécifiez le secret et l'espace de noms du secret à utiliser pour le chiffrement.
+. Cliquez sur *OK*.
+
+image::screenshots/backing-image/encrypt.png[Image]
+
+== Déchiffrer une image de sauvegarde
+
+Vous pouvez déchiffrer une image de sauvegarde chiffrée par clonage.
+
+Exemple d'une image de sauvegarde chiffrée{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-encrypted
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: encrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+Exemple de code YAML utilisé pour chiffrer et déchiffrer l'image de sauvegarde{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+Exemple de code YAML utilisé pour déchiffrer l'image de sauvegarde{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-decrypt
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot-cloned-encrypted
+    encryption: decrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image` : Spécifiez le nom de l'image de sauvegarde à cloner.
+* `encryption` : Définissez la valeur à `decrypt` pour déchiffrer l'image de sauvegarde lors du clonage.
+* `secret` : Spécifiez le secret utilisé pour déchiffrer l'image de sauvegarde.
+* `secret-namespace` : Spécifiez l'espace de noms du secret utilisé pour déchiffrer l'image de sauvegarde.
+====
+
+Vous pouvez également déchiffrer une image de sauvegarde (par clonage) en utilisant l'interface utilisateur de Longhorn.
+
+. Allez à *Paramètres* > *Image de sauvegarde*.
+. Cliquez sur *Créer une image de sauvegarde*.
+. Configurez les paramètres suivants :
+ ** *Créé à partir de*{nbsp}: Sélectionnez *Cloner à partir d'une image de sauvegarde existante*.
+ ** *Chiffrement*{nbsp}: Sélectionnez *Déchiffrer*.
+. Spécifiez le secret et l'espace de noms du secret à utiliser pour le déchiffrement.
+. Cliquez sur *OK*.
+
+image::screenshots/backing-image/decrypt.png[Image]
+
+== Utilisez une image de sauvegarde chiffrée avec un volume chiffré.
+
+Le secret utilisé pour chiffrer l'image de sauvegarde et le volume doit être identique. Une fois l'image de sauvegarde chiffrée prête, vous pouvez créer la StorageClass avec l'image de sauvegarde correspondante et le secret pour créer le volume pour la charge de travail.
+
+Exemple de code YAML pour le secret de chiffrement{nbsp}:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+Exemple de code YAML pour la StorageClass{nbsp}:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-crypto-global
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  encrypted: "true"
+  backingImage: "parrot-cloned-encrypted"
+  backingImageDataSourceType: "clone"
+  # global secret that contains the encryption key that will be used for all volumes
+  csi.storage.k8s.io/provisioner-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/provisioner-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-publish-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-publish-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-stage-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-stage-secret-namespace: "longhorn-system"
+----
+
+Pour plus d'informations, voir xref:volumes/volume-encryption.adoc[Chiffrement des Volumes].
+
+== limites
+
+* Longhorn ne peut pas chiffrer les images de sauvegarde déjà chiffrées, ni déchiffrer les images de sauvegarde non chiffrées.
+* Longhorn ne vous permet pas de changer la clé de chiffrement d'une image de sauvegarde chiffrée.
+* Lors du chiffrement d'une image qcow2, Longhorn crée d'abord une image brute à partir de l'image qcow2, puis la chiffre. L'image brute chiffrée résultante consomme temporairement de l'espace supplémentaire lors du clonage. Exemples :
+ .. Si nous chiffrons une image qcow2 de 10MiB avec une taille virtuelle de 200MiB, nous créons d'abord l'image brute à partir du qcow2, ce qui consommera 200MiB d'espace.
+ .. Longhorn crée ensuite l'image de sauvegarde chiffrée à partir de cette image brute de 200MiB, ce qui prendra encore 200MiB d'espace.
+ .. Après la création de l'image de sauvegarde chiffrée, l'image brute temporaire sera nettoyée et libérera les 200MiB d'espace.
+* Si l'image de sauvegarde source est un fichier sparse, le fichier perd sa sparsité après le chiffrement.
+* Pour permettre le stockage des métadonnées LUKS pendant le chiffrement, la taille de l'image est augmentée de 16 Mo. Pour plus d'informations, voir les https://gitlab.com/cryptsetup/cryptsetup/-/blob/master/docs/v2.1.0-ReleaseNotes#L27[notes de version de cryptsetup].

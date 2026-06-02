@@ -1,0 +1,112 @@
+= Recortar el sistema de archivos
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn admite el recorte del sistema de archivos dentro de los volúmenes de Longhorn. El recorte recuperará el espacio desperdiciado por los archivos eliminados del sistema de archivos.
+
+[NOTE]
+====
+
+
+* Recortar los archivos eliminados en las instantáneas no tiene efecto en el sistema de archivos porque las instantáneas válidas son inmutables. Sin embargo, el sistema de archivos recuerda cuándo ha recortado bloques asociados con una instantánea. Debido a esto, es posible que necesites desmontar y volver a montar el sistema de archivos antes de volver a intentar recortar una instantánea que ha sido marcada como eliminada.
+* Si permites la eliminación automática de instantáneas durante el recorte del sistema de archivos, utiliza la opción de montaje `discard` con precaución. `discard` activa frecuentemente la eliminación de instantáneas e interrumpe operaciones como la creación de copias de seguridad.
+====
+
+== Requisitos previos
+
+* La versión de Longhorn debe ser v1.4.0 o superior.
+* Hay un sistema de archivos recortable, como EXT4 o XFS, dentro del volumen de Longhorn.
+* El volumen está adjunto y montado en un punto de montaje antes de realizar el recorte.
+
+== Recorta el sistema de archivos en un volumen de Longhorn
+
+Puedes recortar un volumen de Longhorn utilizando la interfaz de usuario de Longhorn o el comando `fstrim`.
+
+=== A través de la interfaz de usuario de Longhorn
+
+Puedes hacer clic directamente en la operación `Trim Filesystem` del volumen para volúmenes adjuntos.
+
+Entonces Longhorn *intentará* averiguar el punto de montaje y ejecutar `fstrim <the mount point>`.  Si algo está mal o el sistema de archivos no existe, la interfaz de usuario devolverá un error.
+
+=== A través del comando de shell
+
+Al usar `fstrim`, debes identificar el punto de montaje del volumen y luego ejecutar el comando `fstrim <the mount point>`.
+
+* Volumen RWO: El punto de montaje es un pod de la carga de trabajo o el nodo al que se adjuntó manualmente el volumen.
+* Volumen RWX: El punto de montaje es el pod del gestor de comparticiones del volumen. El pod del gestor de comparticiones contiene el servidor NFS y suele llamarse `share-manager-<volume name>`.
+
+Para recortar un volumen RWX, realiza los siguientes pasos:
+
+. Identifica y luego abre una shell dentro del pod del gestor de comparticiones del volumen.
++
+----
+ kubectl -n longhorn-system exec -it <the share manager pod> -- bash
+----
+
+. Identifica el directorio de trabajo del servidor NFS (por ejemplo, `/export/<volume name>`).
++
+----
+ mount | grep <volume name>
+ /dev/longhorn/<volume name> on /export/<volume name> type ext4 (rw,relatime)
+----
+
+. Recorta el directorio de trabajo.
++
+----
+ fstrim /export/<volume name>
+----
+
+==== Recorta periódicamente el sistema de archivos
+
+Puedes configurar un xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc#_set_up_recurring_jobs[RecurringJob] para recortar periódicamente el sistema de archivos.
+
+== Eliminar automáticamente instantáneas durante el recorte del sistema de archivos
+
+Por diseño, las instantáneas válidas de los volúmenes de Longhorn son inmutables, por lo que solo puedes usar la función de recorte del sistema de archivos con lo siguiente:
+
+* Cabeza del volumen
+* Cadena continua de instantáneas anteriores creadas por el sistema o marcadas como eliminadas
+
+Si la mayor parte del espacio real consumido por un volumen está asociado con instantáneas válidas, la operación de recorte no es muy efectiva.
+
+=== Configuración global: "Eliminar instantáneas durante el recorte del sistema de archivos"
+
+Si deseas que Longhorn recupere automáticamente la máxima cantidad de espacio, puedes habilitar la configuración xref:longhorn-system/settings.adoc#_remove_snapshots_during_filesystem_trim[_Eliminar instantáneas durante el recorte del sistema de archivos_].
+Cuando esta configuración global está habilitada, la última instantánea y la cadena continua de instantáneas anteriores se marcan automáticamente como eliminadas, permitiendo que Longhorn recupere espacio para tantas instantáneas como sea posible. Sin embargo, la configuración puede causar la eliminación (y eventual purga) de instantáneas que creaste intencionadamente.
+
+=== El campo de especificación de volumen "UnmapMarkSnapChainRemoved"
+
+Hay un campo por volumen `volume.Spec.UnmapMarkSnapChainRemoved` que sobrescribe la configuración global mencionada anteriormente.
+
+Las opciones para esta configuración específica de volumen son "deshabilitado", "habilitado" e "ignorado". Cuando el valor es "ignorado", la configuración global entra en efecto.
+
+Puedes configurar esta opción en una StorageClass para que el valor se aplique a todos los volúmenes creados utilizando esa StorageClass.
+
+== Problemas conocidos y limitaciones
+
+=== Reconstrucción de volúmenes
+
+Por diseño, Longhorn desasigna bloques en la cabeza del volumen y en la cadena continua de instantáneas anteriores marcadas como eliminadas. Algunas de estas instantáneas pueden ser movidas de una réplica a otra durante la reconstrucción del volumen, por lo que Longhorn no puede recortar el sistema de archivos de los volúmenes afectados cuando la reconstrucción está en progreso.
+
+Debido a que la reconstrucción puede tardar mucho tiempo, Longhorn simplemente no desasigna bloques durante una reconstrucción en lugar de devolver un error de E/S al sistema de archivos. Este comportamiento beneficia particularmente a las cargas de trabajo de máquinas virtuales, que responden mal cuando los intentos repetidos de completar un recorte devuelven errores. Consulta https://github.com/longhorn/longhorn/issues/7103[Issue #7103] para más información.
+
+Una operación de recorte que se inicia durante la reconstrucción no tiene efecto. Las futuras operaciones de recorte en el mismo volumen montado también pueden no tener efecto porque el sistema de archivos recuerda qué bloques ha recortado. Es posible que necesites desmontar y volver a montar el sistema de archivos antes de intentar iniciar la operación de recorte nuevamente.
+
+=== Expansión de volúmenes
+
+Longhorn no puede recortar el sistema de archivos durante la expansión del volumen. Debido a que la expansión es rápida, Longhorn devuelve un error de E/S siempre que se encuentra el problema. El sistema de archivos reconoce que los bloques no fueron recortados y puede intentar nuevamente sin un nuevo montaje.
+
+=== Volúmenes cifrados
+
+* Por defecto, los comandos TRIM no están habilitados por el dispositivo-mapper. Puedes consultar https://wiki.archlinux.org/title/Dm-crypt/Specialties#Discard/TRIM_support_for_solid_state_drives_(SSD)[este documento] para más detalles.
+* Si aún deseas recortar un volumen Longhorn cifrado, puedes:
+ .. Accede al nodo al que está adjunto el volumen.
+ .. Habilita la bandera `discards` para el volumen cifrado. La frase de paso se registra en el secreto correspondiente:
++
+[subs="+attributes",shell]
+----
+  cryptsetup --allow-discards --persistent refresh <Longhorn volume name>
+----
+
+ .. Utiliza directamente la interfaz de Longhorn para recortar el volumen o ejecuta `fstrim` para *el punto de montaje* de `/dev/mapper/<volume name>` manualmente.

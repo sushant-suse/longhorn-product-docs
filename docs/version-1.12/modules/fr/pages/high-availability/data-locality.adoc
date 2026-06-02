@@ -1,0 +1,57 @@
+= Localité des données
+:revdate: 2025-07-26
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Le paramètre de localité des données est destiné à être activé dans les situations où au moins une réplique d'un volume Longhorn doit être planifiée sur le même nœud que le pod qui utilise le volume, chaque fois que cela est possible. Nous faisons référence à la propriété d'avoir une réplique locale comme ayant `data locality`.
+
+Par exemple, la localité des données peut être utile lorsque le réseau du cluster est mauvais, car avoir une réplique locale augmente la disponibilité du volume.
+
+La localité des données peut également être utile pour les applications distribuées (par exemple, les bases de données), dans lesquelles une haute disponibilité est atteinte au niveau de l'application plutôt qu'au niveau du volume. Dans ce cas, un seul volume est nécessaire pour chaque pod, donc chaque volume doit être planifié sur le même nœud que le pod qui l'utilise.  De plus, le comportement par défaut de Longhorn pour la planification des volumes pourrait poser un problème pour les applications distribuées. Le problème est que s'il y a deux répliques d'un pod, et que chaque réplique de pod a un volume, Longhorn n'est pas conscient que ces volumes contiennent les mêmes données et ne devraient pas être planifiés sur le même nœud. Par conséquent, Longhorn pourrait planifier des répliques identiques sur le même nœud, empêchant ainsi de fournir une haute disponibilité pour la charge de travail.
+
+Lorsque la localité des données est désactivée, un volume Longhorn peut être soutenu par des répliques sur n'importe quel nœud du cluster et accessible par un pod s'exécutant sur n'importe quel nœud du cluster.
+
+== Paramètres de localité des données
+
+Longhorn prend actuellement en charge deux modes pour les paramètres de localité des données{nbsp}:
+
+* `disabled` : Il s'agit de l'option par défaut. Il peut y avoir ou non une réplique sur le même nœud que le volume attaché (charge de travail).
+* `best-effort` : Cette option indique à Longhorn d'essayer de garder une réplique sur le même nœud que le volume attaché (charge de travail). Longhorn n'interrompra pas le volume, même s'il ne peut pas garder une réplique locale au volume attaché (charge de travail) en raison d'une limitation de l'environnement, par exemple, pas assez d'espace disque, étiquettes de disque incompatibles, etc.
+* `strict-local` : Cette option impose à Longhorn de garder le *seulement une réplique* sur le même nœud que le volume attaché, et par conséquent, elle offre des performances IOPS plus élevées et une latence plus faible. Cette option est incompatible avec xref:volumes/rwx-volumes.adoc[les volumes ReadWriteMany (RWX)].
+
+== Comment définir la localité des données pour les volumes
+
+Il existe trois façons de définir la localité des données pour les volumes Longhorn:
+
+=== Changez le paramètre global par défaut
+
+Vous pouvez modifier le paramètre global par défaut pour la localité des données dans les paramètres de l'interface Longhorn.
+Le paramètre global ne fonctionne que comme une valeur par défaut, similaire au nombre de répliques.
+Cela ne modifie aucun des paramètres des volumes existants.
+Lorsqu'un volume est créé sans spécifier la localité des données, Longhorn utilisera le paramètre global par défaut pour déterminer la localité des données pour le volume.
+
+=== Modifiez la localité des données pour un volume individuel en utilisant l'interface Longhorn.
+
+Vous pouvez utiliser l'interface Longhorn pour définir la localité des données pour le volume lors de sa création.
+Vous pouvez également modifier le paramètre de localité des données pour le volume après sa création dans la page de détails du volume.
+
+=== Définissez la localité des données pour des volumes individuels en utilisant un StorageClass.
+
+Longhorn expose également le paramètre de localité des données comme un paramètre dans un StorageClass.
+Vous pouvez créer un StorageClass avec un paramètre de localité des données spécifié, puis créer des PVC en utilisant le StorageClass.
+Par exemple, le fichier YAML ci-dessous définit un StorageClass qui indique au pilote CSI Longhorn de définir la localité des données sur `best-effort`{nbsp}:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: hyper-converged
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "2"
+  dataLocality: "best-effort"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+----

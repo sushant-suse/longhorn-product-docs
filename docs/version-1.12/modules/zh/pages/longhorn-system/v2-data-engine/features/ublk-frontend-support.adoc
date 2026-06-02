@@ -1,0 +1,74 @@
+= UBLK 前端支持
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/ublk-frontend-support.md"]
+:current-version: {page-component-version}
+
+从 v1.9.0 开始，{longhorn-product-name} 支持 V2 数据引擎卷的 UBLK 前端。
+此功能使用 https://spdk.io/doc/ublk.html[UBLK SPDK 框架] 将 V2 数据引擎卷暴露为块设备。
+在某些高规格环境中（例如，配备快速 SSD 的机器，能够实现数百万 IOPS，并配备 32 个处理器内核），UBLK 前端可能比默认的 NVMe-oF 前端提供更好的性能。
+有关性能比较，请参见 link:https://github.com/longhorn/longhorn/wiki/Longhorn-Performance-Investigation[{longhorn-product-name} 性能调查维基页面]。
+然而，UBLK 前端的成熟度低于默认的 NVMe-oF 前端（请参见 xref:_known_limitations[已知限制]）。
+UBLK 前端还有额外的限制，具体如下。
+
+== 先决条件
+
+. 节点上的内核版本必须为 v6.0 或更高。UBLK 内核驱动程序仅在内核 v6.0 及更高版本中可用。
+. 在每个要附加 UBLK 卷的节点上，必须加载内核模块 `ublk_drv`。对于测试，您可以使用以下命令在每个相关节点上手动加载它：
++
+[,bash]
+----
+modprobe ublk_drv
+----
+
+== 如何使用
+
+=== 从 UI 创建 V2 卷时
+在创建卷时选择 `UBLK` 作为卷前端。
+
+=== 从清单创建 V2 卷时
+. 创建一个指定 UBLK 前端的 `StorageClass`。例如：
++
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: my-ublk-frontend-storageclass
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "2880"
+  fsType: "ext4"
+  dataEngine: "v2"
+  frontend: "ublk"
+----
+. 创建一个引用前一步中创建的 `StorageClass` 的 `PersistentVolumeClaim`（PVC）。例如：
++
+[,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: my-ublk-frontend-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: my-ublk-frontend-storageclass
+  resources:
+    requests:
+      storage: 1Gi
+----
+. {longhorn-product-name} 根据 PVC 和 `StorageClass` 定义自动配置一个使用 UBLK 前端的 V2 卷。
+
+== 已知限制
+当实例管理器 pod 崩溃时，可能会在节点上留下孤立的 UBLK 设备。
+目前，手动删除这些孤立设备可能很困难，有时可能需要重启节点。
+我们正在进一步调查此问题 link:https://github.com/longhorn/longhorn/issues/10738[GitHub 问题 #10738]。
+
+== 参考手册
+原始 GitHub 问题关于 UBLK 前端支持：link:https://github.com/longhorn/longhorn/issues/9456[GitHub 问题 #9456]。

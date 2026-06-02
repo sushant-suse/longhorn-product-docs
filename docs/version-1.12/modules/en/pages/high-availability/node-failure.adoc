@@ -1,5 +1,5 @@
 = Node Failure Management
-:revdate: 2025-06-27
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -11,15 +11,15 @@ After *one minute*, `kubectl get nodes` will report `NotReady` for the failure n
 
 After about *five minutes*, the states of all the pods on the `NotReady` node will change to either `Unknown` or `NodeLost`.
 
-StatefulSets have a stable identity, so Kubernetes won't force delete the pod for the user. See the https://kubernetes.io/docs/tasks/run-application/force-delete-stateful-set-pod/[official Kubernetes documentation about forcing the deletion of a StatefulSet].
+StatefulSets have a stable identity, so Kubernetes would not force delete the pod for the user. See the https://kubernetes.io/docs/tasks/run-application/force-delete-stateful-set-pod/[official Kubernetes documentation about forcing the deletion of a StatefulSet].
 
-Deployments don't have a stable identity, but for the Read-Write-Once type of storage, since it cannot be attached to two nodes at the same time, the new pod created by Kubernetes won't be able to start due to the RWO volume still attached to the old pod, on the lost node.
+Deployments do not have a stable identity, but for the Read-Write-Once type of storage, since it cannot be attached to two nodes at the same time, the new pod created by Kubernetes would not be able to start due to the RWO volume still attached to the old pod, on the lost node.
 
 In both cases, Kubernetes will automatically evict the pod (set deletion timestamp for the pod) on the lost node, then try to *recreate a new one with old volumes*. Because the evicted pod gets stuck in `Terminating` state and the attached volumes cannot be released/reused, the new pod will get stuck in `ContainerCreating` state, if there is no intervene from admin or storage software.
 
 == Longhorn Pod Deletion Policy When Node is Down
 
-Longhorn provides an option to help users automatically force delete terminating pods of StatefulSet/Deployment on the node that is down. After force deleting, Kubernetes will detach the Longhorn volume and spin up replacement pods on a new node.
+Longhorn provides an option to help users automatically force delete terminating pods of StatefulSet or Deployment on the node that is down. After force deleting, Kubernetes will detach the Longhorn volume and spin up replacement pods on a new node.
 
 You can find more detail about the setting options in the `Pod Deletion Policy When Node is Down` in the *Settings* tab in the Longhorn UI or xref:longhorn-system/settings.adoc#_pod_deletion_policy_when_node_is_down[Settings reference]
 
@@ -27,9 +27,9 @@ You can find more detail about the setting options in the `Pod Deletion Policy W
 
 If the node is back online within 5 - 6 minutes of the failure, Kubernetes will restart pods, unmount, and re-mount volumes without volume re-attaching and VolumeAttachment cleanup.
 
-Because the volume engines would be down after the node is down, this direct remount won't work since the device no longer exists on the node.
+Because the volume engines would be down after the node is down, this direct remount would not work since the device no longer exists on the node.
 
-In this case, Longhorn will detach and re-attach the volumes to recover the volume engines, so that the pods can remount/reuse the volumes safely.
+In this case, Longhorn will detach and re-attach the volumes to recover the volume engines, so that the pods can remount or reuse the volumes safely.
 
 If the node is not back online within 5 - 6 minutes of the failure, Kubernetes will try to delete all unreachable pods based on the pod eviction mechanism and these pods will be in a `Terminating` state. See https://kubernetes.io/docs/concepts/architecture/nodes/#condition[pod eviction timeout] for details.
 

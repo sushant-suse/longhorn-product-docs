@@ -1,0 +1,178 @@
+= Topologie-bewusste Bereitstellung
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Die topologie-bewusste Bereitstellung ermöglicht es Ihnen, die `nodeAffinity` Regeln zu steuern, die Kubernetes beim Erstellen eines PersistentVolume (PV) schreibt. Dies ist nützlich, wenn Sie Volumes an bestimmte Zonen oder Regionen binden möchten, damit Pods und ihre Daten immer im gleichen Ausfallbereich landen.
+
+{longhorn-product-name} unterstützt dies durch zwei komplementäre Funktionen:
+
+* *`csi-allowed-topology-keys` Einstellung*: Steuert, welche Topologie-Schlüssel (zum Beispiel `topology.kubernetes.io/zone`) im PV `nodeAffinity` erscheinen.
+* *`strictTopology` StorageClass-Parameter*: Wenn aktiviert, bindet das PV an die Topologie des genau vom Scheduler ausgewählten Knotens anstelle aller übereinstimmenden Topologien.
+
+== Voraussetzungen
+
+. Knoten in Ihrem Cluster müssen mit den Topologie-Schlüsseln beschriftet sein, die Sie verwenden möchten. Kubernetes wendet automatisch das bekannte Label `topology.kubernetes.io/zone` in den meisten Cloud-Umgebungen an. Prüfen Sie mit:
++
+[source,shell]
+----
+kubectl get nodes --label-columns topology.kubernetes.io/zone
+----
+
+. Konfigurieren Sie die *CSI Erlaubte Topologie-Schlüssel* Einstellung in {longhorn-product-name}. Setzen Sie den Wert auf eine durch Kommas getrennte Liste von Topologie-Schlüsseln, die {longhorn-product-name} an Kubernetes weitergeben soll.
++
+* *{longhorn-product-name} UI*: Gehen Sie zu *Einstellung > Allgemein > CSI Erlaubte Topologie-Schlüssel* und geben Sie beispielsweise `topology.kubernetes.io/zone` ein.
+* *Longhorn API / kubectl*:
++
+[source,shell]
+----
+kubectl -n longhorn-system edit settings.longhorn.io csi-allowed-topology-keys
+----
++
+Setzen Sie das `value` Feld auf `topology.kubernetes.io/zone`.
++
+[NOTE]
+====
+Nach der Änderung dieser Einstellung müssen Sie das `longhorn-csi-plugin` DaemonSet manuell neu starten, damit die Änderung wirksam wird. Die Topologie wird nur korrekt angewendet, nachdem das CSI-Plugin-Pod auf jedem Knoten neu gestartet wurde.
+====
+
+== So funktioniert's
+
+Wenn ein PVC gegen eine StorageClass erstellt wird, die den Longhorn CSI-Treiber verwendet, interagieren mehrere Felder, um zu bestimmen, was `nodeAffinity` das resultierende PV erhält:
+
+[cols="1,3"]
+|===
+| Feld | Rolle
+
+| `csi-allowed-topology-keys` (Longhorn-Einstellung)
+| Teilt dem CSI-Treiber mit, welche Topologie-Schlüssel beworben werden sollen. Wenn leer (der Standard), werden keine Topologieinformationen an Kubernetes übergeben, und PVs erhalten keine topologiebasierten `nodeAffinity`.
+
+| `allowedTopologies` (StorageClass-Feld)
+| Beschränkt, welche Topologie-Werte zulässig sind. Zum Beispiel können Sie die Bereitstellung auf Zonen `a` und `b` aus `a`, `b` und `c` beschränken.
+
+| `volumeBindingMode` (StorageClass-Feld)
+| `WaitForFirstConsumer` (WFFC) verzögert die Bereitstellung, bis ein Pod geplant ist, und gibt dem Scheduler einen bevorzugten Knoten. `Immediate` stellt sofort bereit.
+
+| `strictTopology` (StorageClass-Parameter)
+| Wenn `"true"` verwendet wird und mit `WaitForFirstConsumer` kombiniert wird, wird das PV nur an die Zone des Knotens gebunden, in der der Pod geplant wurde, anstatt an alle erlaubten Zonen. Diese Einstellung hat nur dann Wirkung, wenn `csi-allowed-topology-keys` den relevanten Topologie-Schlüssel enthält.
+|===
+
+== Beispiele
+
+Die folgenden Beispiele gehen von einem Cluster mit sechs Knoten in drei Zonen aus:
+
+[cols="1,1"]
+|===
+| Knoten | Zone
+
+| node2 | a
+| Knoten3 | b
+| Knoten4 | c
+| Knoten5 | a
+| Knoten6 | b
+| Knoten7 | c
+|===
+
+=== Grundlegende Zonen-Affinität
+
+Verwenden Sie `WaitForFirstConsumer` zusammen mit `allowedTopologies` und `csi-allowed-topology-keys`, um Volumes auf bestimmte Zonen zu beschränken.
+
+*Longhorn-Einstellung*:
+
+----
+csi-allowed-topology-keys = topology.kubernetes.io/zone
+----
+
+*StorageClass*:
+
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-zone-ab
+provisioner: driver.longhorn.io
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  numberOfReplicas: "3"
+allowedTopologies:
+  - matchLabelExpressions:
+      - key: topology.kubernetes.io/zone
+        values:
+          - a
+          - b
+----
+
+*Ergebnis*: Die PV `nodeAffinity` ist auf `zone in [a, b]` eingestellt. Die PV kann nur an Knoten in den Zonen `a` oder `b` gebunden werden.
+
+=== Striktes Topologie-Pinning
+
+Fügen Sie `strictTopology: "true"` hinzu, um die PV an die genaue Zone des geplanten Knotens zu binden.
+
+*Longhorn-Einstellung*:
+
+----
+csi-allowed-topology-keys = topology.kubernetes.io/zone
+----
+
+*StorageClass*:
+
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-strict-zone
+provisioner: driver.longhorn.io
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  numberOfReplicas: "3"
+  strictTopology: "true"
+allowedTopologies:
+  - matchLabelExpressions:
+      - key: topology.kubernetes.io/zone
+        values:
+          - a
+          - b
+          - c
+----
+
+*Ergebnis*: Obwohl alle drei Zonen in `allowedTopologies` aufgeführt sind, ist die PV `nodeAffinity` nur auf die Zone des Knotens eingestellt, auf dem der Pod geplant wurde (zum Beispiel `zone in [a]`, wenn der Pod auf `node2` oder `node5` landet).
+
+== Verhaltensreferenz
+
+In der folgenden Tabelle repräsentieren die Zonen `[a, b, c]` alle Zonen, die im obigen Beispiel-Cluster vorhanden sind.
+
+[cols=">1,2,2,2,1,2"]
+|===
+| # | `volumeBindingMode` | `allowedTopologies` | `csi-allowed-topology-keys` | `strictTopology` | PV `nodeAffinity`
+
+| 1 | Sofort | Keine | `""` (leer) | false | Keine
+| 2 | Sofort | Keine | `zone` | false | Zone in [a, b, c]
+| 3 | Sofort | Zone: [a, b] | `zone` | false | Zone in [a, b]
+| 4 | WFFC | Keine | `""` (leer) | false | Keine
+| 5 | WFFC | Keine | `zone` | false | Zone in [a, b, c]
+| 6 | WFFC | Keine | `zone` | true | Zone in [ausgewählt]
+| 7 | WFFC | zone: [a] | `zone` | false | Zone in [a]
+| 8 | WFFC | Zone: [a, b, c] | `zone` | true | Zone in [ausgewählt]
+|===
+
+> In dieser Tabelle steht `zone` für `topology.kubernetes.io/zone`, und `[selected]` bedeutet die Zone des Knotens, die vom Kubernetes-Scheduler ausgewählt wurde.
+
+*Wichtige Erkenntnisse*:
+
+* Ohne `csi-allowed-topology-keys` werden keine Topologieinformationen übermittelt und PVs erhalten keine topologiebasierten `nodeAffinity` (Szenarien 1, 4).
+* `strictTopology` bindet das PV nur an die Topologie des geplanten Pods, wenn es mit `WaitForFirstConsumer` verwendet wird. Mit `Immediate` wird das PV erstellt, bevor der Pod geplant wird, sodass seine Topologie zufällig ausgewählt wird.
+* `allowedTopologies` schränkt die Menge der zulässigen Zonen ein; `strictTopology` reduziert sie weiter auf die einzelne ausgewählte Zone.
+
+== Hinweise und Warnungen
+
+* Verwenden Sie **nicht** `allowedTopologies` zusammen mit `dataLocality: strict-local`. Das PV `nodeAffinity` ist unveränderlich, sobald es festgelegt ist, und wird mit der strengen lokalen Volumenbindung von {longhorn-product-name} in Konflikt stehen. Siehe xref:high-availability/data-locality.adoc[Datenlokalität] für Details.
+* Die häufigste Konfiguration für Benutzer, die *nicht* auf topologie-bewusste Bereitstellung angewiesen sind, besteht darin, `csi-allowed-topology-keys` leer zu lassen (Szenarien 1 und 4). Dies ist der Standard.
+* Für Benutzer, die eine topologie-bewusste Bereitstellung wünschen, sind die empfohlenen Konfigurationen die Szenarien 7 und 8 – verwenden Sie `WaitForFirstConsumer` zusammen mit `allowedTopologies` und `csi-allowed-topology-keys`.
+
+== Verwandte Dokumentation
+
+* xref:volumes/storageclass-parameters.adoc[Parameter der Speicherklasse]
+* xref:longhorn-system/settings.adoc#_csi_allowed_topology_keys[Einstellung der zulässigen Topologie-Schlüssel für CSI]
+* xref:nodes/scheduling.adoc[Planung]

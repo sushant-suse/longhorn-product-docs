@@ -1,0 +1,67 @@
+= Réseau de stockage
+:revdate: 2025-11-19
+:page-revdate: {revdate}
+:doctype: book
+:current-version: {page-component-version}
+
+Par défaut, {longhorn-product-name} utilise le réseau CNI du cluster Kubernetes par défaut qui est limité à une seule interface et partagé avec d'autres charges de travail dans tout le cluster. Dans le cas où vous avez besoin de ségrégation réseau, {longhorn-product-name} prend en charge l'isolement du trafic de données en cluster {longhorn-product-name} avec le paramètre Réseau de stockage.
+
+Le paramètre Réseau de stockage prend la définition de l'attachement de réseau Multus au format `<NAMESPACE>/<NAME>`.
+
+Vous pouvez vous référer à https://github.com/k8snetworkplumbingwg/multus-cni#comprehensive-documentation[Document complet] pour savoir comment installer et configurer la définition de l'attachement de réseau Multus.
+
+L'application du paramètre ajoutera l'annotation `k8s.v1.cni.cncf.io/networks` et recréera tous les pods instance-manager et backing-image-manager existants.
+{longhorn-product-name} appliquera la même annotation à tout nouveau pod instance-manager, backing-image-manager et backing-image-data-source.
+
+[IMPORTANT]
+====
+Pour vous assurer que vos paramètres préférés sont immédiatement appliqués, arrêtez toutes les charges de travail et détachez tous les volumes Longhorn avant de configurer les paramètres.
+
+Lorsque tous les volumes sont détachés, {longhorn-product-name} tente de redémarrer tous les pods Instance Manager et Backing Image Manager pour appliquer le paramètre.
+Lorsque un ou plusieurs volumes Longhorn sont encore attachés, le paramètre personnalisé est appliqué à l'Instance Manager uniquement lorsque aucun moteur et aucune instance de réplique ne sont en cours d'exécution. Vous devez reconfigurer le paramètre après avoir détaché les volumes restants. Alternativement, vous pouvez attendre la prochaine synchronisation des paramètres, qui aura lieu dans une heure.
+====
+
+== Paramétrage du réseau de stockage
+
+=== Conditions préalables
+
+Le réseau Multus NetworkAttachmentDefinition pour le paramètre de réseau de stockage doit être accessible dans les pods à travers différents nœuds du cluster.
+
+Vous pouvez vérifier en créant un simple DaemonSet et en essayant de pinger entre les pods.
+
+=== Paramétrage du réseau de stockage lors de l'installation de {longhorn-product-name}
+
+Suivez le xref:longhorn-system/customize-default-settings.adoc[Personnaliser les paramètres par défaut] pour définir le réseau de stockage en changeant la valeur du paramètre par défaut `storage-network`
+
+[WARNING]
+====
+Le gestionnaire d'instance Longhorn ne démarrera pas si le paramètre de réseau de stockage est invalide.
+
+Vous pouvez vérifier les événements du pod instance-manager pour voir s'il est lié à une définition d'attachement de réseau invalide avec `kubectl -n longhorn-system describe pods -l longhorn.io/component=instance-manager`.
+
+Si tel est le cas, fournissez un `NetworkAttachmentDefinition` valide et relancez l'installation de {longhorn-product-name}.
+====
+
+=== Paramétrage du réseau de stockage après l'installation de {longhorn-product-name}
+
+Définissez le paramètre xref:longhorn-system/settings.adoc#_storage_network[Réseau de stockage].
+
+[WARNING]
+====
+Ne modifiez pas la ressource personnalisée NetworkAttachmentDefinition après l'avoir appliquée au paramètre.
+
+{longhorn-product-name} n'est pas au courant des mises à jour. Cela entraînera donc des dysfonctionnements et des erreurs. Au lieu de cela, vous pouvez créer une nouvelle ressource personnalisée NetworkAttachmentDefinition et la mettre à jour dans le paramètre.
+====
+
+=== Configuration du réseau de point de terminaison pour les volumes RWX
+
+Configurez le paramètre xref:longhorn-system/settings.adoc#_network_for_rwx_volume[Réseau de point de terminaison pour le volume RWX].
+
+== Limitation
+
+Lorsqu'un volume RWX est attaché au réseau de point de terminaison, la connexion du point de montage NFS doit être rétablie lorsque le pod du plugin CSI redémarre. {longhorn-product-name} fournit le paramètre xref:longhorn-system/settings.adoc#_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly[Supprimer automatiquement le pod de charge de travail lorsque le volume est détaché de manière inattendue], qui supprime automatiquement les pods de charge de travail des volumes RWX lorsque le pod du plugin CSI redémarre. Cependant, le point de montage NFS du pod de charge de travail pourrait devenir non réactif lorsque le paramètre est désactivé ou que le pod n'est pas géré par un contrôleur. Dans de tels cas, vous devez redémarrer manuellement le pod du plugin CSI.
+
+== History
+
+* https://github.com/longhorn/longhorn/issues/2285[Demande de fonctionnalité originale (depuis v1.3.0)]
+* https://github.com/longhorn/longhorn/issues/8184[[FEATURE\] Support du réseau de stockage pour les volumes RWX (depuis v1.7.0)]

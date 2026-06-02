@@ -1,0 +1,65 @@
+= Stellen Sie einen wiederkehrenden Job aus einer Sicherung wieder her.
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn unterstützt die Sicherung und Wiederherstellung wiederkehrender Jobs sowie die Volume-Sicherung und -Wiederherstellung. Beim Wiederherstellen eines Sicherungsvolumes werden die ursprünglichen wiederkehrenden Jobs des Volumes entsprechend wiederhergestellt, wenn Benutzer die `Restore Volume Recurring Jobs` Einstellung aktivieren.
+
+Für weitere Informationen zur Einstellung `Restore Volume Recurring Jobs` siehe den Abschnitt xref:longhorn-system/settings.adoc#_restore_volume_recurring_jobs[Einstellungen].
+
+Für weitere Informationen darüber, wie die Volume-Sicherung funktioniert, siehe den Abschnitt xref:introduction/concepts.adoc#_3_backups_and_secondary_storage[Konzepte].
+
+Beim Wiederherstellen eines Volumes mit wiederkehrenden Jobs wird Longhorn diese zusammen wiederherstellen. Wenn der Volumenname bereits existiert, werden das Volume und die wiederkehrenden Jobs nicht wiederhergestellt.  Wenn der Name des wiederkehrenden Jobs bereits existiert, aber die Spezifikation unterschiedlich ist, wird der wiederherzustellende wiederkehrende Job mit einem zufällig generierten Namen erstellt, um Konflikte zu vermeiden. Andernfalls wird Longhorn versuchen, vorhandene wiederkehrende Jobs wiederzuverwenden, wenn sie mit den wiederherzustellenden wiederkehrenden Jobs eines Sicherungsvolumes übereinstimmen.
+
+Standardmäßig wird Longhorn die wiederkehrenden Volume-Jobs nicht automatisch wiederherstellen; Benutzer können die automatische Wiederherstellung über die Longhorn-Benutzeroberfläche oder kubectl aktivieren.
+
+== Via Longhorn UI
+
+. Navigieren Sie zum Menü *Setting* und klicken Sie auf *General*.
+. Aktivieren Sie die `Restore Volume Recurring Jobs`.
+. Navigieren Sie zum Menü *Sicherung*.
+. Wählen Sie die Sicherung(en) aus, die Sie wiederherstellen möchten, und klicken Sie auf *Neueste Sicherung wiederherstellen*.
+. Wählen Sie im Feld *Name* das Volume aus, das Sie wiederherstellen möchten.
+. Klicken Sie auf *OK*.
+
+== Über die Kommandozeile
+
+[subs="+attributes",bash]
+----
+# kubectl -n longhorn-system edit settings.longhorn.io restore-volume-recurring-jobs
+----
+
+Setzen Sie dann den Wert auf `true`.
+
+[subs="+attributes",text]
+----
+# kubectl -n longhorn-system get setting restore-volume-recurring-jobs
+NAME                            VALUE   AGE
+restore-volume-recurring-jobs   false   28m
+----
+
+=== Beispiel für volumespezifische Einstellung
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  labels:
+    longhornvolume: vol-01
+  name: vol-01
+  namespace: longhorn-system
+spec:
+  restoreVolumeRecurringJob: ignored
+  engineImage: longhornio/longhorn-engine:v1.4.0
+  fromBackup: "s3://backupbucket@us-east-1?volume=minio-vol01&backup=backup-eeb2782d5b2f42bb"
+  frontend: blockdev
+----
+
+Benutzer können die Einstellung `restore-volume-recurring-jobs` durch die Volume-Spezifikation `spec.restoreVolumeRecurringJob` überschreiben.
+
+* *ignoriert*. Dies ist die Standardoption, die Longhorn anweist, von der globalen Einstellung zu erben.
+* *aktiviert*. Diese Option weist Longhorn an, die wiederkehrenden Volume-Jobs aus dem Sicherungsziel zwangsweise wiederherzustellen.
+* *deaktiviert*. Diese Option weist Longhorn an, dass keine Wiederherstellung von wiederkehrenden Volume-Jobs erfolgen soll.
+
+*Ergebnis:* Die wiederhergestellten wiederkehrenden Volume-Jobs sind auf der Seite *RecurringJob* verfügbar.

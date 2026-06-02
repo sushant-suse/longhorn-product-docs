@@ -1,0 +1,189 @@
+= {longhorn-product-name}をFleetでインストールする
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 前提条件
+
+[NOTE]
+====
+{longhorn-product-name}のインストールには、SUSE Application Collectionへの認証されたアクセスが必要です。詳細については、 https://docs.apps.rancher.io/get-started/authentication[認証ガイド]を確認してください。
+====
+
+* あなたのワークステーション： https://helm.sh/docs/[Helm] v3.0以降をインストールしてください。
+* Kubernetesクラスタ：
+ ** 各ノードがxref:installation-setup/requirements.adoc[インストール要件]を満たしていることを確認してください。
+ ** Helmを使用して https://documentation.suse.com/cloudnative/continuous-delivery/v0.12/en/index.html[{fleet-product-name}]をインストールします。
++
+[,bash]
+----
+helm repo add fleet https://rancher.github.io/fleet-helm-charts/
+helm -n cattle-fleet-system install --create-namespace --wait fleet-crd fleet/fleet-crd
+helm -n cattle-fleet-system install --create-namespace --wait fleet fleet/fleet
+----
++
+`cattle-fleet-system`ネームスペース内でFleetコンポーネントのデプロイメントに少し時間をかけてください。
+
+____
+xref:longhorn-system/system-access/longhorn-cli.adoc[Longhornコマンドラインツール]を使用して、Longhorn環境の潜在的な問題を確認できます。
+____
+
+== インストール
+
+. GitOpsリポジトリ内に、次の内容を含む https://documentation.suse.com/cloudnative/continuous-delivery/v0.12/en/reference/ref-fleet-yaml.html[`fleet.yaml`]ファイルを作成します。
+ ** {longhorn-product-name}ネームスペースに`longhorn-system`をインストールするためのパラメータ
+
++
+[,yaml]
+----
+ defaultNamespace: longhorn-system
+----
+ ** https://documentation.suse.com/cloudnative/continuous-delivery/v0.12/en/how-tos-for-users/bundle-diffs.html[変更されたCRDを無視するためのパラメータ]
+
++
+[,yaml]
+----
+ diff:
+   comparePatches:
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: engineimages.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: nodes.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: volumes.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: engines.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: instancemanagers.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: replicas.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: settings.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+----
+ ** インストールするHelmチャートのバージョンを指定するためのパラメータ
+
++
+[subs="+attributes",yaml]
+----
+ helm:
+   repo: https://charts.longhorn.io
+   chart: longhorn
+   version: v{patch-version} # Replace with the version you would like to install or upgrade to
+   releaseName: longhorn
+----
++
+完全な`fleet.yaml`ファイルの例：
++
+[subs="+attributes",yaml]
+----
+ defaultNamespace: longhorn-system
+ helm:
+   repo: https://charts.longhorn.io
+   chart: longhorn
+   version: v{patch-version}
+   releaseName: longhorn
+ diff:
+   comparePatches:
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: engineimages.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: nodes.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+   - apiVersion: apiextensions.k8s.io/v1
+     kind: CustomResourceDefinition
+     name: volumes.longhorn.io
+     operations:
+     - {"op": "replace", "path": "/status"}
+----
+. GitOpsリポジトリを指すGitRepoカスタムリソース（CR）を作成します。
++
+[,bash]
+----
+ cat > longhorn-gitrepo.yaml << "EOF"
+ apiVersion: fleet.cattle.io/v1alpha1
+ kind: GitRepo
+ metadata:
+   name: longhorn
+   namespace: fleet-local
+ spec:
+   repo: https://github.com/your-username/your-gitops-repo.git
+   revision: main
+   paths:
+   - .
+ EOF
+----
+
+. GitRepo CRを適用します。
++
+[,bash]
+----
+ kubectl apply -f longhorn-gitrepo.yaml
+----
+
+. GitRepo CRが正常に作成され、同期されたことを確認します。
++
+[,bash]
+----
+ kubectl -n fleet-local get gitrepo -w
+----
+
+. {longhorn-product-name}が正常にインストールされたことを確認します。
++
+[,bash]
+----
+ kubectl -n longhorn-system get pod
+----
++
+正常なインストールの例：
++
+[,bash]
+----
+ NAME                                                READY   STATUS    RESTARTS   AGE
+ longhorn-ui-b7c844b49-w25g5                         1/1     Running   0          2m41s
+ longhorn-manager-pzgsp                              1/1     Running   0          2m41s
+ longhorn-driver-deployer-6bd59c9f76-lqczw           1/1     Running   0          2m41s
+ longhorn-csi-plugin-mbwqz                           2/2     Running   0          100s
+ csi-snapshotter-588457fcdf-22bqp                    1/1     Running   0          100s
+ csi-snapshotter-588457fcdf-2wd6g                    1/1     Running   0          100s
+ csi-provisioner-869bdc4b79-mzrwf                    1/1     Running   0          101s
+ csi-provisioner-869bdc4b79-klgfm                    1/1     Running   0          101s
+ csi-resizer-6d8cf5f99f-fd2ck                        1/1     Running   0          101s
+ csi-provisioner-869bdc4b79-j46rx                    1/1     Running   0          101s
+ csi-snapshotter-588457fcdf-bvjdt                    1/1     Running   0          100s
+ csi-resizer-6d8cf5f99f-68cw7                        1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-df8v6                       1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-g9cwc                       1/1     Running   0          101s
+ csi-attacher-7bf4b7f996-8l9sw                       1/1     Running   0          101s
+ csi-resizer-6d8cf5f99f-smdjw                        1/1     Running   0          101s
+ instance-manager-b34d5db1fe1e2d52bcfb308be3166cfc   1/1     Running   0          114s
+ engine-image-ei-df38d2e5-cv6nc                      1/1     Running   0          114s
+----
+
+. UIにアクセスするために、xref:longhorn-system/system-access/create-ingress.adoc[基本認証を使用したNGINX Ingressコントローラーを作成してください]。UIへの認証はデフォルトで有効になっていません。
+. xref:longhorn-system/system-access/system-access.adoc[UIにアクセスしてください]。

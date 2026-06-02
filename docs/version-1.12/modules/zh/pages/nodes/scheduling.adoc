@@ -1,0 +1,287 @@
+= 安排日程
+:revdate: 2026-03-06
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} 根据多个因素调度副本。
+
+== 调度策略
+
+{longhorn-product-name} 的调度策略分为两个阶段。调度器只有在满足前一个阶段的情况下才会进入下一个阶段。否则，调度将失败。
+
+如果任何标签被设置为调度选择，节点标签和磁盘标签在选择节点或磁盘时必须匹配。
+
+第一阶段是 *节点和区域选择阶段*。{longhorn-product-name} 根据 `Replica Node Level Soft Anti-Affinity` 和 `Replica Zone Level Soft Anti-Affinity` 设置过滤节点和区域。
+
+第二阶段是 *磁盘选择阶段*。{longhorn-product-name} 根据 `Replica Disk Level Soft Anti-Affinity`、`Storage Minimal Available Percentage`、`Storage Over Provisioning Percentage` 以及其他与磁盘相关的因素（如请求的磁盘空间）过滤满足第一阶段的磁盘。
+
+=== 节点和区域选择阶段
+
+{longhorn-product-name} 根据一系列标准评估哪些节点适合调度新的副本。决策过程遵循特定顺序，以确保容错的最佳放置。
+
+==== 1.节点标签匹配
+
+{longhorn-product-name} 首先检查卷上的节点选择器标签。
+
+* 如果卷有节点选择器标签，只有匹配标签的节点才有资格。
+* 如果卷没有 *节点选择器*，则行为取决于 *允许空节点选择器卷* 设置：
+* `true`（默认）：在 *有或没有标签的节点* 上调度。
+* `false`：*仅* 在 *无标签* 的节点上调度。
+
+==== 2.封锁节点处理
+
+*禁用在封锁节点上调度* 设置决定封锁节点是否有资格进行副本调度：
+
+* `true`（默认）：封锁节点被排除在外。
+* `false`：封锁节点是合格的。
+
+==== 3.节点和区域之间的反亲和性规则
+
+{longhorn-product-name} 优先在不同的 *节点* 和 *区域* 之间分散副本，以提高容错能力。一个 *"新"* 节点或区域是指当前 *不*托管该卷的任何副本，而一个 *"现有"* 节点或区域已经托管该卷的副本。
+
+调度程序尝试将新的副本放置在尽可能"隔离"的位置，遵循以下偏好层次：
+
+. *新节点在新区域*（最优先）
+. *新节点在现有区域*
+. *现有节点在现有区域*（最不优先）
+
+下表详细说明了在每种情况下调度副本所需的设置：
+
+[cols="3,3,3,3a", options="header"]
+|===
+|情景 |副本区域级别软反亲和性 |副本节点级别软反亲和性 |调度程序操作
+
+| *新节点在新区域*
+| `false`
+| `false`
+| *调度* 副本。
+
+|
+| 任何其他值
+| 任何其他值
+| *不* 调度副本。
+
+| *新节点在现有区域*
+| `true`
+| `false`
+| 如果没有新的区域可用，*调度*副本。
+
+|
+| 任何其他值
+| 任何其他值
+| *不* 调度副本。
+
+| *现有区域中的现有节点*
+| `true`
+| `true`
+| 如果没有其他选项可用，*调度*副本。
+
+|
+| 任何其他值
+| 任何其他值
+| *不* 调度副本。
+|===
+
+=== 磁盘选择阶段
+
+在节点和区域选择阶段之后，{longhorn-product-name} 确定是否可以在所选节点的任何磁盘上调度副本。它根据匹配的标签、总磁盘空间和可用磁盘空间检查可用磁盘。它还考虑是否已经存在另一个副本以及反亲和性设置。
+
+{longhorn-product-name} 检查所选节点上的所有可用磁盘，以确保它们满足以下标准：
+
+. *磁盘标签匹配*：
+* 如果卷具有磁盘标签，则磁盘必须匹配副本所需的任何指定标签。
+* 如果卷没有磁盘标签，则行为取决于 *允许空磁盘选择器卷* 设置：
+** `true`（默认）：允许在有标签或无标签的磁盘上调度。
+** `false`：仅允许在无标签的磁盘上调度。
+. *可用空间检查*：
+* 磁盘必须根据配置的 `Storage Minimal Available Percentage` 具有足够的可用空间。
+. *反亲和性设置*：
+* *硬反亲和性*：防止在已经托管同一卷的另一个副本的磁盘上调度副本。
+* *软反亲和性*（启用时）：优先在没有现有副本的磁盘上调度副本，即使在空间或其他因素上不是最佳选择。
+. *空间条件*：两个公式决定磁盘是否可调度：
+* *实际空间使用条件*：确保在考虑当前使用的空间后，仍然有足够的可用存储。
+** 公式：`(Storage Available - Actual Size) > (Storage Maximum × Minimal Available Percentage) / 100`
+* *调度空间条件*：确保副本的大小（加上任何已调度但未写入的数据）符合超额配置限制。
+** 公式：`(Size + Storage Scheduled) <= ((Storage Maximum - Storage Reserved) × Over Provisioning Percentage) / 100`
+
+[NOTE]
+====
+在磁盘评估期间，由于尚未调度特定副本，`Actual Size`和`Size`在这些公式中暂时被视为`0`。
+====
+
+如果这些条件中的任何一个失败，包括磁盘标签、反亲和性或空间要求，则该磁盘被标记为不可调度，{longhorn-product-name}将不会在该磁盘上放置副本。
+
+==== 示例场景
+
+考虑一个节点（*节点 A*）有两个磁盘：
+
+* *磁盘 X*：1 GB 可用，最大空间 4 GB
+* *磁盘 Y*：2 GB 可用，最大空间 8 GB
+
+===== 阶段 1：初始磁盘评估
+
+在初始磁盘选择阶段，{longhorn-product-name}对所有可用磁盘进行基本检查。此时，尚未选择特定副本，因此`Actual Size`和`Size`被视为`0`。
+
+*磁盘 X 评估*
+
+* *可用空间*：1 GB
+* *`Storage Minimal Available Percentage`*：25%（默认）
+* *最低要求可用空间*：`(4 GB × 25) / 100 = 1 GB`
+* *结果*：*磁盘 X* 未能通过 `Actual Space Usage Condition`，因为其可用空间（1 GB）等于或小于最低要求（1 GB）。因此，除非将 `Storage Minimal Available Percentage` 设置为 `0`，否则磁盘 X 不可调度。
+
+*磁盘 Y 评估*
+
+* *可用空间*：2 GB
+* *`Storage Minimal Available Percentage`*：10%
+* *最低要求可用空间*：`(8 GB × 10) / 100 = 0.8 GB`
+* *结果*：*磁盘 Y* 通过 `Actual Space Usage Condition`，因为其可用空间（2 GB）大于最低要求（0.8 GB）。
+
+接下来，我们检查 `Scheduling Space Condition`：
+
+* *调度空间*：2 GB
+* *`Storage Reserved`*：1 GB
+* *`Over Provisioning Percentage`*：100%（默认）
+* *最大可分配存储*：`(8 GB - 1 GB) × 100 / 100 = 7 GB`
+* *结果*：*磁盘 Y* 通过 `Scheduling Space Condition`，因为当前调度的空间（2 GB）小于最大可分配存储（7 GB）。
+
+由于磁盘 Y 满足所有条件，因此被标记为可调度的磁盘候选。
+
+===== 阶段 2：反亲和性规则
+
+假设磁盘 X 和磁盘 Y 都通过了初始空间检查，并且磁盘 X 已经为同一卷托管了一个副本。
+
+*硬反亲和性*
+
+* {longhorn-product-name} 不会在磁盘 X 上进行调度新的副本。相反，它会尝试在磁盘 Y 上调度该副本。
+* 如果磁盘 Y 不适合（例如，磁盘标签不匹配），则该副本的调度将失败。
+
+*软反亲和性*
+
+* 如果启用 *软反亲和性*，{longhorn-product-name} *更倾向于* 在磁盘 Y 上调度副本，以避免副本共存。
+* 然而，如果磁盘 Y 出于任何原因不适合，{longhorn-product-name} *仍然可以调度* 副本到磁盘 X。这允许在没有其他可行候选时共享磁盘作为后备选项。
+
+== 调度算法
+
+在识别出满足所有调度要求的候选磁盘后，最后一步是选择最佳磁盘用于副本。此选择是通过平衡算法确定的，该算法旨在在节点和磁盘之间均匀分配副本。
+
+=== 可用存储的平衡因子公式
+
+* `Disk_Usable_Storage = (Disk.StorageAvailable - Disk.StorageReserved) - Disk.StorageScheduled`
+* 较低的分数 = 更均衡的分配。
+
+*公式:*
+
+----
+BalanceScore(X) = (max(X) - min(X)) / mean(X)
+----
+
+其中：
+
+* `X` = 可用存储值的集合（每个节点或每个磁盘）。
+
+*选择处理：*
+
+. 模拟在每个候选节点上放置副本，并计算结果平衡分数。 +
+  → 选择分数最低的节点（最均衡的分配）。
+
+. 在选定的节点内，模拟在每个候选磁盘上的放置，并再次计算平衡分数。 +
+  → 选择其中分数最低的磁盘。
+
+==== 示例场景
+
+假设集群有两个节点，每个节点包含两个符合副本调度条件的候选磁盘。
+
+副本大小 = 100 GiB。
+
+[cols="1,1,1", options="header"]
+|===
+| 节点 | 磁盘 | 可用存储（GiB）
+
+| 节点 A | A1 | 900
+| 节点 A | A2 | 100
+| 节点 B | B1 | 600
+| 节点 B | B2 | 700
+|===
+
+*第 1 步：节点选择*
+
+*模拟在节点 A 上放置*
+
+新总数：
+
+* 节点 A = (900 + 100) − 100 = 900
+* 节点 B = (600 + 700) = 1300
+
+节点平衡分数：
+
+----
+BalanceScore_NodeA  = (1300 - 900) / ((1300 + 900) / 2)
+                    = 400 / 1100
+                    ≈ 0.364
+----
+
+*模拟在节点 B 上放置*
+
+新总数：
+
+* 节点 A = (900 + 100) = 1000
+* 节点 B = (600 + 700) - 100 = 1200
+
+节点平衡分数：
+
+----
+BalanceScore_NodeB  = (1200 - 1000) / ((1200 + 1000) / 2)
+                    = 200 / 1100
+                    ≈ 0.182
+----
+
+选择 *节点 B*（分数较低，更加平衡）。
+
+*第二步：磁盘选择*
+
+*模拟在 B1 上放置（600 → 500）*
+
+新磁盘可用：B1 = 500, B2 = 700
+
+磁盘平衡分数：
+
+----
+BalanceScore_DiskB1 = (700 - 500) / ((700 + 500) / 2)
+                    = 200 / 600
+                    ≈ 0.333
+----
+
+*模拟在 B2 上放置（700 → 600）*
+
+新磁盘可用：B1 = 600，B2 = 600
+
+磁盘平衡分数：
+
+----
+BalanceScore_DiskB2 = (600 - 600) / ((600 + 600) / 2)
+                    = 0 / 600
+                    = 0
+----
+
+选择 *磁盘 B2*（B1 和 B2 之间的完美平衡）。
+
+== 设置
+
+有关调度副本在节点和磁盘上相关设置的更多信息，请参阅设置参考：
+
+* xref:longhorn-system/settings.adoc#_disable_scheduling_on_cordoned_node[禁用在隔离节点上调度]
+* xref:longhorn-system/settings.adoc#_replica_node_level_soft_anti_affinity[副本软反亲和性]（也称为副本节点级软反亲和性）
+* xref:longhorn-system/settings.adoc#_replica_zone_level_soft_anti_affinity[副本区域级软反亲和性]
+* xref:longhorn-system/settings.adoc#_replica_disk_level_soft_anti_affinity[副本磁盘级软反亲和性]
+* xref:longhorn-system/settings.adoc#_storage_minimal_available_percentage[存储最小可用百分比]
+* xref:longhorn-system/settings.adoc#_storage_over_provisioning_percentage[存储过度配置百分比]
+* xref:longhorn-system/settings.adoc#_allow_empty_node_selector_volume[允许空节点选择器卷]
+* xref:longhorn-system/settings.adoc#_allow_empty_disk_selector_volume[允许空磁盘选择器卷]
+
+[NOTE]
+====
+{longhorn-product-name}依赖于 Kubernetes 节点对象中的标签 `topology.kubernetes.io/zone=<Zone name of the node>` 或 `topology.kubernetes.io/region=<Region name of the node>` 来识别可用区或区域。
+
+因为这些标签被 Kubernetes 保留并作为 https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone[预定义标签]使用的。
+====
+

@@ -1,0 +1,197 @@
+= 创建卷
+:revdate: 2025-12-09
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+您可以创建与 Longhorn 卷对应的持久卷 (PVs) 和持久卷声明 (PVCs) 的 Kubernetes 持久存储资源。您将使用 kubectl 动态为使用 Longhorn StorageClass 的工作负载提供存储。有关如何从 {longhorn-product-name} UI 创建卷的帮助，请参阅 <<_creating_longhorn_volumes_with_the_longhorn_ui,本节>>。
+
+____
+本节假设您了解 Kubernetes 持久存储的工作原理。有关更多信息，请参见 https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetes 文档]。
+____
+
+== 访问模式
+
+{longhorn-product-name} 支持以下 Kubernetes PersistentVolume 访问模式：
+
+* *ReadWriteOnce (RWO)*：卷可以被单个节点以读写方式挂载。同一节点上的多个 Pod 可以访问该卷。这是默认且最常见的访问模式。
+* *ReadWriteOncePod (RWOP)*：卷可以被集群中的单个 Pod 以读写方式挂载。此模式提供最强的隔离，确保任何时候只有一个 Pod 可以访问该卷。建议用于需要单一写入者访问的有状态工作负载。
+* *ReadWriteMany (RWX)*：卷可以被多个节点同时以读写方式挂载，从而实现多个 Pod 之间的共享访问。有关更多信息，请参见 xref:volumes/rwx-volumes.adoc[ReadWriteMany (RWX) 卷]。
+
+[NOTE]
+====
+不支持 ReadOnlyMany (ROX)。要实现多个 Pod 的只读访问，请在 Pod 规格中使用 ReadWriteMany 和只读挂载选项。
+====
+
+== 使用 kubectl 创建 Longhorn 卷
+
+首先，您需要创建一个 Longhorn StorageClass。Longhorn StorageClass 包含用于配置 PV 的参数。
+
+接下来，创建一个引用 StorageClass 的 PersistentVolumeClaim。最后，将 PersistentVolumeClaim 挂载为 Pod 内的卷。
+
+当 Pod 部署时，Kubernetes 主控将检查 PersistentVolumeClaim，以确保资源请求可以满足。如果存储可用，Kubernetes 主控将创建 Longhorn 卷并将其绑定到 Pod。
+
+. 使用以下命令创建一个名为 `longhorn` 的 StorageClass：
++
+[subs="+attributes", console]
+----
+kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/storageclass.yaml
+----
++
+以下示例 StorageClass 被创建：
++
+[subs="+attributes", yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  fsType: "ext4"
+#  backupTargetName: "default"
+#  mkfsParams: "-I 256 -b 4096 -O ^metadata_csum,^64bit"
+#  diskSelector: "ssd,fast"
+#  nodeSelector: "storage,fast"
+#  recurringJobSelector: '[
+#   {
+#     "name":"snap",
+#     "isGroup":true,
+#   },
+#   {
+#     "name":"backup",
+#     "isGroup":false,
+#   }
+#  ]'
+----
++
+参数 `mkfsParams` 可用于为每个 StorageClass 指定文件系统格式选项。
++
+参数 `backupTargetName` 可用于指定备份目标。如果未指定 `backupTargetName`，则使用默认备份目标的名称 (`default`)。
++
+可以在 StorageClass 规范中省略参数。当使用 StorageClass 创建 PV 和卷时，未指定的参数通常将使用从全局设置中获取的默认值进行设置。有关全局设置的完整列表，请参见 xref:volumes/storageclass-parameters.adoc[StorageClass 参数] 和 xref:longhorn-system/settings.adoc[设置]。
+
+. 通过运行此命令创建一个使用 Longhorn 卷的 Pod：
++
+[subs="+attributes", console]
+----
+kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/pod_with_pvc.yaml
+----
++
+一个名为 `volume-test` 的 Pod 被启动，同时还有一个名为 `longhorn-volv-pvc` 的 PersistentVolumeClaim。该 PersistentVolumeClaim 引用 Longhorn StorageClass：
++
+[subs="+attributes", yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: longhorn-volv-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi
+----
++
+该 persistentVolumeClaim 在 Pod 中作为卷挂载：
++
+[subs="+attributes", yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: volume-test
+  namespace: default
+spec:
+  containers:
+  - name: volume-test
+    image: nginx:stable-alpine
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+    - name: volv
+      mountPath: /data
+    ports:
+    - containerPort: 80
+  volumes:
+  - name: volv
+    persistentVolumeClaim:
+      claimName: longhorn-volv-pvc
+----
++
+更多示例可在 xref:longhorn-system/examples-resources.adoc[这里] 找到。
+
+== 将工作负载绑定到没有 Kubernetes StorageClass 的 PV
+
+可以使用 Longhorn StorageClass 将工作负载绑定到 PV，而无需在 Kubernetes 中创建 StorageClass 对象。
+
+由于 StorageClass 也是用于将 PVC 与 PV 匹配的字段，而不必由 Provisioner 创建，因此您可以手动创建一个具有自定义 StorageClass 名称的 PV，然后创建一个请求相同 StorageClass 名称的 PVC。
+
+当 PVC 请求一个不存在的 StorageClass 作为 Kubernetes 资源时，Kubernetes 将尝试将您的 PVC 绑定到具有相同 StorageClass 名称的 PV。StorageClass 将被用作查找匹配 PV 的标签，只有带有 StorageClass 名称的现有 PV 才会被使用。
+
+如果 PVC 指定了一个 StorageClass，Kubernetes 将：
+
+. 查找具有与 StorageClass 匹配的标签的现有 PV
+. 查找现有的 StorageClass Kubernetes 资源。如果 StorageClass 存在，将用于创建 PV。
+
+== 通过 Longhorn UI 创建 Longhorn 卷
+
+由于在创建 PV/PVC 时 Longhorn 卷已经存在，因此不需要 StorageClass 来动态配置 Longhorn 卷。但是，字段 `storageClassName` 应在 PVC/PV 中设置，以用于 PVC 绑定目的。用户不需要创建相关的 StorageClass 对象。
+
+默认情况下，为 Longhorn 创建的 PV/PVC 的 StorageClass 是 `longhorn-static`。用户可以根据需要在 `Setting - General - Default Longhorn Static StorageClass Name` 中进行修改。
+
+用户需要手动删除由 {longhorn-product-name} 创建的 PVC 和 PV。
+
+== 为现有 Longhorn 卷创建 PV/PVC
+
+现在用户可以通过我们的 Longhorn UI 为现有的 Longhorn 卷创建 PV/PVC。
+只有分离的卷可以被新创建的 pod 使用。
+
+== Longhorn 卷创建的失败
+
+创建 Longhorn 卷可能因不同原因而失败。问题被分类为：
+
+* 存储不足
+* 未找到磁盘
+* 磁盘不可用
+* 未满足标签
+* 未找到节点
+* 节点不可用
+* 没有节点候选包含可用的引擎镜像
+* 硬亲和性无法满足
+* 副本调度失败
+* 不支持未使用的失败副本
+* 副本已调度
+* Longhorn 客户端操作失败
+* 卷大小不兼容
+
+失败导致工作负载无法使用已分配的 PV，并显示警告信息
+
+[subs="+attributes", console]
+----
+# kubectl describe pod workload-test
+
+Events:
+  Type     Reason              Age                From                     Message
+  ----     ------              ----               ----                     -------
+  Warning  FailedAttachVolume  14s (x8 over 82s)  attachdetach-controller  AttachVolume.Attach
+  failed for volume "pvc-e130e369-274d-472d-98d1-f6074d2725e8" : rpc error: code = Aborted
+  desc = volume pvc-e130e369-274d-472d-98d1-f6074d2725e8 is not ready for workloads
+----
+
+为了帮助用户理解错误原因，{longhorn-product-name} 在 PV 注释中总结了这些原因，`longhorn.io/volume-scheduling-error`。失败在此注释中组合并用分号分隔，例如，`longhorn.io/volume-scheduling-error: insufficient storage;disks are unavailable`。可以通过使用 `kubectl describe pv <pvc name>` 来检查注释。
+
+[subs="+attributes", console]
+----
+# kubectl describe pv pvc-e130e369-274d-472d-98d1-f6074d2725e8
+Name:            pvc-e130e369-274d-472d-98d1-f6074d2725e8
+Labels:          <none>
+Annotations:     longhorn.io/volume-scheduling-error: insufficient storage
+                 pv.kubernetes.io/provisioned-by: driver.longhorn.io
+
+...
+----

@@ -1,0 +1,181 @@
+= Bereinigung von verwaisten Daten
+:revdate: 2025-07-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} unterstützt die Bereinigung von verwaisten Daten. Derzeit kann {longhorn-product-name} die verwaisten Replikatverzeichnisse auf den Festplatten identifizieren und bereinigen.
+
+== Verwaiste Replikatverzeichnisse
+
+Wenn ein Benutzer eine Festplatte in einen {longhorn-product-name}-Knoten einführt, kann sie Replikatverzeichnisse enthalten, die vom {longhorn-product-name}-System nicht verfolgt werden. Die nicht verfolgten Replikatverzeichnisse können zu anderen {longhorn-product-name}-Clustern gehören. Oder die Replikat-CRs, die mit den Replikatverzeichnissen verbunden sind, werden entfernt, nachdem der Knoten oder die Festplatte ausgefallen ist. Wenn der Knoten oder die Festplatte zurückkehrt, werden die entsprechenden Replikatdatenverzeichnisse nicht mehr vom {longhorn-product-name}-System verfolgt. Diese Replikatdatenverzeichnisse werden als verwaist bezeichnet.
+
+{longhorn-product-name} unterstützt die Erkennung und Bereinigung von verwaisten Replikatverzeichnissen. Es identifiziert die Verzeichnisse und gibt eine Liste von `orphan`-Ressourcen, die diese Verzeichnisse beschreiben, aus. Standardmäßig löscht {longhorn-product-name} nicht automatisch `orphan`-Ressourcen und deren Verzeichnisse. Benutzer können die Löschung von verwaisten Replikatverzeichnissen manuell auslösen oder sie automatisch durchführen lassen.
+
+Wenn die automatische Löschung von Verwaisten aktiviert ist, löscht {longhorn-product-name} automatisch verwaiste benutzerdefinierte Ressourcen (CRs) und deren zugehörige Verzeichnisse nach der im `orphan-resource-auto-deletion-grace-period`-Einstellung definierten Verzögerung. Wenn ein Benutzer ein verwaistes CR manuell löscht, erfolgt die Löschung sofort und respektiert diesen Kulanzzeitraum nicht.
+
+=== Beispiel
+
+Das folgende Beispiel zeigt, wie man verwaiste Replikatverzeichnisse, die von {longhorn-product-name} über die `kubectl`- und {longhorn-product-name}-Benutzeroberfläche identifiziert wurden, verwaltet.
+
+==== Verwaiste Replikatverzeichnisse über kubectl verwalten
+
+. Festplatten mit verwaisten Replikatverzeichnissen einführen.
+ ** Verwaiste Replikatverzeichnisse auf den Festplatten des Knotens `worker1`
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+ pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
+----
+
+ ** Verwaiste Replikatverzeichnisse auf den Festplatten des Knotens `worker2`
++
+[,console]
+----
+# ls /var/lib/longhorn/replicas/
+ pvc-28255b31-161f-5621-eea3-a1cbafb4a12a-866aa0a5
+
+# ls /mnt/disk/replicas/
+ pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-a86771c0
+----
+
+. {longhorn-product-name} erkennt die verwaisten Replikatverzeichnisse und erstellt eine `orphan`-Ressource, die die Verzeichnisse beschreibt.
++
+[,console]
+----
+ # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
+ NAME                                                                      TYPE      NODE
+ orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272   replica   rancher60-worker1
+ orphan-637f6c01660277b5333f9f942e4b10071d89379dbe7b4164d071f4e1861a1247   replica   rancher60-worker2
+ orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
+----
+
+. Rufen Sie eine Liste der verwaisten Ressourcen ab, die von {longhorn-product-name} mit dem Befehl `kubectl -n longhorn-system get orphan` erstellt wurden.
++
+[,console]
+----
+ kubectl -n longhorn-system get orphan
+----
+
+. Holen Sie sich die detaillierten Informationen zu einem der verwaisten Replikatverzeichnisse in `spec.parameters` von `kubectl -n longhorn-system get orphan <name>`.
++
+[,yaml]
+----
+ # kubectl -n longhorn-system get orphans orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272 -o yaml
+ apiVersion: longhorn.io/v1beta2
+ kind: Orphan
+ metadata:
+ creationTimestamp: "2022-04-29T10:17:40Z"
+ finalizers:
+ ** longhorn.io
+ generation: 1
+ labels:
+  longhorn.io/component: orphan
+  longhorn.io/managed-by: longhorn-manager
+  longhorn.io/orphan-type: replica
+  longhornnode: rancher60-worker1
+
+......
+
+spec:
+ nodeID: rancher60-worker1
+ orphanType: replica
+ parameters:
+     DataName: pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
+     DiskName: disk-1
+     DiskPath: /mnt/disk/
+     DiskUUID: 90f00e61-d54e-44b9-a095-35c2b56a0462
+ status:
+ conditions:
+ ** lastProbeTime: ""
+  lastTransitionTime: "2022-04-29T10:17:40Z"
+  message: ""
+  reason: ""
+  status: "True"
+  type: DataCleanable
+ ** lastProbeTime: ""
+  lastTransitionTime: "2022-04-29T10:17:40Z"
+  message: ""
+  reason: ""
+  status: "False"
+  type: Error
+ ownerID: rancher60-worker1
+----
+
+. Man kann die Ressource `orphan` durch `kubectl -n longhorn-system delete orphan <name>` löschen, und dann wird das entsprechende verwaiste Replikatverzeichnis gelöscht.
++
+[,console]
+----
+ # kubectl -n longhorn-system delete orphan orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272
+
+ # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
+ NAME                                                                      TYPE      NODE
+ orphan-637f6c01660277b5333f9f942e4b10071d89379dbe7b4164d071f4e1861a1247   replica   rancher60-worker2
+ orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
+----
++
+Das verwaiste Replikatverzeichnis wird gelöscht.
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+----
+
+. Standardmäßig wird {longhorn-product-name} das verwaiste Replikatverzeichnis nicht automatisch löschen. Sie können die automatische Löschung aktivieren, indem Sie die Einstellung `orphan-resource-auto-deletion` festlegen.
++
+[,console]
+----
+ # kubectl -n longhorn-system edit settings.longhorn.io orphan-resource-auto-deletion
+----
++
+Fügen Sie dann `replica-data` zur Liste hinzu, indem Sie es als eines der durch Semikolons getrennten Elemente einfügen.
++
+[,console]
+----
+ # kubectl -n longhorn-system get settings.longhorn.io orphan-resource-auto-deletion
+ NAME                           VALUE          APPLIED     AGE
+ orphan-resource-auto-deletion  replica-data   true        26m
+----
+
+. Nachdem Sie die automatische Löschung aktiviert und eine Weile gewartet haben, werden die `orphan`-Ressourcen und -Verzeichnisse automatisch gelöscht.
++
+[,console]
+----
+ # kubectl -n longhorn-system get orphans.longhorn.io -l "longhorn.io/orphan-type=replica"
+ No resources found in longhorn-system namespace.
+----
++
+Die verwaisten Replikatverzeichnisse werden gelöscht.
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+
+ # ls /var/lib/longhorn/replicas/
+----
++
+Zusätzlich kann man alle verwaisten Replikatverzeichnisse auf dem angegebenen Knoten löschen durch
++
+[,console]
+----
+ # kubectl -n longhorn-system delete orphan -l "longhorn.io/orphan-type=replica-instance,longhornnode=<node name>”
+----
+
+==== Verwalten Sie verwaiste Replikatverzeichnisse über die {longhorn-product-name} Benutzeroberfläche.
+
+. Wählen Sie in der oberen Navigationsleiste *Einstellungen > Verwaiste Daten > Replikatdaten* aus.
+. Überprüfen Sie die angezeigte Liste der verwaisten Replikatverzeichnisse. Diese sind nach Knoten und Festplatte gruppiert.
+. Für das Verzeichnis, das Sie löschen möchten, wählen Sie *Operation > Löschen* aus.
+
+Standardmäßig löscht {longhorn-product-name} nicht automatisch verwaiste Replikatverzeichnisse. Um die automatische Löschung zu aktivieren, navigieren Sie zu *Einstellungen > Verwaist* und konfigurieren Sie die relevante Option für die automatische Löschung.
+
+=== Ausnahme
+
+{longhorn-product-name} wird keine `orphan`-Ressource für ein verwaistes Verzeichnis erstellen, wenn
+
+* Das verwaiste Verzeichnis ist kein *verwaistes Replikatverzeichnis*.
+ ** Der Verzeichnisname entspricht nicht der Benennungskonvention für Replikatverzeichnisse.
+ ** Die Datei volume.meta fehlt.
+* Das verwaiste Replikatverzeichnis befindet sich auf einem gekündigten Knoten.
+* Das verwaiste Replikatverzeichnis befindet sich auf einer gekündigten Festplatte.
+* Der Mechanismus zur Bereinigung verwaister Daten entfernt kein veraltetes Replikat, auch bekannt als Fehlerreplikat. Stattdessen wird das veraltete Replikat gemäß der Einstellung xref:volumes/create-volumes.adoc#_creating_longhorn_volumes_with_kubectl[staleReplicaTimeout] bereinigt.

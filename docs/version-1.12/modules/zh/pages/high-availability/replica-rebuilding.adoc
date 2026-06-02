@@ -1,0 +1,317 @@
+= 副本重建
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+当{longhorn-product-name}检测到出现故障或已删除的副本时，它会自动启动重建过程。本文件概述了v1数据引擎的副本重建工作流程，包括*完整*、*增量*和*快速*重建方法。它还解释了与每种方法相关的限制。
+
+*在以下情况下重建将不会开始*：
+
+* 卷正在迁移到另一个节点。
+* 卷是旧的恢复/灾难恢复卷。
+* 卷正在扩大。
+
+== 副本重建工作流程
+
+在v1数据引擎中，副本重建可能发生在以下情况下：
+
+* 节点被重启、排空或驱逐。
+* 副本变得不健康或被删除。
+
+image::diagrams/architecture/replica-rebuilding-flow.png[镜像]
+
+. 将目标副本标记为`WO`（仅写）模式。
+. 创建一个新的快照，作为数据完整性检查的卷头参考点。
+. 生成卷头和快照文件的同步文件列表。
+
+=== 对于V1数据引擎
+
+[start=4]
+
+. 为每个快照在目标副本上启动接收服务器。
+. 指示源副本开始数据同步。
+
+.. 对于每个快照：
+
+* 检查目标副本的数据目录中是否存在快照文件。
+** 如果_没有_，将整个快照数据从源副本传输到目标副本。
+请参见<<_full_replica_rebuilding>>。
+** 如果_是_，检查快照校验和文件是否存在，以及目标副本和源副本之间的修改时间和校验和是否相同。
+*** 如果_是_，{longhorn-product-name}跳过传输快照的数据。此优化减少了处理器使用率、磁盘I/O、网络I/O和总重建时间。请参见<<_fast_replica_rebuilding>>。
+*** 如果_没有_，{longhorn-product-name}使用SHA-512算法计算并比较块级校验和。如果发现不匹配，仅同步不同的块。
+请参见<<_delta_replica_rebuilding>>。
+
+=== 对于V2数据引擎
+
+[start=4]
+
+. 暴露源副本和目标副本，并使用SPDK引擎准备一个浅拷贝。
+. 对于每个快照：
+
+* 检查源副本和目标副本之间的快照时间戳、实际大小和校验和是否匹配。
+** 如果_是_，{longhorn-product-name}跳过传输该快照的数据。
+** 如果_没有_，检查源快照和目标快照是否都包含范围校验和。
+*** 如果_是_，获取并比较范围校验和。如果存在不匹配，仅复制不匹配的范围。
+请参见<<_fast_replica_rebuilding>>。
+*** 如果_没有_，删除现有的目标快照。然后，将整个快照从源副本复制到目标副本。
+请参见<<_full_replica_rebuilding>>。
+
+=== 完整副本重建
+
+如果副本无法恢复或没有现有数据，{longhorn-product-name}从健康副本同步所有数据。它通过传输完整的快照链重建副本。
+
+完整副本重建消耗大量网络带宽，并导致目标节点上大量的磁盘写入操作。但是，当目标副本没有可用数据时，这是必需的。
+
+=== 增量副本重建
+
+增量副本重建仅适用于v1数据引擎。它从一个可重用的故障副本开始，并逐块检查所有快照的数据完整性。
+
+* 这仅适用于故障副本的重用，并且在故障副本数据目录中存在一个同名的快照文件。
+* 当快照没有校验和时，{longhorn-product-name}会对该快照执行增量副本重建。
+
+* *优点*：
+** 减少网络带宽消耗。
+* *缺点*：
+** 由于{longhorn-product-name}将逐块计算快照数据的校验和以进行数据完整性检查，因此增加了处理器开销。
+** 重建时间受处理器性能的影响。
+
+=== 快速副本重建
+
+当满足以下条件时，启用快速副本重建：
+
+* 快速副本重建设置已启用：
++
+--
+`fast-replica-rebuild-enabled: true`
+--
+
+* 使用以下方法之一创建快照校验和文件（校验和是预计算的）：
++
+--
+* `snapshot-data-integrity`设置为`enabled`：
+  计划作业在配置的间隔内计算所有快照的校验和（默认：7天）。
+* `snapshot-data-integrity-immediate-check-after-snapshot-creation`设置为`true`：
+  快照创建后立即计算快照校验和。
+--
+
+[NOTE]
+====
+这些校验和计算消耗存储和计算资源。
+计算时间不可预测，可能会对存储性能产生负面影响。
+有关更多信息，请参见 xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[快照数据完整性]。
+====
+
+* *优点*：
+** 最小化网络带宽消耗。
+** 最小化磁盘 I/O。
+* *缺点*：
+** 计算快照校验和可能会耗时较长。
+** 校验和计算的时间不可预测。即使在高 I/O 负载下也可能触发。
+
+有关更多信息，请参见 xref:high-availability/fast-replica-rebuilding.adoc[快速副本重建]。
+
+== 影响重建性能的因素
+
+* *大卷头*
+** *为什么重要*：
+卷头是一个特殊文件，永远没有预计算的校验和。
+如果副本出现故障，{longhorn-product-name}必须始终同步整个卷头。
+更大的卷头会增加重建时间。
+** *如何防止*：
+定期拍摄快照以减少卷头的大小。
+在计划维护之前安排快照，以最小化重建时间。
+
+* *没有快照存在*
+** *为什么重要*：
+没有快照，{longhorn-product-name} 无法跳过数据传输或重用现有数据。
+如果创建了卷头快照但其校验和尚未准备好，{longhorn-product-name}必须执行增量重建。
+这会由于逐块校验和比较而增加处理器使用率。
+** *如何防止*：
++
+--
+. 启用 `snapshot-data-integrity-immediate-check-after-snapshot-creation` 或 `snapshot-data-integrity` 以预计算校验和。
+   *权衡:*在计算过程中增加处理器、磁盘I/O和存储使用。
+. 使用定期作业定期创建快照。
+--
+
+* *快照已清除*
+** *为什么重要*：
+当快照清除开始时，系统生成的快照会合并到下一个快照中。
+这会使下一个快照的校验和失效。
+** *如何防止*：
++
+--
+. 启用 `snapshot-data-integrity-immediate-check-after-snapshot-creation` 以确保在清除后计算校验和。
+. 主动创建快照，并在执行升级或重建之前留出时间生成校验和。
+--
+
+* *并发重建*
+** *为什么重要*：
+在同一节点上运行多个重建可能会过度使用处理器、磁盘输入/输出和网络输入/输出，从而影响性能。
+** *如何防止*：
+使用 `concurrent-replica-rebuild-per-node-limit` 设置调整并发重建的数量。
+
+* *多个副本故障*
+** *为什么重要*：
+增加重建时间和复杂性。
+如果 `auto-cleanup-system-generated-snapshot` 为 `true` 且不存在用户创建的快照，则两个故障的副本可能会触发至少一次完整数据传输。
++
+有关更多详细信息，请参见 https://github.com/longhorn/longhorn/issues/9335[在重建两个故障副本时避免 "完整数据传输"]。
++
+** *如何防止*：
++
+--
+. 在进行维护之前禁用 `auto-cleanup-system-generated-snapshot`。
+. 在开始维护之前创建所有卷的用户快照。
+. 使用定期作业定期创建快照。
+--
+
+* *缩放副本重建*
+** *为什么重要*：
++
+缩放副本重建允许重建副本同时从多个健康副本获取快照，显著提高某些工作负载模式的重建性能。
+** *如何启用*:
++
+将 `replica-rebuild-concurrent-sync-limit` > 1 设置为允许多个健康副本启动同步服务器。重建副本随后同时从不同的源副本获取不同的快照。此功能对于具有分散的小数据块和快照中存在空洞的卷特别有利。
++
+有关更多详细信息，请参见 xref:high-availability/scale-replica-rebuilding.adoc[缩放副本重建]。
+
+== 使用案例
+
+=== 节点在升级期间重启
+
+当一个带有副本的工作节点作为计划升级的一部分被重启时：
+
+. 该节点上的副本暂时不可用并出现故障，但读写操作继续进行。
+. 如果节点在 `replica-replenishment-wait-interval` 内恢复，{longhorn-product-name} 将使用可重用的故障副本启动重建。
+
+在重建过程中：
+
+. {longhorn-product-name}如果有多个可重用的故障副本可用，选择最新的一个。
+. 根据重建场景：
++
+--
+* *如果启用了快速副本重建并且所有快照校验和存在*：{longhorn-product-name} 触发 <<_fast_replica_rebuilding>>。
+  仅同步卷头中的更改块，避免完全重建和增量重建。
+
+* *如果启用了快速副本重建但某些快照校验和缺失*：{longhorn-product-name} 触发 <<_delta_replica_rebuilding>>。
+  来自没有校验和的快照的更改块被同步，避免完全重建。
+
+* *如果禁用快速副本重建*：{longhorn-product-name} 通过同步 *所有* 快照的更改块执行增量重建，避免完全重建。
+--
+
+=== 短期节点排空
+
+如果一个工作节点因短期维护而被排空，然后迅速恢复：
+
+. 排空节点上的副本立即标记为失败。
+. 如果在`replica-replenishment-wait-interval`过期之前节点被解除排空，{longhorn-product-name}会尝试重用失败的副本。
+. 重建行为遵循与前一个用例中描述的相同逻辑。
+
+== 相关设置
+
+[cols="1,1,4", options="header"]
+|===
+|设置 |默认值 |说明
+
+|`fast-replica-rebuild-enabled`
+|`true`
+|启用快速副本重建。依赖于预计算的快照校验和。
+
+|xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[snapshot-data-integrity]
+|`fast-check`
+|仅在快照磁盘文件未被哈希或其修改时间已更改时对其进行哈希。
+
+|`snapshot-data-integrity-cronjob`
+|`0 0 */7 * *`
+|计算所有快照校验和的cron计划。默认：每7天一次。
+
+|`snapshot-data-integrity-immediate-check-after-snapshot-creation`
+|`false`
+|如果启用，在快照创建后立即计算校验和。
+
+|`replica-replenishment-wait-interval`
+|`600`
+|创建新副本之前等待的时间（以秒为单位）。允许重用失败的副本。
+
+|`concurrent-replica-rebuild-per-node-limit`
+|`5`
+|限制每个节点的并发副本重建数量。
+
+| `replica-rebuild-concurrent-sync-limit`
+| `1` 
+| 可以与重建副本同时同步的健康副本的最大数量。范围:1-5。设置为1将禁用规模重建。
+
+|`offline-replica-rebuilding`
+|`false`
+|确定在卷被分离时是否重建降级副本。
+|===
+
+=== 设置权衡分析
+
+* xref:longhorn-system/settings.adoc#_fast_replica_rebuild_enabled[fast-replica-rebuild-enabled]
++
+--
+* `enabled`：
+  如果校验和是最新的，则跳过快照数据传输。提供快速重建，但不重新验证数据。
+
+* `disabled`：
+  通过块比较执行增量重建。速度较慢，但确保快照数据的完整性。
+--
+
+* xref:data-integrity-recovery/snapshot-data-integrity-check.adoc[snapshot-data-integrity]
++
+--
+* `enabled`：
+  默认情况下，每7天计算一次快照校验和。增加处理器、磁盘I/O和资源使用。
+--
+
+* xref:longhorn-system/settings.adoc#_snapshot_data_integrity_check_cronjob[snapshot-data-integrity-cronjob]
++
+--
+* 默认值为: `0 0 */7 * *`
++
+如果`snapshot-data-integrity`启用，则定义快照校验和重新计算的时间。在cron运行之间创建的快照可能缺少校验和。
+--
+
+* xref:longhorn-system/settings.adoc#_immediate_snapshot_data_integrity_check_after_creating_a_snapshot[snapshot-data-integrity-immediate-check-after-snapshot-creation]
++
+--
+* `true`：
+  创建后立即计算快照校验和。增加处理器和磁盘I/O使用。完成时间不可预测。
+
+* `false`：
+  快照在下一个cron运行之前可能没有校验和。如果缺少校验和，则需要进行增量重建。
+--
+
+* xref:longhorn-system/settings.adoc#_replica_replenishment_wait_interval[replica-replenishment-wait-interval]
++
+--
+* 默认：`600`秒
+
+** *短间隔*：
+  可能跳过重用失败的副本并触发完全重建。
+
+** *长间隔*：
+  等待更长时间以重用失败的副本，但可能会延迟恢复。
+--
+
+* xref:longhorn-system/settings.adoc#_concurrent_replica_rebuild_per_node_limit[concurrent-replica-rebuild-per-node-limit]
++
+--
+* 默认值为: `5`
+
+** *高限制*：
+  可能会过载节点资源，从而减慢重建和活动工作负载的速度。
+
+** *低限制*:
+  减少资源争用，但由于排队而增加重建时间。
+--
+
+* xref:longhorn-system/settings.adoc#_replica_rebuild_concurrent_sync_limit[replica-rebuild-concurrent-sync-limit]
++
+--
+** 默认值为: `1`
+*** 当设置为`1`时，禁用规模重建，仅使用传统的单源重建，资源消耗最小。当设置为值2-5时，启用具有多个源副本的规模重建，为卷提供显著的性能提升。然而，更高的值会增加源和目标副本的处理器消耗。
+*** 此设置可以通过`volume.spec.RebuildConcurrentSyncLimit`在每个卷的基础上被覆盖。
+--

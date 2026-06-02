@@ -1,0 +1,33 @@
+= Conditions des nœuds
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Les conditions des nœuds décrivent l'état de tous les nœuds de travail et sont utilisées pour vérifier les paramètres d'environnement des nœuds de travail afin d'identifier les problèmes potentiels avant tout impact sur le système.
+
+Conditions des nœuds{nbsp}:
+
+* `Ready` : Indique que le nœud est prêt pour les opérations Longhorn, y compris qu'un `longhorn-manager` pod est en cours d'exécution sur ce nœud, que le nœud Kubernetes est prêt et qu'il n'y a pas de pression sur les ressources physiques.
++
+* `Schedulable` : Indique que le nœud n'est pas cordonné et que la charge de travail peut être planifiée sur ce nœud.
++
+* `MountPropagation` : Indique que le nœud prend en charge la propagation des montages. Ceci est nécessaire pour le partage des volumes montés par un conteneur avec d'autres conteneurs dans le même pod Longhorn, ou avec d'autres pods Longhorn sur le même nœud.
++ 
+* `Multipathd` : Vérifie si le service `multipathd` n'est pas en cours d'exécution sur le nœud, ce qui peut affecter le pod avec le démarrage du volume. Voir link:https://longhorn.io/kb/troubleshooting-volume-with-multipath/[Dépannage{nbsp}: `MountVolume.SetUp failed for volume` en raison de multipathd sur le nœud].
+* `RequiredPackages` : Vérifie si tous les paquets requis (xref:installation-setup/requirements.adoc#_installing_nfsv4_client[client NFS], xref:installation-setup/requirements.adoc#_installing_open-_scsi[outil iSCSI], xref:installation-setup/requirements.adoc#_installing_cryptsetup_and_luks[cryptsetup], xref:installation-setup/requirements.adoc#_installing_device_mapper_userspace_tool[dmsetup]) existent pour Longhorn
++
+* `NFSClientInstalled` : Vérifie si l'un des clients NFS suivants est pris en charge{nbsp}: `v4.2`, `v4.1` ou `v4.0`. Le client NFS est requis pour le volume RWX et la sauvegarde.
++
+* `KernelModulesLoaded` : Vérifie si les modules de kernel suivants sont chargés{nbsp}:
++
+** `dm_crypt` : Requis pour le chiffrement des volumes et des images de sauvegarde.
+** `vfio_pci` : Requis pour la gestion des dispositifs SPDK et PCI (V2 Data Engine).
+** `uio_pci_generic` : Requis pour la prise en charge UIO de SPDK (V2 Data Engine).
+** `nvme_tcp` : Requis pour l'utilisation des dispositifs NVMe-over-TCP (V2 Data Engine).
++
+* `HugePagesAvailable` : Indique si le nœud est correctement configuré avec des HugePages (2Mi) comme requis par le Longhorn V2 Data Engine. Cela inclut la vérification des éléments suivants{nbsp}:
++
+** Les HugePages (2Mi) sont enregistrées en tant que ressource Kubernetes (`hugepages-2Mi`).
+** La capacité de HugePages configurée répond ou dépasse la valeur définie dans le paramètre `v2-data-engine-hugepage-limit`.
+
+Les conditions des nœuds ne bloquent pas le déploiement de Longhorn, mais elles entraînent des avertissements dans la ressource Longhorn `Node`. Pour plus d'informations, voir xref:installation-setup/requirements.adoc#_requirements[Exigences d'installation de Longhorn].

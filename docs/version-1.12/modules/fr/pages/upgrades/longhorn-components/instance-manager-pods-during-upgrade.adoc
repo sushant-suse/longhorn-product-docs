@@ -1,0 +1,30 @@
+= Gestion des pods du gestionnaire d'instances pendant la mise à niveau
+:revdate: 2026-01-08
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Après une mise à niveau en direct, vous pouvez remarquer que certains *anciens pods du gestionnaire d'instances* sont toujours en cours d'exécution. C'est un comportement attendu et *ce n'est pas un bug*.
+
+== Pourquoi cela se produit-il{nbsp}?
+
+{longhorn-product-name} utilise la stratégie suivante pour gérer les pods du gestionnaire d'instances pendant une mise à niveau en direct{nbsp}:
+
+* Les anciens pods du gestionnaire d'instances sont nettoyés immédiatement une fois qu'aucun processus moteur ou de réplique n'est en cours d'exécution dans ceux-ci.
+* Lors d'une *mise à niveau en direct du moteur* d'un volume{nbsp}:
+** Les processus de réplique sont recréés dans de nouveaux pods du gestionnaire d'instances en utilisant l'image du moteur mise à niveau.
+** Pour éviter d'interrompre les E/S, {longhorn-product-name} ne peut pas démarrer un nouveau processus moteur en utilisant l'image du moteur mise à niveau dans un nouveau pod du gestionnaire d'instances tant que le volume est attaché. Au lieu de cela, l'ancien pod du gestionnaire d'instances continue de gérer le cycle de vie du nouveau processus moteur jusqu'à ce que le volume soit détaché. En conséquence, le nouveau processus moteur s'exécute dans l'ancien pod du gestionnaire d'instances.
+
+En conséquence, un ancien pod du gestionnaire d'instances reste en cours d'exécution tant qu'il héberge un processus moteur actif. Une fois le volume détaché et qu'aucun processus moteur ou de réplique ne reste, {longhorn-product-name} nettoiera automatiquement l'ancien pod du gestionnaire d'instances.
+
+== Comment vérifier quels volumes utilisent des anciens pods du gestionnaire d'instances
+
+Vous pouvez vérifier quels volumes utilisent encore les anciens pods du gestionnaire d'instances depuis {longhorn-product-name} l'interface utilisateur:
+
+* Naviguez vers *Volume* > *Nom* > *Détails du volume* > *Gestionnaire d'instances*.
+
+== Comment nettoyer complètement les anciens pods du gestionnaire d'instances
+
+Pour permettre à {longhorn-product-name} de nettoyer tous les anciens pods du gestionnaire d'instances{nbsp}:
+
+. Détachez tous les volumes qui utilisent encore des anciens pods du gestionnaire d'instances.
+. Une fois qu'aucun processus moteur ou de réplique ne reste, {longhorn-product-name} supprimera automatiquement les anciens pods du gestionnaire d'instances.

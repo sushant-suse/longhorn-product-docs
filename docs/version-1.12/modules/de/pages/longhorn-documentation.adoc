@@ -1,0 +1,18 @@
+include::partial$longhorn-globals.adoc[]
+= {longhorn-product-name-tm} Übersicht
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:description: Cloudnativ verteilte Blockspeicher für Kubernetes
+
+*{longhorn-product-name}* ist ein leichtes, zuverlässiges und leistungsstarkes verteiltes https://cloudacademy.com/blog/object-storage-block-storage/[Blockspeichersystem] für Kubernetes. Es stammt aus dem Open Source-Projekt https://www.cncf.io/projects/longhorn/[Longhorn].
+
+{longhorn-product-name} implementiert verteilte Blockspeicher mithilfe von Containern und Microservices. Es erstellt einen dedizierten Speicher-Controller für jedes Blockgerät-Volume und repliziert das Volume synchron über mehrere Replikate, die auf mehreren Knoten gespeichert sind. Der Speichercontroller und die Replikate werden selbst mithilfe von Kubernetes koordiniert.
+
+== Funktionen
+
+* Unternehmensgerechter, verteilter Blockspeicher ohne Single Point of Failure
+* Inkrementeller Snapshot von Blockspeicher
+* Sicherung auf sekundären Speicher (https://www.extrahop.com/resources/protocols/nfs/[NFS] oder https://aws.amazon.com/s3/[S3]-kompatibler Objektspeicher) basierend auf effizienter Änderungsblockerkennung
+* Wiederkehrende Snapshots und Sicherungen
+* Automatisierte, nicht störende Upgrades. Sie können den gesamten {longhorn-product-name} Software-Stack upgraden, ohne laufende Speicher-Volumes zu stören.
+* Ein intuitives GUI-Dashboard

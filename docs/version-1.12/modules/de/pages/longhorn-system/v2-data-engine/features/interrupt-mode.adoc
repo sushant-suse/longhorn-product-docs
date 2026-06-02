@@ -1,0 +1,94 @@
+= Interruptmodus
+:revdate: 2025-11-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Ab Version 1.10.0 unterstützt {longhorn-product-name} den *SPDK-Interruptmodus* für V2-Daten-Engine-Volumes. Der Interruptmodus bietet eine Alternative zum Standard-*Polling-Modus* und verbessert die CPU-Effizienz in bestimmten Umgebungen.
+
+Der Interruptmodus ist besonders geeignet für Cluster mit begrenzten CPU-Ressourcen und einer relativ geringen Anzahl von Volumes. Während der Polling-Modus die Leistung maximiert, indem er die CPU-Auslastung nahe 100 % auf den zugewiesenen Kernen hält, reduziert der Interruptmodus die CPU-Nutzung, indem er dem SPDK-Reaktor ermöglicht, seine Nutzung dynamisch anzupassen, anstatt kontinuierlich zu pollieren.
+
+== Übersicht
+
+=== Polling-Modus vs. Interruptmodus
+
+* *Polling-Modus (Standard)*:
+** Er pollt kontinuierlich nach I/O-Operationen.
+** Er bietet die niedrigste Latenz.
+** Er verbraucht jederzeit ~100 % des zugewiesenen CPU-Kerns.
+** Er ist am besten geeignet für hochleistungsfähige Workloads mit häufigen I/O-Operationen.
+* *Interruptmodus*:
+** Er verwendet interruptgesteuertes I/O-Handling.
+** Der CPU-Verbrauch skaliert mit der Anzahl der angeschlossenen Volumes.
+** Er ist besser geeignet für ressourcenbeschränkte Umgebungen.
+
+== Voraussetzungen
+
+* {longhorn-product-name} v1.10.0 oder höher
+* V2-Daten-Engine aktiviert
+* Keine angeschlossenen v2-Volumes beim Ändern der Einstellung
+* Für NVMe-Laufwerke muss IOMMU aktiviert sein. Um zu überprüfen:
++
+[,bash]
+----
+find /sys/kernel/iommu_groups/ -type l
+----
++
+Beispielausgabe (IOMMU aktiviert):
++
+[,bash]
+----
+/sys/kernel/iommu_groups/0/devices/0000:e6:0b.1
+/sys/kernel/iommu_groups/1/devices/0000:34:0a.6
+/sys/kernel/iommu_groups/2/devices/0000:a0:00.0
+----
++
+Wenn der Befehl keine Ausgabe zurückgibt, ist IOMMU nicht aktiviert.
++
+[NOTE]
+====
+IOMMU-Unterstützung ist möglicherweise nicht auf virtualisierten Instanzen verfügbar. Wenn Sie sich unsicher sind, ziehen Sie in Betracht, eine Bare-Metal-Instanz zu verwenden, oder konsultieren Sie die Dokumentation oder das Support-Team Ihres Cloud-Anbieters.
+====
++
+Für weitere Informationen beziehen Sie sich bitte auf die https://spdk.io/doc/system_configuration.html[offizielle SPDK-Dokumentation].
+
+== Konfiguration
+
+=== Globale Einstellung
+
+Um den Interruptmodus global zu aktivieren, aktualisieren Sie die xref:longhorn-system/settings.adoc#_data_engine_interrupt_mode_enabled[data-engine-interrupt-mode-enabled] Einstellung.
+
+=== Wichtige Überlegungen
+
+* *Anforderungen an den Volumenstatus*: Die Einstellung kann nur geändert werden, wenn keine V2-Volumes angeschlossen sind. {longhorn-product-name} blockiert Aktualisierungen, wenn ein V2-Volume aktiv ist.
+* *Globale Auswirkung*: Die Einstellung gilt für alle V2-Volumes.
+
+== Leistungsmerkmale
+
+=== Empfohlene Anwendungsfälle
+
+Aktivieren Sie den Interruptmodus für diese Fälle:
+
+* Sie arbeiten in ressourcenbeschränkten Clustern.
+* Sie verwalten eine kleine Anzahl von Volumes.
+* CPU-Ressourcen sind begrenzt oder werden mit anderen Arbeitslasten geteilt.
+* I/O-Muster sind sporadisch und nicht kontinuierlich.
+* Energieeffizienz hat Priorität.
+
+== Nutzungsbeschränkungen
+
+=== Hybride Implementierung
+
+Der aktuelle V2-Volumen-Interruptmodus verwendet einen hybriden Ansatz für den NVMe/TCP-Transport:
+
+* *Admin-Queue-Operationen*: Es basiert weiterhin auf periodischem Polling für Keepalive und Controller-Wiederherstellung.
+* *I/O-Queue-Abschluss*: Es verwendet Polling für den Abschluss von Befehlen.
+* *Restliche CPU-Nutzung*: Es führt zu einer kleinen, aber konstanten CPU-Auslastung, selbst wenn die angeschlossenen Volumen im Leerlauf sind.
+
+=== Leistungsabstriche
+
+* *Latenz*: Sie ist leicht höher als im Polling-Modus.
+
+=== Betriebsbeschränkungen
+
+* *Änderungen der Einstellungen*: Es kann nicht geändert werden, während V2-Volumen angeschlossen sind.
+* *Global Scope*: Es gilt global; es gibt keine Überschreibung pro Volume.

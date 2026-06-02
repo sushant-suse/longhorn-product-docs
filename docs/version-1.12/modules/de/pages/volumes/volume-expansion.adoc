@@ -1,0 +1,179 @@
+= Volumenerweiterung
+:revdate: 2025-07-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Volumen werden in zwei Phasen erweitert. Zuerst ändert Longhorn die Größe des Blockgeräts, dann erweitert es das Dateisystem.
+
+Longhorn unterstützt die Online-Erweiterung. In den meisten Fällen kann Longhorn angeschlossene Volumen ohne Einschränkungen direkt erweitern, unabhängig davon, ob die Volumen im Lese-/Schreibmodus sind oder wiederhergestellt werden.
+
+Wenn das Volumen jedoch nicht über die CSI-Schnittstelle (z. B. für Kubernetes älter als v1.16) erweitert wurde, ändert sich die Kapazität des entsprechenden PVC und PV nicht.
+
+== Voraussetzungen
+
+* Für die Offline-Erweiterung muss die Longhorn-Version v0.8.0 oder höher sein.
+* Für die Online-Erweiterung muss die Longhorn-Version v1.4.0 oder höher sein.
+
+== Ein Longhorn-Volumen erweitern
+
+Es gibt zwei Möglichkeiten, ein Longhorn-Volumen zu erweitern: mit einem PersistentVolumeClaim (PVC) und mit der Longhorn-Benutzeroberfläche.
+
+[discrete]
+==== Via PVC
+
+Diese Methode wird nur angewendet, wenn:
+
+* Der PVC wird dynamisch von Kubernetes mit der Longhorn StorageClass bereitgestellt.
+* Das Feld `allowVolumeExpansion` sollte `true` in der entsprechenden StorageClass sein.
+
+Diese Methode wird empfohlen, wenn sie anwendbar ist, da der PVC und PV automatisch aktualisiert werden und alles nach der Erweiterung konsistent bleibt.
+
+Wert: Finden Sie den entsprechenden PVC für das Longhorn-Volumen und ändern Sie dann die angeforderte `spec.resources.requests.storage` des PVC:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"PersistentVolumeClaim","metadata":{"annotations":{},"name":"longhorn-simple-pvc","namespace":"default"},"spec":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"1Gi"}},"storageClassName":"longhorn"}}
+    pv.kubernetes.io/bind-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-provisioner: driver.longhorn.io
+  creationTimestamp: "2019-12-21T01:36:16Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+  name: longhorn-simple-pvc
+  namespace: default
+  resourceVersion: "162431"
+  selfLink: /api/v1/namespaces/default/persistentvolumeclaims/longhorn-simple-pvc
+  uid: 0467ae73-22a5-4eba-803e-464cc0b9d975
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: longhorn
+  volumeMode: Filesystem
+  volumeName: pvc-0467ae73-22a5-4eba-803e-464cc0b9d975
+status:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 1Gi
+  phase: Bound
+----
+
+[discrete]
+==== Via Longhorn UI
+
+Wert: Auf der Volumenseite der Longhorn-Benutzeroberfläche klicken Sie auf `Expand` für das Volumen.
+
+== Dateisystemerweiterung
+
+Longhorn wird versuchen, das Dateisystem nur zu erweitern, wenn:
+
+* Die erweiterte Größe sollte größer sein als die aktuelle Größe.
+* Es gibt ein Linux-Dateisystem im Longhorn-Volumen.
+* Das im Longhorn-Volumen verwendete Dateisystem ist eines der folgenden:
+ ** ext4
+ ** XFS
+* Die erweiterte Größe muss kleiner sein als die maximal vom Dateisystem erlaubte Dateigröße (zum Beispiel 16TiB für `ext4`).
+* Das Longhorn-Volumen verwendet das Blockgeräte-Frontend.
+
+== Grenzfälle
+
+[discrete]
+==== Umgang mit Volume-Rücksetzungen
+
+Wenn ein Volume auf einen Snapshot mit kleinerer Größe zurückgesetzt wird, hält das Frontend des Volumes weiterhin die erweiterte Größe. Aber die Dateisystemgröße wird die gleiche sein wie die des zurückgesetzten Snapshots. In diesem Fall müssen Sie das Dateisystem manuell verwalten:
+
+. Hängen Sie das Volumen an einen beliebigen Knoten an.
+. Melden Sie sich am entsprechenden Knoten an und erweitern Sie das Dateisystem.
++
+Wenn das Dateisystem `ext4` ist, muss das Volumen möglicherweise https://linux.die.net/man/8/mount[gemountet] und https://linux.die.net/man/8/umount[unmountet] werden, bevor das Dateisystem manuell erweitert wird. Andernfalls kann die Ausführung von `resize2fs` zu einem Fehler führen:
++
+----
+ resize2fs: Superblock checksum does not match superblock while trying to open ......
+ Couldn't find valid filesystem superblock.
+----
++
+Befolgen Sie die folgenden Schritte, um das Dateisystem zu erweitern:
++
+----
+ mount /dev/longhorn/<volume name> <arbitrary mount directory>
+ umount /dev/longhorn/<volume name>
+ mount /dev/longhorn/<volume name> <arbitrary mount directory>
+ resize2fs /dev/longhorn/<volume name>
+ umount /dev/longhorn/<volume name>
+----
+
+. Wenn das Dateisystem `xfs` ist, können Sie es direkt mounten und dann das Dateisystem erweitern.
++
+----
+ mount /dev/longhorn/<volume name> <arbitrary mount directory>
+ xfs_growfs <the mount directory>
+ umount /dev/longhorn/<volume name>
+----
+
+[discrete]
+==== Verschlüsseltes Volumen
+
+Die Unterstützung von Longhorn für die Online-Erweiterung hängt von Kubernetes ab.
+
+* Kubernetes unterstützt nativ https://kubernetes.io/blog/2023/12/15/csi-node-expand-secret-support-ga/[authentifizierte CSI-Speichererweiterung] ab Version v1.29.
+* In https://kubernetes.io/blog/2022/09/21/kubernetes-1-25-use-secrets-while-expanding-csi-volumes-on-node-alpha/[Kubernetes v1.25 bis v1.28] ist das Feature-Gate `CSINodeExpandSecret` erforderlich.
+
+Sie können die Online-Erweiterung für verschlüsselte Volumes aktivieren, indem Sie die folgenden xref:volumes/volume-encryption.adoc#_setting_up_kubernetes_secrets_and_storageclasses[Verschlüsselungsparameter in der StorageClass] angeben:
+
+* `csi.storage.k8s.io/node-expand-secret-name`
+* `csi.storage.k8s.io/node-expand-secret-namespace`
+
+Wenn Sie es nicht aktivieren können, aber dennoch die Online-Erweiterung bevorzugen, können Sie:
+
+. Melden Sie sich am Knoten an, an den das verschlüsselte Volumen angehängt ist.
+. Führen Sie `cryptsetup resize <volume name>` aus. Die Passphrase, die dieser Befehl benötigt, ist das Feld `CRYPTO_KEY_VALUE` des entsprechenden Secrets.
+. Erweitern Sie das Dateisystem.
+
+[discrete]
+==== RWX volume
+
+Seit v1.8.0 unterstützt Longhorn die vollautomatische Online-Erweiterung des Dateisystems (NFS) für RWX-Volumen. Dieses Feature erfordert, dass die Versionen v1.8.0 der folgenden Komponenten ausgeführt werden:
+
+- Longhorn Manager
+- CSI-Plugin
+- Share Manager (verwaltet den NFS-Export)
+
+[NOTE]
+====
+Während der Upgrades werden die Share Manager-Pods (einer für jedes RWX-Volumen) nicht automatisch aktualisiert, um Unterbrechungen zu vermeiden.
+====
+
+Nach dem Vergrößern des Blockgeräts sendet die CSI-Schicht einen Resize-Befehl an den Share Manager, um das Dateisystem innerhalb des Blockgeräts zu vergrößern.  Mit einem veralteten Share Manager schlägt der Befehl mit einem "nicht implementiert" Fehlercode fehl, und es erfolgt keine Erweiterung. Um das richtige Image vor der Erweiterung zu erhalten, erzwingen Sie einen Neustart des Pods. Identifizieren Sie den Share Manager-Pod des RWX-Volumens (typischerweise benannt `share-manager-<volume name>`) und löschen Sie ihn.
+
+[,shell]
+----
+kubectl -n longhorn-system delete pod <the share manager pod>
+----
+
+Der Pod wird automatisch mit der entsprechenden Version neu erstellt, und die Erweiterung wird abgeschlossen. Weitere Erweiterungen erfordern keine weiteren Eingriffe.
+
+[discrete]
+===== Offline
+
+Führen Sie die folgenden Schritte aus, um die Erweiterung von RWX-Volumen im Offline-Modus zu ermöglichen.
+
+. Trennen Sie das RWX-Volumen, indem Sie die Arbeitslast auf `replicas=0` reduzieren. Stellen Sie sicher, dass das Volumen vollständig getrennt ist.
+. Nachdem der Skalierungsbefehl zurückgegeben wurde, führen Sie den folgenden Befehl aus und überprüfen Sie, ob der Zustand `detached` ist.
++
+[subs="+attributes",shell]
+----
+ kubectl -n longhorn-system get volume <volume-name>
+----
+
+. Erweitern Sie das Blockgerät entweder über das PVC oder die Longhorn-Benutzeroberfläche.
+. Erhöhen Sie die Arbeitslast.
+
+Das wieder angeschlossene Volumen wird die erweiterte Größe haben. Darüber hinaus wird der Share Manager-Pod mit der aktuellen Version neu erstellt.

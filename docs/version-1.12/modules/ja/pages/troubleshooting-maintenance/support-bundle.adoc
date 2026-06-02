@@ -1,0 +1,22 @@
+= サポートバンドル
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhornは社内のサポートバンドル生成を一般的な https://github.com/rancher/support-bundle-kit[サポートバンドルキット]に置き換えました。
+
+Longhorn UIの下部にある`Generate Support Bundle`をクリックすると、クラスターのマニフェストとログを含むzipファイルをダウンロードできます。
+
+サポートバンドル生成中、Longhornはサポートバンドルマネージャーのためのデプロイメントを作成します。
+
+NOTE: サポートバンドルマネージャーは、バンドル収集のために専用の`longhorn-support-bundle`サービスアカウントと`longhorn-support-bundle`クラスター役割バインディングを使用し、`cluster-admin`アクセスを持ちます。
+
+サポートバンドルを使用すると、`kubectl`コマンドで操作可能なモックKubernetesクラスターをシミュレートできます。詳細については、 https://github.com/rancher/support-bundle-kit#simulator-command[シミュレーターコマンド]を参照してください。
+
+== 制限
+
+Longhornは現在、複数のサポートバンドルの同時生成をサポートしていません。新しいサポートバンドルを開始する前に、進行中のサポートバンドルの完了を待つことをお勧めします。別のサポートバンドルが進行中の間に新しいサポートバンドルが作成されると、Longhornは古いサポートバンドルを上書きします。
+
+== 履歴
+
+https://github.com/longhorn/longhorn/issues/2759[元の機能リクエスト]

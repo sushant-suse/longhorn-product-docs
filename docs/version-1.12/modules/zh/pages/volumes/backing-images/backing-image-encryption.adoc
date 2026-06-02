@@ -1,0 +1,280 @@
+= 备份镜像加密
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn允许您通过克隆备份镜像来加密和解密它。备份镜像加密机制利用Linux内核模块`dm_crypt`和命令行工具`cryptsetup`。
+
+== 克隆备份镜像
+
+您可以使用YAML代码克隆备份镜像。请注意，这将创建一个与原始内容相同的新备份镜像。备份镜像也会占用磁盘空间。
+
+下载的备份镜像示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+用于克隆示例备份镜像的YAML代码示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: ignore
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`：指定要克隆的备份镜像的名称。
+* `encryption`：将值设置为`ignore`以直接克隆备份镜像。如果未给出值，Longhorn将使用`ignore`作为默认值。
+====
+
+您也可以使用Longhorn UI克隆备份镜像。
+
+. 转到*设置* > *备份镜像*。
+. 单击*创建备份镜像*。
+. 配置以下设置：
+ ** *来源*：选择*从现有备份镜像克隆*。
+ ** *加密*：选择*忽略*。
+. 单击*确定*。
+
+image::screenshots/backing-image/clone.png[备份镜像]
+
+== 加密备份镜像
+
+您可以在克隆备份镜像时启用加密，以便该镜像可以与加密卷一起使用。
+
+下载的备份镜像示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+用于克隆和加密示例备份镜像的YAML代码示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-encrypted
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: encrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+用于加密备份镜像的YAML代码示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`：指定要克隆的备份镜像的名称。
+* `encryption`：将值设置为`encrypt`以在克隆期间加密备份镜像。
+* `secret`：指定用于加密备份镜像的密钥。
+* `secret-namespace`：指定用于加密备份镜像的密钥的名称空间。
+====
+
+您还可以使用 Longhorn UI 创建备份镜像的加密副本。
+
+. 转到*设置* > *备份镜像*。
+. 单击*创建备份镜像*。
+. 配置以下设置：
+ ** *来源*：选择*从现有备份镜像克隆*。
+ ** *加密*：选择*加密*。
+. 指定用于加密的密钥和密钥名称空间。
+. 单击*确定*。
+
+image::screenshots/backing-image/encrypt.png[备份镜像]
+
+== 解密备份镜像
+
+您可以通过克隆解密加密的备份镜像。
+
+加密备份镜像的示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-encrypted
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: encrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+用于加密和解密备份镜像的 YAML 代码示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+用于解密备份镜像的 YAML 代码示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-decrypt
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot-cloned-encrypted
+    encryption: decrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`：指定要克隆的备份镜像的名称。
+* `encryption`：将值设置为`decrypt`以在克隆期间解密备份镜像。
+* `secret`：指定用于解密备份镜像的密钥。
+* `secret-namespace`：指定用于解密备份镜像的密钥的名称空间。
+====
+
+您还可以使用 Longhorn UI 解密备份镜像（通过克隆）。
+
+. 转到*设置* > *备份镜像*。
+. 单击*创建备份镜像*。
+. 配置以下设置：
+ ** *来源*：选择*从现有备份镜像克隆*。
+ ** *加密*：选择 *解密*。
+. 指定用于解密的密钥和密钥名称空间。
+. 单击*确定*。
+
+image::screenshots/backing-image/decrypt.png[备份镜像]
+
+== 使用加密的备份镜像和加密卷
+
+用于加密后备镜像和卷的密钥必须相同。一旦加密的备份镜像准备好，您可以创建具有相应备份镜像和密钥的 StorageClass，以为工作负载创建卷。
+
+加密密钥的 YAML 代码示例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+StorageClass 的 YAML 代码示例：
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-crypto-global
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  encrypted: "true"
+  backingImage: "parrot-cloned-encrypted"
+  backingImageDataSourceType: "clone"
+  # global secret that contains the encryption key that will be used for all volumes
+  csi.storage.k8s.io/provisioner-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/provisioner-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-publish-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-publish-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-stage-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-stage-secret-namespace: "longhorn-system"
+----
+
+有关更多信息，请参见 xref:volumes/volume-encryption.adoc[卷加密]。
+
+== 局限性
+
+* Longhorn 无法加密已经加密的备份镜像，也无法解密未加密的备份镜像。
+* Longhorn 不允许您更改加密备份镜像的加密密钥。
+* 在加密 qcow2 镜像时，Longhorn 首先从 qcow2 镜像创建一个原始镜像，然后对其进行加密。生成的加密原始镜像在克隆期间会暂时消耗额外的空间。例如，
+ .. 如果我们对一个 10MiB 的 qcow2 镜像进行加密，虚拟大小为 200MiB，我们首先从 qcow2 创建原始镜像，这将消耗 200MiB 的空间。
+ .. 然后，Longhorn 从该 200MiB 的原始镜像创建加密的后备镜像，这将再占用 200MiB 的空间。
+ .. 加密的后备镜像创建后，临时原始镜像将被清理，并释放出 200MiB 的空间。
+* 如果源后备镜像是稀疏文件，文件在加密后将失去其稀疏性。
+* 为了在加密过程中存储 LUKS 元数据，镜像大小增加了 16 MB。有关更多信息，请参见 https://gitlab.com/cryptsetup/cryptsetup/-/blob/master/docs/v2.1.0-ReleaseNotes#L27[cryptsetup 发布说明]。

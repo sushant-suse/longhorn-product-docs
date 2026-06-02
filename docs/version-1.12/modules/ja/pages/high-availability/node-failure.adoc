@@ -1,0 +1,40 @@
+= ノードエラー管理
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Kubernetesノードがエラーになったときの期待事項
+
+このセクションは、ノードエラーが発生した際に何が起こるか、回復中に何が期待されるかをユーザーに知らせることを目的としています。
+
+*1分*後、`kubectl get nodes`はエラーノードの`NotReady`を報告します。
+
+約*5分*後、`NotReady`ノード上のすべてのポッドの状態は`Unknown`または`NodeLost`のいずれかに変わります。
+
+StatefulSetsは安定したアイデンティティを持っているため、Kubernetesはユーザーのためにポッドを強制的に削除することはありません。 https://kubernetes.io/docs/tasks/run-application/force-delete-stateful-set-pod/[StatefulSetの強制削除に関する公式Kubernetesドキュメント]を参照してください。
+
+Deploymentsは安定したアイデンティティを持っていませんが、Read-Write-Onceタイプのストレージの場合、同時に2つのノードに接続できないため、Kubernetesによって作成された新しいポッドは、エラーノード上の古いポッドにまだ接続されているRWOボリュームのために起動できません。
+
+いずれの場合も、Kubernetesはエラーノード上のポッドを自動的に退去させ（ポッドの削除タイムスタンプを設定）、その後*古いボリュームで新しいポッドを再作成しようとします。追い出されたポッドが`Terminating`状態で停止し、接続されたボリュームが解放または再利用できないため、管理者やストレージソフトウェアによる介入がない限り、新しいポッドも`ContainerCreating`状態で停止します。
+
+== ノードがエラーになっているときのLonghornポッド削除ポリシー
+
+Longhornは、ダウンしているノード上のStatefulSet/Deploymentの終了中のポッドを自動的に強制削除するオプションをユーザーに提供します。強制削除後、KubernetesはLonghornボリュームを切り離し、新しいノード上に置き換えポッドを立ち上げます。
+
+設定オプションの詳細は、Longhorn UIの`Pod Deletion Policy When Node is Down`の*設定*タブまたはxref:longhorn-system/settings.adoc#_pod_deletion_policy_when_node_is_down[設定リファレンス]で確認できます。
+
+== エラーノード回復時の期待事項
+
+ノードがエラー後5〜6分以内にオンラインに戻ると、Kubernetesはポッドを再起動し、ボリュームをアンマウントおよび再マウントしますが、ボリュームの再アタッチやVolumeAttachmentのクリーンアップは行いません。
+
+ノードがエラーになった後、ボリュームエンジンがダウンするため、この直接的な再マウントは機能しません。デバイスがノード上に存在しなくなるからです。
+
+この場合、Longhornはボリュームを切り離して再接続し、ボリュームエンジンを回復させるため、ポッドはボリュームを安全に再マウント/再利用できます。
+
+ノードがエラー後5〜6分以内にオンラインに戻らない場合、Kubernetesはポッド追い出しメカニズムに基づいてすべての到達不能なポッドを削除しようとし、これらのポッドは`Terminating`状態になります。詳細については、 https://kubernetes.io/docs/concepts/architecture/nodes/#condition[ポッド追い出しタイムアウト]を参照してください。
+
+その後、エラーが発生したノードが後で回復した場合、Kubernetesはそれらの終了中のポッドを再起動し、ボリュームを切り離し、古いVolumeAttachmentのクリーンアップを待ち、ボリュームを再利用（再接続および再マウント）します。通常、これらの手順には1〜7分かかることがあります。
+
+この場合、切り離しおよび再接続の操作はすでにKubernetesの回復手順に含まれています。したがって、追加の操作は必要なく、上記の手順の後にLonghornボリュームが利用可能になります。
+
+上記のすべての回復シナリオにおいて、LonghornはKubernetesとの関連でこれらの手順を自動的に処理します。

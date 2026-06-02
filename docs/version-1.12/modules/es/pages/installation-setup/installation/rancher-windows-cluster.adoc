@@ -1,0 +1,53 @@
+= Rancher Clúster de Windows
+:revdate: 2026-01-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Rancher puede aprovisionar un clúster de Windows con una combinación de nodos de trabajo Linux y nodos de trabajo Windows.
+Para más información sobre el clúster de Windows de Rancher, consulta la https://documentation.suse.com/cloudnative/rancher-manager/latest/en/cluster-deployment/custom-clusters/windows/use-windows-clusters.html[documentación oficial de Rancher].
+
+En un clúster de Windows de Rancher, todos los nodos de trabajo Linux están:
+
+* Marcados con el taint `cattle.io/os=linux:NoSchedule`
+* Etiquetados con `kubernetes.io/os:linux`
+
+[NOTE]
+====
+Después de que se despliegue {longhorn-product-name}, puedes lanzar cargas de trabajo que utilicen volúmenes {longhorn-product-name} solo en nodos Linux.
+====
+
+== Desplegar {longhorn-product-name} con el gráfico de Helm soportado
+
+Puedes actualizar el valor de Helm `global.cattle.windowsCluster.enabled` para permitir la instalación de {longhorn-product-name} en el clúster de Windows de Rancher.
+
+Cuando este valor se establece en `true`, {longhorn-product-name} reconocerá el clúster de Windows de Rancher y luego desplegará los componentes {longhorn-product-name} con el selector de nodos y las tolerations correctas para que todas las cargas de trabajo {longhorn-product-name} puedan lanzarse solo en nodos Linux.
+
+En el mercado de Rancher, la configuración se puede personalizar en `customize Helm options` antes de la instalación: +
+`Edit Options` > `Other Settings` > `Rancher Windows Cluster`
+
+También en: +
+`Edit YAML`
+
+----
+global:
+  cattle:
+    systemDefaultRegistry: ""
+    windowsCluster:
+      # Enable this to allow Longhorn to run on the Rancher deployed Windows cluster
+      enabled: true
+----
+
+== Configurar {longhorn-product-name} componentes para el despliegue existente de {longhorn-product-name}
+
+Puedes configurar el existente {longhorn-product-name} cuando no está desplegado con el gráfico de Helm soportado.
+
+* Dado que los {longhorn-product-name} componentes solo pueden ejecutarse en nodos Linux, necesitas establecer el selector de nodos `kubernetes.io/os:linux` para {longhorn-product-name} para seleccionar los nodos Linux. Para más información, consulta xref:nodes/node-selector.adoc[Selector de Nodos].
++
+* Dado que todos los nodos de trabajo Linux en un clúster de Windows de Rancher tienen el taint `cattle.io/os=linux:NoSchedule`, debes establecer la toleration `cattle.io/os=linux:NoSchedule` para permitir que {longhorn-product-name} se ejecute en esos nodos. Para más información, consulta xref:nodes/taints-tolerations.adoc[Taint Toleration].
+
+
+
+[NOTE]
+====
+{longhorn-product-name} se puede desplegar de manera efectiva en clústeres que comprenden tanto nodos de Windows como de Linux, ofreciendo una solución versátil para diversas necesidades de infraestructura. Para facilitar la instalación desde Rancher, los usuarios deben primero añadir el registro OCI de AppCo como un repositorio de aplicaciones de Rancher. Las instrucciones detalladas para este proceso se pueden encontrar en https://docs.apps.rancher.io/howto-guides/integrate-with-rancher-manager/[Documentación de Rancher: Integrar con Rancher Manager]
+====

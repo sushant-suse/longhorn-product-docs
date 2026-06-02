@@ -1,0 +1,46 @@
+= システムがインストールされていない状態でSUSE® Storageバックアップから復元する
+:revdate: 2025-07-12
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+このコマンドを使用すると、ユーザーはバックアップを`raw`イメージまたは`qcow2`イメージに復元できるようになります。バックアップがバックファイルに基づいている場合、ユーザーは`--backing file`パラメータを使用してバックファイルを`qcow2`イメージとして提供する必要があります。
+
+. https://github.com/longhorn/longhorn/blob/v{patch-version}/examples/restore_to_file.yaml.template[yamlテンプレート]をコピーします:`examples/restore_to_file.yaml.template`のコピーを作成します。例えば、`restore.yaml`のように。
+. 出力ファイルを配置するノードを設定するには、`<NODE_NAME>`を置き換えます。例えば、`node1`のように。
+. ボリューム`disk-directory`のフィールド`hostpath`を修正して出力ファイルのホストパスを指定します。デフォルトでは、ディレクトリは`/tmp/restore/`です。
+. 最初の引数（バックアップURL）を設定するには、`<BACKUP_URL>`を置き換えます。例えば、`s3://<your-bucket-name>@<your-aws-region>/backupstore?backup=<backup-name>&volume=<volume-name>`のように。
+ ** `<backup-name>`と`<volume-name>`は、バックアップ先フォルダーに保存されているbackup.cfgから取得できます。例えば、`backup_backup-72bcbdad913546cf.cfg`のように。内容は以下のようになります:
++
+[subs="+attributes",json]
+----
+  {"Name":"backup-72bcbdad913546cf","VolumeName":"volume_1","SnapshotName":"79758033-a670-4724-906f-41921f53c475"}
+----
+. 引数`output-file`を設定するには、`<OUTPUT_FILE>`を置き換えます。例えば、`volume.raw`または`volume.qcow2`のように。
+. 引数`output-format`を設定するには、`<OUTPUT_FORMAT>`を置き換えます。サポートされているオプションは`raw`または`qcow2`です。
+. 引数`longhorn-version`を設定するには、`<LONGHORN_VERSION>`を置き換えます。例えば、`v{patch-version}`のように。
+. S3認証情報のシークレットを設定するには、`<S3_SECRET_NAME>`を置き換えます。例えば、`minio-secret`のように。
+ ** 認証情報のシークレットはxref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_set_up_aws_s3_backupstore[こちら]から参照でき、`longhorn-system`ネームスペースで作成する必要があります。
+. 例えば、yamlを実行します:
+
+  kubectl create -f restore.yaml
+
+. 結果を監視するには:
+
+ kubectl -n longhorn-system get pod restore-to-file -w
+
+ポッドのステータスが`Completed`に変更された後、`<OUTPUT_FILE>`上の`/tmp/restore`で`<NODE_NAME>`を確認できるはずです。
+
+バックアップを復元するためのスクリプト https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/scripts/restore-backup-to-file.sh[restore-backup-to-file.sh] を提供しています。次のパラメータを指定する必要があります:
+
+* `--backup-url`:バックアップの S3/NFS URL を指定します。例: `s3://backupbucket@us-east-1/backupstore?backup=backup-bd326da2c4414b02&volume=volumeexamplename"`
+* `--output-file`:出力ファイル名を設定します。例: `volume.raw`
+* `--output-format`:出力ファイル形式を設定します。例: `raw` または `qcow2`
+* `--version`:使用する Longhorn のバージョンを指定します。例えば、`v{patch-version}`
+
+オプションのパラメータを指定できます:
+
+* `--aws-access-key`:バックアップが S3 の場合、AWS 認証情報のアクセスキーを指定します。
+* `--aws-secret-access-key`:バックアップが S3 の場合、AWS 認証情報のシークレットキーを指定します。
+* `--backing-file`: バッキングイメージ。例: `/tmp/backingfile.qcow2`
+
+スクリプトの実行が完了した後、出力イメージファイルは `/tmp/restore` ディレクトリにあります。

@@ -1,0 +1,117 @@
+= Sicherung des Backup-Abbilds
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn unterstützt die Sicherung von Backup-Abbildern.
+
+== Voraussetzungen
+
+Sie müssen zuerst xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[ein Sicherungsziel festlegen]. Wenn Sie diesen entscheidenden Schritt überspringen, wird das fehlende Sicherungsziel Longhorn daran hindern, eine Sicherung des Backup-Abbilds zu erstellen.
+
+== Erstellen Sie eine Sicherung eines Backup-Abbilds
+
+Da Backup-Abbilder im Longhorn-System global einzigartig sind, sind die entsprechenden Sicherungen ebenfalls global einzigartig und werden mit demselben Namen identifiziert.
+
+=== Erstellen Sie eine Sicherung mit YAML
+
+Beispiel eines Backup-Abbilds:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-backup
+  namespace: longhorn-system
+spec:
+  backingImage: parrot
+  backupTargetName: default
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+Beispiel für YAML-Code, der verwendet wird, um eine Sicherung des Beispiel-Backup-Abbilds zu erstellen:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackupBackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  userCreated: true
+  labels:
+    usecase: test
+    type: raw
+----
+
+* `name`: Wenn die Namen nicht einzigartig sind, kann Longhorn keine Sicherung des Backup-Abbilds erstellen.
+* `backingImage`: Backup-Abbild der Sicherung.
+* `backupTargetName`: Endpunkt, der verwendet wird, um das Backup im Backupstore zu speichern und darauf zuzugreifen.
+* `userCreated`: Setzen Sie den Wert auf `true`, um anzugeben, dass Sie die benutzerdefinierte Sicherungsressource erstellt haben, die die Erstellung des Backups im Backupstore ermöglicht hat. Der Wert `false` zeigt an, dass die benutzerdefinierte Sicherungsressource vom Backupstore synchronisiert wurde.
+* `labels`: Sie können der Sicherung des Backup-Abbilds Labels hinzufügen.
+
+=== Erstellen Sie eine Sicherung über die Longhorn-Benutzeroberfläche
+
+. Gehen Sie zu *Einstellungen -> Backup-Abbild*.
+. Wählen Sie das Backup-Abbild aus, das Sie sichern möchten, und klicken Sie dann im Menü *Operation* auf *Sichern*.
+
+Longhorn erstellt die Sicherung und fügt die Details zur Liste *Sicherung des Backup-Abbilds* hinzu.
+
+image::screenshots/backing-image/backup.png[Backup-Abbild]
+
+== Stellen Sie ein Backup-Abbild aus einer Sicherung wieder her
+
+Sie können ein Backup-Abbild in einem anderen Cluster wiederherstellen, nachdem Sie eine Sicherung im Backupstore erstellt haben.
+
+Beispiel für YAML-Code, der verwendet wird, um ein Backup-Abbild wiederherzustellen:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+    name: parrot-restore
+    namespace: longhorn-system
+spec:
+    sourceType: restore
+    sourceParameters:
+        # change to your backup URL
+        # backup-url: nfs://longhorn-test-nfs-svc.default:/opt/backupstore?backingImage=parrot
+        backup-url: s3://backupbucket@us-east-1/?backingImage=parrot
+        concurrent-limit: "2"
+    checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+[IMPORTANT]
+====
+* `sourceType`: Legen Sie den Wert auf `restore` fest.
+* `sourceParameters`: Konfigurieren Sie die folgenden Parameter:
+ ** `backup-url`: URL der Backup-Abbild-Ressource im Backupstore. Diese Informationen finden Sie im Status der benutzerdefinierten Sicherungsressource `.Status.URL`.
+ ** `concurrent-limit`: Maximale Anzahl von Worker-Threads, die gleichzeitig für jede Wiederherstellungsoperation ausgeführt werden können. Wenn nicht angegeben, verwendet Longhorn den Standardwert.
+* `checksum`: Sie können die erwartete SHA-512-Prüfsumme der Backup-Abbilddatei angeben, die Longhorn zur Validierung der wiederhergestellten Datei verwendet. Wenn nicht angegeben, verwendet Longhorn die Prüfsumme der wiederhergestellten Datei als Referenz.
+====
+
+=== Wiederherstellung aus einer Sicherung über die Longhorn-Benutzeroberfläche
+
+. Gehen Sie zu *Einstellungen -> Backup-Abbild*.
+. Wählen Sie die Sicherung aus, die Sie verwenden möchten, und klicken Sie dann im Menü *Operation* auf *Wiederherstellen*.
+. Wenn Sie ein verschlüsseltes Backup-Abbild wiederherstellen, geben Sie das `Secret` und `Secret Namespace` an.
+. Klicken Sie auf *OK*.
+
+image::screenshots/backing-image/restore.png[Backup-Abbild]
+
+[IMPORTANT]
+====
+Longhorn speichert derzeit keine Secret-bezogenen Informationen in Backup-Abbildern. Sie müssen das Secret und den Namespace angeben, wenn Sie verschlüsselte Backup-Abbilder wiederherstellen. Dieses Problem wird in einer zukünftigen Version behoben.
+====
+
+== Volumen mit einem Backup-Abbild
+
+Wenn Sie eine Sicherung eines Volumens erstellen, erstellt Longhorn automatisch eine Sicherung seines Backup-Abbilds.
+
+Sie können ein Volume mit einem Backup-Abbild wiederherstellen. Wenn das Backup-Abbild bereits im Cluster vorhanden ist, verwendet Longhorn es direkt. Wenn das Backup-Abbild im Backupstore vorhanden ist, aber nicht im Cluster, stellt Longhorn es automatisch wieder her.

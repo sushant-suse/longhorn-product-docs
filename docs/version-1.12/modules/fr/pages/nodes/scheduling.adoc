@@ -1,0 +1,287 @@
+= Planification
+:revdate: 2026-03-06
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} planifie des répliques en fonction de plusieurs facteurs.
+
+== Stratégie de planification
+
+La stratégie de planification de {longhorn-product-name} comporte deux étapes. Le planificateur passe à l'étape suivante uniquement si l'étape précédente est satisfaite. Sinon, la planification échoue.
+
+Si un tag a été défini pour être sélectionné pour la planification, le tag de nœud et le tag de disque doivent correspondre lorsque le nœud ou le disque est sélectionné.
+
+La première étape est l'étape de sélection de *nœud et zone*. {longhorn-product-name} filtre le nœud et la zone en fonction des paramètres `Replica Node Level Soft Anti-Affinity` et `Replica Zone Level Soft Anti-Affinity`.
+
+La deuxième étape est l'étape de sélection de *disque*. {longhorn-product-name} filtre les disques qui satisfont la première étape en fonction des paramètres `Replica Disk Level Soft Anti-Affinity`, `Storage Minimal Available Percentage`, `Storage Over Provisioning Percentage` et d'autres facteurs liés aux disques comme l'espace disque demandé.
+
+=== L'étape de sélection de nœud et de zone
+
+{longhorn-product-name} évalue quels nœuds sont adaptés pour planifier une nouvelle réplique en fonction d'une série de critères. Le processus de prise de décision suit un ordre spécifique pour garantir un placement optimal pour la tolérance aux pannes.
+
+==== 1. Correspondance de tag de nœud
+
+{longhorn-product-name} vérifie d'abord les tags de sélecteur de nœud sur le volume.
+
+* Si le volume a des tags de sélecteur de nœud, seuls les nœuds avec des tags correspondants sont éligibles.
+* Si le volume a *aucun sélecteur de nœud*, le comportement dépend du paramètre *Autoriser le volume sans sélecteur de nœud*{nbsp}:
+* `true` (par défaut){nbsp}: Planifie sur des nœuds *avec ou sans tags*.
+* `false` : Planifie *uniquement* sur des nœuds *sans tags*.
+
+==== 2. Gestion des nœuds cordonnés
+
+Le paramètre *Désactiver la planification sur les nœuds cordonnés* détermine si les nœuds cordonnés sont éligibles pour la planification de répliques{nbsp}:
+
+* `true` (par défaut){nbsp}: Les nœuds cordonnés sont exclus.
+* `false` : Les nœuds cordonnés sont éligibles.
+
+==== 3. Règles d'anti-affinité entre nœuds et zones
+
+{longhorn-product-name} priorise la répartition des répliques sur différents *nœuds* et *zones* pour améliorer la tolérance aux pannes. Un *"nouveau"* nœud ou une zone est celui qui *n'héberge* actuellement aucune réplique du volume, tandis qu'un *"existant"* nœud ou une zone héberge déjà une réplique du volume.
+
+Le planificateur tente de placer la nouvelle réplique dans l'emplacement le plus "isolé" possible, suivant cette hiérarchie de préférence{nbsp}:
+
+. *Nouveau nœud dans une nouvelle zone* (le plus préféré)
+. *Nouveau nœud dans une zone existante*
+. *Nœud existant dans une zone existante* (le moins préféré)
+
+Le tableau suivant détaille les paramètres requis pour qu'une réplique soit planifiée dans chaque scénario{nbsp}:
+
+[cols="3,3,3,3a", options="header"]
+|===
+|Scénario |Niveau de zone de réplique Anti-affinité douce |Anti-affinité souple au niveau du nœud de réplique |Action du planificateur
+
+| *Nouveau nœud dans une nouvelle zone*
+| `false`
+| `false`
+| *Planifie* la réplique.
+
+|
+| Toute autre valeur
+| Toute autre valeur
+| *Ne* planifie pas la réplique.
+
+| *Nouveau nœud dans une zone existante*
+| `true`
+| `false`
+| *Planifie* la réplique si aucune nouvelle zone n'est disponible.
+
+|
+| Toute autre valeur
+| Toute autre valeur
+| *Ne* planifie pas la réplique.
+
+| *Nœud existant dans une zone existante*
+| `true`
+| `true`
+| *Planifie* la réplique si aucune autre option n'est disponible.
+
+|
+| Toute autre valeur
+| Toute autre valeur
+| *Ne* planifie pas la réplique.
+|===
+
+=== Étape de sélection du disque
+
+Après l'étape de sélection du nœud et de la zone, {longhorn-product-name} détermine s'il peut planifier la réplique sur l'un des disques du nœud sélectionné. Il vérifie les disques disponibles en fonction des balises correspondantes, de l'espace disque total et de l'espace disque disponible. Il prend également en compte si une autre réplique existe déjà et les paramètres d'anti-affinité.
+
+{longhorn-product-name} vérifie tous les disques disponibles sur le nœud sélectionné pour s'assurer qu'ils répondent aux critères suivants{nbsp}:
+
+. *Correspondance des balises de disque*{nbsp}:
+* Si le volume a des balises de disque, le disque doit correspondre à l'une des balises spécifiées requises pour la réplique.
+* Si le volume n'a pas de balises de disque, le comportement dépend du paramètre *Autoriser le volume de sélecteur de disque vide*{nbsp}:
+** `true` (par défaut){nbsp}: Permet la planification sur des disques avec ou sans balises.
+** `false` : N'autorise la planification que sur des disques sans balises.
+. *Vérification de l'espace disponible*{nbsp}:
+* Le disque doit avoir suffisamment d'espace disponible en fonction du `Storage Minimal Available Percentage` configuré.
+. *Paramètres d'anti-affinité*{nbsp}:
+* *Anti-affinité stricte*{nbsp}: Empêche la planification d'une réplique sur un disque qui héberge déjà une autre réplique du même volume.
+* *Anti-affinité souple* (lorsqu'elle est activée){nbsp}: Préfère planifier la réplique sur un disque sans réplique existante, même si c'est un choix moins optimal en termes d'espace ou d'autres facteurs.
+. *Conditions d'espace*{nbsp}: Deux formules déterminent si un disque est planifiable{nbsp}:
+* *Condition d'utilisation réelle de l'espace*{nbsp}: Assure qu'il reste suffisamment d'espace de stockage utilisable après avoir pris en compte l'espace actuellement utilisé.
+** Formule : `(Storage Available - Actual Size) > (Storage Maximum × Minimal Available Percentage) / 100`
+* *Condition d'Espace de Planification* : Assure que la taille de la réplique (plus les données programmées mais non écrites) respecte la limite de surprovisionnement.
+** Formule : `(Size + Storage Scheduled) <= ((Storage Maximum - Storage Reserved) × Over Provisioning Percentage) / 100`
+
+[NOTE]
+====
+Lors de l'évaluation du disque, puisque aucune réplique spécifique n'est encore programmée, `Actual Size` et `Size` sont temporairement traités comme `0` dans ces formules.
+====
+
+Si l'une de ces conditions échoue, y compris l'étiquette du disque, l'anti-affinité ou les exigences d'espace, le disque est marqué comme non planifiable, et {longhorn-product-name} ne placerait pas la réplique sur ce disque.
+
+==== Exemple de scénario
+
+Considérez un nœud (*Nœud A*) avec deux disques :
+
+* *Disque X* : 1 Go disponible, 4 Go d'espace maximum
+* *Disque Y* : 2 Go disponible, 8 Go d'espace maximum
+
+===== Étape 1 : Évaluation initiale du disque
+
+Lors de la phase de sélection initiale des disques, {longhorn-product-name} effectue une vérification de base sur tous les disques disponibles. À ce stade, aucune réplique spécifique n'a été sélectionnée, donc `Actual Size` et `Size` sont traités comme `0`.
+
+*Évaluation du Disque X*
+
+* *Espace Disponible* : 1 Go
+* *`Storage Minimal Available Percentage`* : 25 % (valeur par défaut)
+* *Espace disponible minimum requis*{nbsp}: `(4 GB × 25) / 100 = 1 GB`
+* *Résultat*{nbsp}: *Disque X* échoue le `Actual Space Usage Condition` car son espace disponible (1 Go) n'est pas supérieur au minimum requis (1 Go). Par conséquent, Disque X n'est pas planifiable à moins que le `Storage Minimal Available Percentage` ne soit réglé sur `0`.
+
+*Évaluation du Disque Y*
+
+* *Espace Disponible* : 2 Go
+* *`Storage Minimal Available Percentage`* : 10 %
+* *Espace disponible minimum requis*{nbsp}: `(8 GB × 10) / 100 = 0.8 GB`
+* *Résultat*{nbsp}: *Disque Y* réussit le `Actual Space Usage Condition` car son espace disponible (2 Go) est supérieur au minimum requis (0,8 Go).
+
+Ensuite, nous vérifions le `Scheduling Space Condition`{nbsp}:
+
+* *Espace planifié*{nbsp}: 2 Go
+* *`Storage Reserved`* : 1 Go
+* *`Over Provisioning Percentage`* : 100 % (valeur par défaut)
+* *Stockage maximum provisionnable*{nbsp}: `(8 GB - 1 GB) × 100 / 100 = 7 GB`
+* *Résultat*{nbsp}: *Disque Y* réussit le `Scheduling Space Condition` car l'espace actuellement planifié (2 Go) est inférieur au stockage maximum provisionnable (7 Go).
+
+Puisque Disque Y remplit toutes les conditions, il est marqué comme candidat disque planifiable.
+
+===== Étape 2{nbsp}: Règles d'anti-affinité
+
+Supposons que le Disque X et le Disque Y réussissent les vérifications d'espace initiales et que le Disque X héberge déjà une réplique pour le même volume.
+
+*Anti-affinité stricte*
+
+* {longhorn-product-name} ne planifierait pas la nouvelle réplique sur le Disque X. Au lieu de cela, il tenterait de la planifier sur le Disque Y.
+* Si le Disque Y n'est pas adapté (par exemple, étiquettes de disque non correspondantes), la planification de cette réplique échouerait.
+
+*Anti-affinité souple*
+
+* Si *l'anti-affinité souple* est activée, {longhorn-product-name} *préfère* planifier la réplique sur le Disque Y pour éviter de co-localiser les répliques.
+* Cependant, si le Disque Y n'est pas adapté pour une raison quelconque, {longhorn-product-name} *peut toujours planifier* la réplique sur le Disque X. Cela permet de partager un disque comme option de secours lorsque aucun autre candidat viable n'est disponible.
+
+== Algorithme de planification
+
+Après avoir identifié les disques candidats qui répondent à toutes les exigences de planification, la dernière étape consiste à sélectionner le disque optimal pour la réplique. Cette sélection est déterminée à l'aide de l'algorithme d'équilibre, qui vise à répartir uniformément les répliques sur les nœuds et les disques.
+
+=== Formule du facteur d'équilibre par stockage utilisable
+
+* `Disk_Usable_Storage = (Disk.StorageAvailable - Disk.StorageReserved) - Disk.StorageScheduled`
+* Score inférieur = distribution plus équilibrée.
+
+*Formule :*
+
+----
+BalanceScore(X) = (max(X) - min(X)) / mean(X)
+----
+
+Où :
+
+* `X` = ensemble de valeurs de stockage utilisable (par nœud ou par disque).
+
+*Processus de sélection :*
+
+. Simulez le placement de la réplique sur chaque nœud candidat et calculez le score d'équilibre résultant. +
+  → Choisissez le nœud avec le score le plus bas (distribution la plus équilibrée).
+
+. Dans le nœud sélectionné, simulez le placement sur chaque disque candidat et calculez à nouveau le score d'équilibre. +
+  → Choisissez le disque avec le score le plus bas parmi eux.
+
+==== Exemple de scénario
+
+Supposons que le cluster ait deux nœuds, et que chaque nœud contienne deux disques candidats éligibles pour la planification de répliques.
+
+Taille de la réplique = 100 GiB.
+
+[cols="1,1,1", options="header"]
+|===
+| Noeud | Disque | Stockage utilisable (GiB)
+
+| Nœud A | A1 | 900
+| Nœud A | A2 | 100
+| Nœud B | B1 | 600
+| Nœud B | B2 | 700
+|===
+
+*Étape 1{nbsp}: Sélection du nœud*
+
+*Simuler le placement sur le nœud A*
+
+Nouveaux totaux{nbsp}:
+
+* Nœud A = (900 + 100) − 100 = 900
+* Nœud B = (600 + 700) = 1300
+
+Score d'équilibre du nœud{nbsp}:
+
+----
+BalanceScore_NodeA  = (1300 - 900) / ((1300 + 900) / 2)
+                    = 400 / 1100
+                    ≈ 0.364
+----
+
+*Simuler le placement sur le nœud B*
+
+Nouveaux totaux{nbsp}:
+
+* Nœud A = (900 + 100) = 1000
+* Nœud B = (600 + 700) - 100 = 1200
+
+Score d'équilibre du nœud{nbsp}:
+
+----
+BalanceScore_NodeB  = (1200 - 1000) / ((1200 + 1000) / 2)
+                    = 200 / 1100
+                    ≈ 0.182
+----
+
+Choisissez *Nœud B* (score inférieur, plus équilibré).
+
+*Étape 2{nbsp}: Sélection du disque*
+
+*Simuler le placement sur B1 (600 → 500)*
+
+Nouveau disque utilisable{nbsp}: B1 = 500, B2 = 700
+
+Score d'équilibre du disque{nbsp}:
+
+----
+BalanceScore_DiskB1 = (700 - 500) / ((700 + 500) / 2)
+                    = 200 / 600
+                    ≈ 0.333
+----
+
+*Simuler le placement sur B2 (700 → 600)*
+
+Nouveau disque utilisable{nbsp}: B1 = 600, B2 = 600
+
+Score d'équilibre du disque{nbsp}:
+
+----
+BalanceScore_DiskB2 = (600 - 600) / ((600 + 600) / 2)
+                    = 0 / 600
+                    = 0
+----
+
+Choisissez *Disque B2* (équilibre parfait entre B1 et B2).
+
+== Paramètres
+
+Pour plus d'informations sur les paramètres pertinents pour la planification des répliques sur les nœuds et les disques, consultez la référence des paramètres{nbsp}:
+
+* xref:longhorn-system/settings.adoc#_disable_scheduling_on_cordoned_node[Désactiver la planification sur le nœud isolé]
+* xref:longhorn-system/settings.adoc#_replica_node_level_soft_anti_affinity[Réplica Soft Anti-Affinity] (également appelée Réplica Node Level Soft Anti-Affinity)
+* xref:longhorn-system/settings.adoc#_replica_zone_level_soft_anti_affinity[Réplica Zone Level Soft Anti-Affinity]
+* xref:longhorn-system/settings.adoc#_replica_disk_level_soft_anti_affinity[Réplica Disk Level Soft Anti-Affinity]
+* xref:longhorn-system/settings.adoc#_storage_minimal_available_percentage[Pourcentage Minimal de Stockage Disponible]
+* xref:longhorn-system/settings.adoc#_storage_over_provisioning_percentage[Pourcentage de Surprovisionnement de Stockage]
+* xref:longhorn-system/settings.adoc#_allow_empty_node_selector_volume[Autoriser le volume de sélecteur de nœud vide]
+* xref:longhorn-system/settings.adoc#_allow_empty_disk_selector_volume[Autoriser le volume de sélecteur de disque vide]
+
+[NOTE]
+====
+{longhorn-product-name} s'appuie sur l'étiquette `topology.kubernetes.io/zone=<Zone name of the node>` ou `topology.kubernetes.io/region=<Region name of the node>` dans l'objet nœud Kubernetes pour identifier la zone ou la région.
+
+Puisque ceux-ci sont réservés et utilisés par Kubernetes comme https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone[étiquettes bien connues].
+====
+

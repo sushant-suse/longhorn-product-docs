@@ -1,0 +1,129 @@
+= Stellen Sie das SUSE® Storage System wieder her
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Longhorn-Systemwiederherstellungs-Rollouts
+
+* Longhorn stellt die Ressource aus dem xref:snapshots-backups/system-backups/create-system-backup.adoc#_longhorn_system_backup_bundle[Longhorn-System-Sicherungs-Bundle] wieder her.
+* Longhorn stellt keine vorhandenen `Volumes` und deren zugehörige `PersistentVolume` und `PersistentVolumeClaim` wieder her.
+* Longhorn stellt automatisch ein `Volume` aus der neuesten Sicherung wieder her.
+* Um zu verhindern, dass berechtigte Einstellungen überschrieben werden, stellt Longhorn das `ConfigMap/longhorn-default-setting` nicht wieder her.
+* Longhorn stellt keine <<_configurable_settings,konfigurierbaren Einstellungen>> wieder her.
+* Da Longhorn keine V2 Data Engine-Sicherungs-Images sichert, müssen Sie sicherstellen, dass diese Images im Cluster verfügbar sind, bevor Sie das Longhorn-System wiederherstellen. Dies ermöglicht es Longhorn, Volumes wiederherzustellen, die V2 Data Engine-Sicherungs-Images verwenden.
+
+== Nutzungsbeschränkungen
+
+=== Wiederherstellungspfad
+
+Longhorn unterstützt keine systemübergreifende Wiederherstellung von Haupt-/Nebenversionen, außer bei Upgrade-Fehlern, z.B.: 1.4.x \-> 1.5.
+
+== Longhorn-Systemwiederherstellung erstellen
+
+Sie können das Longhorn-System über die Longhorn-Benutzeroberfläche wiederherstellen. Oder mit dem `kubectl` Befehl.
+
+=== Voraussetzung
+
+* Ein laufender Longhorn-Cluster, damit Longhorn die Ressourcen im System-Sicherungs-Bundle bereitstellen kann.
+* Richten Sie die `Nodes` und die Platten-Tags für `StorageClass` ein.
+* Haben Sie eine Longhorn-System-Sicherung.
++
+Siehe xref:snapshots-backups/system-backups/create-system-backup.adoc#_create_longhorn_system_backup[Longhorn-System sichern - Longhorn-System-Sicherung erstellen] für Anweisungen.
+
+* Alle vorhandenen `Volumes` sind getrennt.
+
+=== Verwendung der Longhorn-Benutzeroberfläche
+
+. Gehen Sie zur `System Backups`-Seite in der `Backup and Restore`.
+. Wählen Sie eine System-Sicherung zur Wiederherstellung aus.
+. Klicken Sie auf `Restore` im Dropdown-Menü `Operation`.
+. Geben Sie ein `Name` für die Systemwiederherstellung an.
+. Die Systemwiederherstellung beginnt und zeigt den `Completed`-Zustand an, wenn sie abgeschlossen ist.
+
+== Verwendung des `kubectl`-Befehls
+
+. Finden Sie das Longhorn `SystemBackup`, das wiederhergestellt werden soll.
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME     VERSION   STATE   CREATED
+demo     v1.4.0    Ready   2022-11-24T04:23:24Z
+demo-2   v1.4.0    Ready   2022-11-24T05:00:59Z
+----
+
+. Führen Sie `kubectl create` aus, um ein Longhorn `SystemRestore` des `SystemBackup` zu erstellen.
++
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: SystemRestore
+metadata:
+  name: restore-demo
+  namespace: longhorn-system
+spec:
+  systemBackup: demo
+----
+
+. Die Systemwiederherstellung beginnt.
+. Der `SystemRestore` ändert sich in den Zustand `Completed`, wenn er abgeschlossen ist.
++
+----
+> kubectl -n longhorn-system get systemrestore
+NAME           STATE       AGE
+restore-demo   Completed   59s
+----
+
+== Löschen Sie die Longhorn-Systemwiederherstellung
+
+WARNING: Das Löschen der Systemwiederherstellung löscht auch den zugehörigen Job und bricht die verbleibenden Ressourcenbereitstellungen ab. Sie können <<_restart_longhorn_system_restore,Die Longhorn-Systemwiederherstellung neu starten>>, um die verbleibenden Ressourcen bereitzustellen.
+
+Sie können eine abgeschlossene Longhorn-Systemwiederherstellung mit der Longhorn-Benutzeroberfläche abbrechen oder entfernen. Oder mit dem `kubectl` Befehl.
+
+=== Verwendung der Longhorn-Benutzeroberfläche
+
+. Gehen Sie zur `System Backups`-Seite in der `Backup and Restore`.
+. Löschen Sie eine einzelne Systemwiederherstellung im Dropdown-Menü `Operation` neben der Systemwiederherstellung. Oder löschen Sie im Batch mit der `Delete`-Schaltfläche.
+
+=== Verwendung des `kubectl`-Befehls
+
+. Führen Sie `kubectl delete` aus, um ein Longhorn `SystemRestore` zu löschen.
++
+----
+> kubectl -n longhorn-system get systemrestore
+NAME           STATE       AGE
+restore-demo   Completed   2m37s
+
+> kubectl -n longhorn-system delete systemrestore/restore-demo
+systemrestore.longhorn.io "restore-demo" deleted
+----
+
+== Starten Sie die Longhorn-Systemwiederherstellung neu.
+
+. <<_delete_longhorn_system_restore,Löschen Sie die Longhorn-Systemwiederherstellung>>, die gerade durchgeführt wird.
+. <<_create_longhorn_system_restore,Longhorn-Systemwiederherstellung erstellen>>.
+
+== Konfigurierbare Einstellungen
+
+Einige Einstellungen sind vor der Longhorn-Systemwiederherstellung als konfigurierbar ausgeschlossen.
+
+* xref:longhorn-system/settings.adoc#_concurrent_volume_backup_restore_per_node_limit[Limit für gleichzeitige Volumensicherungswiederherstellung pro Knoten]
+* xref:longhorn-system/settings.adoc#_concurrent_replica_rebuild_per_node_limit[Limit für gleichzeitigen Replikataufbau pro Knoten]
+* xref:longhorn-system/settings.adoc#_backup_target[Sicherungsziel]
+* xref:longhorn-system/settings.adoc#_backup_target_credential_secret[Sicherungsziel-Anmeldegeheimnis]
+
+== Fehlersuche
+
+=== Systemwiederherstellung hängt
+
+. Überprüfen Sie das Protokoll des Longhorn-System-Rollout-Pods auf Fehler.
++
+----
+> kubectl -n longhorn-system logs --selector=job-name=longhorn-system-rollout-<SYSTEM-RESTORE-NAME>
+----
+
+. Lösen Sie das Problem, wenn es identifizierbar ist, z. B.: Entfernen Sie die problematische wiederherstellende Ressource.
+. <<_restart_longhorn_system_restore,Longhorn-Systemwiederherstellung neu starten>>.
+
+== Verlauf
+
+https://github.com/longhorn/longhorn/issues/1455[Ursprüngliche Funktionsanforderung]

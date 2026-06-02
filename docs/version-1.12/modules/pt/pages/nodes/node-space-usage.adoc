@@ -1,0 +1,61 @@
+= Uso de Espaço do Nó
+:revdate: 2025-11-19
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Uso total do espaço do cluster
+
+Na página `Dashboard`, {longhorn-product-name} mostra as informações de uso de espaço do cluster:
+
+image::screenshots/volumes-and-nodes/space-usage-info-dashboard-page.png[Imagem]
+
+`Schedulable`: O espaço real que pode ser utilizado para o agendamento de volumes Longhorn.
+
+`Reserved`: O espaço reservado para outros aplicativos e para o sistema.
+
+`Used`: O espaço real que foi utilizado pelo sistema Longhorn e outros aplicativos.
+
+`Disabled`: O espaço total dos discos/nós nos quais volumes Longhorn não são permitidos para agendamento.
+
+== Uso de Espaço de Cada Nó
+
+Na página `Nodes`, {longhorn-product-name} mostra a alocação de espaço, agendamento e informações de uso para cada nó:
+
+image::screenshots/volumes-and-nodes/space-usage-info-node-page.png[Imagem]
+
+`Size`: O *máximo espaço real disponível* que pode ser utilizado por volumes Longhorn. Isso é igual ao espaço total do disco do nó menos o espaço reservado.
+
+`Allocated`: O número à esquerda é o tamanho que foi utilizado para *agendamento de volumes*, e isso não significa que o espaço foi utilizado para o armazenamento de dados do volume Longhorn. O número à direita é o *máximo* tamanho para agendamento de volumes, que é o resultado de `Size` multiplicando `Storage Over Provisioning Percentage`. (Na ilustração acima, `Storage Over Provisioning Percentage` é 500.) Portanto, a diferença entre os 2 números (vamos chamá-la de espaço alocável) determina se uma réplica de volume pode ser agendada para este nó.
+
+`Used`: A parte esquerda indica o espaço atualmente utilizado deste nó. A barra inteira indica o espaço total do nó.
+
+Observe que o espaço alocável pode ser maior do que o espaço disponível real do nó ao definir `Storage Over Provisioning Percentage` para um valor maior que 100. Se os volumes forem muito utilizados e muitos dados históricos forem armazenados nos instantâneos dos volumes, tenha cuidado ao usar um valor grande para esta configuração. Para mais informações sobre a configuração, veja xref:longhorn-system/settings.adoc#_storage_over_provisioning_percentage[aqui] para detalhes.
+
+=== Status de Agendabilidade do Disco e Mensagem de Solução de Problemas
+
+Quando um disco se torna *não agendável*, {longhorn-product-name} expõe diretamente a razão subjacente na interface do usuário.
+Na página *Nós*, se a condição interna `Schedulable` do disco for `False`, a interface do usuário exibe a mensagem exata de `node.diskStatus[x].conditions[Schedulable]`.
+Esta informação é essencial para diagnosticar problemas relacionados a limites de espaço ou sobreprovisionamento.
+
+*Mensagem de Solução de Problemas de Exemplo*:
+
+[,bash]
+----
+Disk default-disk-1030100000000 (/var/lib/longhorn/) on the node ip-192-168-203-144.ap-southeast-1.compute.internal is not schedulable for more replica; Scheduling space condition failed: ScheduledTotal = 4294967296 (Size + StorageScheduled) is greater than ProvisionedLimit = -64504221696 (100% of StorageMax - StorageReserved).
+----
+
+*Como interpretar esta mensagem*:
+
+* *`ScheduledTotal`*: O espaço total atualmente *agendado* para réplicas (tanto existentes quanto pendentes) neste disco.
++
+[NOTE]
+====
+Isso não representa o uso real do disco.
+====
+
+* *`ProvisionedLimit`*: A *capacidade máxima de agendamento permitida* para este disco. É derivada de:
+** tamanho físico do disco (`StorageMax`)
+** seu espaço reservado (`StorageReserved`)
+** multiplicado pela `Storage Over Provisioning Percentage` do cluster
+
+Quando `ScheduledTotal` excede `ProvisionedLimit`, o disco se torna não agendável e não aceitará novas réplicas até que a configuração do disco ou as configurações do cluster sejam ajustadas.

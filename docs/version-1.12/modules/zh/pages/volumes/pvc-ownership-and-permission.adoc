@@ -1,0 +1,120 @@
+= PVC所有权和权限
+:revdate: 2025-10-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Kubernetes 支持 PVC 的 2 种 https://kubernetes.io/docs/concepts/storage/persistent-volumes/#volume-mode[卷模式]：文件系统和块。
+当 Pod 定义安全上下文并请求 Longhorn PVC 时，Kubernetes 会根据卷模式以不同方式处理 PVC 的所有权和权限修改。
+
+== 具有文件系统卷模式的Longhorn PVC
+
+由于 Longhorn CSI 驱动程序 `csiDriver.spec.fsGroupPolicy` 被设置为 `ReadWriteOnceWithFSType`，Kubelet 会按如下方式尝试更改 Longhorn PVC 的所有权和权限：
+
+. 检查`pod.spec.securityContext.fsGroup`。
+ ** 如果不为空，继续下一步。
+ ** 如果为空，Kubelet不会尝试更改卷的所有权和权限。
+. 检查 PV 的 `fsType` 和 PVC 的 `accessModes`。
+ ** 如果 PV 的 `fsType` 已定义且 PVC 的 `accessModes` 列表包含 `ReadWriteOnce`，继续下一步。
+ ** 否则，Kubelet 不会尝试更改卷的所有权和权限。
+. 检查`pod.spec.securityContext.fsGroupChangePolicy`。
+ ** 如果 `pod.spec.securityContext.fsGroupChangePolicy` 被设置为 `always` 或为空，Kubelet 执行以下操作：
+  *** 确保 Pod 内所有容器的进程都属于补充组 ID `pod.spec.securityContext.fsGroup`
+  *** 确保在卷中创建的任何新文件都属于组 ID `pod.spec.securityContext.fsGroup`
+  *** 每次挂载卷时，递归更改卷的权限和所有权，使其组 ID 与 `pod.spec.securityContext.fsGroup` 相同
+ ** 如果 `pod.spec.securityContext.fsGroupChangePolicy` 被设置为 `OnRootMismatch`：
+  *** 如果卷的根目录已经具有正确的权限（即属于组 ID `pod.spec.securityContext.fsGroup`），则会跳过递归权限和所有权更改。
+  *** 否则，Kubelet 会递归更改卷的权限和所有权，使其组 ID 与 `pod.spec.securityContext.fsGroup` 相同
+
+有关更多信息，请参见：
+
+* https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#configure-volume-permission-and-ownership-change-policy-for-pods
+* https://github.com/longhorn/longhorn/issues/2131#issuecomment-778897129
+
+== 具有块卷模式的Longhorn PVC
+
+对于使用块卷模式的 PVC，Kubelet 在将块设备提供给容器时从不尝试更改块设备的权限和所有权。
+您必须在 `pod.spec.securityContext` 中设置正确的组 ID，以便 Pod 能够读取和写入块设备，或者以 root 身份运行容器。
+
+默认情况下，Longhorn 会将块设备放入组 ID 6，这通常与 "disk" 组相关联。
+因此，使用块卷模式的 Longhorn PVC 的 Pod 必须在 `pod.spec.securityContext` 中设置组 ID 6，或者以 root 身份运行。
+例如：
+
+. 在 `pod.spec.securityContext` 中设置组 ID 6 的 Pod
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: PersistentVolumeClaim
+ metadata:
+   name: longhorn-block-vol
+ spec:
+   accessModes:
+     - ReadWriteOnce
+   volumeMode: Block
+   storageClassName: longhorn
+   resources:
+     requests:
+       storage: 2Gi
+ ---
+ apiVersion: v1
+ kind: Pod
+ metadata:
+   name: block-volume-test
+   namespace: default
+ spec:
+   securityContext:
+     runAsGroup: 1000
+     runAsNonRoot: true
+     runAsUser: 1000
+     supplementalGroups:
+     - 6
+   containers:
+     - name: block-volume-test
+       image: ubuntu:20.04
+       command: ["sleep", "360000"]
+       imagePullPolicy: IfNotPresent
+       volumeDevices:
+         - devicePath: /dev/longhorn/testblk
+           name: block-vol
+   volumes:
+     - name: block-vol
+       persistentVolumeClaim:
+         claimName: longhorn-block-vol
+----
+
+. 以 root 身份运行的 Pod
++
+[subs="+attributes",yaml]
+----
+ apiVersion: v1
+ kind: PersistentVolumeClaim
+ metadata:
+   name: longhorn-block-vol
+ spec:
+   accessModes:
+     - ReadWriteOnce
+   volumeMode: Block
+   storageClassName: longhorn
+   resources:
+     requests:
+       storage: 2Gi
+ ---
+ apiVersion: v1
+ kind: Pod
+ metadata:
+   name: block-volume-test
+   namespace: default
+ spec:
+   containers:
+     - name: block-volume-test
+       image: ubuntu:20.04
+       command: ["sleep", "360000"]
+       imagePullPolicy: IfNotPresent
+       volumeDevices:
+         - devicePath: /dev/longhorn/testblk
+           name: block-vol
+   volumes:
+     - name: block-vol
+       persistentVolumeClaim:
+         claimName: longhorn-block-vol
+----

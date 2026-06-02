@@ -1,0 +1,74 @@
+= RWX Volume Fast Failover (Experimentell)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Die Version 1.7.0 fügt eine Funktion hinzu, die die Ausfallzeit für ReadWriteMany-Volumes minimiert, wenn ein Knoten ausfällt.  Wenn aktiviert, verwendet Longhorn einen lease-basierten Mechanismus, um den Zustand des NFS-Server-Pods zu überwachen, der das Volume exportiert. Longhorn reagiert schnell, um es auf einen anderen Knoten zu verschieben, wenn es nicht mehr reagiert.  Siehe xref:volumes/rwx-volumes.adoc[RWX Volumes] für Details, wie der NFS-Server funktioniert.
+
+Um die Funktion zu aktivieren, setzen Sie xref:longhorn-system/settings.adoc#_rwx_volume_fast_failover_experimental[RWX Volume Fast Failover] auf "true".  Bestehende RWX-Volumes müssen neu gestartet werden, um die Funktion nach der Änderung der Einstellung zu nutzen.  Das geschieht, indem die Arbeitslast auf null skaliert und dann wieder hochgefahren wird.  Neue Volumes übernehmen die Einstellung bei der Erstellung und werden entsprechend konfiguriert.
+
+Mit aktivierter Funktion erstellt Longhorn auch ein zugehöriges Lease-Objekt im `longhorn-system` Namespace, mit dem gleichen Namen wie das Volume, wenn ein Pod erstellt oder neu erstellt wird.  Der NFS-Server-Pod sorgt dafür, dass der Lease als Lebensnachweis kontinuierlich erneuert wird.  Wenn die Erneuerung nicht mehr erfolgt, wird Longhorn Schritte unternehmen, um einen neuen NFS-Server-Pod auf einem anderen Knoten zu erstellen und die Arbeitslast wieder anzuhängen, selbst bevor der alte Knoten von Kubernetes als `Not Ready` markiert wird.
+
+Neben der Überwachung und schnellen Reaktion ändert die Funktion auch die NFS-Server-Konfiguration, um einen verkürzten Kulanzzeitraum für die Client-Wiederverbindung zu verwenden.
+
+Wenn die Einstellung wieder auf "false" geändert wird, wird die Lease-Prüfung deaktiviert und die Pod-Verlagerung verwendet die regulären Kubernetes-Regeln für Knotenfehler, selbst bei bestehenden Volumes.  Wenn der Server-Pod das nächste Mal neu gestartet wird, wird er auf die normale Kulanzzeitraum-Konfiguration zurückgesetzt.
+
+Weitere Informationen finden Sie unter https://github.com/longhorn/longhorn/issues/6205..
+
+[NOTE]
+====
+In seltenen Fällen kann es vorkommen, dass das Failover in einen Deadlock gerät. Dies geschieht, wenn die Erstellung des NFS-Server-Pods durch eine Wiederherstellungsaktion blockiert wird, die selbst durch den Zustand des laufenden Failovers blockiert ist.  Falls dies der Fall ist und das Failover mehr als ein oder zwei Minuten dauert, ist der Workaround, das zugehörige Lease-Objekt zu löschen.  Dadurch wird der Zustand bereinigt, und ein neues Lease wird zusammen mit dem Ersatz-Server-Pod erstellt.  Wenn das blockierte Volume beispielsweise `pvc-2ce4e82e-7ccc-46c0-90a8-a141501fbf93` heißt und die Funktion aktiviert ist, wird es ein Lease mit demselben Namen geben.  Um das zugehörige Lease-Objekt zu löschen:
+
+[subs="+attributes",bash]
+----
+kubectl -n longhorn-system delete lease pvc-2ce4e82e-7ccc-46c0-90a8-a141501fbf93
+----
+
+Siehe zum Beispiel https://github.com/longhorn/longhorn/issues/9093.
+====
+
+== Ressourcennutzung und Auswirkungen auf die Systemleistung
+
+Das Longhorn-Team hat die Auswirkungen von RWX-Volumes auf die Ressourcennutzung und die Systemleistung untersucht. Die Benchmark-Studien, die mit 60 RWX-Volumes durchgeführt wurden, zeigen, dass die Aktivierung der _RWX Volume Fast Failover_-Funktion zu Folgendem führt:
+
+* Mehr Anfragen an den Kubernetes-API-Server (kube-apiserver)
+* Mehr Remoteprozeduraufrufe (RPCs), die vom kube-apiserver an etcd gesendet werden
+* Leichte Erhöhung der CPU- und Speicherauslastung
+
+=== *Umgebung:*
+
+* *Installation:* 1 Steuerknoten + 3 Arbeitsknoten (v1.27.15+rke2r1)
+* *Workload:* 60 Implementierungen mit 60 RWX-Volumes mit `soft`-Mount
+
+=== *Testergebnisse:*
+
+|===
+| *Metrik* | *Fast Failover Deaktiviert* | *Fast Failover Aktiviert* | *Differenz*
+
+| *API-Anforderungsrate (kube-apiserver)*
+| 37,5 req/s
+| 59 req/s
+| +57,3%
+
+| *RPC-Rate (kube-apiserver zu etcd)*
+| 37 ops/s
+| 57 ops/s
+| +54,1%
+
+| *Speichernutzung*
+| Niedrigere Spitzen/Minima
+| Höhere Spitzen/Minima
+| Erhöhte Nutzung mit aktiviertem Fast Failover
+
+| *Longhorn Manager CPU/RAM-Nutzung*
+| 405 MB / 0.1 CPU
+| 417 MB / 0,13 CPU
+| +3% RAM / +30% CPU
+
+| *Share Manager CPU/RAM-Nutzung*
+| 2,2 GB / 0,235 CPU
+| 2,25 GB / 0,26 CPU
+| +2,3% RAM / +10,6% CPU
+|===
+
+Für detaillierte Screenshots und weiteren Kontext finden Sie in der https://github.com/longhorn/longhorn/issues/6205#issuecomment-2262625965[entsprechenden Diskussion zum Problem].

@@ -1,0 +1,55 @@
+= Amazon Elastic Kubernetes Service (Amazon EKS) の管理ノードプール
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+EKS は同じ起動テンプレートの設定をサポートしています。ノードグループ内のノードは、起動テンプレートのバージョン更新時に新しい構成の新しいノードに置き換えられます。
+
+詳細については、 https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html[起動テンプレートのサポート]を参照してください。
+
+以下は、クラスターのノードを新しいストレージサイズに置き換える例です。
+
+== ストレージの拡張
+
+. Longhorn で、`replica-replenishment-wait-interval` を `0` に設定します。
+. EKS クラスターのノードグループの起動テンプレートに移動します。EKS クラスタータブで `Configuration/Compute/<node-group-name>` を見つけ、起動テンプレートをクリックします。
+. `Modify template (Create new version)` ドロップダウンメニューで `Actions` をクリックします。
+. `Source template version` で `Launch template name and version description` を選択します。
+. <<_expand_volume,ボリュームを拡張する>> か <<_create_additional_volume,追加のボリュームを作成する>> 手順に従ってください。
++
+NOTE: <<_create_additional_volume,追加のボリュームを作成する>> を選択した場合、EKS クラスターのアップグレード後に、ディスクはノードのディスクリストに手動で追加する必要があります。
+
+=== ボリュームの拡張
+
+. `Configure storage` でボリュームサイズを更新します。
+. 変更を保存するには `Create template version` をクリックします。
+. EKS クラスターのノードグループに移動し、`Node Group configuration` で `Launch template version` を変更します。`Update history` タブでステータスを追跡します。
+
+=== 追加のボリュームを作成する
+
+. `Configure storage` で `Advanced` をクリックし、次に `Add new volume` をクリックして、フィールドに入力します。
+. 自動マウントスクリプトを調整し、`User data` に `Advanced details` を追加してください。`DEV_PATH`が追加ボリュームの`Device name`と一致していることを確認してください。
++
+----
+ MIME-Version: 1.0
+ Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
+
+ --==MYBOUNDARY==
+ Content-Type: text/x-shellscript; charset="us-ascii"
+
+ #!/bin/bash
+
+ # https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html#launch-template-user-data
+ echo "Running custom user data script"
+
+ DEV_PATH="/dev/sdb"
+ mkfs -t ext4 ${DEV_PATH}
+
+ MOUNT_PATH="/mnt/longhorn"
+ mkdir ${MOUNT_PATH}
+ mount ${DEV_PATH} ${MOUNT_PATH}
+----
+
+. 変更を保存するには `Create template version` をクリックします。
+. EKS クラスターのノードグループに移動し、`Node Group configuration` で `Launch template version` を変更します。`Update history` タブでステータスを追跡します。
+. Longhorn では、マウントされたディスクのパスをノードのディスクリストに追加してください。

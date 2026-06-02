@@ -1,0 +1,55 @@
+= Verwaltete Knotenpools auf dem Amazon Elastic Kubernetes Service (Amazon EKS)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+EKS unterstützt die Konfiguration derselben Startvorlage. Die Knoten in der Knoten-Gruppe werden durch neue Knoten mit neuen Konfigurationen ersetzt, wenn die Version der Startvorlage aktualisiert wird.
+
+Siehe https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html[Unterstützung für Startvorlagen] für weitere Informationen.
+
+Das folgende Beispiel zeigt, wie Clusterknoten mit neuer Speicherkapazität ersetzt werden.
+
+== Speichererweiterung
+
+. In Longhorn, setze `replica-replenishment-wait-interval` auf `0`.
+. Gehe zur Startvorlage der EKS-Clusterknoten-Gruppe. Du findest im EKS-Cluster-Tab `Configuration/Compute/<node-group-name>` und klickst auf die Startvorlage.
+. Klicke auf `Modify template (Create new version)` im `Actions`-Dropdown-Menü.
+. Wähle das `Source template version` im `Launch template name and version description`.
+. Befolge die Schritte, um <<_expand_volume,Volumen zu erweitern>> oder <<_create_additional_volume,zusätzliches Volumen zu erstellen>>.
++
+NOTE: Wenn du dich entscheidest, durch <<_create_additional_volume,zusätzliches Volumen erstellen>> zu erweitern, müssen die Festplatten nach dem Upgrade des EKS-Clusters manuell zur Festplatteliste der Knoten hinzugefügt werden.
+
+=== Volumen erweitern
+
+. Aktualisiere die Volumengröße in `Configure storage`.
+. Klicke auf `Create template version`, um die Änderungen zu speichern.
+. Gehe zur EKS-Clusterknoten-Gruppe und ändere `Launch template version` in `Node Group configuration`. Verfolge den Status im `Update history`-Tab.
+
+=== Zusätzliches Volumen erstellen
+
+. Klicke auf `Advanced` und dann auf `Add new volume` in `Configure storage` und fülle die Felder aus.
+. Passe das Auto-Mount-Skript an und füge `User data` in `Advanced details` hinzu. Stelle sicher, dass `DEV_PATH` mit `Device name` des zusätzlichen Volumens übereinstimmt.
++
+----
+ MIME-Version: 1.0
+ Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
+
+ --==MYBOUNDARY==
+ Content-Type: text/x-shellscript; charset="us-ascii"
+
+ #!/bin/bash
+
+ # https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html#launch-template-user-data
+ echo "Running custom user data script"
+
+ DEV_PATH="/dev/sdb"
+ mkfs -t ext4 ${DEV_PATH}
+
+ MOUNT_PATH="/mnt/longhorn"
+ mkdir ${MOUNT_PATH}
+ mount ${DEV_PATH} ${MOUNT_PATH}
+----
+
+. Klicke auf `Create template version`, um die Änderungen zu speichern.
+. Gehe zur EKS-Clusterknoten-Gruppe und ändere `Launch template version` in `Node Group configuration`. Verfolge den Status im `Update history`-Tab.
+. Füge in Longhorn den Pfad der gemounteten Festplatte in die Festplattenliste der Knoten ein.

@@ -1,0 +1,140 @@
+= 使用 Gateway API 创建 HTTPRoute
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+如果您在 Kubernetes 集群上使用 kubectl 或 Helm 安装 {longhorn-product-name}，您可以使用 https://gateway-api.sigs.k8s.io/[Gateway API] HTTPRoute 作为暴露 {longhorn-product-name} UI 的现代替代方案。
+
+Gateway API 是 Ingress 的继任者，提供更具表现力的路由能力，并在不同实现之间提供标准化的方法。
+
+== 先决条件
+
+. 在您的集群中安装 *Gateway API CRD*：
++
+[source,shell]
+----
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml
+----
+
+. 在您的集群中运行 *一个网关控制器*（例如，Istio、Envoy 网关、Cilium、NGINX 网关 Fabric、Traefik 等）。
+
+. 已部署并配置 *至少一个网关资源*。
+
+== Helm 值配置
+
+以下 Helm 值控制 HTTPRoute 的生成：
+
+[cols="1,1,1,3",options="header"]
+|===
+| 键 | 类型 | 默认值 | 说明
+
+| `httproute.enabled`
+| 布尔
+| `false`
+| 为 {longhorn-product-name} UI 启用 HTTPRoute 生成
+
+| `httproute.parentRefs`
+| list
+| `[]`
+| 指定应处理此路由的网关引用
+
+| `httproute.hostnames`
+| list
+| `[]`
+| HTTPRoute 的主机名列表
+
+| `httproute.path`
+| 字符串
+| `"/"`
+| 访问 {longhorn-product-name} UI 的路径
+
+| `httproute.pathType`
+| 字符串
+| `"PathPrefix"`
+| 路径匹配类型：`Exact`、`PathPrefix` 或 `RegularExpression`
+
+| `httproute.annotations`
+| 对象
+| `{}`
+| HTTPRoute 资源的注释
+|===
+
+== 基本安装
+
+安装启用 HTTPRoute 的 {longhorn-product-name}：
+
+[,shell]
+----
+helm install longhorn longhorn/longhorn \
+  --namespace longhorn-system \
+  --create-namespace \
+  --set "httproute.enabled=true" \
+  --set "httproute.parentRefs[0].name=my-gateway" \
+  --set "httproute.parentRefs[0].namespace=default" \
+  --set "httproute.hostnames[0]=longhorn.example.com"
+----
+
+== 高级配置
+
+对于更复杂的设置，创建一个值文件：
+
+[,yaml]
+----
+httproute:
+  enabled: true
+  parentRefs:
+    - name: primary-gateway
+      namespace: gateway-system
+    - name: secondary-gateway
+      namespace: gateway-system
+      sectionName: https  # Target specific listener
+  hostnames:
+    - longhorn.example.com
+    - longhorn.example.org
+  path: /longhorn
+  pathType: PathPrefix
+  annotations:
+    custom-annotation: "value"
+----
+
+使用值文件进行安装：
+
+[,shell]
+----
+helm install longhorn longhorn/longhorn \
+  --namespace longhorn-system \
+  --create-namespace \
+  --values values.yaml
+----
+
+== 校验
+
+. 验证 HTTPRoute 是否已创建：
++
+[,shell]
+----
+kubectl get httproute -n longhorn-system
+----
+
+. 检查 HTTPRoute 详细信息：
++
+[,shell]
+----
+kubectl describe httproute longhorn-httproute -n longhorn-system
+----
+
+. 验证路由是否被网关接受：
++
+[,shell]
+----
+kubectl get httproute longhorn-httproute -n longhorn-system -o jsonpath='{.status.parents[*].conditions}'
+----
++
+输出应显示 `Accepted: True` 和 `ResolvedRefs: True`。
+
+. 通过您的网关外部 IP 地址或主机名访问 {longhorn-product-name} 用户界面。
+
+== 参考资料
+
+* https://gateway-api.sigs.k8s.io/[Gateway API 文档]
+* https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.HTTPRoute[HTTPRoute 规范]

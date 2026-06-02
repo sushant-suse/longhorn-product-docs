@@ -1,0 +1,20 @@
+= Sincronizar manualmente os volumes de backup
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Após criar um backup, o Longhorn cria um volume de backup que corresponde ao volume original (no qual o backup é baseado). Um volume de backup é um objeto no armazenamento de backup que contém múltiplos backups do mesmo volume.
+
+Versões anteriores do Longhorn consultam e atualizam todos os volumes de backup em um intervalo fixo. O Longhorn fornece uma maneira de você sincronizar manualmente os volumes de backup com o destino de backup.
+
+IMPORTANT: Você deve configurar um xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[destino de backup] e verificar se um volume de backup foi criado antes de tentar sincronizar. O Longhorn retorna um erro quando não existem destinos de backup nem volumes de backup.
+
+* Sincronizar todos os volumes de backup:
+ .. Na interface do Longhorn, vá para *Backup*.
+ .. Clique em *Sincronizar Todos os Volumes de Backup*.
+* Sincronizar um único volume de backup:
+ .. Na interface do Longhorn, vá para *Backup*.
+ .. Selecione um volume de backup.
+ .. Clique em *Sincronizar Volume de Backup*.
+
+Para verificar se a sincronização foi bem-sucedida, clique no nome do volume de backup na tela *Backup*.

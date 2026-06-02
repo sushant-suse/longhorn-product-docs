@@ -1,0 +1,64 @@
+= Comprobación de la integridad de los datos de la instantánea
+:revdate: 27-06-2025
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn es capaz de calcular el hash de los archivos de disco de instantáneas y comprobar periódicamente su integridad.
+
+== Introducción
+
+El sistema Longhorn soporta la creación de instantáneas de volúmenes y almacena los archivos de disco de instantáneas en el disco local. Sin embargo, es imposible comprobar la integridad de los datos de las instantáneas debido a la falta previa de sus sumas de comprobación. Como resultado, cuando los datos están corruptos debido, por ejemplo, a la degradación de bits en el almacenamiento subyacente, no hay forma de detectar la corrupción y reparar las réplicas. Después de aplicar la función, Longhorn es capaz de calcular el hash de los archivos de disco de instantáneas y comprobar periódicamente su integridad. Cuando un archivo de disco de instantánea en una réplica está corrupto, Longhorn iniciará automáticamente el proceso de reconstrucción para solucionarlo.
+
+== Settings (Configuración posterior al failback)
+
+=== Valores globales
+
+* *snapshot-data-integrity* +
++
+Esta configuración permite a los usuarios habilitar o deshabilitar el cálculo del hash de instantáneas y la comprobación de la integridad de los datos. Las opciones disponibles son:
+
+ ** *deshabilitado*: Deshabilitar el cálculo del hash de los archivos de disco de instantáneas y la comprobación de la integridad de los datos.
+ ** *habilitado*: Habilita el cálculo periódico del hash de los archivos de disco de instantáneas y la comprobación de la integridad de los datos. Para detectar la corrupción no consciente del sistema de archivos causada por la degradación de bits u otros problemas en los archivos de disco de instantáneas, el sistema Longhorn calcula periódicamente el hash de los archivos y encuentra los corruptos. Por lo tanto, el rendimiento del sistema se verá afectado durante la comprobación periódica.
+ ** *fast-check*: Habilitar el cálculo del hash de los archivos de disco de instantáneas y la comprobación rápida de la integridad de los datos. El sistema Longhorn solo calcula el hash de los archivos de disco de instantáneas si no están hasheados o si se ha cambiado la hora de modificación. En este modo, la corrupción que no es consciente del sistema de archivos no puede ser detectada, pero el impacto en el rendimiento del sistema puede ser minimizado.
+
+* *snapshot-data-integrity-immediate-check-after-snapshot-creation* +
++
+El hashing de los archivos de disco de instantáneas impacta en el rendimiento del sistema. El cálculo del hash y la verificación inmediata de las instantáneas pueden desactivarse para minimizar el impacto después de crear una instantánea.
+
+* *snapshot-data-integrity-cronjob* +
++
+Un horario definido utilizando el formato de cadena unix-cron especifica cuándo Longhorn verifica la integridad de los datos de los archivos de disco de instantáneas.
++
+WARNING: El hashing de los archivos de disco de instantáneas impacta en el rendimiento del sistema. Se recomienda realizar verificaciones de integridad de datos durante horas de baja actividad y reducir la frecuencia de las verificaciones.
+
+=== Configuraciones por volumen
+
+Longhorn también soporta la configuración por volumen configurando `Volume.Spec.SnapshotDataIntegrity`. El valor es `ignored` por defecto, por lo que la verificación de integridad de datos está determinada por la configuración global `snapshot-data-integrity`. `Volume.Spec.SnapshotDataIntegrity` soporta `ignored`, `disabled`, `enabled` y `fast-check`. Cada volumen puede tener su configuración de verificación de integridad de datos personalizada.
+
+== Impacto en el rendimiento
+
+Para detectar la corrupción de datos, es necesario calcular las sumas de comprobación de los archivos de disco de instantáneas. Los cálculos consumen recursos de almacenamiento y computación. Por lo tanto, el rendimiento del almacenamiento se verá negativamente afectado. Para proporcionar una comprensión clara del impacto, realizamos pruebas de rendimiento de almacenamiento al calcular sumas de comprobación de archivos de disco. Los IOPS de lectura, el ancho de banda y la latencia se ven negativamente afectados.
+
+* Entorno
+ ** Host: AWS EC2 c5d.2xlarge
+ ** CPU: Intel(R) Xeon(R) Platinum 8124M CPU @ 3.00GHz
+ ** Memoria: 16 GB
+ ** Red: Hasta 10Gbps
+ ** Kubernetes: v1.24.4+rke2r1
+* Resultado
+ ** Disco: 200 GiB SSD NVMe como almacenamiento de instancia
+  *** 100 GiB de instantánea con datos aleatorios completos
++
+image::diagrams/snapshot/snapshot_hash_ssd_perf.png[Imagen]
++
+ ** Disco: 200 GiB HDD optimizado para el rendimiento (st1)
+  *** 30 GiB de instantánea con datos aleatorios completos
++
+image::diagrams/snapshot/snapshot_hash_hdd_perf.png[Imagen]
+
+== Recomendación
+
+La función ayuda a detectar la corrupción de datos en los archivos de disco de instantáneas de volúmenes. Sin embargo, el cálculo de la suma de comprobación impacta negativamente en el rendimiento del almacenamiento. Para reducir el impacto, las recomendaciones son
+
+* El chequeo y la verificación de los archivos de disco de instantáneas se pueden programar para horas fuera de pico mediante la configuración global `snapshot-data-integrity-cronjob`.
+* Desactivar la configuración global `snapshot-data-integrity-immediate-check-after-snapshot-creation`.

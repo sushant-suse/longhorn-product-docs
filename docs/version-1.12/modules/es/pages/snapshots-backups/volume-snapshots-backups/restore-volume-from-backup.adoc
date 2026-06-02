@@ -1,0 +1,21 @@
+= Restaurar un volumen desde una copia de seguridad
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn puede restaurar fácilmente copias de seguridad a un volumen.
+
+Para más información sobre cómo funcionan las copias de seguridad, consulte la sección de xref:introduction/concepts.adoc#_3_backups_and_secondary_storage[conceptos].
+
+Cuando restaura una copia de seguridad, por defecto crea un volumen con el mismo nombre. Si ya existe un volumen con el mismo nombre que la copia de seguridad, no se restaurará la copia de seguridad.
+
+Para restaurar una copia de seguridad,
+
+. Navegue al menú *Backup.*
+. Seleccione la(s) copia(s) de seguridad que desea restaurar y haga clic en *Restore Latest Backup.*
+. En el campo *Nombre*, seleccione el volumen que desea restaurar.
+. Haga clic en *OK.*
+
+Luego puede crear el PV/PVC desde el volumen después de restaurar un volumen desde una copia de seguridad. Aquí puede especificar el `storageClassName` o dejarlo vacío para usar el `storageClassName` heredado del PVC del volumen de copia de seguridad. El `StorageClass` debería estar ya en el clúster para evitar cualquier problema adicional.
+
+*Resultado:* El volumen restaurado está disponible en la página *Volume*.

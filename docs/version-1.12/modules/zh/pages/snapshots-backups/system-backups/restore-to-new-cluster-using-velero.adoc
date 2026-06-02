@@ -1,0 +1,67 @@
+= 使用 Velero 将 SUSE® Storage 系统恢复到新集群
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+您可以通过 Velero 将 Longhorn 系统的工作负载恢复到新集群。
+
+[NOTE]
+====
+需要使用 https://github.com/vmware-tanzu/velero-plugin-for-csi[Velero CSI 插件] ≥ 0.4 以确保成功恢复 PersistentVolumeClaim。访问 https://longhorn.io/kb/troubleshooting-restore-pvc-stuck-using-velero-csi-plugin-version-lower-than-0.4/[故障排除：使用 Velero CSI 插件版本低于 v0.4.0 时，Velero 恢复 Longhorn PVC 卡在待处理状态] 以获取更多信息。
+====
+
+== 假定：
+
+* 新集群意味着其中没有 *Longhorn 卷数据*。
+* 有一个远程备份目标保存所有 Longhorn 卷数据。
+* 有一个远程备份服务器可以存储 Velero 创建的集群备份。
+
+== 期望：
+
+* 所有设置将被恢复。但节点和磁盘配置将不会被应用。
+* 所有使用 Longhorn 卷的工作负载将在卷从远程备份目标恢复后启动。
+
+== 工作流程
+
+=== 为旧集群创建备份
+
+. 在使用 Longhorn 的集群中安装 Velero。
+. 为所有 Longhorn 卷创建备份。
+. 使用 Velero 创建集群备份。在这里，某些 Longhorn 资源应从集群备份中排除：
++
+[subs="+attributes",bash]
+----
+ velero backup create lh-cluster --exclude-resources persistentvolumes,persistentvolumeclaims,backuptargets.longhorn.io,backupvolumes.longhorn.io,backups.longhorn.io,nodes.longhorn.io,volumes.longhorn.io,engines.longhorn.io,replicas.longhorn.io,backingimagedatasources.longhorn.io,backingimagemanagers.longhorn.io,backingimages.longhorn.io,sharemanagers.longhorn.io,instancemanagers.longhorn.io,engineimages.longhorn.io
+----
++
+=== 将 Longhorn 和工作负载恢复到新集群
+
+. 为新集群使用相同远程备份服务器安装 Velero。
+. 恢复集群备份。例如，
++
+[subs="+attributes",bash]
+----
+ velero restore create --from-backup lh-cluster
+----
+
+. 从命名空间 `longhorn-system` 中删除所有旧的实例管理器 pod 和备份镜像管理器 pod。这些旧的 Pod 应由 Longhorn 创建，而不是 Velero，并且应该有相应的 CR。这些 Pod 是无害的，但会导致 Longhorn Manager pod 中打印无尽的日志。例如：
++
+[subs="+attributes",log]
+----
+ [longhorn-manager-q6n7x] time="2021-12-20T10:42:49Z" level=warning msg="Can't find instance manager for pod instance-manager-r-1f19ecb0, may be deleted"
+ [longhorn-manager-q6n7x] time="2021-12-20T10:42:49Z" level=warning msg="Can't find instance manager for pod instance-manager-e-6c3be222, may be deleted"
+ [longhorn-manager-ldlvw] time="2021-12-20T10:42:55Z" level=warning msg="Can't find instance manager for pod instance-manager-e-bbf80f76, may be deleted"
+ [longhorn-manager-ldlvw] time="2021-12-20T10:42:55Z" level=warning msg="Can't find instance manager for pod instance-manager-r-3818fdca, may be deleted"
+----
+
+. 如有必要，请重新配置恢复的 Longhorn 系统的节点和磁盘。
+. 如有必要，请重新创建备份镜像。
+. 从远程备份目标恢复所有 Longhorn 卷。
+. 如果有 RWX 备份卷，用户需要手动将访问模式更新为 `ReadWriteMany`，因为所有恢复的卷默认模式为 `ReadWriteOnce`。
+. 为恢复的卷创建具有先前名称的 PVC 和 PV。
+
+NOTE: 我们将增强 Longhorn 系统，以便用户将来不需要应用步骤 3 和步骤 8。
+
+== 参考资料
+
+* 相关的 GitHub 问题是 https://github.com/longhorn/longhorn/issues/3367

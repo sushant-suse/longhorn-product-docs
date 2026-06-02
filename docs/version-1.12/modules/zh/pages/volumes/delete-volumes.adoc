@@ -1,0 +1,22 @@
+= 删除卷
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+一旦您完成了对 Longhorn 卷的存储使用，有多种方法可以删除该卷，具体取决于您如何使用该卷。
+
+== 通过 Kubernetes 删除卷
+
+NOTE: 此方法仅在卷是通过 StorageClass 提供的，并且 Longhorn 卷的 PersistentVolume 的回收策略设置为删除时有效。
+
+您可以在 Kubernetes 中，通过删除使用该 Longhorn 卷的 PersistentVolumeClaim 来删除该卷。这将导致 Kubernetes 清理 PersistentVolume，然后在 Longhorn 中删除该卷。
+
+== 通过 Longhorn 删除卷
+
+所有 Longhorn 卷，无论其创建方式如何，都可以通过 Longhorn UI 删除。
+
+要删除单个卷，请在 UI 中转到卷页面。在操作下拉菜单中，选择删除。在删除卷之前，系统会提示您进行确认。
+
+要同时删除多个卷，您可以在卷页面上勾选多个卷，然后在顶部选择删除。
+
+NOTE: 如果 Longhorn 检测到某个卷与 PersistentVolume 或 PersistentVolumeClaim 相关联，则在您删除该卷时，这些资源也将被删除。在继续删除之前，系统会在 UI 中警告您。在删除已挂载卷时，Longhorn 也会警告您，因为该卷可能正在使用中。

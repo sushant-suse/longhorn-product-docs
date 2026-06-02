@@ -1,5 +1,5 @@
 = PVC Ownership and Permission
-:revdate: 2025-10-22
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -12,17 +12,17 @@ Because the Longhorn CSI driver `csiDriver.spec.fsGroupPolicy` is set to `ReadWr
 
 . Check `pod.spec.securityContext.fsGroup`.
  ** If non-empty, continue to the next step.
- ** If empty, the Kubelet doesn't attempt to change the ownership and permission for the volume.
+ ** If empty, the Kubelet does not attempt to change the ownership and permission for the volume.
 . Check `fsType` of the PV and `accessModes` of the PVC.
- ** If the PV's `fsType` is defined and the PVC's `accessModes` list contains `ReadWriteOnce`, continue to the next step.
- ** Otherwise, the Kubelet doesn't attempt to change the ownership and permission for the volume.
+ ** If `fsType` of the PV is defined and `accessModes` of the PVC list contains `ReadWriteOnce`, continue to the next step.
+ ** Otherwise, the Kubelet does not attempt to change the ownership and permission for the volume.
 . Check `pod.spec.securityContext.fsGroupChangePolicy`.
  ** If the `pod.spec.securityContext.fsGroupChangePolicy` is set to `always` or empty, the kubelet performs the following actions:
   *** Ensures that all processes of the containers inside the pod are part of the supplementary group id `pod.spec.securityContext.fsGroup`
   *** Ensures that any new files created in the volume will be in group id `pod.spec.securityContext.fsGroup`
   *** Recursively changes permission and ownership of the volume to have the same group id as `pod.spec.securityContext.fsGroup` every time the volume is mounted
  ** If the `pod.spec.securityContext.fsGroupChangePolicy` is set to `OnRootMismatch`:
-  *** If the root of the volume already has the correct permissions (i.e., belongs to the group id as `pod.spec.securityContext.fsGroup`) , the recursive permission and ownership change will be skipped.
+  *** If the root of the volume already has the correct permissions (that is, belongs to the group id as `pod.spec.securityContext.fsGroup`) , the recursive permission and ownership change will be skipped.
   *** Otherwise, Kubelet recursively changes permission and ownership of the volume to have the same group id as `pod.spec.securityContext.fsGroup`
 
 For more information, see:

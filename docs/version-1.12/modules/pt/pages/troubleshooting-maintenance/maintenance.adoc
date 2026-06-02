@@ -1,0 +1,168 @@
+= Guia de Manutenção de Nó e Upgrade do Kubernetes
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Siga as instruções para lidar com a manutenção planejada do nó e atualizar a versão do Kubernetes para o cluster.
+
+== Atualizando o SO do Nó ou o tempo de execução do contêiner
+
+. Cordonar o nó. O Longhorn desativará automaticamente o agendamento do nó quando um nó do Kubernetes for cordonado.
+. Drene o nó para mover a carga de trabalho para outro lugar.
++
+É necessário usar `--ignore-daemonsets` para drenar o nó. O `--ignore-daemonsets` é necessário porque o Longhorn implantou alguns daemonsets como `Longhorn manager`, `Longhorn CSI plugin`, `engine image`.
++
+Enquanto a drenagem prossegue, os processos do engine no nó serão migrados com os pods de carga de trabalho para outros nós.
++
+NOTE: Volumes que não estão anexados através do fluxo CSI no nó (por exemplo, anexados manualmente usando a GUI) não serão anexados automaticamente a novos nós pelo Kubernetes durante a drenagem. Portanto, o Longhorn impedirá que o nó conclua a operação de drenagem. O usuário precisará desanexar esses volumes manualmente para desbloquear a drenagem.
++
+Enquanto a drenagem prossegue, os processos de réplica no nó continuarão a ser executados ou eventualmente serão expulsos e parados com base na <<_node_drain_policy_recommendations,Política de Drenagem do Nó>>.
++
+NOTE: Por padrão, se houver uma última réplica saudável para um volume no nó, o Longhorn impedirá que o nó conclua a operação de drenagem, para proteger a última réplica e evitar a interrupção da carga de trabalho. Você pode controlar esse comportamento com a configuração xref:longhorn-system/settings.adoc#_node_drain_policy[Política de Drenagem do Nó], ou xref:nodes/disks-or-nodes-eviction.adoc[expelir a réplica para outros nós antes de drenar]. Veja <<_node_drain_policy_recommendations,Recomendações de Política de Drenagem do Nó>> para considerações ao selecionar uma política.
++
+Após a drenagem ser concluída, não deve haver processos de mecanismo ou réplica em execução no nó, pois o pod do gerenciador de instâncias que estava executando-os será parado. Dependendo da <<_node_drain_policy_recommendations,Política de Drenagem do Nó>>, as réplicas agendadas para o nó aparecerão como `Failed` ou serão removidas em favor de substituições. Cargas de trabalho que utilizam volumes do Longhorn funcionarão como esperado e réplicas suficientes estarão em execução em outros lugares para atender aos requisitos da política.
++
+NOTE: Normalmente, você não precisa expulsar as réplicas antes da operação de drenagem, desde que tenha réplicas saudáveis em outros nós. As réplicas podem ser reutilizadas mais tarde, uma vez que o nó esteja online novamente e descordonado. Veja <<_node_drain_policy_recommendations,Política de Drenagem do Nó>> para mais orientações.
+
+. Realize a manutenção necessária, incluindo desligar ou reiniciar o nó.
+. Descordone o nó. O Longhorn reabilitará automaticamente o agendamento do nó. Se houver réplicas existentes no nó, o Longhorn pode usar essas réplicas para acelerar o processo de reconstrução. Você pode definir a configuração xref:longhorn-system/settings.adoc#_replica_replenishment_wait_interval[Intervalo de Espera para Reabastecimento de Réplicas] para personalizar quanto tempo o Longhorn deve esperar para que uma réplica potencialmente reutilizável esteja disponível.
+
+== Removendo um Disco
+
+Para remover um disco:
+
+. Desative o agendamento do disco.
+. Expulse todas as réplicas no disco.
+. Exclua o disco.
+
+=== Reutilizando o Nome do Nó
+
+Esses passos também se aplicam se você substituiu um nó usando o mesmo nome de nó. O Longhorn reconhecerá que os discos são diferentes assim que o novo nó estiver ativo. Você precisará remover os discos originais primeiro e adicioná-los novamente para o novo nó se ele usar o mesmo nome que o nó anterior.
+
+== Removendo um Nó
+
+Para remover um nó:
+
+. Desative o agendamento do disco.
+. Remova todas as réplicas no nó.
+. Desanexe todos os volumes no nó.
++
+Se o nó foi drenado, todas as cargas de trabalho devem ser migradas para outro nó já.
++
+Se houver outros volumes ainda anexados, desanexe-os antes de continuar.
+
+. Remova o nó do Longhorn usando o `Delete` na aba `Node`.
++
+Ou, remova o nó do Kubernetes, usando:
++
+kubectl delete node +++<node-name>++++++</node-name>+++
+
+. O Longhorn removerá automaticamente o nó do cluster.
+
+== Atualizando o Kubernetes
+
+=== Upgrade "in-place"
+
+A atualização in-place é um método de atualização no qual os nós são atualizados sem serem removidos do cluster. Algumas soluções de exemplo que utilizam esses métodos de atualização são https://documentation.suse.com/cloudnative/k3s/latest/en/upgrades/automated.html[{k3s-product-name} atualizações automatizadas], https://documentation.suse.com/cloudnative/rancher-manager/latest/en/cluster-admin/backups-and-restore/backups-and-restore.html[{rancher-product-name} guia de atualização do Kubernetes], https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/[Kubeadm upgrade], etc...
+
+Com a suposição de que nós e discos não estão sendo excluídos/removidos, o guia de atualização recomendado é:
+
+. Cordonar e drenar um nó antes de atualizar os componentes do Kubernetes. As instruções de drenagem são semelhantes às que estão em <<_updating_the_node_os_or_container_runtime,Atualizando o SO do Nó ou o tempo de execução do contêiner>>.
+. O dreno `--timeout` deve ser grande o suficiente para que a reconstrução de réplicas em nós saudáveis possa ser concluída entre as atualizações de nós. Quanto mais réplicas do Longhorn você tiver no nó em drenagem, mais tempo levará para as réplicas do Longhorn serem reconstruídas em outros nós saudáveis. Recomendamos que você teste e selecione um valor grande o suficiente ou defina como 0 (ou seja, sem tempo limite).
+. O número de nós atualizando ao mesmo tempo deve ser menor que o número de réplicas do Longhorn para cada volume.
+Isso é para que um volume do Longhorn em execução tenha pelo menos uma réplica saudável em execução ao mesmo tempo.
+. Considere definir a configuração xref:longhorn-system/settings.adoc#_node_drain_policy[Política de Drenagem do Nó] para `allow-if-replica-is-stopped` para que o dreno não seja bloqueado pela última réplica saudável de um volume desanexado. Veja <<_node_drain_policy_recommendations,Recomendações de Política de Drenagem do Nó>> para considerações ao selecionar uma política.
+
+=== Kubernetes Gerenciado
+
+Consulte os seguintes tópicos:
+* xref:/upgrades/kubernetes/upgrade-k8s-on-aks.adoc[]
+* xref:/upgrades/kubernetes/upgrade-k8s-on-eks.adoc[]
+* xref:/upgrades/kubernetes/upgrade-k8s-on-gke.adoc[]
+
+== Recomendações de Política de Drenagem do Nó
+
+Atualmente, existem cinco Políticas de Drenagem do Nó disponíveis para seleção. Cada uma tem seus próprios benefícios e desvantagens. Esta seção fornece orientações gerais sobre cada uma e sugere situações em que cada uma pode ser utilizada.
+
+=== Notas importantes
+
+A Política de Drenagem de Nó destina-se a governar o comportamento do Longhorn quando um nó está sendo drenado ativamente. No entanto, não há como o Longhorn determinar a diferença entre o cordonamento e a drenagem de um nó, portanto, dependendo da política, o Longhorn pode agir sempre que um nó estiver cordonado, mesmo que não esteja sendo drenado.
+
+A política de drenagem de nó trabalha para evitar a evacuação de um pod de gerenciador de instância durante uma drenagem até que certas condições sejam atendidas. Se o pod de gerenciador de instância não puder ser evacuado, a drenagem não pode ser concluída. Isso impede que um usuário (ou processo automatizado) continue a desligar ou reiniciar um nó se não for seguro fazê-lo. Pode ser tentador ignorar a falha de drenagem e prosseguir com as operações de manutenção se parecer que está demorando demais, mas isso limita a capacidade do Longhorn de proteger os dados. Sempre verifique eventos e/ou logs para tentar determinar POR QUE a drenagem não está progredindo e tome medidas para corrigir o problema subjacente.
+
+=== Bloquear se Contiver a Última Réplica
+
+Esta é a política padrão. Ela visa fornecer um bom equilíbrio entre conveniência e proteção de dados. Enquanto estiver em vigor, o Longhorn impedirá a evacuação de um pod de gerenciador de instância (e a conclusão de uma drenagem) em um nó cordonado que contém a última réplica saudável de um volume.
+
+Benefícios:
+
+* Protege os dados ao impedir que a operação de drenagem seja concluída até que haja uma réplica saudável disponível para cada volume em outro nó.
+
+Desvantagens:
+
+* Se houver apenas uma réplica para o volume, ou se suas outras réplicas estiverem com problemas, o usuário pode precisar solicitar manualmente (por meio da GUI) a evacuação de réplicas do disco ou nó.
+* Os volumes podem estar degradados após a conclusão da drenagem. Se o nó for reiniciado, a redundância é reduzida até que ele esteja funcionando novamente. Se o nó for removido, a redundância é reduzida até que outra réplica seja reconstruída.
+
+=== Permitir se a última réplica estiver parada
+
+Esta política é semelhante a `Block If Contains Last Replica`. É inerentemente menos segura, mas pode permitir que as drenagens sejam concluídas mais rapidamente. Ela apenas impede a evacuação de um pod de gerenciador de instância (e a conclusão de uma drenagem) em um nó que contém a última réplica saudável em execução.
+
+Benefícios:
+
+* Permite que a operação de drenagem prossiga em situações onde o nó sendo drenado é esperado voltar online (os dados não serão perdidos) e as réplicas armazenadas nos discos do nó não estão sendo usadas ativamente.
+
+Desvantagens:
+
+* Desvantagens semelhantes a `Block If Contains Last Replica`.
+* Se, por algum motivo, o nó nunca voltar, os dados são perdidos.
+
+=== Sempre Permitir
+
+Esta política não protege os dados de forma alguma, mas permite que as drenagens sejam concluídas imediatamente. Ela nunca impede a evacuação de um pod de gerenciador de instância (e a conclusão de uma drenagem). Não use em um ambiente de produção.
+
+Benefícios:
+
+* A operação de dreno é concluída rapidamente sem que Longhorn interfira.
+
+Desvantagens:
+
+* Não há oportunidade para o Longhorn proteger os dados.
+
+=== Bloquear para expulsão
+
+Esta política fornece a máxima proteção de dados, mas pode levar a longos tempos de dreno e movimentação desnecessária de dados. Ela impede a expulsão de um pod de gerenciador de instâncias (e a conclusão de um dreno) enquanto qualquer réplica permanecer em um nó. Além disso, ela toma medidas para expulsar automaticamente as réplicas do nó.
+
+Não é recomendado deixar esta política habilitada durante o uso normal, pois ela acionará a expulsão de réplicas sempre que um nó for cordonado. Ative-a apenas durante manutenções planejadas.
+
+Um caso de uso principal para esta política é quando clusters são atualizados automaticamente nos quais os volumes não têm redundância (`numberOfReplicas == 1`). Outras políticas impedirão a drenagem até que tais réplicas sejam manualmente expulsas, o que é inconveniente para a automação.
+
+Benefícios:
+
+* Protege os dados ao impedir que a operação de drenagem seja concluída até que todas as réplicas tenham sido realocadas.
+* Expulsa automaticamente as réplicas, para que o usuário não precise fazê-lo manualmente (através da interface).
+* Mantém a redundância das réplicas em todos os momentos.
+
+Desvantagens:
+
+* A operação de drenagem é significativamente mais lenta do que para outros comportamentos. Cada réplica deve ser reconstruída em outro nó antes que possa ser concluída. O tempo limite de drenagem deve ser ajustado conforme apropriado para a quantidade de dados que será movida durante a reconstrução.
+* A operação de drenagem é intensiva em dados, especialmente quando o Balanceamento Automático de Réplicas está habilitado, pois réplicas expulsas podem ser movidas de volta para o nó drenado quando/ se ele voltar a ficar online.
+* Como todas essas políticas, ela é acionada no cordão, não na drenagem. Se um usuário frequentemente cordona nós sem drená-los, as réplicas serão reconstruídas sem necessidade.
+
+=== Bloquear para expulsão se contiver a última réplica.
+
+Esta política fornece a proteção de dados da política padrão `Block If Contains Last Replica` com a conveniência adicional da expulsão automática. Enquanto estiver em vigor, o Longhorn impedirá a expulsão de um pod de gerenciador de instâncias (e a conclusão de uma drenagem) em um nó cordonado que contém a última réplica saudável de um volume. Além disso, réplicas que atendem a essa condição são automaticamente expulsas do nó.
+
+Não é recomendado deixar esta política habilitada em uso normal, pois pode acionar a expulsão de réplicas a qualquer momento que um nó seja cordonado. Ative-a apenas durante manutenções planejadas.
+
+Um caso de uso principal para esta política é quando clusters são atualizados automaticamente nos quais os volumes não têm redundância (`numberOfReplicas == 1`). Outras políticas impedirão a drenagem até que tais réplicas sejam manualmente expulsas, o que é inconveniente para a automação.
+
+Benefícios:
+
+* Protege os dados ao impedir que a operação de drenagem seja concluída até que haja uma réplica saudável disponível para cada volume em outro nó.
+* Expulsa automaticamente as réplicas, para que o usuário não precise fazê-lo manualmente (através da interface).
+* A operação de drenagem é tão lenta e intensiva em dados quanto necessário para proteger os dados.
+
+Desvantagens:
+
+* Os volumes podem estar degradados após a conclusão da drenagem. Se o nó for reiniciado, a redundância é reduzida até que ele esteja funcionando novamente. Se o nó for removido, a redundância é reduzida até que outra réplica seja reconstruída.
+* Como todas essas políticas, ela é acionada no cordon, não na drenagem. Se um usuário frequentemente cordona nós sem drená-los, as réplicas serão reconstruídas sem necessidade.

@@ -1,0 +1,67 @@
+= Restaurer le système de stockage SUSE® Storage dans un nouveau cluster en utilisant Velero
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Vous pouvez restaurer des charges de travail avec le système Longhorn dans un nouveau cluster via Velero.
+
+[NOTE]
+====
+Il est nécessaire d'utiliser https://github.com/vmware-tanzu/velero-plugin-for-csi[le plugin CSI Velero] ≥ 0.4 pour garantir la restauration réussie de la PersistentVolumeClaim. Visitez https://longhorn.io/kb/troubleshooting-restore-pvc-stuck-using-velero-csi-plugin-version-lower-than-0.4/[Dépannage{nbsp}: Velero restaure le PVC Longhorn bloqué dans l'état En attente lors de l'utilisation de la version du plugin CSI Velero avant v0.4.0] pour obtenir plus d'informations.
+====
+
+== Hypothèses{nbsp}:
+
+* Un nouveau cluster signifie qu'il n'y a *aucune donnée de volume Longhorn* dans celui-ci.
+* Il existe une cible de sauvegarde distante qui contient toutes les données de volume Longhorn.
+* Il y a un serveur de sauvegarde distant qui peut stocker les sauvegardes du cluster créées par Velero.
+
+== Attente{nbsp}:
+
+* Tous les paramètres seront restaurés. Mais les configurations des nœuds et des disques ne seront pas appliquées.
+* Toutes les charges de travail utilisant des volumes Longhorn seront démarrées après que les volumes aient été restaurés à partir de la cible de sauvegarde distante.
+
+== Workflow
+
+=== Créer une sauvegarde pour l'ancien cluster
+
+. Installer Velero dans un cluster utilisant Longhorn.
+. Créer des sauvegardes pour tous les volumes Longhorn.
+. Utiliser Velero pour créer une sauvegarde du cluster. Ici, certaines ressources Longhorn doivent être exclues de la sauvegarde du cluster{nbsp}:
++
+[subs="+attributes",bash]
+----
+ velero backup create lh-cluster --exclude-resources persistentvolumes,persistentvolumeclaims,backuptargets.longhorn.io,backupvolumes.longhorn.io,backups.longhorn.io,nodes.longhorn.io,volumes.longhorn.io,engines.longhorn.io,replicas.longhorn.io,backingimagedatasources.longhorn.io,backingimagemanagers.longhorn.io,backingimages.longhorn.io,sharemanagers.longhorn.io,instancemanagers.longhorn.io,engineimages.longhorn.io
+----
++
+=== Restaurer Longhorn et les charges de travail dans un nouveau cluster
+
+. Installer Velero avec le même serveur de sauvegarde distant pour le nouveau cluster.
+. Restaurer la sauvegarde du cluster. par exemple,
++
+[subs="+attributes",bash]
+----
+ velero restore create --from-backup lh-cluster
+----
+
+. Suppression de tous les anciens pods du gestionnaire d'instances et des pods du gestionnaire d'images de sauvegarde de l'espace de noms `longhorn-system`. Ces anciens pods devraient être créés par Longhorn plutôt que par Velero et il devrait y avoir des CR correspondants pour eux. Les pods sont inoffensifs mais ils entraîneraient des journaux infinis imprimés dans les pods du Longhorn Manager. par exemple{nbsp}:
++
+[subs="+attributes",log]
+----
+ [longhorn-manager-q6n7x] time="2021-12-20T10:42:49Z" level=warning msg="Can't find instance manager for pod instance-manager-r-1f19ecb0, may be deleted"
+ [longhorn-manager-q6n7x] time="2021-12-20T10:42:49Z" level=warning msg="Can't find instance manager for pod instance-manager-e-6c3be222, may be deleted"
+ [longhorn-manager-ldlvw] time="2021-12-20T10:42:55Z" level=warning msg="Can't find instance manager for pod instance-manager-e-bbf80f76, may be deleted"
+ [longhorn-manager-ldlvw] time="2021-12-20T10:42:55Z" level=warning msg="Can't find instance manager for pod instance-manager-r-3818fdca, may be deleted"
+----
+
+. Reconfigurer les nœuds et les disques pour le système Longhorn restauré si nécessaire.
+. Recréer les backing images si nécessaire.
+. Restaurer tous les volumes Longhorn à partir de la cible de sauvegarde distante.
+. S'il y a des volumes de sauvegarde RWX, les utilisateurs doivent mettre à jour manuellement le mode d'accès à `ReadWriteMany` puisque tous les volumes restaurés sont en mode `ReadWriteOnce` par défaut.
+. Créer des PVC et des PV avec les noms précédents pour les volumes restaurés.
+
+NOTE: Nous allons améliorer le système Longhorn afin que les utilisateurs n'aient pas besoin d'appliquer l'étape 3 et l'étape 8 à l'avenir.
+
+== Références
+
+* Le problème GitHub associé est https://github.com/longhorn/longhorn/issues/3367

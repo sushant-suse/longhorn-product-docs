@@ -1,0 +1,165 @@
+= Crear una {longhorn-product-name} copia de seguridad del sistema
+:revdate: 27/06/2025
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Paquete de copia de seguridad del sistema
+
+La copia de seguridad del sistema Longhorn crea un paquete de recursos y lo sube al destino de copia de seguridad remoto.
+
+Incluye los siguientes recursos asociados con el sistema Longhorn:
+
+* Imágenes de respaldo
+* ClusterRoles
+* ClusterRoleBindings
+* ConfigMaps
+* Definiciones de recursos personalizados
+* DaemonSets
+* Despliegues
+* Imágenes de motor
+* Volúmenes persistentes
+* PersistentVolumeClaims
+* Trabajos recurrentes
+* Funciones
+* RoleBindings
+* Settings (Configuración posterior al failback)
+* Servicios
+* ServiceAccounts
+* StorageClasses
+* Volúmenes
+
+[NOTE]
+====
+* El destino de copia de seguridad predeterminado (`default`) se utiliza siempre para almacenar copias de seguridad del sistema.
+* El paquete de copia de seguridad del sistema Longhorn solo incluye recursos operados por Longhorn.
+* Longhorn no respalda el recurso `Nodes`. El Longhorn Manager en el clúster de destino es responsable de crear sus propios recursos personalizados de Longhorn `Node`.
+* Longhorn no puede respaldar las imágenes de respaldo del motor de datos V2.
+====
+
+== Crear una copia de seguridad del sistema
+
+Puedes crear una copia de seguridad del sistema de Longhorn utilizando la interfaz de usuario de Longhorn. O con el comando `kubectl`.
+
+=== Requisitos previos
+
+* xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[]. Longhorn guarda las copias de seguridad del sistema en el almacén de copias de seguridad remoto. Verás un error durante la creación cuando el destino de copia de seguridad no esté establecido.
++
+NOTE: Desestablecer el destino de copia de seguridad borra el recurso personalizado `SystemBackup` existente. Longhorn sincroniza con el almacén de copias de seguridad remoto después de establecer el destino de copia de seguridad. Otro clúster también puede sincronizarse con la misma lista de copias de seguridad del sistema cuando el destino de copia de seguridad es el mismo.
+
+* Crea una copia de seguridad para todos los volúmenes (opcional).
++
+NOTE: Longhorn restaura el volumen del sistema con la última copia de seguridad. Recomendamos actualizar la última copia de seguridad para todos los volúmenes. Al realizar copias de seguridad de los volúmenes, aseguras que los datos estén actualizados con la copia de seguridad del sistema. Para más información, consulta la sección <<_volume_backup_policy,Configuración - Política de Copia de Seguridad de Volumen>>.
+
+=== Configuración
+
+==== Política de Copia de Seguridad de Volumen
+
+La copia de seguridad del sistema de Longhorn ofrece las siguientes opciones de política de copia de seguridad de volumen:
+
+* `if-not-present`: Longhorn crea una copia de seguridad para los volúmenes que carecen de una copia de seguridad existente o cuya última copia de seguridad está desactualizada.
+* `always`: Longhorn crea una copia de seguridad para todos los volúmenes, independientemente de sus copias de seguridad existentes.
+* `disabled`: Longhorn no crea copias de seguridad para volúmenes.
+
+=== Copia de seguridad única
+
+==== Crear una copia de seguridad del sistema utilizando la interfaz de usuario
+
+. Ve a la página `System Backups` en la lista desplegable `Backup and Restore`.
+. Haz clic en `Create` bajo `System Backup`.
+. Dale un `Name` a la copia de seguridad del sistema.
+. Selecciona un `Volume Backup Policy` para la copia de seguridad del sistema.
+. La copia de seguridad del sistema estará lista para usar cuando el estado cambie a `Ready`.
+
+==== Crea una copia de seguridad del sistema utilizando `kubectl`
+
+. Ejecuta `kubectl create` para crear un recurso personalizado {longhorn-product-name} `SystemBackup`.
++
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: SystemBackup
+metadata:
+  name: demo
+  namespace: longhorn-system
+spec:
+  volumeBackupPolicy: if-not-present
+----
+
+. La copia de seguridad del sistema estará lista para usar cuando el estado cambie a `Ready`.
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME   VERSION   STATE   CREATED
+demo   v1.4.0    Ready   2022-11-24T04:23:24Z
+----
+
+=== Trabajo recurrente
+
+==== Crear un trabajo de copia de seguridad recurrente utilizando la interfaz de usuario
+
+. Ve a la pantalla *Trabajos Recurrentes*.
+
+. Haz clic en *Crear Trabajo Recurrente*.
+
+. Configure los ajustes siguientes:
++
+* *Nombre*: Especifica un nombre para el trabajo recurrente.
+* *Tarea*: Selecciona *Copia de Seguridad del Sistema*.
+* *Retener*: Especifica el número de copias de seguridad del sistema que {longhorn-product-name} debe retener.
+* *Cron*: Especifica la expresión cron (una cadena que consiste en campos separados por caracteres de espacio en blanco) que define las propiedades del horario.
+* *Parámetros*: Selecciona *política-de-copia-de-seguridad-de-volumen*.
+
+. Haz clic en *OK*.
+
+{longhorn-product-name} crea copias de seguridad del sistema según el horario definido en el campo *Cron*.
+
+==== Crea un trabajo de copia de seguridad recurrente utilizando `kubectl`
+
+Ejecuta `kubectl create` para crear un recurso personalizado {longhorn-product-name} `RecurringJob` con la tarea `system-backup`.
+
+Ejemplo:
+
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: demo
+  namespace: longhorn-system
+spec:
+  task: system-backup
+  cron: '* * * * *'
+  retain: 1
+  parameters:
+    volume-backup-policy: if-not-present
+----
+
+{longhorn-product-name} crea una copia de seguridad del sistema según el horario definido en el campo `cron`.
+
+== Eliminar copias de seguridad del sistema
+
+Puedes eliminar la copia de seguridad del sistema Longhorn en el destino de copia de seguridad remoto utilizando la interfaz de usuario de Longhorn. O con el comando `kubectl`.
+
+=== Eliminar una copia de seguridad del sistema utilizando la interfaz de usuario de Longhorn
+
+. Ve a la página `System Backup` en la lista desplegable `Setting`.
+. Elimina una única copia de seguridad del sistema en el menú desplegable `Operation` junto a la copia de seguridad del sistema. O elimina en lote con el botón `Delete`.
++
+NOTE: Eliminar la copia de seguridad del sistema también hará una eliminación en el almacén de copias de seguridad.
+
+=== Eliminar una copia de seguridad del sistema utilizando `kubectl`
+
+. Ejecuta `kubectl delete` para eliminar un recurso personalizado Longhorn `SystemBackup`.
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME   VERSION   STATE   CREATED
+demo   v1.4.0    Ready   2022-11-24T04:23:24Z
+
+> kubectl -n longhorn-system delete systembackup/demo
+systembackup.longhorn.io "demo" deleted
+----
+
+== Historial
+
+https://github.com/longhorn/longhorn/issues/1455[Solicitud de Función Original]

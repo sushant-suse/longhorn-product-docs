@@ -1,0 +1,44 @@
+= Einführung
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+
+{longhorn-product-name-tm} ist ein leichtes, zuverlässiges und einfach zu bedienendes verteiltes Blockspeichersystem für Kubernetes.
+
+Mit {longhorn-product-name} können Sie folgende Aufgaben ausführen:
+
+* Verwenden Sie {longhorn-product-name}-Volumes als persistenten Speicher für die verteilten zustandsbehafteten Anwendungen in Ihrem Kubernetes-Cluster.
+* Partitionieren Sie Ihren Blockspeicher in {longhorn-product-name}-Volumes, damit Sie Kubernetes-Volumes mit oder ohne Cloud-Anbieter verwenden können.
+* Replizieren Sie den Blockspeicher über mehrere Knoten und Rechenzentren hinweg, um die Verfügbarkeit zu erhöhen.
+* Speichern Sie Sicherungsdaten in externem Speicher wie NFS oder AWS S3.
+* Erstellen Sie plattformübergreifende Disaster-Recovery-Volumes, damit Daten aus einem primären Kubernetes-Cluster schnell aus einer Sicherung in einem zweiten Kubernetes-Cluster wiederhergestellt werden können.
+* Planen Sie wiederkehrende Snapshots eines Volumes und planen Sie wiederkehrende Sicherungen in NFS- oder S3-kompatiblen Sekundärspeicher.
+* Stellen Sie Volumes aus Sicherungen wieder her.
+* Aktualisieren Sie {longhorn-product-name}, ohne die persistenten Volumes zu stören.
+
+{longhorn-product-name} wird mit einer eigenständigen Benutzeroberfläche geliefert und kann mit Helm, kubectl oder dem Rancher-App-Katalog installiert werden.
+
+== Vereinfachung des verteilten Blockspeichers mit Microservices.
+
+Da moderne Cloud-Umgebungen Zehntausende bis Millionen von verteilten Blockspeicher-Volumes erfordern, sind einige Speichercontroller zu hochkomplexen verteilten Systemen geworden. Im Gegensatz dazu kann {longhorn-product-name} das Speichersystem vereinfachen, indem ein großer Blockspeichercontroller in eine Anzahl kleinerer Speichercontroller partitioniert wird, solange diese Volumes weiterhin aus einem gemeinsamen Pool von Festplatten erstellt werden können. Durch die Verwendung eines Speichercontrollers pro Volume verwandelt {longhorn-product-name} jedes Volume in einen Microservice. Der Controller wird als Longhorn Engine bezeichnet.
+
+Die Longhorn Manager-Komponente orchestriert die Longhorn Engines, damit sie zusammenarbeiten.
+
+== Verwenden Sie persistenten Speicher in Kubernetes, ohne sich auf einen Cloud-Anbieter zu verlassen.
+
+Pods können Speicher direkt referenzieren, aber dies wird nicht empfohlen, da es dem Pod oder Container nicht ermöglicht, portabel zu sein. Stattdessen sollten die Speicheranforderungen der Workloads in Kubernetes Persistent Volumes (PVs) und Persistent Volume Claims (PVCs) definiert werden. Mit {longhorn-product-name} können Sie die Größe des Volumens, die Anzahl der synchronen Replikate und andere volumenbezogene Konfigurationen angeben, die Sie über die Hosts, die die Speicherressource für das Volumen bereitstellen, wünschen. Dann können Ihre Kubernetes-Ressourcen das PVC und das entsprechende PV für jedes {longhorn-product-name} Volumen verwenden oder eine {longhorn-product-name} Speicherklasse nutzen, um automatisch ein PV für eine Arbeitslast zu erstellen.
+
+Replikate werden auf den zugrunde liegenden Festplatten oder im Netzwerk-Speicher dünn bereitgestellt.
+
+== Planen Sie mehrere Replikate über mehrere Compute- oder Speicher-Hosts hinweg.
+
+Um die Verfügbarkeit zu erhöhen, erstellt {longhorn-product-name} Replikate jedes Volumens. Replikate enthalten eine Kette von Snapshots des Volumens, wobei jeder Snapshot die Änderungen von einem vorherigen Snapshot speichert. Jedes Replikat eines Volumens läuft ebenfalls in einem Container, sodass ein Volumen mit drei Replikaten zu vier Containern führt.
+
+Die Anzahl der Replikate für jedes Volumen ist in {longhorn-product-name} konfigurierbar, ebenso wie die Knoten, auf denen die Replikate geplant werden. {longhorn-product-name} überwacht die Gesundheit jedes Replikats und führt Reparaturen durch, indem es das Replikat bei Bedarf neu aufbaut.
+
+== Weisen Sie mehrere Speicher-Frontends für jedes Volumen zu.
+
+Zu den gängigen Frontends gehören ein Linux-Kernel-Gerät (unter /dev/longhorn abgebildet) und ein iSCSI-Ziel.
+
+== Geben Sie Zeitpläne für wiederkehrende Snapshot- und Backup-Operationen an.
+
+Geben Sie die Häufigkeit dieser Operationen an (stündlich, täglich, wöchentlich, monatlich und jährlich), die genaue Uhrzeit, zu der diese Operationen durchgeführt werden (z. B. 3:00 Uhr jeden Sonntag), und wie viele wiederkehrende Snapshots und Backup-Sets aufbewahrt werden.

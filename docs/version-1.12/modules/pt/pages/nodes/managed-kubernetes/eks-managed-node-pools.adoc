@@ -1,0 +1,55 @@
+= Pools de Nós Gerenciados no Amazon Elastic Kubernetes Service (Amazon EKS)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+O EKS suporta a configuração do mesmo modelo de lançamento. Os nós no grupo de nós serão reciclados por novos nós com novas configurações ao atualizar a versão do modelo de lançamento.
+
+Veja https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html[Suporte a modelo de lançamento] para mais informações.
+
+O seguinte é um exemplo para substituir nós do cluster por um novo tamanho de armazenamento.
+
+== Expansão de Armazenamento
+
+. No Longhorn, defina `replica-replenishment-wait-interval` para `0`.
+. Vá para o modelo de lançamento do grupo de nós do cluster EKS. Você pode encontrar na aba do cluster EKS `Configuration/Compute/<node-group-name>` e clicar no modelo de lançamento.
+. Clique em `Modify template (Create new version)` no menu suspenso `Actions`.
+. Escolha o `Source template version` no `Launch template name and version description`.
+. Siga os passos para <<_expand_volume,Expandir volume>>, ou <<_create_additional_volume,Criar volume adicional>>.
++
+NOTE: Se você optar por expandir por <<_create_additional_volume,criar volume adicional>>, os discos precisam ser adicionados manualmente à lista de discos dos nós após fazer upgrade do cluster EKS.
+
+=== Expandir volume
+
+. Atualize o tamanho do volume em `Configure storage`.
+. Clique em `Create template version` para salvar as alterações.
+. Vá para o grupo de nós do cluster EKS e altere `Launch template version` em `Node Group configuration`. Acompanhe o status na aba `Update history`.
+
+=== Criar volume adicional
+
+. Clique `Advanced` e depois `Add new volume` em `Configure storage` e preencha os campos.
+. Ajuste o script de montagem automática e adicione a `User data` em `Advanced details`. Certifique-se de que o `DEV_PATH` corresponda ao `Device name` do volume adicional.
++
+----
+ MIME-Version: 1.0
+ Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
+
+ --==MYBOUNDARY==
+ Content-Type: text/x-shellscript; charset="us-ascii"
+
+ #!/bin/bash
+
+ # https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html#launch-template-user-data
+ echo "Running custom user data script"
+
+ DEV_PATH="/dev/sdb"
+ mkfs -t ext4 ${DEV_PATH}
+
+ MOUNT_PATH="/mnt/longhorn"
+ mkdir ${MOUNT_PATH}
+ mount ${DEV_PATH} ${MOUNT_PATH}
+----
+
+. Clique em `Create template version` para salvar as alterações.
+. Vá para o grupo de nós do cluster EKS e altere `Launch template version` em `Node Group configuration`. Acompanhe o status na aba `Update history`.
+. No Longhorn, adicione o caminho do disco montado à lista de discos dos nós.

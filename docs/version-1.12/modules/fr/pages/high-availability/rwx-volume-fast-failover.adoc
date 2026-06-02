@@ -1,0 +1,74 @@
+= RWX Volume Fast Failover (Expérimental)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+La version 1.7.0 ajoute une fonctionnalité qui minimise le temps d'arrêt pour les volumes ReadWriteMany lorsqu'un nœud échoue.  Lorsqu'elle est activée, Longhorn utilise un mécanisme basé sur un bail pour surveiller l'état du pod du serveur NFS qui exporte le volume. Longhorn réagit rapidement pour le déplacer vers un autre nœud s'il devient non réactif.  Voir xref:volumes/rwx-volumes.adoc[RWX Volumes] pour des détails sur le fonctionnement du serveur NFS.
+
+Pour activer la fonctionnalité, vous devez définir xref:longhorn-system/settings.adoc#_rwx_volume_fast_failover_experimental[RWX Volume Fast Failover] sur "true".  Les volumes RWX existants devront être redémarrés pour utiliser la fonctionnalité après le changement de paramètre.  Cela se fait en réduisant la charge de travail à zéro puis en la réaugmentant.  Les nouveaux volumes prendront le paramètre lors de leur création et seront configurés en conséquence.
+
+Avec la fonctionnalité activée, lorsqu'un pod est créé ou recréé, Longhorn crée également un objet de bail associé dans l'espace de noms `longhorn-system`, avec le même nom que le volume.  Le pod du serveur NFS maintient le bail renouvelé comme preuve de vie.  Si le renouvellement cesse de se produire, Longhorn prendra des mesures pour créer un nouveau pod de serveur NFS sur un autre nœud et pour réattacher la charge de travail, même avant que l'ancien nœud ne soit marqué comme `Not Ready` par Kubernetes.
+
+En plus d'ajouter la surveillance et une réaction rapide, la fonctionnalité modifie également la configuration du serveur NFS pour utiliser une période bonus raccourcie pour la reconnexion des clients.
+
+Si le paramètre est changé à nouveau sur "false", la vérification du bail est désactivée et le déplacement des pods utilisera les règles Kubernetes habituelles pour l'échec du nœud, même sur les volumes existants.  Lorsque le pod du serveur est redémarré, il reviendra à la configuration normale de la période bonus.
+
+Pour plus d'informations, reportez-vous à la section https://github.com/longhorn/longhorn/issues/6205.
+
+[NOTE]
+====
+Dans de rares circonstances, il est possible que le basculement se retrouve bloqué. Cela se produit si la création du pod du serveur NFS est bloquée par une action de récupération qui est elle-même bloquée par l'état de basculement en cours.  Si tel est le cas, et que le basculement prend plus d'une ou deux minutes, la solution de contournement consiste à supprimer l'objet de bail associé.  Cela efface l'état, et un nouveau bail est créé avec le pod de serveur de remplacement.  Par exemple, si le volume bloqué est nommé `pvc-2ce4e82e-7ccc-46c0-90a8-a141501fbf93` et que la fonctionnalité est activée, il y aura un bail avec le même nom.  Pour supprimer l'objet de bail associé{nbsp}:
+
+[subs="+attributes",bash]
+----
+kubectl -n longhorn-system delete lease pvc-2ce4e82e-7ccc-46c0-90a8-a141501fbf93
+----
+
+Voir, par exemple, https://github.com/longhorn/longhorn/issues/9093.
+====
+
+== Consommation des ressources et impact sur les performances du système
+
+L'équipe Longhorn a étudié l'impact des volumes RWX sur la consommation des ressources et les performances du système. Les études de benchmarking, qui ont été réalisées en utilisant 60 volumes RWX, montrent que l'activation de la fonctionnalité _RWX Volume Fast Failover_ entraîne les résultats suivants{nbsp}:
+
+* Plus de requêtes envoyées au serveur API Kubernetes (kube-apiserver)
+* Plus d'appels de procédure distante (RPC) envoyés de kube-apiserver à etcd
+* Légère augmentation de l'utilisation de l'UC et de la mémoire
+
+=== *Environnement :*
+
+* *Configuration:* 1 nœud de contrôle + 3 nœuds de travail (v1.27.15+rke2r1)
+* *Solution :* 60 déploiements avec 60 volumes RWX montés via `soft`.
+
+=== *Résultats des tests :*
+
+|===
+| *Métrique* | *Basculement rapide désactivé* | *Basculement rapide activé* | *Différence*
+
+| *Taux de requêtes API (kube-apiserver)*
+| 37,5 req/s
+| 59 req/s
+| +57,3 %
+
+| *Taux de RPC (kube-apiserver à etcd)*
+| 37 ops/s
+| 57 ops/s
+| +54,1 %
+
+| *Usage de la mémoire*
+| Pics inférieurs / minima
+| Pics supérieurs / minima
+| Utilisation accrue avec le basculement rapide activé
+
+| *Utilisation CPU/RAM de Longhorn Manager*
+| 405 MO / 0,1 UC
+| 417 MO / 0,13 UC
+| +3 % RAM / +30 % UC
+
+| *Utilisation CPU/RAM du gestionnaire de partage*
+| 2,2 GO / 0,235 UC
+| 2,25 GO / 0,26 UC
+| +2,3 % RAM / +10,6 % UC
+|===
+
+Pour des captures d'écran détaillées et un contexte supplémentaire, veuillez vous référer à la https://github.com/longhorn/longhorn/issues/6205#issuecomment-2262625965[discussion sur le problème connexe].

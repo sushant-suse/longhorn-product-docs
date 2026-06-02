@@ -1,0 +1,56 @@
+= 先决条件
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/prerequisites.md"]
+:current-version: {page-component-version}
+
+== 先决条件
+
+Longhorn 节点必须满足以下要求：
+
+* AMD64 或 ARM64 CPU
++
+____
+*通知*
+
+AMD64 CPU 需要支持 SSE4.2 指令。
+____
+
+* Linux 内核
++
+需要 5.19 或更高版本以支持 NVMe over TCP。
++
+____
+*通知*
+
+使用 Linux 内核 5.15 的主机在发生与卷相关的 IO 错误时可能会意外重启。请将 Longhorn 节点上的 Linux 内核更新到 5.19 或更高版本，以防止此类问题。
+____
++
+建议使用 v6.7 或更高版本以提高系统稳定性。
++
+____
+*通知*
+
+在使用早于 6.7 版本的 Linux 内核的主机上可能会发生内存损坏，正如这个 SPDK 上游问题所强调的： https://github.com/spdk/spdk/issues/3116#issuecomment-1890984674. 在 Longhorn 环境中，内核恐慌可能由于 `nvme-tcp` 驱动与 SPDK 之间通信时普遍出现的 IO 超时而引起。请将 Longhorn 节点上的 Linux 内核更新到 6.7 或更高版本，以防止问题发生。
+____
+
+* Linux 内核模块
+ ** `vfio_pci`
+ ** `uio_pci_generic`
+ ** `nvme-tcp`
+* 大页支持
+ ** 2 GiB 的 2 MiB 大小页面
+
+== 通告
+
+=== CPU
+
+当启用 V2 数据引擎时，每个实例管理器 pod 使用 *1 个 CPU 核心*。这种高 CPU 使用率归因于每个实例管理器 pod 中运行的 `spdk_tgt` 进程。spdk_tgt 进程负责处理输入/输出 (IO) 操作，并需要进行密集的轮询。因此，它消耗 100% 的专用 CPU 核心，以高效管理和处理 IO 请求，确保存储操作的最佳性能和响应能力。
+
+=== 内存
+
+SPDK 利用大页来提高性能并最小化内存开销。您必须在每个 Longhorn 节点上配置 2 MiB 大小的大页，以启用大页功能。具体来说，每个 Longhorn 节点必须提供 1024 页（相当于总共 2 GiB）。
+
+=== 磁盘
+
+SPDK 利用内核驱动程序支持 Linux 支持的所有类型的磁盘。然而，SPDK 配备了一个用户空间 NVMe 驱动程序，它提供零拷贝和高度并行的直接访问，使得用户空间应用程序可以直接访问 SSD。因此，强烈建议使用 *本地 NVMe 磁盘* 来启用 V2 卷以实现最佳存储性能。

@@ -1,0 +1,280 @@
+= Cifrado de Imagen de Respaldo
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn te permite cifrar y descifrar una imagen de respaldo clonándola. El mecanismo de cifrado de la imagen de respaldo utiliza el módulo del kernel de Linux `dm_crypt` y la utilidad de línea de comandos `cryptsetup`.
+
+== Clonar una Imagen de Respaldo
+
+Puedes clonar una imagen de respaldo utilizando código YAML. Ten en cuenta que esto creará una nueva imagen de respaldo con el mismo contenido que la original. La imagen de respaldo también consume espacio en disco.
+
+Ejemplo de una imagen de respaldo descargada:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+Ejemplo de código YAML utilizado para clonar la imagen de respaldo de muestra:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: ignore
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`: Especifica el nombre de la imagen de respaldo que se va a clonar.
+* `encryption`: Establece el valor en `ignore` para clonar directamente la imagen de respaldo. Si no se proporciona el valor, Longhorn utiliza `ignore` como valor predeterminado.
+====
+
+También puedes clonar una imagen de respaldo utilizando la interfaz de usuario de Longhorn.
+
+. Ve a *Configuración* > *Imagen de Respaldo*.
+. Haz clic en *Crear Imagen de Respaldo*.
+. Configure los ajustes siguientes:
+ ** *Creado Desde*: Selecciona *Clonar Desde Imagen de Respaldo Existente*.
+ ** *Cifrado*: Selecciona *Ignorar*.
+. Haz clic en *OK*.
+
+image::screenshots/backing-image/clone.png[Imagen]
+
+== Cifrar una imagen de respaldo
+
+Puedes habilitar el cifrado durante la clonación de una imagen de respaldo para que la imagen pueda ser utilizada con un volumen cifrado.
+
+Ejemplo de una imagen de respaldo descargada:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+Ejemplo de código YAML utilizado para clonar y cifrar la imagen de respaldo de muestra:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-encrypted
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: encrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+Ejemplo de código YAML utilizado para cifrar la imagen de respaldo:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`: Especifica el nombre de la imagen de respaldo que se va a clonar.
+* `encryption`: Establece el valor en `encrypt` para cifrar la imagen de respaldo durante la clonación.
+* `secret`: Especifica el secreto utilizado para cifrar la imagen de respaldo.
+* `secret-namespace`: Especifica el espacio de nombres del secreto utilizado para cifrar la imagen de respaldo.
+====
+
+También puedes crear una copia cifrada de una imagen de respaldo utilizando la interfaz de usuario de Longhorn.
+
+. Ve a *Configuración* > *Imagen de Respaldo*.
+. Haz clic en *Crear Imagen de Respaldo*.
+. Configure los ajustes siguientes:
+ ** *Creado Desde*: Selecciona *Clonar Desde Imagen de Respaldo Existente*.
+ ** *Cifrado*: Selecciona *Cifrar*.
+. Especifica el secreto y el espacio de nombres del secreto que se utilizarán para el cifrado.
+. Haz clic en *OK*.
+
+image::screenshots/backing-image/encrypt.png[Imagen]
+
+== Descifrar una imagen de respaldo
+
+Puedes descifrar una imagen de respaldo cifrada a través de la clonación.
+
+Ejemplo de una imagen de respaldo cifrada:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-encrypted
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot
+    encryption: encrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+Ejemplo de código YAML utilizado para cifrar y descifrar la imagen de respaldo:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+Ejemplo de código YAML utilizado para descifrar la imagen de respaldo:
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-cloned-decrypt
+  namespace: longhorn-system
+spec:
+  sourceType: clone
+  sourceParameters:
+    backing-image: parrot-cloned-encrypted
+    encryption: decrypt
+    secret: longhorn-crypto
+    secret-namespace: longhorn-system
+----
+
+[IMPORTANT]
+====
+
+
+* `backing-image`: Especifica el nombre de la imagen de respaldo que se va a clonar.
+* `encryption`: Establece el valor en `decrypt` para descifrar la imagen de respaldo durante la clonación.
+* `secret`: Especifica el secreto utilizado para descifrar la imagen de respaldo.
+* `secret-namespace`: Especifica el espacio de nombres del secreto utilizado para descifrar la imagen de respaldo.
+====
+
+También puedes descifrar una imagen de respaldo (a través de clonación) utilizando la interfaz de usuario de Longhorn.
+
+. Ve a *Configuración* > *Imagen de Respaldo*.
+. Haz clic en *Crear Imagen de Respaldo*.
+. Configure los ajustes siguientes:
+ ** *Creado Desde*: Selecciona *Clonar Desde Imagen de Respaldo Existente*.
+ ** *Cifrado*: Selecciona *Descifrar*.
+. Especifica el secreto y el espacio de nombres del secreto que se utilizarán para el descifrado.
+. Haz clic en *OK*.
+
+image::screenshots/backing-image/decrypt.png[Imagen]
+
+== Utiliza una imagen de respaldo cifrada con un volumen cifrado.
+
+El secreto utilizado para cifrar la imagen de respaldo y el volumen debe ser idéntico. Una vez que la imagen de respaldo cifrada esté lista, puedes crear la StorageClass con la imagen de respaldo correspondiente y el secreto para crear el volumen para la carga de trabajo.
+
+Ejemplo de código YAML para el secreto de cifrado:
+
+[subs="+attributes",yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-crypto
+  namespace: longhorn-system
+stringData:
+  CRYPTO_KEY_VALUE: "Your encryption passphrase"
+  CRYPTO_KEY_PROVIDER: "secret"
+  CRYPTO_KEY_CIPHER: "aes-xts-plain64"
+  CRYPTO_KEY_HASH: "sha256"
+  CRYPTO_KEY_SIZE: "256"
+  CRYPTO_PBKDF: "argon2i"
+----
+
+Ejemplo de código YAML para la StorageClass:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-crypto-global
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+  encrypted: "true"
+  backingImage: "parrot-cloned-encrypted"
+  backingImageDataSourceType: "clone"
+  # global secret that contains the encryption key that will be used for all volumes
+  csi.storage.k8s.io/provisioner-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/provisioner-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-publish-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-publish-secret-namespace: "longhorn-system"
+  csi.storage.k8s.io/node-stage-secret-name: "longhorn-crypto"
+  csi.storage.k8s.io/node-stage-secret-namespace: "longhorn-system"
+----
+
+Para más información, consulta xref:volumes/volume-encryption.adoc[Cifrado de Volumen].
+
+== limitaciones
+
+* Longhorn no puede cifrar imágenes de respaldo que ya están cifradas, ni descifrar imágenes de respaldo que no están cifradas.
+* Longhorn no te permite cambiar la clave de cifrado de una imagen de respaldo cifrada.
+* Al cifrar una imagen qcow2, Longhorn primero crea una imagen raw a partir de la imagen qcow2 y luego la cifra. La imagen raw cifrada resultante consume temporalmente espacio adicional durante la clonación. Por ejemplo,
+ .. Si ciframos una imagen qcow2 de 10MiB con un tamaño virtual de 200MiB, primero creamos la imagen raw a partir de la qcow2 que consumirá 200MiB de espacio.
+ .. Longhorn luego crea la imagen de respaldo cifrada a partir de esa imagen raw de 200MiB, lo que ocupará otros 200MiB de espacio.
+ .. Después de que se crea la imagen de respaldo cifrada, la imagen raw temporal se limpiará y liberará los 200MiB de espacio.
+* Si la imagen de respaldo fuente es un archivo disperso, el archivo pierde su propiedad de dispersión después del cifrado.
+* Para permitir el almacenamiento de los metadatos de LUKS durante el cifrado, el tamaño de la imagen se incrementa en 16 MB. Para más información, consulta las https://gitlab.com/cryptsetup/cryptsetup/-/blob/master/docs/v2.1.0-ReleaseNotes#L27[notas de la versión de cryptsetup].

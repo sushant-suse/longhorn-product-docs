@@ -1,0 +1,181 @@
+= Nettoyage des données orphelines
+:revdate: 2025-07-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+{longhorn-product-name} prend en charge le nettoyage des données orphelines. Actuellement, {longhorn-product-name} peut identifier et nettoyer les répertoires de répliques orphelins sur les disques.
+
+== Répertoires de répliques orphelins
+
+Lorsqu'un utilisateur introduit un disque dans un nœud {longhorn-product-name}, il peut contenir des répertoires de répliques qui ne sont pas suivis par le système {longhorn-product-name}. Les répertoires de répliques non suivis peuvent appartenir à d'autres clusters {longhorn-product-name}. Ou, les CRs de répliques associés aux répertoires de répliques sont supprimés après que le nœud ou le disque soit hors service. Lorsque le nœud ou le disque revient, les répertoires de données de répliques correspondants ne sont plus suivis par le système {longhorn-product-name}. Ces répertoires de données de répliques sont appelés orphelins.
+
+{longhorn-product-name} prend en charge la détection et le nettoyage des répertoires de répliques orphelins. Il identifie les répertoires et fournit une liste de ressources `orphan` qui décrivent ces répertoires. Par défaut, {longhorn-product-name} ne supprime pas automatiquement les ressources `orphan` et leurs répertoires. Les utilisateurs peuvent déclencher la suppression des répertoires de répliques orphelins manuellement ou la faire effectuer automatiquement.
+
+Lorsque la suppression automatique des orphelins est activée, {longhorn-product-name} supprime automatiquement les Ressources Personnalisées (CRs) orphelines et leurs répertoires associés après le délai défini par le paramètre `orphan-resource-auto-deletion-grace-period`. Si un utilisateur supprime manuellement un CR orphelin, la suppression se produit immédiatement et ne respecte pas cette période bonus.
+
+=== Par exemple :
+
+L'exemple suivant démontre comment gérer les répertoires de répliques orphelins identifiés par {longhorn-product-name} via les interfaces `kubectl` et {longhorn-product-name}.
+
+==== Gérer les répertoires de répliques orphelins via kubectl
+
+. Introduire des disques contenant des répertoires de répliques orphelins.
+ ** Répertoires de répliques orphelins sur les disques du nœud `worker1`
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+ pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
+----
+
+ ** Répertoires de répliques orphelins sur les disques du nœud `worker2`
++
+[,console]
+----
+# ls /var/lib/longhorn/replicas/
+ pvc-28255b31-161f-5621-eea3-a1cbafb4a12a-866aa0a5
+
+# ls /mnt/disk/replicas/
+ pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-a86771c0
+----
+
+. {longhorn-product-name} détecte les répertoires de répliques orphelins et crée une ressource `orphan` décrivant les répertoires.
++
+[,console]
+----
+ # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
+ NAME                                                                      TYPE      NODE
+ orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272   replica   rancher60-worker1
+ orphan-637f6c01660277b5333f9f942e4b10071d89379dbe7b4164d071f4e1861a1247   replica   rancher60-worker2
+ orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
+----
+
+. Récupérez une liste de ressources orphelines créées par {longhorn-product-name} en utilisant la commande `kubectl -n longhorn-system get orphan`.
++
+[,console]
+----
+ kubectl -n longhorn-system get orphan
+----
+
+. Obtenez les informations détaillées d'un des répertoires de répliques orphelines dans `spec.parameters` par `kubectl -n longhorn-system get orphan <name>`.
++
+[,yaml]
+----
+ # kubectl -n longhorn-system get orphans orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272 -o yaml
+ apiVersion: longhorn.io/v1beta2
+ kind: Orphan
+ metadata:
+ creationTimestamp: "2022-04-29T10:17:40Z"
+ finalizers:
+ ** longhorn.io
+ generation: 1
+ labels:
+  longhorn.io/component: orphan
+  longhorn.io/managed-by: longhorn-manager
+  longhorn.io/orphan-type: replica
+  longhornnode: rancher60-worker1
+
+......
+
+spec:
+ nodeID: rancher60-worker1
+ orphanType: replica
+ parameters:
+     DataName: pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
+     DiskName: disk-1
+     DiskPath: /mnt/disk/
+     DiskUUID: 90f00e61-d54e-44b9-a095-35c2b56a0462
+ status:
+ conditions:
+ ** lastProbeTime: ""
+  lastTransitionTime: "2022-04-29T10:17:40Z"
+  message: ""
+  reason: ""
+  status: "True"
+  type: DataCleanable
+ ** lastProbeTime: ""
+  lastTransitionTime: "2022-04-29T10:17:40Z"
+  message: ""
+  reason: ""
+  status: "False"
+  type: Error
+ ownerID: rancher60-worker1
+----
+
+. On peut supprimer la ressource `orphan` par `kubectl -n longhorn-system delete orphan <name>` et ensuite le répertoire de répliques orphelines correspondant sera supprimé.
++
+[,console]
+----
+ # kubectl -n longhorn-system delete orphan orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272
+
+ # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
+ NAME                                                                      TYPE      NODE
+ orphan-637f6c01660277b5333f9f942e4b10071d89379dbe7b4164d071f4e1861a1247   replica   rancher60-worker2
+ orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
+----
++
+Le répertoire de répliques orphelines est supprimé.
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+----
+
+. Par défaut, {longhorn-product-name} ne supprimera pas automatiquement le répertoire de répliques orphelines. Vous pouvez activer la suppression automatique en configurant le paramètre `orphan-resource-auto-deletion`.
++
+[,console]
+----
+ # kubectl -n longhorn-system edit settings.longhorn.io orphan-resource-auto-deletion
+----
++
+Ensuite, ajoutez `replica-data` à la liste en l'incluant comme l'un des éléments séparés par des points-virgules.
++
+[,console]
+----
+ # kubectl -n longhorn-system get settings.longhorn.io orphan-resource-auto-deletion
+ NAME                           VALUE          APPLIED     AGE
+ orphan-resource-auto-deletion  replica-data   true        26m
+----
+
+. Après avoir activé la suppression automatique et attendu un moment, les ressources et répertoires `orphan` sont supprimés automatiquement.
++
+[,console]
+----
+ # kubectl -n longhorn-system get orphans.longhorn.io -l "longhorn.io/orphan-type=replica"
+ No resources found in longhorn-system namespace.
+----
++
+Les répertoires de répliques orphelines sont supprimés.
++
+[,console]
+----
+ # ls /mnt/disk/replicas/
+
+ # ls /var/lib/longhorn/replicas/
+----
++
+De plus, on peut supprimer tous les répertoires de répliques orphelines sur le nœud spécifié par
++
+[,console]
+----
+ # kubectl -n longhorn-system delete orphan -l "longhorn.io/orphan-type=replica-instance,longhornnode=<node name>”
+----
+
+==== Gérer les répertoires de répliques orphelines via l'interface {longhorn-product-name}.
+
+. Dans la barre de navigation supérieure, sélectionnez *Paramètres > Données orphelines > Données de répliques*.
+. Examinez la liste affichée des répertoires de répliques orphelines. Ils sont regroupés par nœud et disque.
+. Pour le répertoire que vous souhaitez supprimer, sélectionnez *Opération > Supprimer*.
+
+Par défaut, {longhorn-product-name} ne supprime pas automatiquement les répertoires de répliques orphelines. Pour activer la suppression automatique, accédez à *Paramètres > Orphelin* et configurez l'option pertinente pour la suppression automatique.
+
+=== Exception
+
+{longhorn-product-name} ne créera pas de ressource `orphan` pour un répertoire orphelin lorsque
+
+* Le répertoire orphelin n'est pas un *répertoire de répliques orphelines*.
+ ** Le nom du répertoire ne suit pas la convention de nommage des répertoires de répliques.
+ ** Le fichier volume.meta est manquant.
+* Le répertoire de réplique orphelin se trouve sur un nœud évincé.
+* Le répertoire de réplique orphelin se trouve sur un disque évincé.
+* Le mécanisme de nettoyage des données orphelines ne nettoie pas une réplique obsolète, également connue sous le nom de réplique d'erreur. Au lieu de cela, la réplique obsolète est nettoyée selon le paramètre xref:volumes/create-volumes.adoc#_creating_longhorn_volumes_with_kubectl[staleReplicaTimeout].

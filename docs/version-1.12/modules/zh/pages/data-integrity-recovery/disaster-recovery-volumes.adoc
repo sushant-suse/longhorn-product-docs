@@ -1,0 +1,120 @@
+= 灾难恢复卷
+:revdate: 2025-07-04
+:page-revdate: {revdate}
+:description: 关于特定云服务提供商的帮助以及可能遇到的陷阱。
+:current-version: {page-component-version}
+
+确保数据弹性在处理容器化应用程序时非常重要。*Longhorn灾难恢复（DR）卷*是一种特殊类型的卷，旨在在二级Kubernetes集群中维护数据的备用副本。它是从主卷的备份创建的，并保持同步，以便在主集群不可用时快速恢复。
+
+DR卷存储数据的地理分离副本。备份频率决定了DR卷的最新程度，因此在站点故障时可能的数据丢失量。
+
+== 工作方式
+
+DR卷的功能依赖于通过共享备份存储进行异步复制。
+
+*共享备份目标*
+
+您的主Kubernetes集群和次级Kubernetes集群必须配置为使用完全相同的外部备份目标（例如，兼容S3的对象存储或NFS共享）。
+
+*增量备份和恢复*
+
+DR卷是从现有备份创建的。它持续轮询备份目标，以获取源卷的新备份并增量恢复。UI中的*最后备份*字段显示最近恢复的备份。
+
+为了保持DR卷的更新，请在源卷上配置定期作业以执行常规增量备份。这些定期备份为DR卷提供新的备份以恢复，帮助确保在灾难发生时最小化数据丢失。
+
+*待机状态*
+
+DR卷保持在被动待机状态。它未被挂载或任何工作负载访问，从而防止数据不一致。UI通过图标指示卷的状态:
+
+* 灰色图标：该卷正在忙于恢复数据，无法激活。
+* 蓝色图标：该卷已完全同步，准备激活。
+
+*激活*
+
+在灾难发生时，您手动激活DR卷。此过程将其转换为标准的可写Longhorn卷，您可以将其附加到恢复集群中的应用程序。
+
+== 创建DR卷
+
+您可以使用{longhorn-product-name} UI或`kubectl`创建DR卷。
+
+[IMPORTANT]
+====
+设置两个Kubernetes集群，称为集群A和集群B。在两个集群上安装{longhorn-product-name}，并在两个集群上配置相同的备份目标。有关设置备份目标的帮助，请参阅xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[配置备份目标页面]。
+====
+
+=== 使用{longhorn-product-name} UI
+
+. 在您的主集群中，确保源卷至少有一个备份。
+. 在您的次级（恢复）集群的{longhorn-product-name} UI中，导航到*备份*页面。
+. 从列表中选择所需的备份，然后选择*创建灾难恢复卷*。我们建议使用与原始卷相同的名称。
+. {longhorn-product-name}将创建该卷，该卷将在*卷*页面上显示为待机状态。
+
+=== 使用`kubectl`命令
+
+. **获取备份URL：**首先，从{longhorn-product-name} UI中的*备份*页面复制源备份的完整URL。此URL的格式取决于您配置的备份目标（例如，S3或NFS）。
+
+. **创建 YAML 清单：**创建一个文件（例如，`dr-volume.yaml`），并包含以下内容。替换占位符 URL，并调整名称、大小、`accessMode` 等，以匹配您的源卷。在此文件中，`standby: true` 字段将卷定义为 DR 待机卷。
+
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  name: example-dr-volume
+  namespace: longhorn-system
+spec:
+  size: "2147483648"
+  accessMode: rwo
+  numberOfReplicas: 3
+  fromBackup: "nfs://longhorn-nfs-server.example.com:/opt/backupstore?backup=backup-b69a1249e97f4a27&volume=pvc-33509786-92d7-427c-9b5a-b6d61d56b063"
+  # This flag is essential to create a standby volume
+  Standby: true
+----
+
+. **应用清单：**将清单应用于您的次级集群以创建卷。
+
+== 激活 DR 卷
+
+当需要故障转移时，激活 DR 卷以使其可写。
+
+{longhorn-product-name} 支持在以下条件下激活：
+
+* 卷是健康的，表明所有副本处于健康状态。
+* 卷处于降级状态（某些副本已失败），但仅当全局设置 xref:longhorn-system/settings.adoc#_allow_volume_creation_with_degraded_availability[`Allow Volume Creation with Degraded Availability`] 被启用时。
+
+[IMPORTANT]
+====
+当 `Allow Volume Creation with Degraded Availability` 设置被禁用时，尝试激活降级的 DR 卷会导致卷卡在 `Attached` 状态。
+
+启用设置后，DR 卷将激活并转换为正常卷，保持在 `Detached` 状态。
+====
+
+=== 使用{longhorn-product-name} UI
+
+. 在您的次级集群的 {longhorn-product-name} UI 中转到 *卷* 页面。
+. 选择您要激活的 DR 卷。
+. 在 *操作* 下拉菜单中单击 *激活灾难恢复卷* 按钮。
+. 卷将过渡到 `Detached` 状态，您可以将其与工作负载连接。
+
+=== 使用`kubectl`命令
+
+. 运行以下命令以激活 DR 卷并更新前端：
+
+[,bash]
+----
+kubectl patch volume example-dr-volume1 -n longhorn-system --type='json' -p='[
+  {"op": "replace", "path": "/spec/Standby", "value": false},
+  {"op": "replace", "path": "/spec/frontend", "value": "blockdev"}
+]'
+----
+
+. 卷将过渡到 `Detached` 状态，您可以将其与工作负载连接。
+
+== 局限性
+
+由于 DR 卷的主要目的是从备份中恢复数据，因此在卷激活之前，不支持以下操作：
+
+* 创建、删除或还原快照
+* 创建备份
+* 创建持久卷 (PVs)
+* 创建持久卷声明 (PVCs)

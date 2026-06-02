@@ -1,0 +1,250 @@
+= Criar um trabalho recorrente de instantâneo ou backup
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Na interface do usuário {longhorn-product-name}, o volume pode se referir a instantâneos e backups recorrentes como trabalhos independentes ou como grupos de trabalhos recorrentes.
+
+Para criar um trabalho recorrente, você pode ir à página `Recurring Jobs` em {longhorn-product-name} e `Create Recurring Job` ou na visualização de detalhes do volume em {longhorn-product-name}.
+
+Você pode configurar,
+
+* Quaisquer grupos aos quais o trabalho deve pertencer
+* O tipo de agendamento, seja `backup`, `backup-force-create`, `snapshot`, `snapshot-force-create`, `snapshot-cleanup`, `snapshot-delete` ou `filesystem-trim`
+* O horário em que o backup ou instantâneo será criado, na forma de uma expressão https://en.wikipedia.org/wiki/Cron#CRON_expression[CRON]
+* O número de backups ou instantâneos a serem mantidos
+* O número de trabalhos a serem executados simultaneamente
+* Quaisquer etiquetas que devem ser aplicadas ao backup ou instantâneo
+* Parâmetros que devem ser aplicados ao backup
+ ** `full-backup-interval`: Número de backups incrementais que devem ser concluídos antes que {longhorn-product-name} realize um backup completo. Este parâmetro inteiro é aplicado apenas ao backup. Observe que se o valor for 0, {longhorn-product-name} realiza um backup incremental toda vez. Para mais informações, veja <<_periodic_full_backup,Backup Completo Periódico>> e xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[Criar um Backup].
+
+Trabalhos recorrentes podem ser configurados usando a interface do usuário {longhorn-product-name}, `kubectl`, ou utilizando um {longhorn-product-name} `RecurringJob`.
+
+Para adicionar um trabalho recorrente a um volume, você irá para a visualização de detalhes do volume em {longhorn-product-name}. Então você pode definir `Recurring Jobs Schedule`.
+
+* Criar um novo trabalho recorrente
+* Selecione entre os trabalhos recorrentes existentes
+* Selecione entre os grupos de trabalhos recorrentes existentes
+
+Então {longhorn-product-name} criará automaticamente instantâneos ou backups para o volume no horário programado do trabalho recorrente, desde que o volume esteja anexado a um nó.
+Se você quiser configurar instantâneos e backups recorrentes mesmo quando os volumes estiverem desconectados, consulte a seção <<_allow_recurring_job_while_volume_is_detached,Permitir Trabalho Recorrente Enquanto o Volume Está Desconectado>>
+
+Você pode configurar trabalhos recorrentes em um Volume Longhorn, Reivindicação de Volume Persistente (PVC) do Kubernetes ou StorageClass do Kubernetes.
+
+[NOTE]
+====
+Quando o PVC tiver rótulos de trabalho recorrente, eles substituirão todos os rótulos de trabalho recorrente do Volume associado.
+====
+
+Para mais informações sobre como instantâneos e backups funcionam, consulte a seção xref:introduction/concepts.adoc[conceitos].
+
+[NOTE]
+====
+Para evitar o problema de que trabalhos recorrentes possam sobrescrever os backups/instantâneas antigos com backups idênticos e instantâneas vazias quando o volume não tiver novos dados por um longo tempo, o Longhorn faz o seguinte:
+
+. O trabalho de backup recorrente só faz um novo backup quando o volume tem novos dados desde o último backup.
+. O trabalho de instantâneo recorrente só faz um novo instantâneo quando o volume tem novos dados na cabeça do volume (os dados ao vivo).
+====
+
+== Configure Trabalhos Recorrentes
+
+=== Usando a interface {longhorn-product-name}
+
+Instantâneas e backups recorrentes podem ser configurados a partir da página `Recurring Job` ou da página de detalhes do volume.
+
+=== Usando o manifesto
+
+Você também pode configurar o trabalho recorrente interagindo diretamente com o recurso personalizado Longhorn RecurringJob.
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: snapshot-1
+  namespace: longhorn-system
+spec:
+  cron: "* * * * *"
+  task: "snapshot"
+  groups:
+  - default
+  - group1
+  retain: 1
+  concurrency: 2
+  labels:
+    label/1: a
+    label/2: b
+----
+
+Os seguintes parâmetros devem ser especificados para cada seletor de trabalho recorrente:
+
+* `name`: Nome do trabalho recorrente. Não use nomes duplicados. E o comprimento de `name` não deve ser superior a 40 caracteres.
+* `task`: Tipo do trabalho. {longhorn-product-name} suporta o seguinte:
+ ** `backup`: periodicamente crie instantâneos e faça backups após limpar instantâneos desatualizados
+ ** `backup-force-create`: periodicamente crie instantâneos e faça backups
+ ** `snapshot`: periodicamente crie instantâneos após limpar instantâneos desatualizados
+ ** `snapshot-force-create`: periodicamente crie instantâneos
+ ** `snapshot-cleanup`: periodicamente purgue instantâneos removíveis e instantâneos do sistema
++
+NOTE: o valor de retenção não tem efeito para esta tarefa, {longhorn-product-name} automaticamente altera o valor de `retain` para 0.
+
+ ** `snapshot-delete`: periodicamente remova e purgue todos os tipos de instantâneos que excedem a contagem de retenção.
++
+[NOTE]
+====
+O valor de `retain` é independente de cada trabalho recorrente.
+
+Usando um volume com 2 trabalhos recorrentes como exemplo:
+
+* `snapshot` com valor de retenção definido como 5
+* `snapshot-delete`: com valor de retenção definido como 2
+
+Eventualmente, haverá 2 instantâneos retidos após a execução completa do trabalho `snapshot-delete`.
+====
+
+ ** `filesystem-trim`: periodicamente faça a limpeza do sistema de arquivos para recuperar espaço em disco
+* `cron`: Expressão Cron. Ela indica o horário de execução do trabalho.
+* `retain`: Quantos instantâneos/backups {longhorn-product-name} serão retidos para cada trabalho de volume. Não deve ser menos que 1.
+* `concurrency`: O número de trabalhos a serem executados simultaneamente. Não deve ser menos que 1.
+
+Parâmetros opcionais podem ser especificados:
+
+* `groups`: Quaisquer grupos aos quais o trabalho deve pertencer. Ter `default` em grupos agendará automaticamente este trabalho recorrente para qualquer volume sem trabalho recorrente.
+* `labels`: Quaisquer etiquetas que devem ser aplicadas ao backup ou instantâneo.
+
+== Adicionar Trabalhos Recorrentes ao grupo Padrão
+
+Os trabalhos recorrentes padrão podem ser configurados marcando a caixa de seleção `default` usando a interface do usuário ou adicionando `default` ao trabalho recorrente `groups`.
+
+{longhorn-product-name} adicionará automaticamente um volume ao grupo `default` quando o volume não tiver trabalho recorrente.
+
+== Excluir Trabalhos Recorrentes
+
+{longhorn-product-name} remove automaticamente os rótulos de trabalho recorrente de Volume e PVC quando um recurso personalizado RecurringJob correspondente é excluído. No entanto, se um rótulo de trabalho recorrente for adicionado sem um recurso personalizado RecurringJob existente, {longhorn-product-name} não executa o processo de limpeza para esse rótulo.
+
+== Aplicar Trabalho Recorrente ao Volume {longhorn-product-name}
+
+=== Usando a interface do usuário {longhorn-product-name}
+
+O trabalho recorrente pode ser atribuído na página de detalhes do volume. Para navegar até a página de detalhes do volume, clique em *Volume* e depois clique no nome do volume.
+
+== Usando kubectl
+
+Adicionar grupo de trabalho recorrente:
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job-group.longhorn.io/<RECURRING-JOB-GROUP-NAME≥enabled
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job-group.longhorn.io/default=enabled
+----
+
+Adicionar trabalho recorrente:
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job.longhorn.io/<RECURRING-JOB-NAME≥enabled
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job.longhorn.io/backup=enabled
+----
+
+Remover trabalho recorrente:
+
+----
+kubectl -n longhorn-system label volume/<VOLUME-NAME> <RECURRING-JOB-LABEL>-
+
+# Example:
+# kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job.longhorn.io/backup-
+----
+
+== Com um PersistentVolumeClaim Usando kubectl
+
+Por padrão, aplicar um trabalho recorrente a um Persistent Volume Claim (PVC) não tem efeito. Você pode habilitar ou desabilitar este recurso usando o rótulo de origem do trabalho recorrente.
+
+Uma vez que o PVC é rotulado como a origem, quaisquer rótulos de trabalho recorrente adicionados ou removidos do PVC serão periodicamente sincronizados por {longhorn-product-name} com o Volume associado.
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job.longhorn.io/source=enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/source=enabled
+----
+
+Adicionar grupo de trabalho recorrente:
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job-group.longhorn.io/<RECURRING-JOB-GROUP-NAME≥enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job-group.longhorn.io/default=enabled
+----
+
+Adicionar trabalho recorrente:
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job.longhorn.io/<RECURRING-JOB-NAME≥enabled
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/backup=enabled
+----
+
+Remover trabalho recorrente:
+
+----
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> <RECURRING-JOB-LABEL>-
+
+# Example:
+# kubectl -n default label pvc/sample recurring-job.longhorn.io/backup-
+----
+
+== Com parâmetros de StorageClass
+
+A atribuição de trabalho recorrente pode ser configurada nos parâmetros `recurringJobSelector` em uma StorageClass.
+
+Quaisquer volumes futuros criados usando esta StorageClass terão esses trabalhos recorrentes atribuídos automaticamente.
+
+O campo `recurringJobSelector` deve seguir o formato JSON:
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn
+provisioner: driver.longhorn.io
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  recurringJobSelector: '[
+    {
+      "name":"snap",
+      "isGroup":true
+    },
+    {
+      "name":"backup",
+      "isGroup":false
+    }
+  ]'
+----
+
+Os seguintes parâmetros devem ser especificados para cada seletor de trabalho recorrente:
+
+. `name`: Nome de um trabalho recorrente existente ou de um grupo de trabalho recorrente existente.
+. `isGroup`: é o nome que pertence a um trabalho recorrente ou grupo de trabalhos recorrentes, seja `true` ou `false`.
+
+== Permitir Trabalho Recorrente Enquanto o Volume Está Desconectado
+
+{longhorn-product-name} fornece a configuração `allow-recurring-job-while-volume-detached` que permite realizar backup recorrente mesmo quando um volume está desconectado.
+Você pode encontrar a configuração na interface do usuário {longhorn-product-name}.
+
+Quando a configuração está habilitada, {longhorn-product-name} irá automaticamente conectar o volume e tirar um instantâneo/backup quando for a hora de fazer um instantâneo/backup recorrente.
+
+Observe que durante o tempo em que o volume foi conectado automaticamente, o volume não está pronto para a carga de trabalho. A carga de trabalho terá que esperar até que o trabalho recorrente termine.
+
+== Backup Completo Periódico
+
+{longhorn-product-name} realiza backups delta por padrão, o que significa que apenas os dados que foram alterados desde o último backup são enviados. No entanto, quando um bloco de dados no backupstore se torna corrompido, {longhorn-product-name} não substitui esse bloco de dados por um saudável durante operações de backup subsequentes. Blocos de dados corrompidos no backupstore podem causar falhas nas operações de restauração.
+Quando um parâmetro `full-backup-interval` diferente de zero é definido, {longhorn-product-name} realiza um backup completo a cada `full-backup-interval` backups incrementais. Durante um backup completo, {longhorn-product-name} envia todos os blocos de dados no volume. Blocos de dados que existem no backupstore, incluindo os corrompidos, são sobrescritos.
+
+IMPORTANT: Realizar um backup completo pode levar mais tempo e gerar maior throughput de rede e custos do que o backup incremental padrão.

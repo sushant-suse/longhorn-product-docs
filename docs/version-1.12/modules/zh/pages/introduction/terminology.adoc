@@ -1,0 +1,176 @@
+= 术语
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+
+== 附加/重新附加
+
+附加块设备是使其在Linux节点上显示，例如`/dev/longhorn/testvol`
+
+如果卷引擎意外停止，{longhorn-product-name}将重新附加该卷。
+
+== 备份
+
+备份是备份存储中的一个对象。备份存储可能包含卷备份和系统备份。
+
+== 备份存储
+
+{longhorn-product-name}备份保存到备份存储中，该存储位于Kubernetes集群之外。备份存储可以是NFS共享或兼容S3的服务器。
+
+{longhorn-product-name} 使用在 backuptarget 中配置的端点访问备份存储。
+
+== 备份目标
+
+备份目标是用于访问{longhorn-product-name}中的备份存储的端点。
+
+== 备份卷
+
+备份卷是映射到一个原始卷的备份，位于备份存储中。备份卷可以在UI中的*备份*页面上查看。备份卷将包含同一卷的多个备份。
+
+可以从快照创建备份。它们包含快照创建时卷的状态，但不包含快照，因此不包含卷数据的更改历史。备份由 2 MB 文件构成，而快照可能达到 TB 级别。
+
+备份由对象存储中的2 MB块组成。
+
+有关快照和备份工作原理的更长解释，请参阅xref:introduction/concepts.adoc#_2_4_1_how_snapshots_work[概念文档。]
+
+== 块存储
+
+一种将数据存储在固定大小块中的存储方法。每个块根据内存地址进行区分。
+
+== CRD
+
+Kubernetes https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/[自定义资源定义]
+
+== CSI 驱动程序
+
+Longhorn CSI 驱动程序是一个 https://kubernetes-csi.github.io/docs/drivers.html[容器存储接口]，可以与 Kubernetes 一起使用。{longhorn-product-name} 卷的 CSI 驱动程序名为 `driver.longhorn.io`。
+
+== 灾难恢复卷（DR 卷）
+
+DR 卷是一个特殊卷，用于在整个主集群出现故障时，将数据存储在备份集群中。DR 卷用于提高 {longhorn-product-name} 卷的弹性。
+
+备份存储中的每个备份卷映射到 Kubernetes 集群中的一个原始卷。同样，每个 DR 卷映射到备份存储中的一个备份卷。
+
+可以创建 DR 卷以准确反映 {longhorn-product-name} 卷的备份，但在激活之前，它们不能作为正常的 {longhorn-product-name} 卷使用。
+
+== ext4
+
+Linux 的文件系统。{longhorn-product-name} 支持 ext4 存储。
+
+== 前端扩展
+
+这里的前端指的是由 {longhorn-product-name} 卷暴露的块设备。
+
+== 实例管理器
+
+用于控制器/副本实例生命周期管理的组件。
+
+== {longhorn-product-name} 卷
+
+{longhorn-product-name} 卷是由 Longhorn Manager 复制和管理的 Kubernetes 卷。对于每个卷，Longhorn 管理器还会创建：
+
+* 一个 Longhorn Engine 的实例
+* 卷的副本，每个副本由卷的多个快照组成
+
+每个副本包含一个快照链，记录卷历史中的变化。默认情况下会创建三个副本，通常存储在不同的节点上以实现高可用性。
+
+== 挂载
+
+这是一个用于将块设备挂载到节点上某个目录的 Linux 命令，例如 `mount /dev/longhorn/testvol /mnt`。
+
+== NFS
+
+一个 https://en.wikipedia.org/wiki/Network_File_System[分布式文件系统协议]，允许您通过计算机网络访问文件，类似于访问本地存储的方式。 {longhorn-product-name} 支持使用 NFS 作为二级存储的备份存储。
+
+== 对象存储
+
+将数据管理为对象的数据存储架构。每个对象通常包括数据本身、可变数量的元数据和一个全局唯一标识符。 {longhorn-product-name} 卷可以备份到与 S3 兼容的对象存储。
+
+== 离线扩展
+
+在离线卷扩展中，卷被分离。
+
+== 过度配置
+
+过度配置允许服务器看到超过实际预留的存储容量。这意味着我们可以在一个 200 GiB 磁盘上调度总共 750 GiB 的 {longhorn-product-name} 卷，其中 50G 保留给根文件系统。*存储过度配置百分比* 可以在 xref:longhorn-system/settings.adoc[设置] 中配置。
+
+== PersistentVolume
+
+持久卷 (PV) 是一个 Kubernetes 资源，表示集群中由管理员预配或使用存储类动态预配的存储单元。它是一个集群级别的资源，要求 Pods 使用与任何单个 Pod 的生命周期无关的持久存储。有关更多信息，请参见官方 https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetes 关于持久卷的文档。]
+
+== PersistentVolumeClaim
+
+PersistentVolumeClaim（PVC）是用户对存储的请求。Pods 可以通过使用 PVC 请求特定级别的资源（CPU 和内存）。声明可以请求特定的大小和访问模式（例如，可以以读/写模式挂载一次，或者以只读模式多次挂载）。
+
+有关详细信息，请参见官方 https://kubernetes.io/docs/concepts/storage/persistent-volumes/[Kubernetes 文档]。
+
+== 主备份
+
+Kubernetes集群中每个{longhorn-product-name}卷的副本可以视为主备份。
+
+== 重新装入
+
+在重新装入中，{longhorn-product-name}将在重新附加后检测并挂载卷的文件系统。
+
+== 复本
+
+副本由一系列快照组成，显示卷内数据变化的历史。
+
+== S3
+
+https://aws.amazon.com/s3/[Amazon S3]是一个对象存储服务。
+
+== 恢复卷
+
+当所有副本出现故障时，例如由于网络断开，需要进行恢复操作。
+
+在恢复卷时，{longhorn-product-name}将尝试找出哪些副本可用，然后使用它们来恢复卷。
+
+== 次级备份
+
+Kubernetes集群外部的备份，存储在S3或NFS上。
+
+== 快照
+
+快照捕获了创建时卷的状态。每个快照仅捕获覆盖早期快照数据的变化，因此需要一系列快照才能完全表示卷的完整状态。卷可以从快照中恢复。有关快照的更长解释，请参阅xref:introduction/concepts.adoc[概念文档]。
+
+== 稳定身份
+
+https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[StatefulSets] 具有稳定的身份，这意味着 Kubernetes 不会强制删除用户的 Pod。
+
+== StatefulSet
+
+https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/[Kubernetes 资源] 用于管理有状态的应用程序。
+
+== StorageClass
+
+Kubernetes 资源，可用于为 Pod 自动配置 PersistentVolume。有关更多信息，请参阅 https://kubernetes.io/docs/concepts/storage/storage-classes/#the-storageclass-resource[Kubernetes 文档。]
+
+== 系统备份
+
+{longhorn-product-name} 将系统备份上传到备份存储。每个系统备份包含 {longhorn-product-name} 系统的系统备份资源包。
+
+有关详细信息，请参见 xref:snapshots-backups/system-backups/create-system-backup.adoc#_longhorn_system_backup_bundle[系统备份包]。
+
+== 精简配置
+
+{longhorn-product-name} 是一个精简配置的存储系统。这意味着 {longhorn-product-name} 卷只会占用当前所需的空间。例如，如果您分配了一个 20 GB 的卷，但只使用了 1 GB，则磁盘上的实际数据大小将为 1 GB。
+
+== Umount
+
+https://linux.die.net/man/8/umount[Linux 命令] 用于从文件层次结构中分离文件系统。
+
+== 卷（Kubernetes 概念）
+
+Kubernetes 中的卷允许 Pod 在其生命周期内存储文件。
+
+这些文件在容器崩溃后仍然可用，但在 Pod 的生命周期结束后将不可用。要获取在 Pod 生命周期结束后仍然可用的存储，需要 Kubernetes https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes[PersistentVolume (PV)]。
+
+有关更多信息，请参阅 Kubernetes 文档中的 https://kubernetes.io/docs/concepts/storage/volumes/[卷。]
+
+== XFS
+
+这是一个被大多数 Linux 发行套件支持的 https://en.wikipedia.org/wiki/XFS[文件系统]。{longhorn-product-name} 支持将 XFS 用作存储。
+
+== SMB/CIFS
+
+一种 https://en.wikipedia.org/wiki/Network_File_System[网络文件系统协议]，允许您通过计算机网络访问文件，类似于访问本地存储的方式。{longhorn-product-name} 支持使用 SMB/CIFS 作为二级存储的备份存储。

@@ -1,0 +1,117 @@
+= バックアップイメージのバックアップ
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhornはバックアップイメージのバックアップをサポートしています。
+
+== 前提条件
+
+まずxref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[バックアップターゲットを設定してください]。この重要なステップをスキップすると、バックアップターゲットが欠落し、Longhornはバックアップイメージのバックアップを作成できなくなります。
+
+== バックアップイメージのバックアップを作成する
+
+バックアップイメージはLonghornシステム内でグローバルに一意であるため、対応するバックアップもグローバルに一意であり、同じ名前で識別されます。
+
+=== YAMLを使用してバックアップを作成する
+
+バックアップイメージの例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+  name: parrot-backup
+  namespace: longhorn-system
+spec:
+  backingImage: parrot
+  backupTargetName: default
+  sourceType: download
+  sourceParameters:
+    url: https://longhorn-backing-image.s3-us-west-1.amazonaws.com/parrot.raw
+  checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+サンプルバックアップイメージのバックアップを作成するために使用されるYAMLコードの例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackupBackingImage
+metadata:
+  name: parrot
+  namespace: longhorn-system
+spec:
+  userCreated: true
+  labels:
+    usecase: test
+    type: raw
+----
+
+* `name`:名前が一意でない場合、Longhornはバックアップイメージのバックアップを作成できません。
+* `backingImage`:バックアップのバックアップイメージ。
+* `backupTargetName`:バックアップストアでバックアップを保存およびアクセスするために使用されるエンドポイント。
+* `userCreated`:バックアップストアでのバックアップ作成を有効にしたバックアップカスタムリソースを作成したことを示すために、値を`true`に設定してください。値`false`は、バックアップカスタムリソースがバックアップストアから同期されたことを示します。
+* `labels`:バックアップイメージのバックアップにラベルを追加できます。
+
+=== Longhorn UIを使用してバックアップを作成する
+
+. *設定 -> バックアップイメージ*に移動します。
+. バックアップしたいバックアップイメージを選択し、*バックアップ*を*操作*メニューでクリックします。
+
+Longhornはバックアップを作成し、*バックアップイメージのバックアップ*リストに詳細を追加します。
+
+image::screenshots/backing-image/backup.png[イメージ]
+
+== バックアップからバックアップイメージを復元する
+
+バックアップストアでバックアップを作成した後、別のクラスターでバックアップイメージを復元できます。
+
+バックアップイメージを復元するために使用されるYAMLコードの例：
+
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: BackingImage
+metadata:
+    name: parrot-restore
+    namespace: longhorn-system
+spec:
+    sourceType: restore
+    sourceParameters:
+        # change to your backup URL
+        # backup-url: nfs://longhorn-test-nfs-svc.default:/opt/backupstore?backingImage=parrot
+        backup-url: s3://backupbucket@us-east-1/?backingImage=parrot
+        concurrent-limit: "2"
+    checksum: 304f3ed30ca6878e9056ee6f1b02b328239f0d0c2c1272840998212f9734b196371560b3b939037e4f4c2884ce457c2cbc9f0621f4f5d1ca983983c8cdf8cd9a
+----
+
+[IMPORTANT]
+====
+* `sourceType`:値を`restore`に設定します。
+* `sourceParameters`:次のパラメータを設定します：
+ ** `backup-url`:バックアップストア内のバックアップイメージリソースのURL。この情報は、バックアップカスタムリソース`.Status.URL`のステータスにあります。
+ ** `concurrent-limit`:各復元操作で同時に実行できる最大ワーカースレッド数。指定しない場合、Longhornはデフォルト値を使用します。
+* `checksum`:バックアップイメージファイルの期待されるSHA-512チェックサムを指定できます。Longhornはこれを使用して復元されたファイルを検証します。指定しない場合、Longhornは復元されたファイルのチェックサムを真実として使用します。
+====
+
+=== Longhorn UIを使用してバックアップから復元する
+
+. *設定 -> バックアップイメージ*に移動します。
+. 使用したいバックアップを選択し、*復元*を*操作*メニューでクリックします。
+. 暗号化されたバックアップイメージを復元する場合は、`Secret`と`Secret Namespace`を指定してください。
+. [OK] をクリックします。
+
+image::screenshots/backing-image/restore.png[イメージ]
+
+[IMPORTANT]
+====
+Longhornは現在、バックアップイメージのバックアップに秘密に関連する情報を保存していません。暗号化されたバックアップイメージを復元する際には、秘密と秘密のネームスペースを指定する必要があります。この問題は、今後のリリースで対処されます。
+====
+
+== バックアップイメージを持つボリューム
+
+ボリュームのバックアップを作成すると、Longhornは自動的にそのバックアップイメージのバックアップを作成します。
+
+バックアップイメージを持つボリュームを復元できます。クラスタにイメージが既に存在する場合、Longhornはそのイメージを直接使用します。バックアップストアにイメージが存在するがクラスタには存在しない場合、Longhornは自動的にバックアップイメージを復元します。

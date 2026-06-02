@@ -1,0 +1,55 @@
+= Pools de nœuds gérés sur Amazon Elastic Kubernetes Service (Amazon EKS)
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+EKS prend en charge la configuration du même modèle de lancement. Les nœuds du groupe de nœuds seront recyclés par de nouveaux nœuds avec de nouvelles configurations lors de la mise à jour de la version du modèle de lancement.
+
+Voir https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html[Support du modèle de lancement] pour plus d'informations.
+
+Voici un exemple pour remplacer les nœuds du cluster par une nouvelle taille de stockage.
+
+== Expansion de stockage
+
+. Dans Longhorn, définissez `replica-replenishment-wait-interval` sur `0`.
+. Allez au modèle de lancement du groupe de nœuds du cluster EKS. Vous pouvez trouver dans l'onglet du cluster EKS `Configuration/Compute/<node-group-name>` et cliquer sur le modèle de lancement.
+. Cliquez sur `Modify template (Create new version)` dans le menu déroulant `Actions`.
+. Choisissez le `Source template version` dans le `Launch template name and version description`.
+. Suivez les étapes pour <<_expand_volume,Étendre le volume>>, ou <<_create_additional_volume,Créer un volume supplémentaire>>.
++
+NOTE: Si vous choisissez d'étendre par <<_create_additional_volume,créer un volume supplémentaire>>, les disques doivent être ajoutés manuellement à la liste des disques des nœuds après la mise à niveau du cluster EKS.
+
+=== Étendre le volume
+
+. Mettez à jour la taille du volume dans `Configure storage`.
+. Cliquez sur `Create template version` pour enregistrer les modifications.
+. Allez au groupe de nœuds du cluster EKS et changez `Launch template version` dans `Node Group configuration`. Suivez l'état dans l'onglet `Update history`.
+
+=== Créer un volume supplémentaire
+
+. Cliquez sur `Advanced` puis sur `Add new volume` dans `Configure storage` et remplissez les champs.
+. Ajustez le script de montage automatique et ajoutez à `User data` dans `Advanced details`. Assurez-vous que le `DEV_PATH` correspond au `Device name` du volume supplémentaire.
++
+----
+ MIME-Version: 1.0
+ Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
+
+ --==MYBOUNDARY==
+ Content-Type: text/x-shellscript; charset="us-ascii"
+
+ #!/bin/bash
+
+ # https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html#launch-template-user-data
+ echo "Running custom user data script"
+
+ DEV_PATH="/dev/sdb"
+ mkfs -t ext4 ${DEV_PATH}
+
+ MOUNT_PATH="/mnt/longhorn"
+ mkdir ${MOUNT_PATH}
+ mount ${DEV_PATH} ${MOUNT_PATH}
+----
+
+. Cliquez sur `Create template version` pour enregistrer les modifications.
+. Allez au groupe de nœuds du cluster EKS et changez `Launch template version` dans `Node Group configuration`. Suivez l'état dans l'onglet `Update history`.
+. Dans Longhorn, ajoutez le chemin du disque monté dans la liste des disques des nœuds.

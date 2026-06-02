@@ -1,0 +1,172 @@
+= Notas importantes
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Esta página resume las notas clave para {longhorn-product-name} v{patch-version}. Por favor, consulte https://github.com/longhorn/longhorn/releases/tag/v{patch-version}[aquí] para las notas de la versión completas.
+
+== Obsolescencia
+
+La imagen de respaldo V2 está en desuso y se eliminará en una futura versión. Los usuarios pueden utilizar el importador de datos en contenedores (CDI) para importar imágenes en Longhorn como alternativa. Para obtener más información, consulte xref:volumes/containerized-data-importer.adoc[{longhorn-product-name} con importaciones CDI].
+
+== Cambio de Comportamiento
+
+=== Salud del Volumen Clonado Después de Clonación Eficiente
+
+Con la clonación eficiente habilitada, un volumen recién clonado y separado está degradado y tiene solo una réplica, con su estado de clonación establecido en `copy-completed-awaiting-healthy`. Para llevar el volumen a un estado saludable, cambie el estado de clonación a `completed` y reconstruya la réplica restante habilitando la reconstrucción de réplicas fuera de línea o adjuntando el volumen para activar la reconstrucción de réplicas. Consulte https://github.com/longhorn/longhorn/issues/12341[Problema #12341] y https://github.com/longhorn/longhorn/issues/12328[Problema #12328].
+
+== Correcciones Importantes
+
+Esta versión incluye correcciones críticas de estabilidad.
+
+=== {longhorn-product-name} Fugas de Memoria de Pods de Carga de Trabajo
+
+Se corrigió una regresión crítica donde las fugas de conexión del proxy en los pods de longhorn-instance-manager causaban un alto consumo de memoria.
+
+Para obtener más detalles, consulte https://github.com/longhorn/longhorn/issues/12575[#12575].
+
+=== Regresión de nodeAffinity de PV
+
+Se corrigió una regresión donde el nodeAffinity de PV estaba configurado en exceso después de introducir `AccessibleTopology` en el servidor CSI y `allowedTopologies` en las Clases de Almacenamiento de Longhorn desde v1.11.0.
+
+Para obtener más detalles, consulte https://github.com/longhorn/longhorn/issues/12689[#12689] y https://github.com/longhorn/longhorn/issues/12656[#12656].
+
+== General
+
+=== Requisito de Versión de Kubernetes
+
+Debido a la actualización del snapshotter externo de CSI a la v8.2.0, debes estar ejecutando Kubernetes v1.25 o posterior para actualizar a {longhorn-product-name} v1.8.0 o una versión más reciente.
+
+=== Eventos de Comprobación de Actualización
+
+Cuando actualizas con Helm o el Mercado de Aplicaciones de Rancher, {longhorn-product-name} realiza comprobaciones previas a la actualización. Si una comprobación falla, la actualización se detiene y la razón de la falla se registra en un evento.
+
+Para más detalles, consulta xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Actualización de Longhorn Manager].
+
+=== Comprobaciones Manuales Antes de la Actualización
+
+Las comprobaciones automáticas previas a la actualización no cubren todos los escenarios. Se recomienda una comprobación manual utilizando `kubectl` o la UI de {longhorn-product-name}.
+
+* Asegúrate de que todos los volúmenes del Motor de Datos V2 estén desasociados y que las réplicas estén detenidas. El motor V2 no soporta actualizaciones en vivo.
+* Evita actualizar cuando los volúmenes estén en estado de Error. Las réplicas inutilizables pueden ser eliminadas, causando pérdida de datos permanente si no existen copias de seguridad.
+* Evita actualizar si existe un `BackingImage` fallido. Para más información, consulta xref:volumes/backing-images/backing-images.adoc[Imagen de respaldo] para más detalles.
+* Se recomienda crear una xref:snapshots-backups/system-backups/create-system-backup.adoc[Copia de seguridad del sistema Longhorn] antes de actualizar para asegurar la recuperabilidad.
+
+=== URL de Longhorn Manager para acceso a la API externa
+
+{longhorn-product-name} v{patch-version} introduce el ajuste `manager-url` que permite la configuración explícita de la URL externa para acceder a la API de Longhorn Manager.
+
+*Contexto*: Cuando se accede a Longhorn Manager a través de Ingress o Gateway API HTTPRoute, las respuestas de la API pueden contener IPs internas del clúster (por ejemplo, `10.42.x.x:9500`) en los campos `actions` y `links`. Esto ocurre cuando el controlador Ingress no establece correctamente los encabezados `X-Forwarded-*`, lo que provoca que la API vuelva a la IP interna del pod.
+
+*Solución*: Configura la `manager-url` con tu URL externa (por ejemplo, `pass:[https://longhorn.example.com]`). El Longhorn Manager inyecta los encabezados reenviados adecuados para asegurar que las respuestas de la API contengan las URLs externas correctas.
+
+*Configuración*:
+
+* *Vía Helm*: `--set defaultSettings.managerUrl="https://longhorn.example.com"`
+* *Vía kubectl*: `kubectl -n longhorn-system patch settings.longhorn.io manager-url --type='merge' -p '{"value":"https://longhorn.example.com"}'`
+* *Via UI*: Ajustes > General > URL de Longhorn Manager
+
+Para más detalles, consulta xref:longhorn-system/settings.adoc#_manager_url[URL de Longhorn Manager].
+
+=== Soporte de HTTPRoute de la API de Gateway
+
+{longhorn-product-name} v{patch-version} introduce soporte integrado para https://gateway-api.sigs.k8s.io/api-types/httproute[HTTPRoute de la API de Gateway] como una alternativa moderna a Ingress para exponer la UI de {longhorn-product-name}.
+
+Para instrucciones detalladas de configuración, requisitos previos y configuración avanzada, consulta xref:longhorn-system/system-access/longhorn-httproute.adoc[Crea un HTTPRoute con la API de Gateway].
+
+=== Límite de trabajos concurrentes para operaciones de instantáneas
+
+{longhorn-product-name} v{patch-version} introduce el *Límite Concurrente de Tareas Pesadas de Instantáneas* para prevenir el agotamiento del disco y la contención de recursos. Esta configuración limita las operaciones pesadas concurrentes—como la purga y clonación de instantáneas—por nodo, encolando tareas adicionales hasta que las actuales se completen. Al controlar estos procesos, el sistema reduce el riesgo de picos de almacenamiento típicamente provocados por fusiones de instantáneas.
+
+Para más detalles, consulta xref:longhorn-system/settings.adoc#_snapshot_heavy_task_concurrent_limit[Límite Concurrente de Tareas Pesadas de Instantáneas] y https://github.com/longhorn/longhorn/issues/11635[Problema #11635].
+
+== Programación
+
+=== Programación de Réplicas con Algoritmo de Balance
+
+Para mejorar la distribución de datos y la utilización de recursos, {longhorn-product-name} introduce un *algoritmo de balance* que programa réplicas de manera uniforme a través de nodos y discos basándose en puntuaciones de balance calculadas.
+
+Para más información, consulta xref:nodes/scheduling.adoc[Programación].
+
+=== Soporte para el control de afinidad de nodos PV consciente de la topología
+
+Longhorn CSI ahora aplica el parámetro StorageClass `allowedTopologies` y la configuración `csi-allowed-topology-keys`, que reconoce las topologías correctamente con claves configurables y luego configura el PV `nodeAffinity` de manera precisa. 
+
+Para más información, consulta https://github.com/longhorn/longhorn/issues/12261[Problema #12261], https://github.com/longhorn/longhorn/issues/12689[Problema #12689], xref:nodes/topology-aware-provisioning.adoc[Provisionamiento consciente de la topología] y xref:volumes/storageclass-parameters.adoc[Parámetros de clase de almacenamiento].
+
+== Monitorización
+
+=== Monitorización de la salud del disco
+
+A partir de {longhorn-product-name} v1.11.0, la monitorización de la salud del disco está disponible tanto para los motores de datos V1 como V2. {longhorn-product-name} recopila datos de salud del disco y los expone a través de métricas de Prometheus y los recursos personalizados `Node`.
+
+. *Funciones clave*:
+
+* Recopilación automática de datos de salud cada 10 minutos.
+* Estado de salud del disco y atributos detallados expuestos como métricas de Prometheus.
+* Datos de salud disponibles en los recursos personalizados `nodes.longhorn.io`.
+
+[NOTE]
+====
+* Los datos SMART pueden no estar completamente disponibles en entornos virtualizados o en la nube (por ejemplo, AWS EBS). Esto puede resultar en valores cero para algunos atributos.
+* Los atributos de salud disponibles varían según el tipo de disco y el hardware.
+====
+
+Para más información, consulta xref:observability/disk-health.adoc[Monitorización de la salud del disco].
+
+== Estabilidad del modo de acceso
+
+=== Modo de acceso ReadWriteOncePod
+
+{longhorn-product-name} v{patch-version} introduce soporte para el modo de acceso *ReadWriteOncePod (RWOP)*, abordando la necesidad de garantías más estrictas de acceso a volúmenes de un solo pod en cargas de trabajo con estado. A diferencia de ReadWriteOnce (RWO), que permite que múltiples pods en el mismo nodo monten un volumen, RWOP asegura que solo un pod en todo el clúster puede acceder al volumen en un momento dado. Esta capacidad es particularmente valiosa para aplicaciones con estado que requieren acceso exclusivo de escritura, como bases de datos u otras cargas de trabajo donde el acceso concurrente podría llevar a la corrupción de datos o problemas de consistencia.
+
+Para más información, consulta xref:volumes/create-volumes.adoc#_access_modes[Modos de acceso] y https://github.com/longhorn/longhorn/issues/9727[Problema #9727].
+
+== Reconstrucción
+
+=== Reconstrucción de Réplicas a Escala
+
+A partir de {longhorn-product-name} v1.11.0, una nueva función de *reconstrucción de réplicas a escala* permite que una réplica en reconstrucción obtenga datos de instantáneas de múltiples réplicas sanas de forma concurrente, lo que puede mejorar el rendimiento de la reconstrucción.
+
+Para obtener más información, consulte xref:high-availability/scale-replica-rebuilding.adoc[Reconstrucción de Réplicas a Escala].
+
+=== Reconstrucción de Réplicas Fuera de Línea
+
+A partir de {longhorn-product-name} v1.11.0, la configuración de *Reconstrucción de Réplicas Fuera de Línea* se actualiza de una configuración específica del motor de datos a una configuración global. Anteriormente, los usuarios podían configurar la reconstrucción de réplicas fuera de línea por separado para los motores de datos v1 y v2. Durante la actualización a v1.11.0, {longhorn-product-name} comprueba automáticamente la configuración existente. Si la reconstrucción de réplicas fuera de línea está habilitada para el motor de datos v1 o v2, la nueva configuración global se establece por defecto en `true`. De lo contrario, permanece deshabilitada (`false`).
+
+Para obtener más información, consulte xref:longhorn-system/settings.adoc#offline_replica_rebuilding[Configuración de Reconstrucción de Réplicas Fuera de Línea].
+
+== Herramienta shell
+
+=== Detección de Gestores de Paquetes para Distribuciones No Soportadas
+
+{longhorn-product-name} v{patch-version} mejora el comportamiento de instalación y verificación previa de Longhorn CLI. Cuando `/etc/os-release` no coincide con una distribución conocida, la CLI intenta detectar un gestor de paquetes y continúa en un modo de compatibilidad.
+
+Para obtener más información, consulte https://github.com/longhorn/longhorn/issues/12153[Problema #12153].
+
+== Motor de Datos V2
+
+=== {longhorn-product-name} Actualización del sistema
+
+Las actualizaciones de versión en vivo de volúmenes V2 no están soportadas. Antes de actualizar, asegúrese de que todos los volúmenes V2 estén desconectados.
+
+=== Vista previa técnica
+
+El motor de datos V2 es una *Vista previa técnica* característica en {longhorn-product-name} v1.11.0.
+
+Está casi completo, sin cambios funcionales significativos esperados, y ha sido validado en entornos controlados. Los usuarios deben evaluar la característica a fondo antes de habilitarla en producción.
+
+=== Parámetros de rendimiento de SPDK UBLK
+
+A partir de {longhorn-product-name} v1.11.0, el front end de SPDK UBLK expone parámetros de ajuste de rendimiento que se pueden configurar globalmente o por volumen:
+
+* *Profundidad de Cola* (`ublkQueueDepth`): Es la profundidad de cada cola de E/S para el front end de UBLK. El valor por defecto es `128`.
+* *Número de Colas* (`ublkNumberOfQueue`): Es el número de colas de E/S para el front end de UBLK. El valor por defecto es `1`.
+
+Estos parámetros se pueden configurar:
+
+* *Globalmente*: A través de los ajustes `Default Ublk Queue Depth` y `Default Ublk Number Of Queue` (ver xref:longhorn-system/settings.adoc#_default_ublk_queue_depth[Ajustes]).
+* *Por volumen*: A través de los parámetros de volumen `ublkQueueDepth` y `ublkNumberOfQueue`.
+* *Clase de Almacenamiento*: A través de los parámetros `ublkQueueDepth` y `ublkNumberOfQueue` en la definición de Clase de Almacenamiento.
+
+Para obtener más información, consulte https://github.com/longhorn/longhorn/issues/11039[Problema #11039].

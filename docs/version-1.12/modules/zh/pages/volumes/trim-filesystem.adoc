@@ -1,0 +1,112 @@
+= 修剪文件系统
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Longhorn支持在Longhorn卷内修剪文件系统。修剪将回收因删除文件而浪费的空间。
+
+[NOTE]
+====
+
+
+* 修剪快照中的已删除文件对文件系统没有影响，因为有效快照是不可变的。然而，文件系统会记住何时修剪了与快照相关的块。因此，您可能需要在重新尝试修剪标记为已删除的快照之前，卸载并重新挂载文件系统。
+* 如果您在文件系统修剪期间允许自动快照删除，请谨慎使用挂载选项`discard`。`discard`会频繁触发快照删除并中断备份创建等操作。
+====
+
+== 先决条件
+
+* Longhorn版本必须为v1.4.0或更高。
+* 在Longhorn卷内有一个可修剪的文件系统，如EXT4或XFS。
+* 在修剪之前，卷已附加并挂载在安装点上。
+
+== 在Longhorn卷中修剪文件系统
+
+您可以使用Longhorn UI或`fstrim`命令修剪Longhorn卷。
+
+=== Via Longhorn UI
+
+您可以直接点击附加卷的卷操作`Trim Filesystem`。
+
+然后，Longhorn 将*尽力*找出安装点并执行`fstrim <the mount point>`。 如果出现问题或文件系统不存在，UI将返回错误。
+
+=== 通过外壳命令
+
+使用`fstrim`时，您必须识别卷的安装点，然后运行命令`fstrim <the mount point>`。
+
+* RWO卷：安装点可以是工作负载的一个pod或手动附加卷的节点。
+* RWX卷：安装点是卷的共享管理器 Pod。共享管理器 Pod 包含 NFS 服务器，通常命名为 `share-manager-<volume name>`。
+
+要修剪 RWX 卷，请执行以下步骤：
+
+. 识别并打开卷的共享管理器 Pod 内的外壳。
++
+----
+ kubectl -n longhorn-system exec -it <the share manager pod> -- bash
+----
+
+. 识别 NFS 服务器的工作目录（例如，`/export/<volume name>`）。
++
+----
+ mount | grep <volume name>
+ /dev/longhorn/<volume name> on /export/<volume name> type ext4 (rw,relatime)
+----
+
+. 修剪工作目录。
++
+----
+ fstrim /export/<volume name>
+----
+
+==== 定期修剪文件系统
+
+您可以设置一个 xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc#_set_up_recurring_jobs[RecurringJob] 来定期修剪文件系统。
+
+== 在文件系统修剪期间自动删除快照
+
+根据设计，Longhorn 卷的有效快照是不可变的，因此您只能与以下内容一起使用文件系统修剪功能：
+
+* 卷头
+* 系统创建的或标记为已删除的前一个连续快照链
+
+如果卷实际占用的大部分空间与有效快照相关，则修剪操作效果不佳。
+
+=== 全局设置："在文件系统修剪期间删除快照"
+
+如果您希望 Longhorn 自动回收最大空间，可以启用设置 xref:longhorn-system/settings.adoc#_remove_snapshots_during_filesystem_trim[_在文件系统修剪期间删除快照_]。
+当此全局设置启用时，最新快照和前一个连续快照链会自动标记为已删除，从而允许 Longhorn 尽可能多地回收快照空间。然而，该设置可能会导致您故意创建的快照被删除（并最终清除）。
+
+=== 卷规格字段 "UnmapMarkSnapChainRemoved"
+
+每个卷都有一个字段 `volume.Spec.UnmapMarkSnapChainRemoved`，它会覆盖上述全局设置。
+
+此卷特定设置的选项为“禁用”、“启用”和“忽略”。当值为“忽略”时，全局设置生效。
+
+您可以在 StorageClass 中配置此设置，以便将该值应用于使用该 StorageClass 创建的所有卷。
+
+== 已知问题与限制
+
+=== 重建卷
+
+根据设计，Longhorn 会取消映射卷头中的块以及标记为已删除的前一个连续快照链中的块。在卷重建期间，这些快照中的一些可能会从一个副本移动到另一个副本，因此 Longhorn 在重建进行时无法修剪受影响卷的文件系统。
+
+由于重建可能需要很长时间，Longhorn 在重建期间不会取消映射块，而是选择不向文件系统返回 I/O 错误。这种行为特别有利于虚拟机工作负载，因为当多次尝试完成修剪时返回错误会导致其响应不佳。有关更多信息，请参见 https://github.com/longhorn/longhorn/issues/7103[问题 #7103]。
+
+在重建期间启动的修剪操作没有效果。对同一挂载卷的未来修剪操作也可能没有效果，因为文件系统会记住它已修剪的块。在尝试再次启动修剪操作之前，您可能需要卸载并重新挂载文件系统。
+
+=== 扩展卷
+
+在卷扩展期间，Longhorn 无法修剪文件系统。由于扩展速度很快，Longhorn 每当遇到此问题时都会返回 I/O 错误。文件系统识别到块未被修剪，并且可以在不重新挂载的情况下再次尝试。
+
+=== 加密卷
+
+* 默认情况下，设备映射器未启用 TRIM 命令。您可以查看 https://wiki.archlinux.org/title/Dm-crypt/Specialties#Discard/TRIM_support_for_solid_state_drives_(SSD)[此文档]以获取详细信息。
+* 如果您仍然想要修剪加密的 Longhorn 卷，您可以：
+ .. 进入卷附加的节点主机。
+ .. 为加密卷启用标志 `discards`。密码短语记录在相应的秘密中：
++
+[subs="+attributes",shell]
+----
+  cryptsetup --allow-discards --persistent refresh <Longhorn volume name>
+----
+
+ .. 直接使用 Longhorn UI 修剪卷或手动执行 `fstrim` 以获取 *安装点* 的 `/dev/mapper/<volume name>`。

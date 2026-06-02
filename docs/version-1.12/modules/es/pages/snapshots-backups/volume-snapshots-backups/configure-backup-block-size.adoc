@@ -1,0 +1,71 @@
+= Configurar el tamaño del bloque de copia de seguridad
+:revdate: 2025-08-28
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Bloques de copia de seguridad en {longhorn-product-name}
+
+Una copia de seguridad de {longhorn-product-name} se compone de fragmentos de datos de una instantánea, y cada uno de estos fragmentos se llama bloque. Estos bloques son las unidades fundamentales para procesar, transmitir y almacenar datos en el destino de la copia de seguridad. Cada bloque dentro de una única copia de seguridad tiene el mismo tamaño físico.
+
+Antes de {longhorn-product-name} v1.10.0, el tamaño del bloque de copia de seguridad estaba fijado en 2 MiB. Con {longhorn-product-name} v1.10.0 y versiones posteriores, los usuarios pueden establecer el tamaño del bloque de copia de seguridad al crear un nuevo volumen. Este valor es permanente y no se puede cambiar una vez creado el volumen. El tamaño del bloque utilizado para un volumen específico se muestra en su página de detalles en la interfaz de usuario de {longhorn-product-name}, y todas las futuras copias de seguridad para ese volumen utilizarán ese mismo tamaño.
+
+=== Impacto del tamaño del bloque de copia de seguridad
+
+{longhorn-product-name} ofrece dos tamaños de bloque de copia de seguridad: *2 MiB* y *16 MiB*. El tamaño que elijas afecta a la eficiencia con la que se crean y almacenan las copias de seguridad.
+
+. Tamaños de bloque más grandes significan menos bloques totales. Esto mejora la eficiencia de transmisión y reduce el número de solicitudes API enviadas al destino de la copia de seguridad, lo que puede acelerar el proceso de copia de seguridad.
+. Sin embargo, los tamaños de bloque más grandes también pueden utilizar más espacio de almacenamiento físico debido al relleno de ceros y requieren más memoria durante el proceso de creación de la copia de seguridad.
+
+== Tamaño global predeterminado del bloque de copia de seguridad
+
+{longhorn-product-name} proporciona una configuración global para definir el tamaño predeterminado del bloque de copia de seguridad para nuevos volúmenes. Si no especificas explícitamente un tamaño de bloque de copia de seguridad al crear un volumen, {longhorn-product-name} utilizará este valor predeterminado.
+
+Puedes cambiar el tamaño de bloque de copia de seguridad predeterminado utilizando ya sea la {longhorn-product-name} interfaz de usuario o kubectl:
+
+. Usando la {longhorn-product-name} interfaz de usuario:
++
+----
+Settings > General > Default Backup Block Size
+----
+
+. Usando `kubectl`:
++
+[,bash]
+----
+kubectl -n longhorn-system edit settings.longhorn.io default-backup-block-size
+----
+
+== Crea un Volumen y Especifica el Tamaño de Bloque de Copia de Seguridad
+
+Para establecer un tamaño de bloque de copia de seguridad personalizado al crear un nuevo volumen, sigue estos pasos:
+
+. Ve al menú *Volumen*.
+. Selecciona *Crear Volumen*.
+. En el diálogo de creación, dentro de `Advanced Configurations`, elige tu deseado *tamaño de bloque de copia de seguridad*.
+
+== Especifica el Tamaño de Bloque de Copia de Seguridad en la Clase de Almacenamiento
+
+Para volúmenes creados utilizando una Solicitud de Volumen Persistente (PVC), puedes especificar el `backupBlockSize` dentro de la sección `parameters` del `StorageClass`.
+
+Ejemplo:
+
+[,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-example
+provisioner: driver.longhorn.io
+parameters:
+  backupBlockSize: 16Mi
+...
+----
+
+== Restaurando un Volumen Desde una Copia de Seguridad
+
+Cuando restauras un volumen desde una copia de seguridad, puedes establecer el nuevo volumen a un tamaño de bloque de copia de seguridad diferente al original.
+
+[CAUTION]
+====
+Las versiones de {longhorn-product-name} anteriores a v1.10 no son compatibles hacia adelante. No pueden restaurar copias de seguridad realizadas con {longhorn-product-name} v1.10 o más reciente. Intentar restaurar una copia de seguridad con un tamaño de bloque no predeterminado (cualquier cosa que no sea 2 MiB) en {longhorn-product-name} v1.9.x o anterior creará un volumen con corrupción del sistema de archivos.
+====

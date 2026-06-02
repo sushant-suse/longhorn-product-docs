@@ -1,0 +1,156 @@
+= Criar um instantâneo
+:revdate: 2026-01-08
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Um xref:introduction/concepts.adoc#_2_4_snapshots[instantâneo] é o estado de um volume Kubernetes em um determinado momento no tempo.
+
+== Gerenciamento de instantâneo via {longhorn-product-name} UI
+
+Para criar um instantâneo de um cluster existente, siga estas etapas:
+
+. Na barra de navegação superior da {longhorn-product-name} UI, clique em *Volume*.
+. Clique no nome do volume para o qual você deseja criar um instantâneo. Isso leva à página de detalhes do volume.
+. Clique no botão *Tirar Instantâneo*.
+
+Uma vez que o instantâneo é criado, você pode visualizá-lo na lista de instantâneos para o volume antes da Cabeça do Volume.
+
+=== Entendendo a Visualização da Cadeia de Instantâneos
+
+Na página de *Detalhes do Volume*, a seção *Instantâneos e Backups* exibe o histórico de instantâneos como uma cadeia. Por padrão, a opção *Mostrar Instantâneos do Sistema* está habilitada, e todos os instantâneos criados pelo sistema aparecem na visualização.
+
+Cada instantâneo na cadeia é codificado por cor para indicar seu tipo ou status. Se um instantâneo atender a múltiplos critérios, a visualização usa a cor com a maior prioridade.
+
+[cols="1,1,2,1", options="header"]
+|===
+| Tipo de Instantâneo
+| Cor
+| Descrição
+| Prioridade (1 = mais alta)
+
+| Erro
+| Vermelho
+| Indica que a criação do instantâneo falhou ou que o instantâneo tem um problema.
+| 1
+
+| Removido
+| cinza claro
+| Indica que o instantâneo está marcado para remoção ou foi deletado.
+| 2
+
+| Criado pelo sistema
+| Laranja/Amarelo
+| Criado automaticamente pelo Longhorn, frequentemente para trabalhos recorrentes ou operações internas.
+| 3
+
+| Backup
+| Verde
+| Indica que o instantâneo possui um backup armazenado em um destino de backup configurado.
+| 4
+
+| Padrão (criado pelo usuário)
+| Azul
+| Um instantâneo iniciado pelo usuário, tirado manualmente com a ação *Tirar Instantâneo*.
+| 5
+|===
+
+A figura a seguir mostra um exemplo da visualização da cadeia de instantâneos:
+
+image::diagrams/snapshot/snapshot_volumes_page.png[Página do Volume do Instantâneo]
+
+== Gerenciamento de instantâneo com Recursos Personalizados (CRs)
+
+Esta seção demonstra como criar, listar, restaurar e excluir instantâneos do Longhorn diretamente via `kubectl` usando os *Recursos Personalizados (CRs)* de {longhorn-product-name}.
+
+[NOTE]
+====
+{longhorn-product-name} utiliza seu próprio `Snapshot` CRD sob o grupo de API `longhorn.io` (por exemplo, `v1beta2`), não o `VolumeSnapshot` genérico do Kubernetes de `snapshot.storage.k8s.io`.
+====
+
+=== Criar um instantâneo
+
+. *Preparar o manifesto* - Crie um arquivo chamado `longhorn-snapshot.yaml` com o seguinte conteúdo:
++
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: longhorn-test-snapshot
+  namespace: longhorn-system
+spec:
+  volume: pvc-840804d8-6f11-49fd-afae-54bc5be639de   # replace with your actual Longhorn volume name
+  createSnapshot: true
+----
++
+. *Aplicar o manifesto*:
++
+[,bash]
+----
+kubectl apply -f longhorn-snapshot.yaml
+----
++
+Saída esperada:
++
+[,bash]
+----
+snapshot.longhorn.io/longhorn-test-snapshot created
+----
++
+[NOTE]
+====
+Se o volume estiver desconectado, uma breve advertência sobre o motor não estar em execução aparece. {longhorn-product-name} tenta automaticamente novamente e o instantâneo é concluído quando o volume está conectado.
+====
+
+=== Listar instantâneos
+
+Para listar todos os instantâneos de um volume específico, use o seguinte comando:
+
+[,bash]
+----
+kubectl get snapshots.longhorn.io -l longhornvolume=pvc-840804d8-6f11-49fd-afae-54bc5be639de -n longhorn-system
+----
+
+=== Apagar um instantâneo
+
+Para excluir um instantâneo específico, use o seguinte comando:
+
+[,bash]
+----
+kubectl delete snapshot.longhorn.io longhorn-test-snapshot -n longhorn-system
+----
+
+Saída esperada:
+
+[,bash]
+----
+snapshot.longhorn.io "longhorn-test-snapshot" deleted
+----
+
+[NOTE]
+====
+{longhorn-product-name} gerencia automaticamente a limpeza dos dados subjacentes.
+====
+
+== Diferenças Comportamentais do Motor de Dados
+
+Ao excluir um instantâneo que é o pai direto do *Cabeça do Volume* (o estado ativo atual), o comportamento do Recurso Personalizado de Instantâneo (CR) depende do Motor de Dados que está sendo usado:
+
+[cols="1,1,1", options="header"]
+|===
+| Comportamento | Motor de Dados v1 | Motor de Dados v2
+
+| *Persistência do CR*
+| O instantâneo CR *permanece* no sistema.
+| O instantâneo CR é *removido imediatamente*.
+
+| *Campos de Status*
+| `READYTOUSE` se torna `false` e o instantâneo é marcado como `Removed`.
+| Não aplicável, porque o instantâneo CR foi excluído.
+
+| *Explicação*
+| Volumes v1 não podem mesclar fisicamente o pai de uma cabeça de volume ativo imediatamente. O CR permanece para rastrear os dados do instantâneo até uma mesclagem ou operação de limpeza posterior.
+| Volumes v2 suportam a mesclagem ao vivo do instantâneo pai na cabeça do volume, permitindo a limpeza imediata de dados e metadados.
+|===
+
+Essa diferença de comportamento é esperada. Em *volumes v2*, o desaparecimento imediato do instantâneo CR indica que o motor finalizou com sucesso a exclusão e mesclou os dados.

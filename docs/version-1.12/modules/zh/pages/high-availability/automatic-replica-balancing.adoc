@@ -1,0 +1,130 @@
+= 自动副本平衡
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+当副本在节点或区域上分布不均时，{longhorn-product-name} `Replica Auto Balance`设置会在新节点加入集群或卷的副本数量更新时自动平衡副本。
+
+== 副本自动平衡设置
+
+=== 全局设置
+
+{longhorn-product-name} 支持 3 个全局副本自动平衡设置选项：
+
+* `disabled`”结尾。这是默认选项，不会进行副本自动平衡。
+* `least-effort`”结尾。此选项指示 {longhorn-product-name} 进行副本平衡以实现最小冗余。
+例如，在添加节点-2 后，具有 4 个不平衡副本的卷将仅重新平衡 1 个副本。
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  +-- replica-c
+  node-2
+  +-- replica-d
+----
+
+* `best-effort`”结尾。此选项指示 {longhorn-product-name} 尝试平衡副本以实现均匀冗余。
+例如，在添加节点-2 后，具有 4 个不平衡副本的卷将重新平衡 2 个副本。
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  node-2
+  +-- replica-c
+  +-- replica-d
+----
++
+{longhorn-product-name} 不会强制将副本重新调度到没有足够节点支持均衡的区域。相反，{longhorn-product-name} 将在节点级别重新调度以实现平衡。
+
+=== 卷特定设置
+
+{longhorn-product-name}还支持对单个卷设置`Replica Auto Balance`。该设置可以在 `volume.spec.replicaAutoBalance` 中指定，这将覆盖全局设置。
+
+单个卷设置有 4 个可用选项：
+
+* `Ignored`”结尾。这是默认选项，指示 {longhorn-product-name} 从全局设置继承。
+* `disabled`”结尾。此选项指示 {longhorn-product-name} 不执行副本自动平衡。
+* `least-effort`”结尾。此选项指示 {longhorn-product-name} 进行副本平衡以实现最小冗余。
+例如，在添加节点-2 后，具有 4 个不平衡副本的卷将仅重新平衡 1 个副本。
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  +-- replica-c
+  node-2
+  +-- replica-d
+----
+
+* `best-effort`”结尾。此选项指示 {longhorn-product-name} 尝试平衡副本以实现均匀冗余。
+例如，在添加节点-2 后，具有 4 个不平衡副本的卷将重新平衡 2 个副本。
++
+----
+  node-1
+  +-- replica-a
+  +-- replica-b
+  node-2
+  +-- replica-c
+  +-- replica-d
+----
++
+{longhorn-product-name} 不会强制将副本重新调度到没有足够节点支持均衡的区域。相反，{longhorn-product-name} 将在节点级别重新调度以实现平衡。
+
+== 如何为卷设置副本自动平衡
+
+为`Replica Auto Balance`卷设置{longhorn-product-name}有三种方式：
+
+=== 更改全局设置
+
+您可以在 `Replica Auto Balance` 的用户界面设置中更改 {longhorn-product-name} 的全局默认设置。
+全局设置仅作为默认值，类似于副本数量。
+它不会更改任何现有的卷设置。
+当创建卷时未指定`Replica Auto Balance`时，{longhorn-product-name}将自动设置为`ignored`以继承全局设置。
+
+=== 使用{longhorn-product-name}用户界面将单个卷设置为自动平衡副本。
+
+您可以在卷详细信息页面上创建后更改单个卷的`Replica Auto Balance`设置，或在列出的卷页面上进行多次更新。
+
+=== 使用 StorageClass 将单个卷设置为自动平衡副本。
+
+{longhorn-product-name} 还将 `Replica Auto Balance` 设置作为 StorageClass 中的一个参数公开。
+您可以创建一个具有指定 `Replica Auto Balance` 设置的 StorageClass，然后使用此 StorageClass 创建 PVC。
+
+例如，下面的YAML文件定义了一个StorageClass，告诉{longhorn-product-name} CSI驱动程序将`Replica Auto Balance`设置为`least-effort`：
+
+[subs="+attributes",yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: hyper-converged
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  replicaAutoBalance: "least-effort"
+  staleReplicaTimeout: "2880" # 48 hours in minutes
+  fromBackup: ""
+----
+
+== 副本自动平衡磁盘压力阈值（%）
+
+当`Replica Auto Balance`与`best-effort`一起启用时，您可以设置一个`Replica Auto Balance Disk Pressure Threshold (%)`。该阈值定义了磁盘使用水平，在此水平下，{longhorn-product-name}将自动尝试将副本迁移到同一节点上的另一个磁盘。
+
+例如，如果阈值设置为75%，当磁盘消耗达到75%容量时，{longhorn-product-name}将尝试顺序迁移副本。
+
+{longhorn-product-name}优先考虑在节点和区域之间平衡副本。一旦节点和区域平衡，它将考虑在单个节点内根据磁盘压力进行平衡。
+
+自{longhorn-product-name} v1.7.0以来，在同一节点上重建副本时，{longhorn-product-name}使用本地文件数据同步以实现更高效的数据传输。
+
+== 局限性
+
+{longhorn-product-name}中的自动副本平衡功能仅在具有`Healthy`的健壮状态的卷上激活。
+
+*不健康的卷*或*分离的卷*不会自动重新平衡，即使节点的可用空间较低。
+
+这种行为是一个故意的设计选择，以确保系统的稳定性和数据的完整性：* 在不健康的卷上移动副本或触发自动重建可能会进一步危害数据的完整性。该设计需要手动干预，以便管理员在启动潜在风险操作之前评估卷的状态。* 分离的卷不主动提供 I/O 服务。跳过自动重平衡可以防止不必要的重建，并节省集群资源。
+
+如果卷不健康或已分离，移动副本需要手动干预，例如：* 在检查和/或附加卷后重建副本。* 如果卷已分离，则附加卷（以恢复健康状态，如果可能的话）。

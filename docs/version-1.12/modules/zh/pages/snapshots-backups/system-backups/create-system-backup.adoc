@@ -1,0 +1,165 @@
+= 创建一个 {longhorn-product-name} 系统备份
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 系统备份包
+
+Longhorn 系统备份创建一个资源包并将其上传到远程备份目标。
+
+它包括与 Longhorn 系统相关的以下资源：
+
+* BackingImages
+* ClusterRoles
+* ClusterRoleBindings
+* ConfigMaps
+* CustomResourceDefinitions
+* DaemonSets
+* 部署
+* EngineImages
+* PersistentVolumes
+* PersistentVolumeClaims
+* RecurringJobs
+* 角色
+* RoleBindings
+* 设置
+* 服务
+* ServiceAccounts
+* StorageClasses
+* 卷
+
+[NOTE]
+====
+* 默认备份目标 (`default`) 始终用于存储系统备份。
+* Longhorn 系统备份包仅包括由 Longhorn 操作的资源。
+* Longhorn 不会备份 `Nodes` 资源。目标集群上的 Longhorn Manager 负责创建其自己的 Longhorn `Node` 自定义资源。
+* Longhorn 无法备份 V2 数据引擎备份镜像。
+====
+
+== 创建系统备份
+
+您可以使用 Longhorn UI 创建 Longhorn 系统备份。或者使用 `kubectl` 命令。
+
+=== 先决条件
+
+* xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc[]。Longhorn 将系统备份保存到远程备份存储。当备份目标未设置时，您将在创建过程中看到错误。
++
+NOTE: 取消设置备份目标会清除现有的 `SystemBackup` 自定义资源。在设置备份目标后，Longhorn 会同步到远程备份存储。当备份目标相同时，另一个集群也可以同步到相同的系统备份列表。
+
+* 为所有卷创建备份（可选）。
++
+NOTE: Longhorn 系统使用最新备份恢复卷。我们建议更新所有卷的最后备份。通过进行卷备份，您可以确保数据与系统备份保持最新。有关更多信息，请参阅 <<_volume_backup_policy,配置 - 卷备份策略>> 部分。
+
+=== 配置
+
+==== 卷备份策略
+
+Longhorn 系统备份提供以下卷备份策略选项：
+
+* `if-not-present`：Longhorn 为缺少现有备份或最新备份过期的卷创建备份。
+* `always`：Longhorn 为所有卷创建备份，无论其现有备份如何。
+* `disabled`：Longhorn 不会为卷创建任何备份。
+
+=== 一次性备份
+
+==== 使用 UI 创建系统备份
+
+. 在 `System Backups` 下拉列表中转到 `Backup and Restore` 页面。
+. 在 `Create` 下单击 `System Backup`。
+. 为系统备份提供一个 `Name`。
+. 选择一个 `Volume Backup Policy` 作为系统备份。
+. 当状态变为 `Ready` 时，系统备份将准备好使用。
+
+==== 使用 `kubectl` 创建系统备份
+
+. 执行 `kubectl create` 以创建一个 {longhorn-product-name} `SystemBackup` 自定义资源。
++
+[subs="+attributes",yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: SystemBackup
+metadata:
+  name: demo
+  namespace: longhorn-system
+spec:
+  volumeBackupPolicy: if-not-present
+----
+
+. 当状态变为 `Ready` 时，系统备份将准备好使用。
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME   VERSION   STATE   CREATED
+demo   v1.4.0    Ready   2022-11-24T04:23:24Z
+----
+
+=== 定期作业
+
+==== 使用 UI 创建定期备份作业
+
+. 转到 *定期作业* 屏幕。
+
+. 单击 *创建定期作业*。
+
+. 配置以下设置：
++
+* *名称*:为定期作业指定一个名称。
+* *任务*：选择 *系统备份*。
+* *保留*：指定 {longhorn-product-name} 必须保留的系统备份数量。
+* *cron*：指定 cron 表达式（由空白字符分隔的字段组成的字符串），以定义调度属性。
+* *参数*：选择 *卷备份策略*。
+
+. 单击 *确定*。
+
+{longhorn-product-name} 根据 *Cron* 字段中定义的计划创建系统备份。
+
+==== 使用 `kubectl` 创建定期备份任务。
+
+运行 `kubectl create` 创建一个 {longhorn-product-name} `RecurringJob` 自定义资源，任务为 `system-backup`。
+
+示例：
+
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: demo
+  namespace: longhorn-system
+spec:
+  task: system-backup
+  cron: '* * * * *'
+  retain: 1
+  parameters:
+    volume-backup-policy: if-not-present
+----
+
+{longhorn-product-name} 根据 `cron` 字段中定义的计划创建系统备份。
+
+== 删除系统备份。
+
+您可以使用 Longhorn UI 删除远程备份目标中的 Longhorn 系统备份。或者使用 `kubectl` 命令。
+
+=== 使用 Longhorn UI 删除系统备份。
+
+. 在 `System Backup` 下拉列表中转到 `Setting` 页面。
+. 在系统备份旁边的 `Operation` 下拉菜单中删除单个系统备份。或者使用 `Delete` 按钮批量删除。
++
+NOTE: 删除系统备份也会在备份存储中进行删除。
+
+=== 使用 `kubectl` 删除系统备份。
+
+. 执行 `kubectl delete` 删除 Longhorn `SystemBackup` 自定义资源。
++
+----
+> kubectl -n longhorn-system get systembackup
+NAME   VERSION   STATE   CREATED
+demo   v1.4.0    Ready   2022-11-24T04:23:24Z
+
+> kubectl -n longhorn-system delete systembackup/demo
+systembackup.longhorn.io "demo" deleted
+----
+
+== 历史记录
+
+https://github.com/longhorn/longhorn/issues/1455[原始功能请求]

@@ -1,0 +1,321 @@
+= SUSE® Storage 监控指标
+:revdate: 2025-12-22
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== 卷
+
+|===
+| 名称 | 说明 | 示例
+
+| longhorn_volume_actual_size_bytes
+| 对应节点上每个副本实际使用的空间
+| longhorn_volume_actual_size_bytes{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 1.1917312e+08
+
+| longhorn_volume_capacity_bytes
+| 此卷的配置大小（字节）
+| longhorn_volume_capacity_bytes{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 6.442450944e+09
+
+| longhorn_volume_state
+| 卷状态。该指标使用 `state` 标签指示当前卷状态。当前状态的值为 1，其他状态的值为 0。状态：创建中、已附加、已分离、正在附加、正在分离、正在删除 
+| longhorn_volume_state{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol",state="attached"} 1
+
+| longhorn_volume_robustness
+| 卷的健壮性。该指标使用 `state` 标签指示当前的健壮性。当前状态的值为 1，其他状态的值为 0。状态：未知、健康、降级、故障
+| longhorn_volume_robustness{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol",state="healthy"} 1
+
+| longhorn_volume_read_throughput
+| 此卷的读取吞吐量（字节/秒）
+| longhorn_volume_read_throughput{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 5120000
+
+| longhorn_volume_write_throughput
+| 此卷的写入吞吐量（字节/秒）
+| longhorn_volume_write_throughput{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 512000
+
+| longhorn_volume_read_iops
+| 此卷的读取 IOPS
+| longhorn_volume_read_iops{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 100
+
+| longhorn_volume_write_iops
+| 此卷的写入 IOPS
+| longhorn_volume_write_iops{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 100
+
+| longhorn_volume_read_latency
+| 此卷的读取延迟（纳秒）
+| longhorn_volume_read_latency{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 100000
+
+| longhorn_volume_write_latency
+| 此卷的写入延迟（纳秒）
+| longhorn_volume_write_latency{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 100000
+
+| longhorn_volume_file_system_read_only
+| 该指标指示卷现在处于只读模式。每个卷的指标为 1 或没有记录
+| longhorn_volume_file_system_read_only{node="worker-2",pvc="testvol",pvc_namespace="default",volume="testvol"} 1
+
+| longhorn_volume_last_backup_at 
+| 此卷最后一次成功备份的 Unix 时间戳，如果没有备份则为 0 
+| longhorn_volume_last_backup_at{pvc_namespace="default",node="worker-2",pvc="testvol",volume="testvol"} 1.766365578e+09
+|===
+
+== 节点
+
+|===
+| 名称 | 说明 | 示例
+
+| longhorn_node_status
+| 此节点的状态：1=真, 0=假
+| longhorn_node_status{condition="ready",condition_reason="",node="worker-2"} 1
+
+| longhorn_node_count_total
+| Longhorn系统中的节点总数
+| longhorn_node_count_total 4
+
+| longhorn_node_cpu_capacity_millicpu
+| 此节点上可分配的最大CPU
+| longhorn_node_cpu_capacity_millicpu{node="worker-2"} 2000
+
+| longhorn_node_cpu_usage_millicpu
+| 此节点上的CPU使用率
+| longhorn_node_cpu_usage_millicpu{node="pworker-2"} 186
+
+| longhorn_node_memory_capacity_bytes
+| 此节点上可分配的最大内存
+| longhorn_node_memory_capacity_bytes{node="worker-2"} 4.031229952e+09
+
+| longhorn_node_memory_usage_bytes
+| 此节点上的内存使用率
+| longhorn_node_memory_usage_bytes{node="worker-2"} 1.833582592e+09
+
+| longhorn_node_storage_capacity_bytes
+| 此节点的存储容量
+| longhorn_node_storage_capacity_bytes{node="worker-3"} 8.3987283968e+10
+
+| longhorn_node_storage_usage_bytes
+| 此节点的已用存储
+| longhorn_node_storage_usage_bytes{node="worker-3"} 9.060941824e+09
+
+| longhorn_node_storage_reservation_bytes
+| 此节点上为其他应用程序和系统保留的存储
+| longhorn_node_storage_reservation_bytes{node="worker-3"} 2.519618519e+10
+|===
+
+== 复本
+|===
+| 名称 | 说明 | 示例
+| longhorn_replica_info 
+| 每个副本CR的静态元数据 
+| longhorn_replica_info{replica="testvol-r-abc", volume="testvol", node="node-1", disk_path="/dev/xda", data_engine="v2"} 1 
+
+| longhorn_replica_state 
+| 副本的当前运行状态：运行中、已停止、错误、启动中、停止中、未知 
+| longhorn_replica_state{replica="testvol-r-abc", volume="testvol", node="node-1", state="running"} 1
+|===
+
+== 引擎
+
+|===
+| 名称 | 说明 | 示例
+
+| longhorn_engine_info 
+| 每个引擎CR的静态元数据 
+| longhorn_engine_info{engine="testvol-e-0", volume="testvol", node="node-1", data_engine="v2", frontend="blockdev", image="longhorn-instance-manager:latest"} 1 
+
+| longhorn_engine_state 
+| 引擎的运行状态：运行中、已停止、错误、启动中、停止中、未知 
+| longhorn_engine_state{engine="testvol-e-0", volume="testvol", node="node-1", state="running"} 1 
+
+| longhorn_engine_replica_mode 
+| 引擎报告的每个副本的模式：RW, WO, ERR 
+| longhorn_engine_replica_mode{volume="testvol", engine="testvol-e-0", replica="testvol-r-abc", mode="RW"} 1 
+
+| longhorn_engine_rebuild_progress
+| 引擎重建进度，范围从 0 到 100%。此指标仅在副本重建时可见。
+| longhorn_engine_rebuild_progress{pvc_namespace="default",pvc="testvol",engine="testvol-e-0",rebuild_src="10.42.1.215:20036",rebuild_dst="10.42.0.131:20922"} 42
+|===
+
+== 磁盘
+
+|===
+| 名称 | 说明 | 示例
+
+| longhorn_disk_capacity_bytes
+| 此磁盘的存储容量
+| longhorn_disk_capacity_bytes{disk="default-disk-8b28ee3134628183",node="worker-3"} 8.3987283968e+10
+
+| longhorn_disk_usage_bytes
+| 此磁盘的已用存储
+| longhorn_disk_usage_bytes{disk="default-disk-8b28ee3134628183",node="worker-3"} 9.060941824e+09
+
+| longhorn_disk_reservation_bytes
+| 此磁盘上为其他应用程序和系统保留的存储
+| longhorn_disk_reservation_bytes{disk="default-disk-8b28ee3134628183",node="worker-3"} 2.519618519e+10
+
+| longhorn_disk_status
+| 该磁盘的状态
+| longhorn_disk_status{condition="ready",condition_reason="",disk="default-disk-ca0300000000",node="worker-3"}
+
+| longhorn_disk_read_throughput
+| 该磁盘的读取吞吐量（字节/秒）
+| longhorn_disk_read_throughput{disk="default-disk-8b28ee3134628183",node="worker-3",disk_path="/dev/sda"} 10485760
+
+| longhorn_disk_write_throughput
+| 该磁盘的写入吞吐量（字节/秒）
+| longhorn_disk_write_throughput{disk="default-disk-8b28ee3134628183",node="worker-3",disk_path="/dev/sda"} 2097152
+
+| longhorn_disk_read_iops
+| 该磁盘的读取 IOPS
+| longhorn_disk_read_iops{disk="default-disk-8b28ee3134628183",node="worker-3",disk_path="/dev/sda"} 200
+
+| longhorn_disk_write_iops
+| 该磁盘的写入 IOPS
+| longhorn_disk_write_iops{disk="default-disk-8b28ee3134628183",node="worker-3",disk_path="/dev/sda"} 150
+
+| longhorn_disk_read_latency
+| 该磁盘的读取延迟（纳秒）
+| longhorn_disk_read_latency{disk="default-disk-8b28ee3134628183",node="worker-3",disk_path="/dev/sda"} 85000
+
+| longhorn_disk_write_latency
+| 该磁盘的写入延迟（纳秒）
+| longhorn_disk_write_latency{disk="default-disk-8b28ee3134628183",node="worker-3",disk_path="/dev/sda"} 95000
+
+| longhorn_disk_health
+| 磁盘健康状态（1 = 健康，0 = 不健康）。有关详细信息，请参见[磁盘健康监控](../disk-heath)
+| longhorn_disk_health{disk="default-disk-8b28ee3134628183",node="worker-3"} 1 
+
+| longhorn_disk_health_attribute_raw
+| 该磁盘的原始SMART健康属性值。仅在支持SMART数据时可用。有关详细信息，请参见xref:observability/disk-health.adoc[磁盘健康监控]
+| longhorn_disk_health_attribute_raw{attribute="Temperature Celsius",attribute_id="",disk="default-disk-db0dcb3d43bdcd05",node="longhorn-worker"} 37
+|===
+
+== 实例管理器
+
+|===
+| 名称 | 说明 | 示例
+
+| longhorn_instance_manager_cpu_usage_millicpu
+| 该Longhorn实例管理器的CPU使用率
+| longhorn_instance_manager_cpu_usage_millicpu{instance_manager="instance-manager-e-2189ed13",instance_manager_type="engine",node="worker-2"} 80
+
+| longhorn_instance_manager_cpu_requests_millicpu
+| 该Longhorn实例管理器在Kubernetes中请求的CPU资源
+| longhorn_instance_manager_cpu_requests_millicpu{instance_manager="instance-manager-e-2189ed13",instance_manager_type="engine",node="worker-2"} 250
+
+| longhorn_instance_manager_memory_usage_bytes
+| 该Longhorn实例管理器的内存使用率
+| longhorn_instance_manager_memory_usage_bytes{instance_manager="instance-manager-e-2189ed13",instance_manager_type="engine",node="worker-2"} 2.4072192e+07
+
+| longhorn_instance_manager_memory_requests_bytes
+| 该Longhorn实例管理器在Kubernetes中请求的内存
+| longhorn_instance_manager_memory_requests_bytes{instance_manager="instance-manager-e-2189ed13",instance_manager_type="engine",node="worker-2"} 0
+
+| longhorn_instance_manager_proxy_grpc_connection
+| 该Longhorn实例管理器的代理gRPC连接数量
+| longhorn_instance_manager_proxy_grpc_connection{instance_manager="instance-manager-e-814dfd05", instance_manager_type="engine", node="worker-2"} 0
+|===
+
+== 经理
+
+|===
+| 名称 | 说明 | 示例
+
+| longhorn_manager_cpu_usage_millicpu
+| 该Longhorn管理器的CPU使用率
+| longhorn_manager_cpu_usage_millicpu{manager="longhorn-manager-5rx2n",node="worker-2"} 27
+
+| longhorn_manager_memory_usage_bytes
+| 该Longhorn管理器的内存使用率
+| longhorn_manager_memory_usage_bytes{manager="longhorn-manager-5rx2n",node="worker-2"} 2.6144768e+07
+|===
+
+== 备份
+
+|===
+| 名称 | 说明 | 示例
+
+| longhorn_backup_actual_size_bytes
+| 此备份的实际大小
+| longhorn_backup_actual_size_bytes{backup="backup-4ab66eca0d60473e",volume="testvol", recurring_job="backup"} 6.291456e+07
+
+| longhorn_backup_state
+| 此备份的状态：0=新建，1=待处理，2=进行中，3=已完成，4=错误，5=未知
+| longhorn_backup_state{backup="backup-4ab66eca0d60473e",volume="testvol", recurring_job=""} 3
+|===
+
+== 快照
+
+|===
+| 名称 | 说明 | 示例
+
+| longhorn_snapshot_actual_size_bytes
+| 此快照的实际大小
+| longhorn_snapshot_actual_size_bytes{snapshot="f4468111-2efa-45f5-aef6-63109e30d92c",user_created="false",volume="testvol"} 1.048576e+07
+|===
+
+== BackingImage
+
+|===
+| 名称 | 说明 | 示例
+
+| longhorn_backing_image_actual_size_bytes
+| 此基础镜像的实际大小
+| longhorn_backing_image_actual_size_bytes{backing_image="parrot",disk="ca203ce8-2cad-4cd1-92a7-542851f50518",node="kworker1"} 3.3554432e+07
+
+| longhorn_backing_image_state
+| 此基础镜像的状态：0=待处理，1=启动中，2=进行中，3=准备传输，4=准备就绪，5=失败，6=失败并清理，7=未知
+| longhorn_backing_image_state{backing_image="parrot",disk="ca203ce8-2cad-4cd1-92a7-542851f50518",node="kworker1"} 4
+|===
+
+== BackupBackingImage
+
+|===
+| 名称 | 说明 | 示例
+
+| longhorn_backup_backing_image_actual_size_bytes
+| 此备份基础镜像的实际大小
+| longhorn_backup_backing_image_actual_size_bytes{backup_backing_image="parrot"} 3.3554432e+07
+
+| longhorn_backup_backing_image_state
+| 此备份基础镜像的状态：0=新建，1=待处理，2=进行中，3=已完成，4=错误，5=未知
+| longhorn_backup_backing_image_state{backup_backing_image="parrot"} 3
+|===
+
+## CSI
+
+CSI 辅助组件内置了指标，供用户获取 CSI 操作的洞察。CSI 操作指标涵盖总计数、错误计数和调用延迟。Longhorn 通过为每个 CSI 辅助组件添加标志 `--http-endpoint` 来启用指标。您可以使用 https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#podmonitor[Prometheus 的 PodMonitor] 来收集这些指标。
+
+|===
+| 名称 | 端口
+
+| longhorn-csi-attacher
+| 8000
+
+| longhorn-csi-provisioner
+| 8000
+
+| longhorn-csi-resizer
+| 8000
+
+| longhorn-csi-snapshotter
+| 8000
+|===
+
+CSI 辅助组件提供的指标以直方图格式呈现。例如，您可以通过观察创建 Longhorn 卷所需的时间来获取指标。
+
+----
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="0.1"} 0
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="0.25"} 0
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="0.5"} 0
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="1"} 0
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="2.5"} 3
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="5"} 3
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="10"} 3
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="15"} 9
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="25"} 9
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="50"} 9
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="120"} 9
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="300"} 9
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="600"} 9
+csi_sidecar_operations_seconds_bucket{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume",le="+Inf"} 9
+csi_sidecar_operations_seconds_sum{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume"} 66.816478825
+csi_sidecar_operations_seconds_count{driver_name="driver.longhorn.io",grpc_status_code="OK",method_name="/csi.v1.Controller/ControllerPublishVolume"} 9
+----

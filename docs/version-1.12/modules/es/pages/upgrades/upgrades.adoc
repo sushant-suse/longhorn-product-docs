@@ -1,0 +1,102 @@
+= Actualizaciones
+:revdate: 2026-03-06
+:page-revdate: {revdate}
+:doctype: book
+:current-version: {page-component-version}
+
+== Obsolescencia e incompatibilidad
+
+No se han introducido cambios obsoletos o incompatibles en v{patch-version}.
+
+== Aplicación de la ruta de actualización y prevención de retrocesos
+
+A partir de {longhorn-product-name} v1.5.0, las actualizaciones se permiten únicamente desde una versión menor a la siguiente consecutiva. Por ejemplo, puedes actualizar de 1.5.x a 1.6.x, pero no se admite saltar versiones (como de 1.4.x a 1.6.x). Si intentas una actualización desde una versión no compatible o saltas una versión menor, la operación falla automáticamente. Sin embargo, puedes volver a la versión instalada anteriormente sin interrupción del servicio ni tiempo de inactividad.
+
+Además, {longhorn-product-name} no admite retrocesos. Esta restricción ayuda a prevenir comportamientos inesperados del sistema y problemas asociados con la incompatibilidad de funciones, la obsolescencia o la eliminación.
+
+[CAUTION]
+====
+* Una vez que actualices con éxito a v{patch-version}, no se te permitirá volver a la versión instalada anteriormente.
+* El retroceso no está soportado y, por lo tanto, no se recomienda.
+====
+
+La siguiente tabla describe las rutas de actualización compatibles.
+
+[cols="^,^,^,^"]
+|===
+| Versión actual | Versión objetivo | Admitido | Ejemplo
+
+| x.y.*
+| x.(y+1).*
+| ✓
+| v1.4.2 a v1.5.1
+
+| x.y.*
+| x.y.(*+n)
+| ✓
+| v1.5.0 a v1.5.1
+
+| x.y[^lastMinorVersion].*
+| (x+1).y.*
+| ✓
+| v1.30.0 a v2.0.0
+
+| x.(y-1).*
+| x.(y+1).*
+| X
+| v1.3.3 a v1.5.1
+
+| x.(y-2).*
+| x.(y+1).*
+| X
+| v1.2.6 a v1.5.1
+|===
+
+== Comprobaciones manuales antes de las actualizaciones
+
+Las comprobaciones automatizadas solo se realizan en algunas rutas de actualización, y el verificador previo a la actualización puede no cubrir algunos escenarios. Se recomiendan comprobaciones manuales, realizadas utilizando kubectl o la interfaz de usuario, para estos escenarios. Puedes tomar acciones mitigadoras o posponer la actualización hasta que se resuelvan los problemas.
+
+* Asegúrate de que todos los volúmenes del motor de datos V2 estén desasociados y que las réplicas estén detenidas. El motor de datos V2 actualmente no soporta actualizaciones en vivo.
+* Evita actualizar cuando los volúmenes estén en estado "Faulted". Si todas las réplicas se consideran inutilizables, pueden ser eliminadas y los datos pueden perderse permanentemente (si no existen copias de seguridad utilizables).
+* Evita actualizar si existe un BackingImage fallido. Para más información, consulta xref:volumes/backing-images/backing-images.adoc[Backing Image].
+* Crea una copia de seguridad del sistema Longhorn antes de realizar la actualización. Consulta xref:snapshots-backups/system-backups/create-system-backup.adoc[Copia de Seguridad del Sistema Longhorn] para obtener instrucciones. Una copia de seguridad del sistema asegura que todos los recursos críticos, como volúmenes y Backing Images, estén respaldados y puedan ser restaurados si se producen problemas.
+
+== Actualizando {longhorn-product-name}
+
+Normalmente hay dos pasos en el proceso de actualización: primero actualiza Longhorn Manager a la última versión, luego actualiza manualmente Longhorn Engine a la última versión utilizando el último Longhorn Manager.
+
+=== 1. Actualizar Longhorn Manager
+
+* Para actualizar desde v{current-version}.x, xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Actualiza Longhorn Manager].
+
+=== 2. Actualizar manualmente Longhorn Engine
+
+Después de que se actualice Longhorn Manager, también se debe actualizar Longhorn Engine xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[usando la {longhorn-product-name} interfaz].
+
+=== 3. Actualizar automáticamente Longhorn Engine
+
+Desde {longhorn-product-name} v1.1.1, ofrecemos una opción para ayudarle a xref:upgrades/longhorn-components/auto-upgrade-engine.adoc[actualizar automáticamente Longhorn Engine].
+
+=== 4. Migrar automáticamente trabajos recurrentes
+
+Con la introducción de la nueva característica basada en etiquetas `Recurring Job`, {longhorn-product-name} ha eliminado el campo `RecurringJobs` en la especificación del volumen y planea dejar obsoleto `RecurringJobs` en la StorageClass.
+
+Durante la actualización, {longhorn-product-name} automáticamente:
+
+* Crea nuevos CRs de trabajos recurrentes a partir del campo `recurringJobs` en la especificación del volumen y los convierte en las etiquetas del volumen.
+* Crea nuevos CRs de trabajos recurrentes a partir de `recurringJobs` en la StorageClass y los convierte en el nuevo parámetro `recurringJobSelector`.
+
+Visita xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[Instantáneas y copias de seguridad recurrentes] para más información sobre la nueva característica `Recurring Job`.
+
+== Lectura extendida
+
+Visita https://longhorn.io/kb/troubleshooting-some-old-instance-manager-pods-are-still-running-after-upgrade[Algunos pods antiguos del gestor de instancias siguen funcionando después de la actualización] para más información sobre la estrategia de limpieza de los pods del gestor de instancias durante la actualización.
+
+== ¿Necesita ayuda?
+
+Si tienes algún problema, repórtalo https://github.com/longhorn/longhorn/issues[aquí] e incluye tus archivos yaml de copia de seguridad, así como los registros del gestor.
+
+[IMPORTANT]
+====
+{longhorn-product-name} solo permite actualizaciones desde versiones de parche de la última versión menor antes de la nueva versión mayor. Por ejemplo, si v1.8.0 es la última versión menor antes de v2.0, puedes actualizar desde cualquier versión de parche de v1.8.0 a cualquier versión de parche de v2.0.
+====

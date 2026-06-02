@@ -1,0 +1,120 @@
+= ノードセレクター
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:doctype: book
+:experimental:
+:current-version: {page-component-version}
+
+特定のノードセットでのみLonghornコンポーネントを実行するように制限したい場合は、すべてのLonghornコンポーネントに対してノードセレクターを設定できます。
+例えば、LinuxノードとWindowsノードの両方があるクラスターにLonghornをインストールしたいが、LonghornはWindowsノードでは実行できません。
+この場合、ノードセレクターを設定してLonghornをLinuxノードでのみ実行するように制限できます。
+
+ノードセレクターの動作についての詳細は、 https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector[公式Kubernetesドキュメント]を参照してください。
+
+== Longhornのノードセレクターの設定
+
+Longhornは、ユーザーがデプロイしたコンポーネント（例：Longhorn Manager、Longhorn Driver、Longhorn UI）とシステム管理されたコンポーネント（例：インスタンスマネージャー、バックイメージマネージャー、シェアマネージャー、CSIドライバー、エンジンイメージ）で構成されています。
+両方のタイプのコンポーネントに対してノードセレクターを設定する必要があります。以下の詳細を参照してください。
+
+[discrete]
+=== Longhornのインストール中にノードセレクターを設定する
+
+. ユーザーがデプロイしたコンポーネント（例：Longhorn Manager、Longhorn Driver、Longhorn UI）に対してノードセレクターを設定します。
+ ** Rancherを通じてLonghornをインストールする場合は、インストール中にRancher UIで「*Edit as YAML*」をクリックし、YAMLに以下のパラメータをコピー＆ペーストして、すべてのユーザーがデプロイしたコンポーネントに値を適用する必要があります。
++
+[subs="+attributes",yaml]
+----
+   global:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** 各ユーザーがデプロイしたコンポーネントに対してノードセレクターを指定することもでき、グローバル設定を上書きします。
++
+[subs="+attributes",yaml]
+----
+   longhornManager:
+     nodeSelector:
+       label-key1: "label-value1"
+   longhornDriver:
+     nodeSelector:
+       label-key1: "label-value1"
+   longhornUI:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** `kubectl`を使用して https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml[デプロイメントYAML]を適用する場合は、Longhorn Manager、Longhorn UI、およびLonghorn Driver Deployerのノードセレクターセクションを修正する必要があります。
+ 次に、YAMLファイルを適用します。
+ ** Helmを使用してLonghornをインストールする場合は、チャートをインストールする前に`values.yaml`ファイル内の`global.nodeSelector`、`longhornManager.nodeSelector`、`longhornUI.nodeSelector`、`longhornDriver.nodeSelector`のHelm値を変更できます。
+. システム管理されたコンポーネント（例：インスタンスマネージャー、バックイメージマネージャー、シェアマネージャー、CSIドライバー、エンジンイメージ）に対してノードセレクターを設定します。
++
+xref:longhorn-system/customize-default-settings.adoc[デフォルト設定のカスタマイズ]に従って、`system-managed-components-node-selector`のデフォルト設定の値を変更してノードセレクターを設定します。
++
+[NOTE]
+====
+Rancher 2.5.xの制限により、Rancher UIを使用してLonghornをインストールする場合は、`Edit As Yaml`をクリックして設定`systemManagedComponentsNodeSelector`を`defaultSettings`に追加する必要があります。
+
+次に例を示します。
+
+[subs="+attributes",yaml]
+----
+defaultSettings:
+  systemManagedComponentsNodeSelector: "label-key1:label-value1"
+----
+====
+
+[discrete]
+=== Longhornがインストールされた後のノードセレクターの設定
+
+____
+*警告*:
+
+* すべてのLonghornコンポーネントが再起動されるため、Longhornシステムは一時的に利用できません。
+* すべてのLonghornボリュームが切り離されると、カスタマイズされた設定がシステム管理コンポーネント（例：インスタンスマネージャー、CSIドライバー、エンジンイメージ）に即座に適用されます。
+* 1つ以上のLonghornボリュームがまだ接続されている場合、エンジンとレプリカインスタンスが実行されていないときにのみ、カスタマイズされた設定がインスタンスマネージャーに適用されます。残りのボリュームを切り離した後、設定を再構成する必要があります。または、1時間後に行われる次回の設定同期を待つこともできます。
+* ノードセレクター設定が更新され、Longhornコンポーネントが再起動されている間は、Longhornシステムを操作しないでください。
+____
+
+. 準備
+ ** 希望する設定が即座に適用されるように、すべてのワークロードを停止し、適用する前にすべてのLonghornボリュームを切り離してください。
+. ユーザーがデプロイしたコンポーネント（例：Longhorn Manager、Longhorn Driver、Longhorn UI）に対してノードセレクターを設定します。
+ ** Rancherを通じてLonghornをインストールする場合、アップグレード中にRancher UIで「*Edit as YAML*」をクリックし、YAMLに以下のパラメータをコピー＆ペーストして、すべてのユーザーがデプロイしたコンポーネントに値を適用する必要があります。
++
+[subs="+attributes",yaml]
+----
+   global:
+     nodeSelector:
+       label-key1: "label-value1"
+----
+
+ ** 各ユーザーがデプロイしたコンポーネントのノードセレクターを指定することもでき、グローバル設定を上書きします。
++
+[subs="+attributes",yaml]
+----
+  longhornManager:
+    nodeSelector:
+      label-key1: "label-value1"
+  longhornDriver:
+    nodeSelector:
+      label-key1: "label-value1"
+  longhornUI:
+    nodeSelector:
+      label-key1: "label-value1"
+----
+
+ ** `kubectl`を使用して https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/longhorn.yaml[デプロイメントYAML]を適用する場合は、Longhorn Manager、Longhorn UI、およびLonghorn Driver Deployerのノードセレクターセクションを修正する必要があります。
+その後、YAMLファイルを再適用します。
+ ** Helmを使用してLonghornをインストールする場合、`values.yaml`ファイル内の`global.nodeSelector`、`longhornManager.nodeSelector`、`longhornUI.nodeSelector`、`longhornDriverDeployer.nodeSelector`のHelm値を変更し、次に`helm upgrade`を実行してチャートの新しいバージョンにアップグレードします。
+. システム管理されたコンポーネント（例：Instance Manager、Backing Image Manager、Share Manager、CSI Driver、Engine Image）に対してノードセレクターを設定します。
++
+ノードセレクター設定は、Longhorn UIのmenu:Settings[System Managed Components Node Selector]の下にあります。
+
+. クリーンアップ
++
+ノードセレクターを変更して、Longhornが現在実行中のノードのいくつかで実行できないようにする場合、このプロセスの後、これらのノードは`down`状態になります。これらのノードにレプリカが残っていないことを確認してください。
+これらのノードのスケジューリングを無効にし、Longhorn UIで削除します。
+
+== 履歴
+
+* https://github.com/longhorn/longhorn/issues/2199[元の機能リクエスト]

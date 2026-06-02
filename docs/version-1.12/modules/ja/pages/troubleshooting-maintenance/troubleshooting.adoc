@@ -1,0 +1,116 @@
+= トラブルシューティング
+:revdate: 2025-09-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== トラブルシューティングガイド
+
+{longhorn-product-name}にはいくつかのコンポーネントがあります：Longhorn Manager、Engine、Driver、そしてUIです。デフォルトでは、これらのコンポーネントはKubernetesクラスターの`longhorn-system`ネームスペース内でポッドとして実行されます。
+
+ほとんどのログはサポートバンドルに含まれています。UIの下部にある*サポートバンドルを生成*リンクをクリックすると、{longhorn-product-name}に関連する設定やログを含むzipファイルをダウンロードできます。
+
+詳細についてはxref:troubleshooting-maintenance/support-bundle.adoc[サポートバンドル]を参照してください。
+
+一つの例外は`dmesg`で、これはユーザーが各ノードから取得する必要があります。
+
+=== UI
+
+{longhorn-product-name} UIを活用することは、トラブルシューティングの良い出発点です。例えば、Kubernetesがボリュームを正しくマウントできない場合、ワークロードを停止した後、そのボリュームを手動で一つのノードにアタッチしてマウントし、内容にアクセスしてボリュームが無傷であるか確認してください。
+
+また、UIダッシュボードのイベントログは、問題の可能性に関する情報を提供します。`Warning`レベルのイベントログを確認してください。
+
+=== Longhorn Manager とエンジン
+
+トラブルシューティングを助けるために、Longhorn ManagerとEngineからログを取得できます。最も有用なログは`longhorn-manager-xxx`からのものであり、Longhorn Instance Manager内のログ、例えば`instance-manager-xxxx`、`instance-manager-e-xxxx`、`instance-manager-r-xxxx`などです。
+
+通常、複数のLonghornマネージャーが同時に実行されているため、複数のポッドのログを追跡するのに優れたツールである https://github.com/johanhaleby/kubetail[kubetail,]の使用をお勧めします。Longhorn Managerのログをリアルタイムで追跡するには、次のようにします：
+
+----
+kubetail longhorn-manager -n longhorn-system
+----
+
+=== CSIドライバー
+
+CSIドライバーについては、`csi-attacher-0`と`csi-provisioner-0`のログ、ならびに`longhorn-csi-plugin-xxx`のコンテナを確認してください。
+
+=== FlexVolumeドライバー
+
+FlexVolume ドライバーは Longhorn v0.8.0 以降廃止されており、もはや使用すべきではありません。
+
+まず、ノードにドライバーがどこにインストールされているかを確認してください。その情報については `longhorn-driver-deployer-xxxx` のログを確認してください。
+
+次に、kubelet のログを確認してください。FlexVolume ドライバー自体はコンテナ内で実行されません。それは kubelet プロセスと一緒に実行されます。
+
+kubelet がノード上でネイティブに実行されている場合、次のコマンドを使用してログを取得できます：
+
+----
+journalctl -u kubelet
+----
+
+また、kubelet がコンテナとして実行されている場合（例：RKE）、代わりに次のコマンドを使用してください：
+
+----
+docker logs kubelet
+----
+
+Longhorn FlexVolume のさらに詳細なログを取得するには、ノードまたはコンテナ内（kubelet がコンテナとして実行されている場合、例：RKE）で次のコマンドを実行してください：
+
+----
+touch /var/log/longhorn_driver.log
+----
+
+== よくある問題
+
+=== ボリュームは UI からアタッチまたはデタッチできますが、Kubernetes Pods および StatefulSets では使用できません。
+
+==== FlexVolume プラグインを使用する際の問題
+
+ボリュームプラグインディレクトリが正しく設定されているか確認してください。これは、ユーザーが明示的に設定しない限り、自動的に検出されます。
+
+デフォルトでは、Kubernetes は `/usr/libexec/kubernetes/kubelet-plugins/volume/exec/` を使用します。これは https://github.com/kubernetes/community/blob/master/contributors/devel/sig-storage/flexvolume.md/#prerequisites[公式文書] に記載されています。
+
+一部のベンダーは、さまざまな理由でディレクトリを変更することを選択します。例えば、GKE は代わりに `/home/kubernetes/flexvolume` を使用します。
+
+ホストで `ps aux|grep kubelet` を実行し、`--volume-plugin-dir` パラメータを確認することで、正しいディレクトリを見つけることができます。パラメータが空の場合、{longhorn-product-name} はデフォルトディレクトリ `/usr/libexec/kubernetes/kubelet-plugins/volume/exec/` を使用します。
+
+== プロファイリング
+
+=== エンジン、レプリカ、およびsync agentのランタイム
+
+pprof サーバーを動的に有効にして、ランタイムプロファイリングを実行できます。
+
+プロファイリングを有効にするには、次のことができます：
+
+. インスタンスマネージャーポッドにシェル接続します。
+. `ps` を使用して、ランタイムプロセスとそのポートを特定します。
++
+[,bash]
+----
+$ ps aux | more
+
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+...
+root        1996  0.0  0.6 1990080 20996 ?       Sl   Jul25   0:05 /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --volume-name     vol replica /host/var/lib/longhorn/replicas/vol-3004fc59 --size 1073741824 --disableRevCounter --replica-instance-name vol-r-ec7e35e4 --snapshot-max-count 250     --snapshot-max-size 0 --sync-agent-port-count 7 --listen 0.0.0.0:10000
+root        2004  0.0  0.6 1695152 22708 ?       Sl   Jul25   0:09 /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --volume-name     vol sync-agent --listen 0.0.0.0:10002 --replica 0.0.0.0:10000 --listen-port-range 10003-10009 --replica-instance-name vol-r-ec7e35e4
+root        2031  0.0  0.6 1916348 23760 ?       Sl   Jul25   0:46 /engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --engine-instance-name vol-e-0     controller vol --frontend tgt-blockdev --disableRevCounter --size 1073741824 --current-size 0 --engine-replica-timeout 8 --file-sync-http-client-timeout 30     --snapshot-max-count 250 --snapshot-max-size 0 --replica tcp://10.42.2.7:10000 --replica tcp://10.42.0.15:10000 --replica tcp://10.42.1.7:10000 --listen 0.0.0.0:10010
+----
+. 希望するランタイム（例えば、sync-agent）のために`pprof`サーバーを有効にします：
++
+この例では、sync-agentプロセスはポート`10002`でリスンしています。
++
+[,bash]
+----
+$ /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --url http://localhost:10002 profiler enable --port 36060
+$ /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --url http://localhost:10002 profiler show
+
+Profiler enabled at Addr: *:36060
+----
+. ランタイム検査のためにpprofインターフェースを使用します。詳細については、 https://pkg.go.dev/net/http/pprof#hdr-Usage_examples[公式pprofドキュメント]を参照してください。
+. 分析が完了したら、プロファイラーを無効にします：
++
+[,bash]
+----
+$ /host/var/lib/longhorn/engine-binaries/longhornio-longhorn-engine-v1.10.0/longhorn --url http://localhost:10002 profiler disable
+
+Profiler is disabled!
+----

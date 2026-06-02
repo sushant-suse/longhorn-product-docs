@@ -1,0 +1,231 @@
+= 自定义默认设置
+:revdate: 2025-06-29
+:page-revdate: {revdate}
+:experimental:
+:current-version: {page-component-version}
+
+您可以在安装或升级时自定义 {longhorn-product-name} 的默认设置。例如，在启动 `Create Default Disk With Node Labeled` 之前，您可以指定 `Default Data Path` 和 {longhorn-product-name}。
+
+[NOTE]
+====
+当使用 Longhorn 部署 YAML 文件或 Helm 进行安装、更新或升级时，如果默认设置的值为空字符串且有效，则默认设置将在 {longhorn-product-name} 中被清除。如果没有，{longhorn-product-name} 将忽略无效值，并且不会更新默认值。
+====
+
+== 安装
+
+=== 使用 Rancher UI
+
+在 Rancher 的项目视图中，转到 menu:APP 和市场[Longhorn > 安装 > 下一步 > 编辑选项 > Longhorn 默认设置 > 自定义默认设置]，并在安装 APP 之前编辑设置。
+
+=== 使用 Longhorn 部署 YAML 文件
+
+. 下载 longhorn 仓库：
++
+[subs="+attributes",shell]
+----
+git clone https://github.com/longhorn/longhorn.git
+----
+
+. 在 yaml 文件 `longhorn-default-setting` 中修改名为 `longhorn/deploy/longhorn.yaml` 的配置映射。
++
+在下面的示例中，用户自定义了默认设置、备份目标、备份目标凭证密钥和默认数据路径。
+ 当设置缺失或有前导 `#` 符号时，默认设置将使用 {longhorn-product-name} 中的默认值或之前配置的自定义值。
++
+[subs="+attributes",yaml]
+----
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: longhorn-default-setting
+  namespace: longhorn-system
+data:
+  default-setting.yaml: |-
+    backup-target: s3://backupbucket@us-east-1/backupstore
+    backup-target-credential-secret: minio-secret
+    #allow-recurring-job-while-volume-detached:
+    #create-default-disk-labeled-nodes:
+    default-data-path: /var/lib/longhorn-example/
+    #replica-soft-anti-affinity:
+    #replica-auto-balance:
+    #storage-over-provisioning-percentage:
+    #storage-minimal-available-percentage:
+    #upgrade-checker:
+    #upgrade-responder-url:
+    #default-replica-count:
+    #default-data-locality:
+    #default-longhorn-static-storage-class:
+    #backupstore-poll-interval:
+    #taint-toleration:
+    #system-managed-components-node-selector:
+    #priority-class:
+    #auto-salvage:
+    #auto-delete-pod-when-volume-detached-unexpectedly:
+    #disable-scheduling-on-cordoned-node:
+    #replica-zone-soft-anti-affinity:
+    #replica-disk-soft-anti-affinity:
+    #node-down-pod-deletion-policy:
+    #node-drain-policy:
+    #replica-replenishment-wait-interval:
+    #concurrent-replica-rebuild-per-node-limit:
+    #disable-revision-counter:
+    #system-managed-pods-image-pull-policy:
+    #allow-volume-creation-with-degraded-availability:
+    #auto-cleanup-system-generated-snapshot:
+    #concurrent-automatic-engine-upgrade-per-node-limit:
+    #backing-image-cleanup-wait-interval:
+    #backing-image-recovery-wait-interval:
+    #guaranteed-instance-manager-cpu:
+    #kubernetes-cluster-autoscaler-enabled:
+    #orphan-resource-auto-deletion:
+    #storage-network:
+    #recurring-successful-jobs-history-limit:
+    #recurring-failed-jobs-history-limit:
+---
+----
+
+=== 使用 Helm
+
+[NOTE]
+====
+在安装和升级 {longhorn-product-name} 时使用 Helm 3。Helm 2 是 https://helm.sh/blog/helm-2-becomes-unsupported/[不再支持]。
+====
+
+使用带有 `--set` 标志的 Helm 命令来修改默认设置。例如：
+
+[subs="+attributes",shell]
+----
+helm install longhorn longhorn/longhorn \
+  --namespace longhorn-system \
+  --create-namespace \
+  --set defaultSettings.taintToleration="key1=value1:NoSchedule; key2:NoExecute"
+----
+
+您还可以在运行 Helm 命令时提供一个修改了默认设置的 `values.yaml` 文件的副本，作为 `--values` 标志：
+
+. 从 GitHub 获取 `values.yaml` 文件的副本：
++
+[subs="+attributes",shell]
+----
+curl -Lo values.yaml https://raw.githubusercontent.com/longhorn/charts/master/charts/longhorn/values.yaml
+----
+
+. 在 YAML 文件中修改默认设置。以下是 `values.yaml` 的示例片段：
++
+当设置缺失或有前导 `#` 符号时，默认设置将使用 {longhorn-product-name} 中的默认值或之前配置的自定义值。
++
+[subs="+attributes",yaml]
+----
+defaultSettings:
+  backupTarget: s3://backupbucket@us-east-1/backupstore
+  backupTargetCredentialSecret: minio-secret
+  createDefaultDiskLabeledNodes: true
+  defaultDataPath: /var/lib/longhorn-example/
+  replicaSoftAntiAffinity: false
+  storageOverProvisioningPercentage: 600
+  storageMinimalAvailablePercentage: 15
+  upgradeChecker: false
+  defaultReplicaCount: 2
+  defaultDataLocality: disabled
+  defaultLonghornStaticStorageClass: longhorn-static-example
+  backupstorePollInterval: 500
+  taintToleration: key1=value1:NoSchedule; key2:NoExecute
+  systemManagedComponentsNodeSelector: "label-key1:label-value1"
+  priorityClass: high-priority
+  autoSalvage: false
+  disableSchedulingOnCordonedNode: false
+  replicaZoneSoftAntiAffinity: false
+  replicaDiskSoftAntiAffinity: false
+  volumeAttachmentRecoveryPolicy: never
+  nodeDownPodDeletionPolicy: do-nothing
+  guaranteedInstanceManagerCpu: 15
+  orphanAutoDeletion: ""
+  orphanResourceAutoDeletionGracePeriod: 300
+----
+
+. 使用 `values.yaml` 运行 Helm：
++
+[subs="+attributes",shell]
+----
+helm install longhorn longhorn/longhorn \
+  --namespace longhorn-system \
+  --create-namespace \
+  --values values.yaml
+----
+
+有关使用 helm 的更多信息，请参见 xref:installation-setup/installation/install-using-helm.adoc[使用 Helm 安装 {longhorn-product-name}] 部分。
+
+=== 使用Helm控制器
+
+在 HelmChart YAML 文件中，向 spec.set 添加所需设置的行：
+
+[,yaml]
+----
+spec:
+  ...
+  set:
+    defaultSettings.priorityClass: system-node-critical
+    defaultSettings.replicaAutoBalance: least-effort
+    defaultSettings.storageOverProvisioningPercentage: "200"
+    persistence.defaultClassReplicaCount: "2"
+----
+
+=== 使用 Helm 控制器
+
+在 HelmChart YAML 文件中，向 `spec.set` 添加所需设置的行：
+
+[,yaml]
+----
+spec:
+  ...
+  set:
+    defaultSettings.priorityClass: system-node-critical
+    defaultSettings.replicaAutoBalance: least-effort
+    defaultSettings.storageOverProvisioningPercentage: "200"
+    persistence.defaultClassReplicaCount: "2"
+----
+
+== 更新设置
+
+=== 使用 {longhorn-product-name} 用户界面
+
+我们建议使用 {longhorn-product-name} 用户界面来更改现有集群上的 {longhorn-product-name} 设置。这将使设置持久化。
+
+=== 使用 Rancher UI
+
+在 Rancher 的项目视图中，转到 menu:APP 和市场[Longhorn > 升级 > 下一步 > 编辑选项 > Longhorn 默认设置 > 自定义默认设置]，在将 APP 升级到当前 {longhorn-product-name} 版本之前编辑设置。
+
+=== 使用 Kubectl
+
+如果您更喜欢从命令行更新设置，请使用 `kubectl`。为避免与其他 CRD 冲突，请勿使用简单的 `settings`。请改用 `settings.longhorn.io` 或 `lhs`。
+
+[subs="+attributes",shell]
+----
+kubectl edit settings.longhorn.io <SETTING-NAME> -n longhorn-system
+----
+
+=== 使用 Helm
+
+按照 <<_using_helm,新安装 > 使用 Helm>> 中的描述修改 YAML 文件中的默认设置，然后使用
+
+----
+helm upgrade longhorn longhorn/longhorn --namespace longhorn-system --values ./values.yaml --version `helm list -n longhorn-system -o json | jq -r .'[0].app_version'`
+----
+
+== 升级
+
+=== 使用 Rancher UI
+
+在 Rancher 的项目视图中，转到 menu:APP 和市场[Longhorn > 升级 > 下一步 > 编辑选项 > Longhorn 默认设置 > 自定义默认设置]，在升级 APP 之前编辑设置。
+
+=== 使用 Longhorn 部署 YAML 文件
+
+按照 <<_using_the_longhorn_deployment_yaml_file,新安装 > 使用 Longhorn 部署 YAML 文件>> 中的描述，修改 YAML 文件 `longhorn/deploy/longhorn.yaml` 中名为 `longhorn-default-setting` 的配置映射，然后使用 `kubectl` 升级 Longhorn 系统。
+
+=== 使用 Helm
+
+按照 <<_using_helm,新安装 > 使用 Helm>> 中的描述修改 YAML 文件中的默认设置，然后使用 `helm upgrade` 升级 Longhorn 系统。
+
+== 历史记录
+
+自 v1.3.0 起可用 (https://github.com/longhorn/longhorn/issues/2570[参考])

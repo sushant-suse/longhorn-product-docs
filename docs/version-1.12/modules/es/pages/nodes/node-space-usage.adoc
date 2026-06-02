@@ -1,0 +1,61 @@
+= Uso del espacio del nodo
+:revdate: 2025-11-19
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Uso del espacio del clúster completo
+
+En la página `Dashboard`, {longhorn-product-name} te muestra la información del uso del espacio del clúster:
+
+image::screenshots/volumes-and-nodes/space-usage-info-dashboard-page.png[Imagen]
+
+`Schedulable`: El espacio real que se puede utilizar para la programación de volúmenes de Longhorn.
+
+`Reserved`: El espacio reservado para otras aplicaciones y el sistema.
+
+`Used`: El espacio real que ha sido utilizado por el sistema Longhorn y otras aplicaciones.
+
+`Disabled`: El espacio total de los discos/nodos en los que no se permiten programar volúmenes de Longhorn.
+
+== Uso del espacio de cada nodo
+
+En la página `Nodes`, {longhorn-product-name} muestra la asignación de espacio, la programación y la información de uso para cada nodo:
+
+image::screenshots/volumes-and-nodes/space-usage-info-node-page.png[Imagen]
+
+`Size`: El *máximo espacio disponible real* que se puede utilizar por los volúmenes de Longhorn. Es igual al espacio total del disco del nodo menos el espacio reservado.
+
+`Allocated`: El número de la izquierda es el tamaño que ha sido utilizado para *la programación de volúmenes*, y no significa que el espacio ha sido utilizado para el almacenamiento de datos del volumen de Longhorn. El número de la derecha es el tamaño *máximo* para la programación de volúmenes, que es el resultado de `Size` multiplicando `Storage Over Provisioning Percentage`. (En la ilustración anterior, `Storage Over Provisioning Percentage` es 500.) Por lo tanto, la diferencia entre los 2 números (llamémoslo espacio asignable) determina si se puede programar una réplica de volumen en este nodo.
+
+`Used`: La parte izquierda indica el espacio actualmente utilizado de este nodo. La barra completa indica el espacio total del nodo.
+
+Ten en cuenta que el espacio asignable puede ser mayor que el espacio disponible real del nodo al establecer `Storage Over Provisioning Percentage` a un valor mayor que 100. Si los volúmenes se utilizan intensamente y se almacenan muchos datos históricos en las instantáneas de los volúmenes, ten cuidado al usar un valor grande para esta configuración. Para más información sobre la configuración, consulta xref:longhorn-system/settings.adoc#_storage_over_provisioning_percentage[aquí] para más detalles.
+
+=== Estado de Programabilidad del Disco y Mensaje de Solución de Problemas
+
+Cuando un disco se vuelve *no programable*, {longhorn-product-name} expone la razón subyacente directamente en la interfaz de usuario.
+En la página de *Nodos*, si la condición interna `Schedulable` del disco es `False`, la interfaz de usuario muestra el mensaje exacto de `node.diskStatus[x].conditions[Schedulable]`.
+Esta información es esencial para diagnosticar problemas relacionados con los límites de espacio o la sobreasignación.
+
+*Mensaje de Solución de Problemas de Ejemplo*:
+
+[,bash]
+----
+Disk default-disk-1030100000000 (/var/lib/longhorn/) on the node ip-192-168-203-144.ap-southeast-1.compute.internal is not schedulable for more replica; Scheduling space condition failed: ScheduledTotal = 4294967296 (Size + StorageScheduled) is greater than ProvisionedLimit = -64504221696 (100% of StorageMax - StorageReserved).
+----
+
+*Cómo interpretar este mensaje*:
+
+* *`ScheduledTotal`*: El espacio total actualmente *programado* para réplicas (tanto existentes como pendientes) en este disco.
++
+[NOTE]
+====
+Esto no representa el uso real del disco.
+====
+
+* *`ProvisionedLimit`*: La *capacidad máxima de programación permitida* para este disco. Se deriva de:
+** tamaño físico del disco (`StorageMax`)
+** su espacio reservado (`StorageReserved`)
+** multiplicado por el `Storage Over Provisioning Percentage` del clúster
+
+Cuando `ScheduledTotal` excede `ProvisionedLimit`, el disco se vuelve no programable y no aceptará nuevas réplicas hasta que se ajusten tanto la configuración del disco como los ajustes del clúster.

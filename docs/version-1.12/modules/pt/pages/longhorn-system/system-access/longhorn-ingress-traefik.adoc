@@ -1,0 +1,134 @@
+= Crie um Ingress com Autenticação Básica (Traefik)
+:revdate: 2026-03-17
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Se você instalar {longhorn-product-name} em um cluster Kubernetes com `kubectl` ou Helm, precisará criar um Ingress para permitir que o tráfego externo chegue à interface do usuário {longhorn-product-name}.
+
+A autenticação não está habilitada por padrão para instalações de `kubectl` e Helm. Nestes passos, você precisa aprender como criar um Ingress com autenticação básica e configurar o suporte para uploads de arquivos grandes (para imagens de backup) usando Traefik.
+
+[NOTE]
+====
+Estas instruções assumem que o https://doc.traefik.io/traefik[Controlador de Ingress Traefik] está instalado e em execução em seu cluster. Traefik é o controlador de ingress padrão para RKE2 e K3s. Se você estiver usando um ambiente diferente, certifique-se de que o Traefik esteja implantado antes de prosseguir. Você pode verificar sua presença executando `kubectl get pods -A | grep traefik`.
+====
+
+== 1. Crie um Segredo de Autenticação Básica
+
+Crie um arquivo de autenticação básica `auth`. É importante que o segredo tenha uma chave chamada `auth` para os passos seguintes.
+
+[source,shell]
+----
+$ USER=<USERNAME_HERE>; PASSWORD=<PASSWORD_HERE>; echo "${USER}:$(openssl passwd -stdin -apr1 <<< ${PASSWORD})" > auth
+----
+
+Crie o segredo no namespace `longhorn-system`:
+
+[,shell]
+----
+$ kubectl -n longhorn-system create secret generic basic-auth --from-file=auth
+----
+
+== 2. Crie Middlewares do Traefik
+
+O Traefik utiliza Middlewares para gerenciar autenticação e limites de requisições. Crie um arquivo chamado `longhorn-middlewares.yml`:
+
+[,yaml]
+----
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: longhorn-auth
+  namespace: longhorn-system
+spec:
+  basicAuth:
+    secret: basic-auth
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: longhorn-buffering
+  namespace: longhorn-system
+spec:
+  buffering:
+    # Allows backing image uploads up to 10,000MB
+    maxRequestBodyBytes: 10485760000 
+----
+
+Aplique a configuração:
+
+[,shell]
+----
+$ kubectl apply -f longhorn-middlewares.yml
+----
+
+== 3. Crie o Manifesto do Ingress
+
+Crie um manifesto de Ingress `longhorn-ingress.yml`. Para garantir que os uploads de imagens de backup funcionem como esperado, incluímos o middleware `longhorn-buffering` por meio de anotações.
+
+[,yaml]
+----
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: longhorn-ingress
+  namespace: longhorn-system
+  annotations:
+    # Connect the middlewares defined in step 2
+    traefik.ingress.kubernetes.io/router.middlewares: 
+      longhorn-system-longhorn-auth@kubernetescrd,
+      longhorn-system-longhorn-buffering@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: longhorn-frontend
+            port:
+              number: 80
+----
+
+== 4. Crie o Ingress
+
+[,shell]
+----
+$ kubectl -n longhorn-system apply -f longhorn-ingress.yml
+----
+
+=== Exemplo
+
+[source,shell]
+----
+$ USER=foo; PASSWORD=bar; echo "${USER}:$(openssl passwd -stdin -apr1 <<< ${PASSWORD})" > auth
+$ kubectl -n longhorn-system create secret generic basic-auth --from-file=auth
+secret/basic-auth created
+
+# (After applying middlewares and ingress manifests)
+
+$ kubectl -n longhorn-system get ingress
+NAME                CLASS    HOSTS   ADDRESS      PORTS   AGE
+longhorn-ingress   traefik   * 10.0.2.15    80      15s
+
+$ curl -I http://10.0.2.15/
+HTTP/1.1 401 Unauthorized
+Www-Authenticate: Basic realm="traefik"
+
+$ curl -u foo:bar -I http://10.0.2.15/
+HTTP/1.1 200 OK
+----
+
+== Etapas Adicionais para Clusters Kubernetes AWS EKS
+
+Para expor o controlador de Ingress do Traefik para a internet no AWS EKS, você deve provisionar um Load Balancer da AWS. Custos adicionais podem ser aplicados.
+
+. *Instale o Traefik*: Se o Traefik não estiver instalado em seu cluster EKS, siga o https://doc.traefik.io/traefik/getting-started/install-traefik/#use-the-helm-chart[guia de instalação oficial do Helm Chart do Traefik].
+. *Configure o Load Balancer*: Por padrão, definir o tipo de serviço do Traefik como `LoadBalancer` acionará a criação de um ELB da AWS. Para configuração avançada (como usar um NLB ou grupos de segurança específicos), consulte o https://doc.traefik.io/traefik/providers/kubernetes-ingress/#annotations[Guia do Traefik para AWS].
+
+== Referências
+
+* https://doc.traefik.io/traefik/[Documentação do Traefik]
+* https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-ingress/[Guia de Ingress do Traefik para Kubernetes]
+* https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/[Blog do Kubernetes - Aposentadoria do Ingress-NGINX]

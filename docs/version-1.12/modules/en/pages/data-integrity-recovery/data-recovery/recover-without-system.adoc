@@ -1,26 +1,26 @@
 = Recover from a {longhorn-product-name-tm} Backup without the System Installed
-:revdate: 2026-05-06
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 This command gives users the ability to restore a backup to a `raw` image or a `qcow2` image. If the backup is based on a backing file, users should provide the backing file as a `qcow2` image with `--backing file` parameter.
 
-. Copy the https://github.com/longhorn/longhorn/blob/v{current-version}.x/examples/restore_to_file.yaml.template[yaml template]: Make a copy of `examples/restore_to_file.yaml.template`, for example `restore.yaml`. 
-. Set the node which the output file should be placed on by replacing `<NODE_NAME>`, for example `node1`.
+. Copy the https://github.com/longhorn/longhorn/blob/v{current-version}.x/examples/restore_to_file.yaml.template[yaml template]: Make a copy of `examples/restore_to_file.yaml.template`, for example, `restore.yaml`. 
+. Set the node which the output file should be placed on by replacing `<NODE_NAME>`, for example, `node1`.
 . Specify the host path of output file by modifying field `hostpath` of volume `disk-directory`. By default the directory is `/tmp/restore/`.
-. Set the first argument (backup url) by replacing `<BACKUP_URL>`, for example `s3://<your-bucket-name>@<your-aws-region>/backupstore?backup=<backup-name>&volume=<volume-name>`.
- ** `<backup-name>` and `<volume-name>` can be retrieved from backup.cfg stored in the backup destination folder, for example `backup_backup-72bcbdad913546cf.cfg`. The content will be like below:
+. Set the first argument (backup URL) by replacing `<BACKUP_URL>`, for example, `s3://<your-bucket-name>@<your-aws-region>/backupstore?backup=<backup-name>&volume=<volume-name>`.
+ ** `<backup-name>` and `<volume-name>` can be retrieved from backup.cfg stored in the backup destination folder, for example, `backup_backup-72bcbdad913546cf.cfg`. The content will be like below:
 +
 [,json]
 ----
 {"Name":"backup-72bcbdad913546cf","VolumeName":"volume_1","SnapshotName":"79758033-a670-4724-906f-41921f53c475"}
 ----
-. Set argument `output-file` by replacing `<OUTPUT_FILE>`, for example `volume.raw` or `volume.qcow2`.
+. Set argument `output-file` by replacing `<OUTPUT_FILE>`, for example, `volume.raw` or `volume.qcow2`.
 . Set argument `output-format` by replacing `<OUTPUT_FORMAT>`. The supported options are `raw` or `qcow2`.
 . Set argument `longhorn-version` by replacing `<LONGHORN_VERSION>`, for example, `v{patch-version}`
-. Set the S3 Credential Secret by replacing `<S3_SECRET_NAME>`, for example `minio-secret`.
+. Set the S3 Credential Secret by replacing `<S3_SECRET_NAME>`, for example, `minio-secret`.
  ** The credential secret can be referenced xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_set_up_aws_s3_backupstore[here] and must be created in the `longhorn-system` namespace.
-. Execute the yaml using e.g.:
+. Execute the yaml using, for example:
 +
 [,bash]
 ----

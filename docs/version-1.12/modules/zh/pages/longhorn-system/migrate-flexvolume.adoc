@@ -1,0 +1,18 @@
+= 从 Flexvolume 驱动程序迁移到 CSI
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Flexvolume 驱动程序不再受支持。您可以从 Flexvolume 驱动程序迁移到 CSI，这是最新的 Kubernetes 存储接口。
+
+____
+请注意，通过一个驱动程序创建和使用的卷不会被 Kubernetes 识别为使用另一个驱动程序。因此，如果您有使用旧驱动程序创建的现有卷，请不要切换驱动程序（例如，在升级期间）。
+____
+
+确保您的 Longhorn APP 是最新的。在继续之前，请遵循相关的升级程序。
+
+驱动程序之间的迁移路径需要备份和恢复每个卷，并将导致 API 和工作负载的停机时间。这可能是一个繁琐的过程。考虑删除使用旧驱动程序的不重要的工作负载以减少工作量。
+
+. xref:snapshots-backups/volume-snapshots-backups/create-backup.adoc[备份现有卷]。
+. 在 Rancher UI 中，导航到 `Catalog Apps` 屏幕，找到 `Longhorn` APP 并单击 `Up to date` 按钮。在 `Kubernetes Driver` 下，选择 `flexvolume`。我们建议将 `Flexvolume Path` 保持为空。单击 `Upgrade`。
+. 恢复每个卷。此 xref:snapshots-backups/volume-snapshots-backups/restore-volume-statefulset.adoc[程序] 针对 StatefulSet 工作负载进行了定制，但对于所有工作负载，过程大致相同。

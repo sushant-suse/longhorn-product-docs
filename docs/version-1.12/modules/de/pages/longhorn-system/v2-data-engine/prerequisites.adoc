@@ -1,0 +1,56 @@
+= Voraussetzungen
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:aliases: ["/spdk/prerequisites.md"]
+:current-version: {page-component-version}
+
+== Voraussetzungen
+
+Longhorn-Knoten müssen den folgenden Anforderungen entsprechen:
+
+* AMD64 oder ARM64 CPU
++
+____
+*NOTICE*
+
+AMD64 CPUs erfordern die Unterstützung von SSE4.2-Befehlen.
+____
+
+* Linux-Kernel
++
+Für die Unterstützung von NVMe über TCP ist Version 5.19 oder höher erforderlich.
++
+____
+*NOTICE*
+
+Hostmaschinen mit dem Linux-Kernel 5.15 können unerwartet neu starten, wenn volumenbezogene IO-Fehler auftreten. Aktualisieren Sie den Linux-Kernel auf Longhorn-Knoten auf Version 5.19 oder höher, um solche Probleme zu vermeiden.
+____
++
+Version 6.7 oder höher wird für eine verbesserte Systemstabilität empfohlen.
++
+____
+*NOTICE*
+
+Speicherbeschädigungen können auf Hosts auftreten, die Versionen des Linux-Kernels vor 6.7 verwenden, wie in diesem SPDK-Upstream-Problem hervorgehoben: https://github.com/spdk/spdk/issues/3116#issuecomment-1890984674. In Longhorn-Umgebungen kann die Kernel-Panik durch verbreitete IO-Timeouts in der Kommunikation zwischen dem `nvme-tcp`-Treiber und SPDK verursacht werden. Aktualisieren Sie den Linux-Kernel auf Longhorn-Knoten auf Version 6.7 oder höher, um das Auftreten des Problems zu verhindern.
+____
+
+* Linux-Kernel-Module
+ ** `vfio_pci`
+ ** `uio_pci_generic`
+ ** `nvme-tcp`
+* Unterstützung für große Seiten
+ ** 2 GiB an 2 MiB großen Seiten
+
+== Hinweis
+
+=== PROZESSOR
+
+Wenn die V2-Daten-Engine aktiviert ist, nutzt jeder Instance-Manager-Pod *1 CPU-Kern*. Diese hohe CPU-Auslastung ist dem `spdk_tgt`-Prozess zuzurechnen, der innerhalb jedes Instance-Manager-Pods läuft. Der spdk_tgt-Prozess ist verantwortlich für die Verarbeitung von Eingabe-/Ausgabeoperationen (IO) und erfordert intensives Polling. Infolgedessen verbraucht er 100 % eines dedizierten CPU-Kerns, um die IO-Anfragen effizient zu verwalten und zu verarbeiten, was optimale Leistung und Reaktionsfähigkeit für Speicheroperationen gewährleistet.
+
+=== Arbeitsspeicher
+
+SPDK nutzt große Seiten zur Leistungssteigerung und Minimierung des Speicheraufwands. Sie müssen 2 MiB große Seiten auf jedem Longhorn-Knoten konfigurieren, um die Nutzung großer Seiten zu ermöglichen. Insbesondere müssen auf jedem Longhorn-Knoten 1024 Seiten (entsprechend insgesamt 2 GiB) verfügbar sein.
+
+=== Festplatte
+
+SPDK nutzt Kernel-Treiber, um jede Art von Festplatte zu unterstützen, die Linux unterstützt. SPDK ist jedoch mit einem NVMe-Treiber im Benutzerbereich ausgestattet, der einen Nullkopie-, hochparallelen, direkten Zugriff auf eine SSD von einer Benutzerbereichsanwendung bietet. Aus diesem Grund wird die Verwendung von *lokalen NVMe-Festplatten* dringend empfohlen, um V2-Volumes zu aktivieren, damit eine optimale Speicherleistung erreicht wird.

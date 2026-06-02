@@ -1,0 +1,67 @@
+= Veleroを使用してSUSE® Storageシステムを新しいクラスターに復元する
+:revdate: 2025-06-27
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Veleroを介してLonghornシステムのワークロードを新しいクラスターに復元できます。
+
+[NOTE]
+====
+PersistentVolumeClaimを正常に復元するには、 https://github.com/vmware-tanzu/velero-plugin-for-csi[Velero CSIプラグイン] ≥ 0.4を使用する必要があります。詳細情報については、 https://longhorn.io/kb/troubleshooting-restore-pvc-stuck-using-velero-csi-plugin-version-lower-than-0.4/[トラブルシューティング: VeleroがVelero CSIプラグインのバージョンv0.4.0以前を使用しているときにPending状態にあるLonghorn PVCを復元する]を訪問してください。
+====
+
+== 前提:
+
+* 新しいクラスターには*Longhornボリュームデータがない*ことを意味します。
+* すべてのLonghornボリュームデータを保持しているリモートバックアップターゲットがあります。
+* Veleroによって作成されたクラスターのバックアップを保存できるリモートバックアップサーバーがあります。
+
+== 期待されること:
+
+* すべての設定が復元されます。ただし、ノードとディスクの構成は適用されません。
+* Longhornボリュームを使用しているすべてのワークロードは、ボリュームがリモートバックアップターゲットから復元された後に開始されます。
+
+== のワークフロー
+
+=== 古いクラスターのバックアップを作成する
+
+. Longhornを使用してクラスターにVeleroをインストールする。
+. すべてのLonghornボリュームのバックアップを作成する。
+. Veleroを使用してクラスターのバックアップを作成する。ここでは、クラスターのバックアップから除外すべきLonghornリソースがあります:
++
+[subs="+attributes",bash]
+----
+ velero backup create lh-cluster --exclude-resources persistentvolumes,persistentvolumeclaims,backuptargets.longhorn.io,backupvolumes.longhorn.io,backups.longhorn.io,nodes.longhorn.io,volumes.longhorn.io,engines.longhorn.io,replicas.longhorn.io,backingimagedatasources.longhorn.io,backingimagemanagers.longhorn.io,backingimages.longhorn.io,sharemanagers.longhorn.io,instancemanagers.longhorn.io,engineimages.longhorn.io
+----
++
+=== Longhornとワークロードを新しいクラスターに復元する
+
+. 新しいクラスターのために同じリモートバックアップサーバーでVeleroをインストールする。
+. クラスターのバックアップを復元します。例：
++
+[subs="+attributes",bash]
+----
+ velero restore create --from-backup lh-cluster
+----
+
+. 名前空間`longhorn-system`からすべての古いインスタンスマネージャーポッドとバックイメージマネージャーポッドを削除します。これらの古いポッドは、VeleroではなくLonghornによって作成されるべきであり、それに対応するCRが必要です。ポッドは無害ですが、Longhorn Managerポッドに無限のログが出力される原因となります。例：
++
+[subs="+attributes",log]
+----
+ [longhorn-manager-q6n7x] time="2021-12-20T10:42:49Z" level=warning msg="Can't find instance manager for pod instance-manager-r-1f19ecb0, may be deleted"
+ [longhorn-manager-q6n7x] time="2021-12-20T10:42:49Z" level=warning msg="Can't find instance manager for pod instance-manager-e-6c3be222, may be deleted"
+ [longhorn-manager-ldlvw] time="2021-12-20T10:42:55Z" level=warning msg="Can't find instance manager for pod instance-manager-e-bbf80f76, may be deleted"
+ [longhorn-manager-ldlvw] time="2021-12-20T10:42:55Z" level=warning msg="Can't find instance manager for pod instance-manager-r-3818fdca, may be deleted"
+----
+
+. 必要に応じて、復元されたLonghornシステムのノードとディスクを再構成してください。
+. 必要に応じて、バックイメージを再作成してください。
+. リモートバックアップターゲットからすべてのLonghornボリュームを復元してください。
+. RWXバックアップボリュームがある場合、ユーザーは手動でアクセスモードを`ReadWriteMany`に更新する必要があります。復元されたボリュームはデフォルトでモード`ReadWriteOnce`です。
+. 復元されたボリュームのために、以前の名前でPVCとPVを作成してください。
+
+NOTE: 将来的にユーザーがステップ3とステップ8を適用する必要がないように、Longhornシステムを強化します。
+
+== 参考資料
+
+* 関連するGitHubの問題は https://github.com/longhorn/longhorn/issues/3367

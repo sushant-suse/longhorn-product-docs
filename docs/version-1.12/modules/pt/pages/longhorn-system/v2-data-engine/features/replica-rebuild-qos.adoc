@@ -1,0 +1,69 @@
+= Reconstrução de Réplica QoS
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:aliases: ["/spdk/features/replica-rebuild-qos.md"]
+:current-version: {page-component-version}
+
+{longhorn-product-name} suporta limitação de largura de banda de reconstrução (Qualidade de Serviço, ou QoS) para volumes v2 com base no SPDK. Esse recurso permite aplicar limites de largura de banda às réplicas durante a reconstrução, o que ajuda a evitar sobrecarga no throughput de armazenamento do nó de origem e do nó de destino.
+
+== Configuração Global: `v2-data-engine-rebuilding-mbytes-per-second`
+
+* Essa configuração em todo o cluster define a largura de banda máxima de gravação (em MB/s) para a reconstrução de réplicas.
+* Um valor de `0` indica que não há limite.
+* Você pode configurá-la apenas via `kubectl`:
+
+[,bash]
+----
+kubectl -n longhorn-system patch settings.longhorn.io v2-data-engine-rebuilding-mbytes-per-second \
+  --type=merge -p '{"value":"100"}'
+----
+
+== Substituição de QoS por Volume
+
+Você pode substituir o limite global de largura de banda de reconstrução para um volume específico definindo `spec.rebuildingMbytesPerSecond` na especificação do volume:
+
+[,yaml]
+----
+spec:
+  rebuildingMbytesPerSecond: 50
+----
+
+== Resolução de QoS Eficaz
+
+O limite efetivo de largura de banda de reconstrução é determinado avaliando tanto as configurações globais quanto as específicas do volume. Se o valor específico do volume for maior que zero, ele substitui a configuração global.
+
+|===
+|Configuração Global | Substituição de Volume | QoS Eficaz
+
+|0
+|0
+|Sem limite
+
+|100
+|0
+|100 MB/s
+
+|0
+|200
+|200 MB/s
+
+|100
+|200
+|200 MB/s
+|===
+
+O QoS aplicado é registrado no campo `status.rebuildStatus[*].appliedRebuildingMbps` dentro do status do motor.
+
+Por exemplo, o limite de largura de banda aplicado aparece no status do motor de volume, conforme mostrado aqui:
+
+[,yaml]
+----
+  Rebuild Status:
+    tcp://172.24.1.95:20001:
+      Error:
+      From Replica Address:  tcp://172.24.8.133:20001
+      Is Rebuilding:         true
+      Progress:              97
+      State:                 in_progress
+      appliedRebuildingMbps: 50
+----

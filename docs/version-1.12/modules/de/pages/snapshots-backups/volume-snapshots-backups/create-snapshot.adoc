@@ -1,0 +1,156 @@
+= Erstellen eines Snapshots
+:revdate: 2026-01-08
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+Ein xref:introduction/concepts.adoc#_2_4_snapshots[Snapshot] ist der Zustand eines Kubernetes-Volumes zu einem beliebigen Zeitpunkt.
+
+== Snapshot-Verwaltung über die {longhorn-product-name} UI
+
+Um einen Snapshot eines bestehenden Clusters zu erstellen, befolgen Sie diese Schritte:
+
+. Klicken Sie in der oberen Navigationsleiste der {longhorn-product-name} UI auf *Volume*.
+. Klicken Sie auf den Namen des Volumes, für das Sie einen Snapshot erstellen möchten. Dies führt zur Detailseite des Volumes.
+. Klicken Sie auf die Schaltfläche *Snapshot erstellen*.
+
+Sobald der Snapshot erstellt ist, können Sie ihn in der Liste der Snapshots für das Volume vor dem Volume Head anzeigen.
+
+=== Verstehen der Snapshot-Kettenvisualisierung
+
+Auf der Seite *Volume Details* zeigt der Abschnitt *Snapshots und Backups* die Snapshot-Historie als Kette an. Standardmäßig ist die Option *System-Snapshots anzeigen* aktiviert, und alle systemerstellten Snapshots erscheinen in der Ansicht.
+
+Jeder Snapshot in der Kette ist farblich codiert, um seinen Typ oder Status anzuzeigen. Wenn ein Snapshot mehrere Kriterien erfüllt, verwendet die Visualisierung die Farbe mit der höchsten Priorität.
+
+[cols="1,1,2,1", options="header"]
+|===
+| Snapshot-Typ
+| Color
+| Beschreibung
+| Priorität (1 = höchste)
+
+| Fehler
+| Rot
+| Zeigt an, dass die Erstellung des Snapshots fehlgeschlagen ist oder dass der Snapshot ein Problem hat.
+| 1
+
+| Entfernt
+| Hellgrau
+| Zeigt an, dass der Snapshot zur Entfernung markiert ist oder gelöscht wurde.
+| 2
+
+| System erstellt
+| Orange/Gelb
+| Automatisch erstellt von Longhorn, oft für wiederkehrende Aufgaben oder interne Vorgänge.
+| 3
+
+| Sicherung
+| Grün
+| Zeigt an, dass der Snapshot eine Sicherung auf einem konfigurierten Sicherungsziel gespeichert hat.
+| 4
+
+| Standard (vom Benutzer erstellt)
+| Blau
+| Ein manuell initiierter Snapshot, der mit der Aktion *Snapshot erstellen* erstellt wurde.
+| 5
+|===
+
+Die folgende Abbildung zeigt ein Beispiel für die Visualisierung der Snapshot-Kette:
+
+image::diagrams/snapshot/snapshot_volumes_page.png[Snapshot-Volume-Seite]
+
+== Snapshot-Verwaltung mit benutzerdefinierten Ressourcen (CRs)
+
+Dieser Abschnitt zeigt, wie man Longhorn-Snapshots direkt über `kubectl` mit den *benutzerdefinierten Ressourcen (CRs)* von {longhorn-product-name} erstellt, auflistet, wiederherstellt und löscht.
+
+[NOTE]
+====
+{longhorn-product-name} verwendet seine eigene `Snapshot` CRD unter der `longhorn.io` API-Gruppe (zum Beispiel `v1beta2`), nicht die generische Kubernetes `VolumeSnapshot` von `snapshot.storage.k8s.io`.
+====
+
+=== Erstellen eines Snapshots
+
+. *Manifest vorbereiten* - Erstellen Sie eine Datei mit dem Namen `longhorn-snapshot.yaml` mit folgendem Inhalt:
++
+[,yaml]
+----
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: longhorn-test-snapshot
+  namespace: longhorn-system
+spec:
+  volume: pvc-840804d8-6f11-49fd-afae-54bc5be639de   # replace with your actual Longhorn volume name
+  createSnapshot: true
+----
++
+. *Manifest anwenden*:
++
+[,bash]
+----
+kubectl apply -f longhorn-snapshot.yaml
+----
++
+Erwartete Ausgabe:
++
+[,bash]
+----
+snapshot.longhorn.io/longhorn-test-snapshot created
+----
++
+[NOTE]
+====
+Wenn das Volume getrennt ist, erscheint eine kurze Warnung, dass die Engine nicht läuft. {longhorn-product-name} versucht automatisch erneut, und der Snapshot wird abgeschlossen, wenn das Volume angeschlossen ist.
+====
+
+=== Snapshots auflisten
+
+Um alle Snapshots für ein bestimmtes Volume aufzulisten, verwenden Sie den folgenden Befehl:
+
+[,bash]
+----
+kubectl get snapshots.longhorn.io -l longhornvolume=pvc-840804d8-6f11-49fd-afae-54bc5be639de -n longhorn-system
+----
+
+=== Löschen eines Snapshots
+
+Um einen bestimmten Snapshot zu löschen, verwenden Sie den folgenden Befehl:
+
+[,bash]
+----
+kubectl delete snapshot.longhorn.io longhorn-test-snapshot -n longhorn-system
+----
+
+Erwartete Ausgabe:
+
+[,bash]
+----
+snapshot.longhorn.io "longhorn-test-snapshot" deleted
+----
+
+[NOTE]
+====
+{longhorn-product-name} kümmert sich automatisch um die Bereinigung der zugrunde liegenden Daten.
+====
+
+== Verhaltensunterschiede der Daten-Engine
+
+Beim Löschen eines Snapshots, der der direkte Elternteil des *Volume Head* (dem aktuellen aktiven Zustand) ist, hängt das Verhalten der Snapshot Custom Resource (CR) von der verwendeten Data Engine ab:
+
+[cols="1,1,1", options="header"]
+|===
+| Verhalten | v1 Data Engine | v2 Data Engine
+
+| *CR Persistenz*
+| Der Snapshot CR *bleibt* im System.
+| Der Snapshot CR wird *sofort entfernt*.
+
+| *Statusfelder*
+| `READYTOUSE` wird `false` und der Snapshot wird als `Removed` markiert.
+| Nicht anwendbar, da der Snapshot CR gelöscht wird.
+
+| *Erklärung*
+| v1 Volumes können den Elternteil eines aktiven Volumenkopfes nicht sofort zusammenführen. Der CR bleibt, um die Snapshot-Daten bis zu einer späteren Zusammenführungs- oder Bereinigungsoperation zu verfolgen.
+| v2 Volumes unterstützen das Live-Zusammenführen des Eltern-Snapshots in den Volumenkopf, was eine sofortige Bereinigung sowohl der Daten als auch der Metadaten ermöglicht.
+|===
+
+Dieser Verhaltensunterschied wird erwartet. In *v2 Volumes* zeigt das sofortige Verschwinden des Snapshot CR an, dass die Engine die Löschung erfolgreich abgeschlossen und die Daten zusammengeführt hat.

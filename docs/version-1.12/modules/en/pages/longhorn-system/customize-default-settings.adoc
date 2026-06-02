@@ -1,5 +1,5 @@
 = Customize Default Settings
-:revdate: 2025-06-29
+:revdate: 2026-06-01
 :page-revdate: {revdate}
 :experimental:
 :current-version: {page-component-version}
@@ -84,6 +84,7 @@ data:
 ---
 ----
 
+[#_using_helm]
 === Using Helm
 
 [NOTE]
@@ -207,7 +208,7 @@ kubectl edit settings.longhorn.io <SETTING-NAME> -n longhorn-system
 
 === Using Helm
 
-Modify the default settings in the YAML file as described in <<_using_helm,Fresh Installation > Using Helm>> and then update the settings using
+Modify the default settings in the YAML file as described in xref:_using_helm[Fresh Installation > Using Helm] and then update the settings using
 
 ----
 helm upgrade longhorn longhorn/longhorn --namespace longhorn-system --values ./values.yaml --version `helm list -n longhorn-system -o json | jq -r .'[0].app_version'`
@@ -219,13 +220,14 @@ helm upgrade longhorn longhorn/longhorn --namespace longhorn-system --values ./v
 
 From the project view in Rancher, go to menu:Apps && Marketplace[Longhorn > Upgrade > Next > Edit Options > Longhorn Default Settings > Customize Default Settings] and edit the settings before upgrading the app.
 
+[#_upgrade_using_the_longhorn_deployment_yaml_file]
 === Using the Longhorn Deployment YAML File
 
-Modify the config map named `longhorn-default-setting` in the yaml file `longhorn/deploy/longhorn.yaml` as described in <<_using_the_longhorn_deployment_yaml_file,Fresh Installation > Using the Longhorn Deployment YAML File>> and then upgrade the Longhorn system using `kubectl`.
+Modify the config map named `longhorn-default-setting` in the yaml file `longhorn/deploy/longhorn.yaml` as described in xref:_upgrade_using_the_longhorn_deployment_yaml_file[Fresh Installation > Using the Longhorn Deployment YAML File] and then upgrade the Longhorn system using `kubectl`.
 
 === Using Helm
 
-Modify the default settings in the YAML file as described in <<_using_helm,Fresh Installation > Using Helm>> and then upgrade the Longhorn system using `helm upgrade`.
+Modify the default settings in the YAML file as described in xref:_using_helm[Fresh Installation > Using Helm] and then upgrade the Longhorn system using `helm upgrade`.
 
 == History
 

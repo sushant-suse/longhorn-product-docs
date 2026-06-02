@@ -1,0 +1,146 @@
+= ボリュームクローン
+:revdate: 2025-09-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== YAMLを使用してクローンします。
+
+=== CSIスナップショットをクローンします。
+
+CSIスナップショットをクローンするには、xref:snapshots-backups/csi-snapshots/csi-snapshot-longhorn-snapshot.adoc[スナップショットからボリュームを作成する]に関するドキュメントを参照してください。
+
+=== v2データエンジンを使用してボリュームをクローンします。
+
+「`StorageClass`」という名前の`longhorn-v2`があると仮定します：
+
+[source,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-v2
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  dataEngine: "v2"
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "2880"
+----
+
+その中からプロビジョニングされた`source-pvc-v2`という名前のPersistentVolumeClaim (PVC)があります：
+
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: source-pvc-v2
+spec:
+  storageClassName: longhorn-v2
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+----
+
+==== `full-copy`モードを使用してクローンします。
+
+以下のYAMLを適用することで、`source-pvc-v2`と同じ内容の新しいPVCを作成します。{longhorn-product-name}は、ソースPVCから新しいPVCにデータをコピーします。
+
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloned-pvc-v2
+spec:
+  storageClassName: longhorn-v2
+  dataSource:
+    name: source-pvc-v2
+    kind: PersistentVolumeClaim
+  accessModes:
+    - ReadWriteOnce
+  resources:
+      requests:
+        storage: 10Gi
+----
+
+==== `linked-clone`モードを使用してクローンします。
+
+`full-copy`モードは、ソースPVCから完全に独立した新しいPVCを作成します。ただし、データをコピーするには時間とリソースが必要です。
+
+時には、データをコピーせずにソースと同じ内容の一時的なPVCを迅速に作成する必要があります。例えば、*Velero*や*Kasten*のようなバックアップソリューションは、この機能を使用してデータを読み取り、S3バケットにアップロードするために一時的なPVCを迅速に作成できます。
+
+このシナリオでは、`linked-clone`モードを使用します。このモードは、ソースPVCと同じデータブロックを共有する新しいPVCを作成します。
+
+次の手順を実行します。
+
+. `cloneMode`を`linked-clone`に設定して`StorageClass`を作成します。
++
+[source,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-v2-linked-clone
+provisioner: driver.longhorn.io
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  dataEngine: "v2"
+  cloneMode: "linked-clone"
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "2880"
+----
+. 作成した`StorageClass`を使用し、`dataSource`フィールドでソースPVCを参照する新しいPVCを作成します。
++
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloned-pvc-v2-linked-clone
+spec:
+  storageClassName: longhorn-v2-linked-clone
+  dataSource:
+    name: source-pvc-v2
+    kind: PersistentVolumeClaim
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+----
+
+[NOTE]
+====
+. https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource[CSIボリュームクローン]の要件に加えて、クローンされたPVCの(`cloned-pvc`) `resources.requests.storage`は、ソースPVCの(`source-pvc`)ストレージサイズと一致する必要があります。
+. `linked-clone`モードはv2データエンジンでのみサポートされています。
+. `linked-clone`を使用して作成されたPVCは、ソースとデータブロックを共有し、以下の制限があります：
+* 複製は1つだけ持つことができます。
+* スナップショットを取得したり、バックアップを作成したりすることはできません。
+* 別のクローン操作のソースとして使用することはできません。
+* ソースPVCは同時に1つの`linked-clone` PVCしか持つことができません。
+* `linked-clone` PVCは短命であるように設計されています。不要になった場合は削除することを強くお勧めします。
+====
+
+`linked-clone`モードのさらなる例については、ブログ記事をご覧ください: https://longhorn.io/blog/20250902-k8s-backup-solutions-and-longhorn/[バックアップアプリケーションとLonghorn V2ボリュームを使用したVelero]。
+
+=== {longhorn-product-name} UIを使用してボリュームをクローンします。
+
+{longhorn-product-name} UIを使用してv2データエンジンボリュームをクローンすることもできます:
+
+* *ボリューム*ページで、*ボリュームの作成*をクリックし、データソース（`Volume`または`Volume Snapshot`）を選択します。
+* *ボリューム*ページから、ボリュームを選択し、*操作*メニューの*Clone Volume*をクリックします。
+* *ボリューム*ページで、ボリュームを選択し、その名前をクリックし、*スナップショットとバックアップ*セクションで使用したいスナップショットを特定し、次に*Clone Volume*をクリックします。
+* 一括クローンの場合、*ボリューム*ページで1つ以上のボリュームを選択し、テーブルの上部にある*Clone Volume*ボタンをクリックします。
+
+== 履歴
+
+* https://github.com/longhorn/longhorn/issues/7794[GitHub Issue]。
+* https://github.com/longhorn/longhorn/pull/10873[Longhorn Enhancement Proposal]。
+
+v1.10.0以降利用可能。
