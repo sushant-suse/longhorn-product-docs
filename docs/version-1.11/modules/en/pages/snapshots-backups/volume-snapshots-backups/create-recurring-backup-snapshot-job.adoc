@@ -134,7 +134,7 @@ The recurring job can be assigned on the volume detail page. To navigate to the 
 Add recurring job group:
 
 ----
-kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job-group.longhorn.io/<RECURRING-JOB-GROUP-NAME≥enabled
+kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job-group.longhorn.io/<RECURRING-JOB-GROUP-NAME>=enabled
 
 # Example:
 # kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job-group.longhorn.io/default=enabled
@@ -143,7 +143,7 @@ kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job-group.longho
 Add recurring job:
 
 ----
-kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job.longhorn.io/<RECURRING-JOB-NAME≥enabled
+kubectl -n longhorn-system label volume/<VOLUME-NAME> recurring-job.longhorn.io/<RECURRING-JOB-NAME>=enabled
 
 # Example:
 # kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job.longhorn.io/backup=enabled
@@ -174,7 +174,7 @@ kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job.longhorn.io/source=ena
 Add recurring job group:
 
 ----
-kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job-group.longhorn.io/<RECURRING-JOB-GROUP-NAME≥enabled
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job-group.longhorn.io/<RECURRING-JOB-GROUP-NAME>=enabled
 
 # Example:
 # kubectl -n default label pvc/sample recurring-job-group.longhorn.io/default=enabled
@@ -183,7 +183,7 @@ kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job-group.longhorn.io/<REC
 Add recurring job:
 
 ----
-kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job.longhorn.io/<RECURRING-JOB-NAME≥enabled
+kubectl -n <NAMESPACE> label pvc/<PVC-NAME> recurring-job.longhorn.io/<RECURRING-JOB-NAME>=enabled
 
 # Example:
 # kubectl -n default label pvc/sample recurring-job.longhorn.io/backup=enabled
