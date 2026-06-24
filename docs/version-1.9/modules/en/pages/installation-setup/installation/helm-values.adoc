@@ -1,5 +1,5 @@
 = Helm Values
-:revdate: 2025-07-30
+:revdate: 2026-06-024
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -193,16 +193,6 @@ The `values.yaml` file contains items used to tweak a deployment of this chart.
 | string
 | `"v1.9.1"`
 | Tag for the Longhorn UI image.
-
-| image.openshift.oauthProxy.repository
-| string
-| `""`
-| Repository for the OAuth Proxy image. Specify the upstream image (for example, "quay.io/openshift/origin-oauth-proxy"). This setting applies only to OpenShift users.
-
-| image.openshift.oauthProxy.tag
-| float
-| `""`
-| Tag for the OAuth Proxy image. Specify OCP/OKD version 4.1 or later (including version 4.15, which is available at quay.io/openshift/origin-oauth-proxy:4.15). This setting applies only to OpenShift users.
 
 | image.pullPolicy
 | string
@@ -552,36 +542,6 @@ You can install Longhorn in an air-gapped environment with a private registry. F
 | string
 | `""`
 | Timeout after which Prometheus considers the scrape to be failed.
-|===
-
-=== OS/Kubernetes Distro Settings
-
-==== OpenShift Settings
-
-For more details, see the https://github.com/longhorn/longhorn/blob/master/chart/ocp-readme.md[ocp-readme].
-
-|===
-| Key | Type | Default | Description
-
-| openshift.enabled
-| bool
-| `false`
-| Setting that allows Longhorn to integrate with OpenShift.
-
-| openshift.ui.port
-| int
-| `443`
-| Port for accessing the OpenShift web console.
-
-| openshift.ui.proxy
-| int
-| `8443`
-| Port for proxy that provides access to the OpenShift web console.
-
-| openshift.ui.route
-| string
-| `"longhorn-ui"`
-| Route for connections between Longhorn and the OpenShift web console.
 |===
 
 === Other Settings
