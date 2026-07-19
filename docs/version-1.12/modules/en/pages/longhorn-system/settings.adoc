@@ -1,6 +1,6 @@
 = Settings
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-07-07
+:revdate: 2026-07-20
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -1279,7 +1279,7 @@ Applies only to the V2 Data Engine. It can be applied only when the kubelet CPU 
 
 *Default value*: `{"v2":"1024"}`
 
-Applies only to the V2 Data Engine. Sets the SPDK iobuf large buffer pool size (`large_pool_count`) on the SPDK target of the Instance Manager. The Instance Manager passes the value to `spdk_tgt` at startup through a generated JSON configuration file, since the iobuf pool can only be sized at startup and not changed at runtime. The default value 1024 keeps SPDK's built-in behavior; values not greater than 1024 are a no-op.
+Applies only to the V2 Data Engine. Sets the SPDK iobuf large buffer pool size (`large_pool_count`) on the SPDK target of the Instance Manager. The Instance Manager passes the value to `spdk_tgt` at startup through a generated JSON configuration file, since the iobuf pool can only be sized at startup and not changed at runtime. The default value 1024 keeps the built-in behavior of the SPDK; values not greater than 1024 are a no-op.
 
 === Data Engine Hugepage Enabled
 
@@ -1301,7 +1301,28 @@ It applies only to the *V2 Data Engine*. It controls whether the Storage Perform
 
 [WARNING]
 ====
-DO NOT CHANGE THIS SETTING WITH ATTACHED VOLUMES. {longhorn-product-name} will block this setting update when there are attached v2 volumes.
+DO NOT CHANGE THIS SETTING WITH ATTACHED VOLUMES. {longhorn-product-name} blocks this setting update when there are attached v2 volumes.
+====
+
+=== Data Engine CPU Isolation Enabled
+
+*Default value*: `{"v2":"false"}`
+
+It only applies to the *V2 Data Engine*.
+
+Steers host hardware IRQs and unbound kernel workqueue workers away from the CPUs used by the SPDK target daemon, so that interrupt handling and deferred kernel work do not preempt SPDK polling reactors.
+
+* `true`: Pin host IRQs and unbound kernel workqueues to non-SPDK CPUs.
+* `false`: Leave host IRQ/workqueue affinity untouched (default).
+
+[WARNING]
+====
+* *DO NOT ENABLE THIS LIGHTLY*. The setting writes to `/proc/irq/*/smp_affinity` and `/sys/devices/virtual/workqueue/cpumask` on the host, which are *node-wide* and affect every workload on the node. On small nodes, or on nodes where another component (irqbalance, tuned, the cloud provider's IRQ policy, etc.) is already managing IRQ/workqueue affinity, this setting can starve other workloads of CPU time and conflict with the other policy.
+* The Instance Manager pod must be privileged and must mount the host root at `/host`.
+* When enabled, the V2 Instance Manager persists the SPDK CPU mask under `/var/lib/longhorn/instance-manager/v2/spdk_cpu_mask` on the host, programs `/proc/irq/*/smp_affinity` to the inverse mask, and writes the same inverse mask to `/sys/devices/virtual/workqueue/cpumask` before launching `spdk_tgt`.
+* When disabled, the next Instance Manager restart still reconciles any leftover state (clears stale IRQ / workqueue affinity and removes the marker file), but does not install any new affinity.
+* *DO NOT CHANGE THIS SETTING WITH ATTACHED VOLUMES*. {longhorn-product-name} blocks this setting update when there are attached V2 volumes.
+* This value can be overridden per Instance Manager via `Spec.DataEngineSpec.V2.CPUIsolationEnabled` (set to `"true"` or `"false"` on a specific instance manager to force the value on that node; leave empty to inherit this setting).
 ====
 
 === Log Path
