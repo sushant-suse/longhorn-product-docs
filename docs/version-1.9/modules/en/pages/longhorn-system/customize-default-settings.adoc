@@ -1,5 +1,5 @@
 = Customize Default Settings
-:revdate: 2025-09-29
+:revdate: 2026-07-21
 :page-revdate: {revdate}
 :experimental:
 :current-version: {page-component-version}
@@ -200,9 +200,11 @@ From the project view in Rancher, go to menu:Apps && Marketplace[Longhorn > Upgr
 
 If you prefer to use the command line to update the setting, you could use `kubectl`.
 
+To avoid collisions with other CRDs, do not use the simple `settings`. Instead, use `settings.longhorn.io` or `lhs`.
+
 [subs="+attributes",shell]
 ----
-kubectl edit settings <SETTING-NAME> -n longhorn-system
+kubectl edit settings.longhorn.io <SETTING-NAME> -n longhorn-system
 ----
 
 === Using Helm
