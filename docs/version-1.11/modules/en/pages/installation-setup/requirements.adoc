@@ -1,17 +1,17 @@
 = Requirements
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-02-05
+:revdate: 2026-07-21
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 Each node in the Kubernetes cluster where {longhorn-product-name} is installed must fulfill the following requirements:
 
 * A container runtime compatible with Kubernetes (Docker v1.13+, containerd v1.3.7+, etc.)
-* Kubernetes v1.25 or later
+* Kubernetes v1.34 or later
 * `open-iscsi` is installed, and the `iscsid` daemon is running on all the nodes. This is necessary, since {longhorn-product-name} relies on `iscsiadm` on the host to provide persistent volumes to Kubernetes. For help installing `open-iscsi`, refer to xref:_installing_open_iscsi[Installing open-iscsi].
 * RWX support requires that each node has a NFSv4 client installed.
  ** For installing a NFSv4 client, refer to xref:_installing_nfsv4_client[Installing NFSv4 Client].
-* The host filesystem supports the `file extents` feature to store the data. Currently we support:
+* The host file system supports the `file extents` feature to store the data. Currently we support:
  ** ext4
  ** XFS
 * `bash`, `curl`, `findmnt`, `grep`, `awk`, `blkid`, `lsblk` must be installed.
@@ -49,12 +49,12 @@ Client Version: version.Info{Major:"1", Minor:"26", GitVersion:"v1.26.10", GitCo
 Server Version: version.Info{Major:"1", Minor:"26", GitVersion:"v1.26.10+k3s2", GitCommit:"cb5cb5557f34e240e38c68a8c4ca2506c68b1d86", GitTreeState:"clean", BuildDate:"2023-11-08T03:21:46Z", GoVersion:"go1.20.10", Compiler:"gc", Platform:"linux/amd64"}
 ----
 
-The `Server Version` should be greater than or equal to v1.25.
+The `Server Version` should be greater than or equal to v1.34.
 
 [discrete]
 === Pod Security Policy
 
-{longhorn-product-name} is shipped with a default Pod Security Policy that will give {longhorn-product-name} the necessary privileges to be able to run properly.
+{longhorn-product-name} is shipped with a default Pod Security Policy that gives {longhorn-product-name} the necessary privileges to be able to run properly.
 
 No special configuration is needed for {longhorn-product-name} to work properly on clusters with Pod Security Policy enabled.
 
