@@ -1,6 +1,6 @@
 = Upgrade Longhorn Manager
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-01-28
+:revdate: 2026-07-21
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -9,13 +9,13 @@
 It is recommended to create a xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn system backup] before performing the upgrade. This ensures that all critical resources, such as volumes and backing images, are backed up and can be restored in case any issues arise.
 ====
 
-== Upgrading from v1.10.x
+== Upgrading from v{previous-version}.x
 
-{longhorn-product-name} only supports upgrading to v{current-version} from v1.10.x. For other versions, please upgrade to v1.10.x first.
+{longhorn-product-name} only supports upgrading to v{current-version} from v{previous-version}.x. For other versions, please upgrade to v{previous-version}.x first.
 
-For airgap upgrades when {longhorn-product-name} is installed as a Rancher app, you will need to modify the image names and remove the registry URL part.
+For airgap upgrades when {longhorn-product-name} is installed as a Rancher app, you need to modify the image names and remove the registry URL part.
 
-For air-gapped upgrades when {longhorn-product-name} is installed as a Rancher app, you will need to modify the image names and remove the registry URL part. For example, the image `registry.example.com/longhorn/longhorn-manager:v{patch-version}` is changed to `longhorn/longhorn-manager:v{patch-version}` in Longhorn images section. For more information, see the air gap installation steps xref:installation-setup/installation/airgapped-environment.adoc#_using_a_rancher_app[here].
+For air-gapped upgrades when {longhorn-product-name} is installed as a Rancher app, you need to modify the image names and remove the registry URL part. For example, the image `registry.example.com/longhorn/longhorn-manager:v{patch-version}` is changed to `longhorn/longhorn-manager:v{patch-version}` in Longhorn images section. For more information, see the air gap installation steps xref:installation-setup/installation/airgapped-environment.adoc#_using_a_rancher_app[here].
 
 === Preparing for the Upgrade
 
@@ -101,7 +101,7 @@ image::screenshots/install/update-repo.png[Update Repository, width=100%]
 ====
 [lowerroman]
 . Select the `suse-storage` repository, click the three-dot menu, and choose *Edit Config*.
-. *Workaround:* Update the URL to `oci://dp.apps.rancher.io/charts/suse-storage:{patch-version}` to ensure the version is detected.
+. *Workaround*: Update the URL to `oci://dp.apps.rancher.io/charts/suse-storage:{patch-version}` to ensure the version is detected.
 . The repository should be updated successfully.
 +
 image::screenshots/install/updated-repo.png[Update Repository, width=100%]

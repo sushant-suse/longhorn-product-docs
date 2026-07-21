@@ -1,10 +1,12 @@
 = Important Notes
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-06-01
+:revdate: 2026-07-21
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
-This page summarizes the key notes for {longhorn-product-name} v{patch-version}. Please see https://github.com/longhorn/longhorn/releases/tag/v{patch-version}[here] for the full release notes.
+This page summarizes the key notes for {longhorn-product-name} v{patch-version}. 
+
+For full release notes, see the {longhorn-product-name} v{patch-version} release notes.
 
 == Removal
 
@@ -20,6 +22,64 @@ If you have V2 volumes that were created from backing images, you must migrate t
 V2 volumes with backing image dependencies cannot be upgraded in-place. Attempting to upgrade without migration may result in volume attachment failures.
 
 For more information, see https://github.com/longhorn/longhorn/issues/13181[Issue #13181] and xref:volumes/containerized-data-importer.adoc[{longhorn-product-name} with CDI Imports].
+
+== V2 Data Engine
+
+=== General Availability
+
+The V2 Data Engine is generally available in {longhorn-product-name} v{patch-version}. This milestone reflects improvements in stability, operational safety, networking support, and feature maturity, making V2 volumes suitable for production use in supported environments.
+
+For a summary of the current V1 and V2 behavior differences and feature parity, see xref:v1-v2-volume-behavior-and-feature-parity.adoc[V1 and V2 Volume Behavior and Feature Parity].
+
+For more information, see https://github.com/longhorn/longhorn/issues/6229[Issue #6229].
+
+=== Important Note
+
+==== Volume Attach Latency at Scale
+
+In environments with a growing number of attached V2 volumes, increased attach latency has been observed for subsequent volumes. Initial analysis suggests this may be related to NVMe-TCP connection handling at scale, though the precise layer (SPDK user-space or Linux kernel) has not yet been identified. Further investigation is in progress. For follow-up status, see https://github.com/longhorn/longhorn/issues/13241[Issue #13241].
+
+==== ARM64 NVMe-backed Block-Type Node Disk Limitation
+
+On ARM64 systems, V2 volumes may experience stuck I/O when SPDK is configured with two or more CPU cores and node disks use the NVMe driver. The root cause may lie in either the Linux kernel or SPDK itself, and further investigation is required. As a workaround, use [AIO-backed node disks](../nodes-and-volumes/nodes/multidisk#using-aio-disks) instead of [NVMe-backed node disks](../nodes-and-volumes/nodes/multidisk#using-nvme-disks) on ARM64 systems. For follow-up status, see https://github.com/longhorn/longhorn/issues/13243[Issue #13243].
+
+==== UBLK Frontend Kernel Limitation
+
+The UBLK frontend for V2 Data Engine volumes is experimental and only functional on Linux kernels below v6.17. On kernel v6.17.0 and above, UBLK fails due to upstream UBLK API changes that cause `EINVAL` errors when starting UBLK devices.
+
+For more information, see https://github.com/longhorn/longhorn/issues/11977[Issue #11977] and xref:v2-data-engine/ublk-frontend-support.adoc[UBLK Frontend Support].
+
+==== {longhorn-product-name} System Upgrade
+
+V2 volumes do not support live upgrades between {longhorn-product-name} v{current-version} patch releases and must be detached before upgrading. Support is planned when upgrading from a {longhorn-product-name} v{current-version} release to a {longhorn-product-name} v1.13 release.
+
+=== Default CPU Allocation
+
+{longhorn-product-name} v{patch-version} changes the default `data-engine-cpu-mask` from `0x1` (1 CPU core) to `0x3` (2 CPU cores). V2 Data Engine uses a busy-polling reactor model where the master reactor handles both I/O polling and management RPCs. When only a single core is assigned, heavy I/O workloads can delay or starve RPC processing, resulting in increased latency, timeout events, and operational instability.
+
+Assigning 2 or more cores allows I/O and management tasks to run on separate reactors, improving responsiveness and operational stability.
+
+For more information, see https://github.com/longhorn/longhorn/issues/13237[Issue #13237] and xref:v2-data-engine/configurable-cpu-cores.adoc[Configurable CPU Cores].
+
+=== IPv6 Support
+
+V2 volumes now support single-stack IPv6 Kubernetes clusters. For dual-stack cluster support and its limitations, see xref:_dualstack_cluster_support[Dual-Stack Cluster Support].
+
+For more information, see https://github.com/longhorn/longhorn/issues/10928[Issue #10928].
+
+=== Features Planned for {longhorn-product-name} v1.12.1
+
+==== Fast Volume Cloning
+
+Fast volume cloning for the V2 Data Engine is planned for {longhorn-product-name} v1.12.1. This enhancement is intended to allow the initial `linked-clone` to be created with multiple replicas in parallel instead of being limited to a single replica.
+
+For more information, see https://github.com/longhorn/longhorn/issues/12552[Issue #12552].
+
+==== Storage Sharding
+
+Storage sharding for the V2 Data Engine is planned as an experimental feature for {longhorn-product-name} v1.12.1. This capability is intended to address the existing space efficiency limitations caused by replica-based storage overhead.
+
+For more information, see https://github.com/longhorn/longhorn/issues/1061[Issue #1061].
 
 == Important Fixes
 
@@ -55,7 +115,7 @@ For more information, see https://github.com/longhorn/longhorn/issues/13152[Issu
 
 For more information, see https://github.com/longhorn/longhorn/issues/12807[Issue #12807] and xref:longhorn-system/settings.adoc#_csi_storage_capacity_tracking[Settings].
 
-=== Encrypted Volume Size After Engine Upgrade
+=== Encrypted Volume Size Correction
 
 {longhorn-product-name} v{patch-version} pre-allocates the 16 MiB LUKS2 header in the replica back-end file for encrypted volumes (replica size = requested size + 16 MiB). As a result, the dm-crypt device now exposes the full requested size to workloads.
 
@@ -136,49 +196,3 @@ The command can target a specific volume, all volumes on a specific node, or all
 
 For more information, see https://github.com/longhorn/longhorn/issues/11442[Issue #11442] and xref:data-integrity-recovery/on-demand-snapshot-data-integrity.adoc[On-Demand Snapshot Checksum Calculation].
 
-== V2 Data Engine
-
-[NOTE]
-====
-*Volume Attach Latency at Scale*
-
-In environments with a growing number of attached V2 volumes, increased attach latency has been observed for subsequent volumes. Initial analysis suggests this may be related to NVMe-TCP connection handling at scale, though the precise layer (SPDK user-space or Linux kernel) has not yet been identified. Further investigation is in progress. For follow-up status, see https://github.com/longhorn/longhorn/issues/13241[Issue #13241].
-====
-
-=== {longhorn-product-name} System Upgrade
-
-Live upgrades of V2 volumes are *not supported*. Ensure all V2 volumes are detached before upgrading.
-
-=== Default SPDK CPU Allocation
-
-{longhorn-product-name} v{patch-version} changes the default `data-engine-cpu-mask` from `0x1` (1 CPU core) to `0x3` (2 CPU cores). SPDK uses a busy-polling reactor model where the master reactor handles both I/O polling and management RPCs. When only a single core is assigned, heavy I/O workloads can delay or starve RPC processing, resulting in increased latency, timeout events, and operational instability.
-
-Assigning 2 or more cores allows I/O and management tasks to run on separate reactors, improving responsiveness and operational stability.
-
-For more information, see https://github.com/longhorn/longhorn/issues/13237[Issue #13237] and xref:longhorn-system/v2-data-engine/features/configurable-cpu-cores.adoc[Configurable CPU Cores].
-
-=== UBLK Front-end Kernel Limitation
-
-The UBLK front-end for V2 Data Engine volumes is experimental and only functional on Linux kernels below v6.17. On kernel v6.17.0 and above, UBLK fails due to upstream UBLK API changes that cause `EINVAL` errors when starting UBLK devices.
-
-For more information, see https://github.com/longhorn/longhorn/issues/11977[Issue #11977] and xref:v2-data-engine/ublk-frontend-support.adoc[UBLK Front-end Support].
-
-=== IPv6 Support
-
-V2 volumes now support single-stack IPv6 Kubernetes clusters. For dual-stack cluster support and its limitations, see xref:_dualstack_cluster_support[Dual-Stack Cluster Support].
-
-For more information, see https://github.com/longhorn/longhorn/issues/10928[Issue #10928].
-
-=== V2 Features Planned for {longhorn-product-name} v1.12.1
-
-==== Fast Volume Cloning
-
-Fast volume cloning for the V2 Data Engine is planned for {longhorn-product-name} v1.12.1. This enhancement is intended to allow the initial `linked-clone` to be created with multiple replicas in parallel instead of being limited to a single replica.
-
-For more information, see https://github.com/longhorn/longhorn/issues/12552[Issue #12552].
-
-==== Storage Sharding
-
-Storage sharding for the V2 Data Engine is planned as an experimental feature for {longhorn-product-name} v1.12.1. This capability is intended to address the existing space efficiency limitations caused by replica-based storage overhead.
-
-For more information, see https://github.com/longhorn/longhorn/issues/1061[Issue #1061].

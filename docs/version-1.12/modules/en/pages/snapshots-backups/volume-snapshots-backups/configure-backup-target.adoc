@@ -1,6 +1,6 @@
 = Configure a Backup Target
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-06-01
+:revdate: 2026-07-21
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -312,10 +312,33 @@ The *Backup Target* screen on the {longhorn-product-name} UI displays the status
 {longhorn-product-name} provides sample backupstore server setups for testing purposes. You can find samples for AWS S3 (MinIO), Azure, CIFS and NFS in the `longhorn/deploy/backupstores` folder.
 
 . Set up a MinIO S3 server for the backupstore in the `longhorn-system` namespace.
+** Set environment variables
 +
-[subs="+attributes", console]
+[,shell]
 ----
-kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/deploy/backupstores/minio-backupstore.yaml
+export AWS_ACCESS_KEY_ID="bG9uZ2hvcm4tdGVzdC1hY2Nlc3Mta2V5"
+export AWS_SECRET_ACCESS_KEY="bG9uZ2hvcm4tdGVzdC1zZWNyZXQta2V5"
+export AWS_ENDPOINTS="aHR0cHM6Ly9taW5pby1zZXJ2aWNlLmRlZmF1bHQ6OTAwMA=="
+export AWS_CERT="..."
+export AWS_CERT_KEY="..."
+----
++
+For `AWS_CERT` and `AWS_CERT_KEY` local test samples, see https://github.com/longhorn/longhorn/blob/v{patch-version}/deploy/backupstores/minio-backupstore.yaml[MinIO backupstore manifest].
++
+** Generate the Kustomize overlay
++
+[,shell]
+----
+./scripts/generate-backupstore-credentials.sh minio --no-encode
+----
++
+This command creates the overlay directory under: `deploy/backupstores/overlays/generated-credentials/minio`
++
+** Deploy the credentials and service
++
+[,shell]
+----
+kubectl apply -k deploy/backupstores/overlays/generated-credentials/minio
 ----
 
 . Go to the {longhorn-product-name} UI. Click *Backup and Restore or Backup Targets*, and create or edit a backup target.
