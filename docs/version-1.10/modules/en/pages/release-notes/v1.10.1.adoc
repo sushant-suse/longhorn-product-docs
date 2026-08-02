@@ -1,0 +1,209 @@
+= {longhorn-product-name} v1.10.1 Release Notes
+:revdate: 2026-08-03
+:page-revdate: {revdate}
+
+This is a major release focused on improving stability, performance and the overall user experience. This version introduces significant enhancements to our core features, including the V2 Data Engine, and streamlines configuration for easier management. The key highlights include improvements to the V2 Data Engine, enhanced resilience, simplified configuration, and better observability. The documentation is available at xref:introduction/overview.adoc[{longhorn-product-name} Documentation].
+
+[NOTE]
+====
+For more information about release-related terminology, see https://github.com/longhorn/longhorn#releases[Releases].
+====
+
+== Removals
+
+=== `longhorn.io/v1beta1` API
+
+The `v1beta1` {longhorn-product-name} API version has been removed.
+
+See https://github.com/longhorn/longhorn/issues/10249[#10249] for details.
+
+=== `replica.status.evictionRequested` field
+
+The deprecated `replica.status.evictionRequested` field has been removed.
+
+See https://github.com/longhorn/longhorn/issues/7022[#7022] for details.
+
+== Primary highlights
+
+=== New V2 Data Engine features
+
+==== Interrupt mode support
+
+Interrupt mode has been added to the V2 Data Engine to help reduce CPU usage. This feature is especially beneficial for clusters with idle or low I/O workloads, where conserving CPU resources is more important than minimizing latency.
+
+While interrupt mode lowers CPU consumption, it may introduce slightly higher I/O latency compared to polling mode. Besides the current implementation uses a hybrid approach, which still incurs a minimal, constant CPU load even when interrupts are enabled.
+
+[NOTE]
+====
+*Limitation*: Supports *AIO disks only*.
+====
+
+See xref:v2-data-engine/features/interrupt-mode.adoc[Interrupt Mode] and https://github.com/longhorn/longhorn/issues/9834[issue #9834] for details.
+
+==== Volume and snapshot cloning
+
+V2 volumes now support two types of cloning:
+
+* *Full-Copy Clone*: Creates a new PVC with a complete, independent copy of the source data, providing full isolation.
+* *Linked-Clone (Fast/Smart Clone)*: Creates a PVC that shares data blocks with the source volume for near-instant creation. Ideal for temporary workloads, backups, or testing. Linked-clones are lightweight, fast, and reduce storage overhead.
+
+See xref:v2-data-engine/features/volume-clone.adoc[Volume Clone Support] and https://github.com/longhorn/longhorn/issues/7794[#7794] for details.
+
+==== Replica rebuild QoS
+
+Provides Quality of Service (QoS) control for V2 volume replica rebuilds. You can configure bandwidth limits globally or per volume to prevent storage throughput overload on source and destination nodes.
+
+See xref:v2-data-engine/features/replica-rebuild-qos.adoc[Replica Rebuild QoS] and https://github.com/longhorn/longhorn/issues/10770[#10770] for details.
+
+==== Volume expansion
+
+{longhorn-product-name} now supports volume expansion for V2 Data Engine volumes. You can expand the volume through the UI or by modifying the PVC manifest.
+
+See xref:v2-data-engine/features/volume-expansion.adoc[V2 Volume Expansion] and https://github.com/longhorn/longhorn/issues/8022[#8022] for details.
+
+==== Support for running without Hugepages
+
+This reduces memory pressure on low-spec nodes and increases deployment flexibility. Performance may be lower compared to running with Hugepages.
+
+See https://github.com/longhorn/longhorn/issues/7066[#7066] for details.
+
+=== New V1 Data Engine features
+
+==== IPv6 support
+
+V1 volumes now support single-stack IPv6 Kubernetes clusters.
+
+[WARNING]
+====
+Dual-stack Kubernetes clusters and V2 volumes are *not supported* in this release.
+====
+
+See https://github.com/longhorn/longhorn/issues/2259[#2259] for details.
+
+=== Consolidated global settings
+
+To simplify management, {longhorn-product-name} settings are now unified across V1 and V2 Data Engines, using a new, more flexible JSON format.
+
+* *Single value (applies to all Data Engines)*: Non-JSON string (for example, `1024`).
+* *Data-engine-specific*: JSON object (for example, `{"v1": "value1", "v2": "value2"}`)
+* *V1-only*: JSON object with v1 key (for example, `{"v1":"value1"}`).
+* *V2-only*: JSON object with v2 key (for example, `{"v2":"value1"}`).
+
+See xref:references/settings.adoc[{longhorn-product-name} Settings] and https://github.com/longhorn/longhorn/issues/10926[issue #10926] for details.
+
+=== Pod scheduling with CSIStorageCapacity
+
+{longhorn-product-name} now supports *CSIStorageCapacity*, allowing Kubernetes to verify node storage before scheduling pods using StorageClasses with *WaitForFirstConsumer*. This reduces scheduling errors and improves reliability.
+
+See https://github.com/longhorn/longhorn/issues/10685[#10685] for details.
+
+=== Configurable backup block size
+
+Backup block size can now be configured when creating a volume to optimize performance and efficiency.
+
+See xref:nodes-and-volumes/volumes/create-volumes.adoc[Create {longhorn-product-name} Volumes] and https://github.com/longhorn/longhorn/issues/5215[#5215] for details.
+
+=== Volume attachment summary
+
+The UI now shows a summary of attachment tickets on each volume page for improved visibility.
+
+See https://github.com/longhorn/longhorn/issues/11400[#11400] for details.
+
+== Important fixes
+
+This release includes several critical stability and performance improvements:
+
+=== Goroutine leak in instance manager (V2 Data Engine)
+
+Fixed a goroutine leak in the instance manager when using the V2 data engine. This issue could lead to increased memory usage and potential stability problems over time.
+
+For more details, see https://github.com/longhorn/longhorn/issues/11962[#11962].
+
+=== V2 volume attachment failure in interrupt mode
+
+Fixed an issue where V2 volumes using interrupt mode with NVMe disks could fail to complete the attachment process, causing volumes to remain stuck in the attaching state indefinitely.
+
+In v1.10.0, interrupt mode supports only *AIO disks*. Interrupt mode for *NVMe disks* is supported starting in v1.10.1.
+
+For more details, see https://github.com/longhorn/longhorn/issues/11816[#11816].
+
+=== UI deployment failure on IPv4-only nodes
+
+Fixed a bug introduced in v1.10.0 where the UI failed to deploy on nodes with only IPv4 enabled. The UI now correctly supports IPv4-only configurations without requiring IPv6.
+
+For more details, see https://github.com/longhorn/longhorn/issues/11875[#11875].
+
+=== Share manager excessive memory usage
+
+Fixed excessive memory consumption in the share manager for RWX (ReadWriteMany) volumes. The component now maintains stable memory usage under normal operation.
+
+For more details, see https://github.com/longhorn/longhorn/issues/12043[#12043].
+
+== Installation
+
+[IMPORTANT]
+====
+*Ensure that your cluster is running Kubernetes v1.25 or later before installing {longhorn-product-name} v1.10.1.*
+====
+
+You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:deploy/install.adoc[Quick Installation] in the documentation.
+
+== Upgrade
+
+[IMPORTANT]
+====
+*Ensure that your cluster is running Kubernetes v1.25 or later before upgrading from {longhorn-product-name} v1.9.x to v1.10.1.*
+====
+
+{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:deploy/upgrade.adoc[Upgrade] in the documentation.
+
+== Post-release known issues
+
+For information about issues identified after this release, see https://github.com/longhorn/longhorn/wiki/Release-Known-Issues[Release-Known-Issues].
+
+== Resolved issues
+
+=== Improvement
+
+* https://github.com/longhorn/longhorn/issues/12125[#12125] [BACKPORT][v1.10.1][IMPROVEMENT] The `auto-delete-pod-when-volume-detached-unexpectedly` should only focus on the kubernetes builtin workload.
+* https://github.com/longhorn/longhorn/issues/12036[#12036] [BACKPORT][v1.10.1][IMPROVEMENT] `CSIStorageCapacity` objects must show schedulable (allocatable) capacity
+* https://github.com/longhorn/longhorn/issues/12033[#12033] [BACKPORT][v1.10.1][IMPROVEMENT] improve error logging for failed mounting during node publish volume
+* https://github.com/longhorn/longhorn/issues/12020[#12020] [BACKPORT][v1.10.1][IMPROVEMENT] Improve Helm Chart defaultSettings handling with automatic quoting and multi-type support
+* https://github.com/longhorn/longhorn/issues/11945[#11945] [BACKPORT][v1.10.1][IMPROVEMENT] Avoid repeat engine restart when there are replica unavailable during migration
+* https://github.com/longhorn/longhorn/issues/11968[#11968] [BACKPORT][v1.10.1][IMPROVEMENT] Adjust maximum of GuaranteedInstanceManagerCPU to a big value
+* https://github.com/longhorn/longhorn/issues/11795[#11795] [BACKPORT][v1.10.1][IMPROVEMENT] Add usage metrics for Longhorn installation variant
+
+=== Bug
+
+* https://github.com/longhorn/longhorn/issues/12089[#12089] [BACKPORT][v1.10.1][BUG] Backup target metric is broken
+* https://github.com/longhorn/longhorn/issues/12094[#12094] [BACKPORT][v1.10.1][BUG] Backing image download gets stuck after network disconnection
+* https://github.com/longhorn/longhorn/issues/12088[#12088] [BACKPORT][v1.10.1][BUG] panic: runtime error: invalid memory address or nil pointer dereference [signal SIGSEGV: segmentation violation code=0x1 at longhorn-engine/pkg/controller/control.go:218 +0x2de]
+* https://github.com/longhorn/longhorn/issues/11964[#11964] [BACKPORT][v1.10.1][BUG] Unable to complete uninstallation due to the remaining backuptarget
+* https://github.com/longhorn/longhorn/issues/12043[#12043] [BACKPORT][v1.10.1][BUG] share-manager excessive memory usage
+* https://github.com/longhorn/longhorn/issues/12029[#12029] [BACKPORT][v1.10.1][BUG] NVME disk not found in v2 data engine (failed to find device for BDF)
+* https://github.com/longhorn/longhorn/issues/11926[#11926] [BACKPORT][v1.10.1][BUG] NPE error during recurring job execution
+* https://github.com/longhorn/longhorn/issues/12026[#12026] [BACKPORT][v1.10.1][BUG] v2 volume creation failed on talos nodes
+* https://github.com/longhorn/longhorn/issues/12008[#12008] [BACKPORT][v1.10.1][BUG] mounting error is not properly hanedled during CSI node publish volume
+* https://github.com/longhorn/longhorn/issues/12018[#12018] [BACKPORT][v1.10.1][BUG] Adding multiple disks to the same node concurrently may occasionally fail
+* https://github.com/longhorn/longhorn/issues/11886[#11886] [BUG] upgrading from 1.9.1 to 1.10.0 fails due to old resources still being in v1beta1
+* https://github.com/longhorn/longhorn/issues/11998[#11998] [BACKPORT][v1.10.1][BUG] DR volume gets stuck in `unknown` state if engine image is deleted from the attached node
+* https://github.com/longhorn/longhorn/issues/11996[#11996] [BACKPORT][v1.10.1][BUG] Volume gets stuck in `attaching` state if engine image is not deployed on one of nodes
+* https://github.com/longhorn/longhorn/issues/12000[#12000] [BACKPORT][v1.10.1][BUG] Unable to re-add block-type disks by BDF after re-enable v2 data engine
+* https://github.com/longhorn/longhorn/issues/12005[#12005] [BACKPORT][v1.10.1][BUG] `test_system_backup_and_restore` test case failed on master-head
+* https://github.com/longhorn/longhorn/issues/11970[#11970] [BACKPORT][v1.10.1][BUG] Fix SPDK v25.05 CVE issue
+* https://github.com/longhorn/longhorn/issues/11976[#11976] [BACKPORT][v1.10.1][BUG] V2 volume stuck in volume attachment (V2 interrupt mode)
+* https://github.com/longhorn/longhorn/issues/11958[#11958] [BACKPORT][v1.10.1][BUG] RWX volume causes process uninterruptible sleep
+* https://github.com/longhorn/longhorn/issues/11865[#11865] [BACKPORT][v1.10.1][BUG] longhorn-manager fails to start after upgrading from 1.9.2 to 1.10.0
+* https://github.com/longhorn/longhorn/issues/11954[#11954] [BACKPORT][v1.10.1][BUG] Block disk deletion fails without error message
+* https://github.com/longhorn/longhorn/issues/11962[#11962] [BACKPORT][v1.10.1][BUG] Goroutine leak in instance-manager when using v2 data engine
+* https://github.com/longhorn/longhorn/issues/11942[#11942] [BACKPORT][v1.10.1][BUG] invalid memory address or nil pointer dereference
+* https://github.com/longhorn/longhorn/issues/11918[#11918] [BACKPORT][v1.10.1][BUG] csi-provisioner silently fails to create CSIStorageCapacity if dataEngine parameter is missing
+* https://github.com/longhorn/longhorn/issues/11901[#11901] [BACKPORT][v1.10.1][BUG] longhorn-engine's UI panics
+* https://github.com/longhorn/longhorn/issues/11895[#11895] [BACKPORT][v1.10.1][BUG] Volume is unable to upgrade if the number of active replicas is larger than `volumme.spec.numberOfReplicas`
+* https://github.com/longhorn/longhorn/issues/11875[#11875] [BACKPORT][v1.10.1][BUG] UI fails to deploy when only IPv4 is enabled on nodes with v1.10.0 version
+* https://github.com/longhorn/longhorn/issues/11801[#11801] [BACKPORT][v1.10.1][BUG] Unable to detach a v2 volume after labeling `disable-v2-data-engine=true`
+
+=== Misc
+
+* https://github.com/longhorn/longhorn/issues/11992[#11992] [BACKPORT][v1.10.1][REFACTOR] SAST checks for UI component
+* https://github.com/longhorn/longhorn/issues/11951[#11951] [HOTFIX] Create hotfixed image for longhorn-manager:v1.10.0
