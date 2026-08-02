@@ -1,0 +1,78 @@
+= {longhorn-product-name} v1.11.2 Release Notes
+:revdate: 2026-08-03
+:page-revdate: {revdate}
+
+This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/overview.adoc[{longhorn-product-name} Documentation].
+
+[NOTE]
+====
+For terminology and context on {longhorn-product-name} releases, see https://github.com/longhorn/longhorn#releases[Releases].
+====
+
+== Important Fixes
+
+This release includes several critical stability fixes.
+
+=== Replica rebuild progress fix
+
+Resolved an issue where replica rebuild progress could exceed 100% under unstable network conditions. Progress reporting is now capped at 100%.
+
+For more details, see https://github.com/longhorn/longhorn/issues/12949[#12949].
+
+=== CSIStorageCapacity scheduling enhancement
+
+Introduced a new setting to control CSIStorageCapacity reporting. Previously, compute nodes without {longhorn-product-name} disks incorrectly reported 0 capacity, breaking WaitForFirstConsumer scheduling. With this enhancement, capacity tracking can be configured to avoid rejecting compute nodes in separated compute/storage architectures.
+
+For more details, see https://github.com/longhorn/longhorn/issues/12807[#12807].
+
+== Improvement
+
+=== Manager memory optimization
+
+Optimized longhorn-manager Pod informer caching to reduce cluster-wide memory usage.
+
+For more details, see https://github.com/longhorn/longhorn/issues/12771[#12771].
+
+== Installation
+
+[IMPORTANT]
+====
+*Ensure that your cluster is running Kubernetes v1.25 or later before installing {longhorn-product-name} v1.11.2*.
+====
+
+You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:deploy/install.adoc[Quick Installation] in the documentation.
+
+== Upgrade
+
+[IMPORTANT]
+====
+*Ensure that your cluster is running Kubernetes v1.25 or later before upgrading from {longhorn-product-name} v1.10.x or v1.11.0 to v1.11.2*.
+
+*Users on v1.11.0 who experienced the memory leaks of longhorn-instance-manager pods https://github.com/longhorn/longhorn/issues/12575[#12575] are highly encouraged to upgrade to v1.11.2 to receive the permanent fix for the proxy connection leaks*.
+====
+
+{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:deploy/upgrade.adoc[Upgrade] in the documentation.
+
+== Post-release Known Issues
+
+For information about issues identified after this release, see https://github.com/longhorn/longhorn/wiki/Release-Known-Issues[Release-Known-Issues].
+
+== Resolved Issues in This Release
+
+=== Improvement
+
+* https://github.com/longhorn/longhorn/issues/12819[#12819] [BACKPORT][v1.11.2][IMPROVEMENT] Reduce longhorn-manager memory usage by optimizing cluster-wide informer caching
+
+=== Bug
+
+* https://github.com/longhorn/longhorn/issues/13006[#13006] [BACKPORT][v1.11.2][BUG] Test case `test_storage_capacity_aware_pod_scheduling` fails
+* https://github.com/longhorn/longhorn/issues/12928[#12928] [BACKPORT][v1.11.2][BUG] Replica Auto-Balance Causes Infinite Replica Scheduling Loop
+* https://github.com/longhorn/longhorn/issues/12918[#12918] [BACKPORT][v1.11.2][BUG] CSIStorageCapacity reports 0 for compute nodes without {longhorn-product-name} disks, breaking WaitForFirstConsumer scheduling
+* https://github.com/longhorn/longhorn/issues/12952[#12952] [BACKPORT][v1.11.2][BUG] Replica rebuild progress can go over 100%
+* https://github.com/longhorn/longhorn/issues/12945[#12945] [BACKPORT][v1.11.2][BUG] Node exhaustion caused by backup inspect buildup induced due to NFS latency
+* https://github.com/longhorn/longhorn/issues/12911[#12911] [BACKPORT][v1.11.2][BUG] Failed to collect health data for block disk (AIO) when disk path is a `/dev/disk/by-id` symlink
+* https://github.com/longhorn/longhorn/issues/12856[#12856] [BACKPORT][v1.11.2][BUG] "snapshot becomes not ready to use" Warning events emitted during expected auto-cleanup after backup
+
+=== Stability
+
+* https://github.com/longhorn/longhorn/issues/12733[#12733] [BACKPORT][v1.11.1][BUG] Potential NEP in Volume Metrics Collector

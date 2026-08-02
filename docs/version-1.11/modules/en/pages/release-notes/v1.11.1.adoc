@@ -1,0 +1,165 @@
+= {longhorn-product-name} v1.11.1 Release Notes
+:revdate: 2026-08-03
+:page-revdate: {revdate}
+
+This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/overview.adoc[{longhorn-product-name} Documentation].
+
+[NOTE]
+====
+For terminology and context on {longhorn-product-name} releases, see https://github.com/longhorn/longhorn#releases[Releases].
+====
+
+== Deprecations
+
+=== V2 Backing Image deprecation
+
+The Backing Image feature for the V2 Data Engine is now deprecated in v1.11.0 and is scheduled for removal in v1.12.0.
+
+Users using V2 volumes for virtual machines are encouraged to adopt the https://kubevirt.io/user-guide/operations/containerized_data_importer/[Containerized Data Importer (CDI)] for volume population instead.
+
+https://github.com/longhorn/longhorn/issues/12237[#12237]
+
+== Primary Highlights
+
+=== V2 Data Engine
+
+==== Now in technical preview stage
+
+We are pleased to announce that the V2 Data Engine has officially graduated to the *Technical Preview* stage. This indicates increased stability and feature maturity as we move toward General Availability.
+
+[NOTE]
+====
+*Limitation*: While the engine is in Technical Preview, live upgrade is not supported yet. V2 volumes must be detached (offline) before engine upgrade.
+====
+
+==== Support for `ublk` front-end
+
+Users can now configure `ublk` (Userspace Block Device) as the front-end for V2 Data Engine volumes. This provides a high-performance alternative to the NVMe-oF front-end for environments running Kernel v6.0+.
+
+https://github.com/longhorn/longhorn/issues/11039[#11039]
+
+=== V1 Data Engine
+
+==== Faster replica rebuilding from multiple sources
+
+The V1 Data Engine now supports parallel rebuilding. When a replica needs to be rebuilt, the engine can now stream data from multiple healthy replicas simultaneously rather than a single source. This reduces the time required to restore redundancy for volumes containing tons of scattered data chunks.
+
+https://github.com/longhorn/longhorn/issues/11331[#11331]
+
+=== General
+
+==== Balance-aware algorithm disk selection for replica scheduling
+
+{longhorn-product-name} improves the disk selection for the replica scheduling by introducing an intelligent `balance-aware` scheduling algorithm, reducing uneven storage usage across nodes and disks.
+
+https://github.com/longhorn/longhorn/issues/10512[#10512]
+
+==== Node disk health monitoring
+
+{longhorn-product-name} now actively monitors the physical health of the underlying disks used for storage by using `S.M.A.R.T.` data. This allows administrators to identify issues and raise alerts when abnormal SMART metrics are detected, helping prevent failed volumes.
+
+https://github.com/longhorn/longhorn/issues/12016[#12016]
+
+==== Share manager networking
+
+Users can now configure an extra network interface for the Share Manager to support complex network segmentation requirements.
+
+https://github.com/longhorn/longhorn/issues/10269[#10269]
+
+==== ReadWriteOncePod (RWOP) support
+
+Full support for the Kubernetes `ReadWriteOncePod` access mode has been added.
+
+https://github.com/longhorn/longhorn/issues/9727[#9727]
+
+==== StorageClass `allowedTopologies` support
+
+Administrators can now use the `allowedTopologies` field in {longhorn-product-name} StorageClasses to restrict volume provisioning to specific zones, regions or nodes within the cluster.
+
+https://github.com/longhorn/longhorn/issues/12261[#12261]
+
+== Important Fixes
+
+This release includes several critical stability fixes.
+
+=== {longhorn-product-name} workload pods memory leak
+
+Fixed a critical regression where proxy connection leaks in the longhorn-instance-manager pods caused high memory consumption.
+
+For more details, see https://github.com/longhorn/longhorn/issues/12575[#12575].
+
+=== Backup and restore compatibility fix
+
+Resolved compatibility issues introduced by aws-go-sdk v2, including backups to S3-compatible storage (like Storj or Google Cloud Storage). This fix ensures the completion of large data transfers to remote backup targets with correct authorization.
+
+For more details, see https://github.com/longhorn/longhorn/issues/12714[#12714] and https://github.com/longhorn/longhorn/issues/12688[#12688].
+
+=== V2 Data Engine (SPDK) refinements
+
+Several enhancements were delivered for certain V2 Data Engine features, including fast replica rebuild and clone.
+
+For more details, see https://github.com/longhorn/longhorn/issues/12751[#12751] and https://github.com/longhorn/longhorn/issues/12748[#12748].
+
+=== CSI scheduling enhancement
+
+Support CSI topology-aware PV nodeAffinity control.
+
+For more details, see https://github.com/longhorn/longhorn/issues/12689[#12689] and https://github.com/longhorn/longhorn/issues/12656[#12656].
+
+== Installation
+
+[IMPORTANT]
+====
+*Ensure that your cluster is running Kubernetes v1.25 or later before installing {longhorn-product-name} v1.11.1*.
+====
+
+You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:deploy/install.adoc[Quick Installation] in the documentation.
+
+== Upgrade
+
+[IMPORTANT]
+====
+*Ensure that your cluster is running Kubernetes v1.25 or later before upgrading from {longhorn-product-name} v1.10.x or v1.11.0 to v1.11.1*.
+
+*Users on v1.11.0 who experienced the memory leaks of longhorn-instance-manager pods https://github.com/longhorn/longhorn/issues/12575[#12575] are highly encouraged to upgrade to v1.11.1 to receive the permanent fix for the proxy connection leaks*.
+====
+
+{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:deploy/upgrade.adoc[Upgrade] in the documentation.
+
+== Post-release Known Issues
+
+For information about issues identified after this release, see https://github.com/longhorn/longhorn/wiki/Release-Known-Issues[Release-Known-Issues].
+
+== Resolved Issues in This Release
+
+=== Improvement
+
+* https://github.com/longhorn/longhorn/issues/12751[#12751] [BACKPORT][v1.11.1][IMPROVEMENT] Ensure V2 Engine ReplicaAdd respects the fast-replica-rebuild-enabled setting
+* https://github.com/longhorn/longhorn/issues/12689[#12689] [BACKPORT][v1.11.1][IMPROVEMENT] Topology-aware PV nodeAffinity control: allowedTopologies keys + strictTopology
+* https://github.com/longhorn/longhorn/issues/12585[#12585] [BACKPORT][v1.11.1][IMPROVEMENT] detailed log for the reason of node controller deleting backing image copies
+* https://github.com/longhorn/longhorn/issues/12711[#12711] [BACKPORT][v1.11.1][IMPROVEMENT] Relax `endpoint-network-for-rwx-volume` validation for migratable block-mode volumes
+* https://github.com/longhorn/longhorn/issues/12694[#12694] [BACKPORT][v1.11.1][IMPROVEMENT] RBAC permissions for csi-resizer
+
+=== Bug
+
+* https://github.com/longhorn/longhorn/issues/12768[#12768] [BACKPORT][v1.11.1][BUG] Failed replicas accumulate during engine upgrade
+* https://github.com/longhorn/longhorn/issues/12748[#12748] [BACKPORT][v1.11.1][BUG] V2 Volume Clone Status is Changed Over Time
+* https://github.com/longhorn/longhorn/issues/12714[#12714] [BACKPORT][v1.11.1][BUG] Backup to S3 fails at 95%
+* https://github.com/longhorn/longhorn/issues/12738[#12738] [BACKPORT][v1.11.1][BUG] `spdk_tgt` encountered an assertion failure in `longhorn-spdk-helper` during a CI test run
+* https://github.com/longhorn/longhorn/issues/12688[#12688] [BACKPORT][v1.11.1][BUG] Google Cloud Storage (GCS) backup target always fails with SignatureDoesNotMatch due to AWS SDK Go v2 CRC32 checksum incompatibility
+* https://github.com/longhorn/longhorn/issues/12730[#12730] [BACKPORT][v1.11.1][BUG] Enable to set `defaultSettings.nodeDiskHealthMonitoring`
+* https://github.com/longhorn/longhorn/issues/12704[#12704] [BACKPORT][v1.11.1][BUG] stale name variable in nsmounter get_pid
+* https://github.com/longhorn/longhorn/issues/12665[#12665] [BACKPORT][v1.11.1][BUG] After upgrading to 1.11.0, new persistent volumes have nodeAffinity
+* https://github.com/longhorn/longhorn/issues/12661[#12661] [BACKPORT][v1.11.1][BUG] Incorrect storage double-counting causes scheduling failure when multiple replicas exist on the same node
+* https://github.com/longhorn/longhorn/issues/12641[#12641] [BACKPORT][v1.11.1][BUG] Recreated block disk with same name never becomes schedulable after volume and disk deletion
+* https://github.com/longhorn/longhorn/issues/12618[#12618] [BACKPORT][v1.11.1][BUG] {longhorn-product-name} v1.10 Volume API is not compatible with the v1.8.1 manifest
+* https://github.com/longhorn/longhorn/issues/12626[#12626] [BACKPORT][v1.11.1][BUG] [V2] Can not use partition as block device
+* https://github.com/longhorn/longhorn/issues/12615[#12615] [BACKPORT][v1.11.1][BUG] `Volume.Spec.CloneMode` is empty after upgrading to v1.10.x and following version
+* https://github.com/longhorn/longhorn/issues/12589[#12589] [BACKPORT][v1.11.1][BUG] {longhorn-product-name} validating webhook blocks k3s server node joins - flannel CNI fails to initialize
+* https://github.com/longhorn/longhorn/issues/12575[#12575] [BACKPORT][v1.11.1][BUG] V1.11.0 very high memory consumption for the instance manager
+* https://github.com/longhorn/longhorn/issues/12780[#12780] [BACKPORT][v1.11.1][BUG] Backing image data source pod fails when HTTP proxy is enabled
+* https://github.com/longhorn/longhorn/issues/12788[#12788] [BACKPORT][v1.11.1][BUG] orphan controller does not cleanup the instance on the corresponding instance manager on a multiple IM node
+
+=== Stability
+
+* https://github.com/longhorn/longhorn/issues/12733[#12733] [BACKPORT][v1.11.1][BUG] Potential NEP in Volume Metrics Collector
