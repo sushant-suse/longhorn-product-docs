@@ -1,6 +1,6 @@
 = Create Volumes
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-05-25
+:revdate: 2026-08-05
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -131,16 +131,16 @@ apiVersion: v1
         claimName: longhorn-volv-pvc
 ----
 
-[#_creating_v2_longhorn_volumes_with_kubectl]
-=== Creating V2 Longhorn Volumes with kubectl
+[#_creating_v2_longhorn_volumes_with_kubectl_replication]
+=== Creating V2 Longhorn Volumes with kubectl (Replication)
 
 Before creating a V2 volume, ensure that the V2 Data Engine is enabled and Longhorn has available block-type disks. V2 volumes are scheduled only to block-type disks. For more information, see xref:v1-v2-volume-behavior-and-feature-parity.adoc[V2 Data Engine Guide] and xref:nodes/multiple-disks.adoc#_add_a_block-type-disk[Add a Block-Type Disk].
 
-. Use the following command to create a StorageClass called `longhorn-v2-data-engine`:
+. Use the following command to create a StorageClass called `longhorn-v2-replicated`:
 +
 [,shell]
 ----
-kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/storageclass.yaml
+kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/replication/storageclass.yaml
 ----
 +
 The following example StorageClass is created:
@@ -150,12 +150,16 @@ The following example StorageClass is created:
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
 metadata:
-  name: longhorn-v2-data-engine
+  name: longhorn-v2-replicated
 provisioner: driver.longhorn.io
 allowVolumeExpansion: true
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 parameters:
+  dataEngine: "v2"
+  # dataLayout is optional for replicated volumes; RAID1 is the default.
+  dataLayout.type: "replicated"
+  dataLayout.mode: "raid1"
   numberOfReplicas: "3"
   staleReplicaTimeout: "2880"
   fsType: "ext4"
@@ -168,22 +172,22 @@ The `dataEngine` parameter must be set to `v2` so Longhorn provisions a V2 volum
 +
 [,shell]
 ----
-kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/pod_with_pvc.yaml
+kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/replication/pod_with_pvc.yaml
 ----
 +
-A Pod named `volume-test` is launched, along with a PersistentVolumeClaim named `longhorn-volv-pvc`. The PersistentVolumeClaim references the V2 StorageClass:
+A Pod named `longhorn-v2-replicated-test` is launched, along with a PersistentVolumeClaim named `longhorn-v2-replicated-pvc`. The PersistentVolumeClaim references the V2 StorageClass:
 +
 [,yaml]
 ----
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: longhorn-volv-pvc
+  name: longhorn-v2-replicated-pvc
   namespace: default
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: longhorn-v2-data-engine
+  storageClassName: longhorn-v2-replicated
   resources:
     requests:
       storage: 2Gi
@@ -196,12 +200,12 @@ The PersistentVolumeClaim is mounted in the Pod as a volume:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: volume-test
+  name: longhorn-v2-replicated-test
   namespace: default
 spec:
   restartPolicy: Always
   containers:
-  - name: volume-test
+  - name: longhorn-v2-replicated-test
     image: nginx:stable-alpine
     imagePullPolicy: IfNotPresent
     livenessProbe:
@@ -215,10 +219,82 @@ spec:
     - name: volv
       mountPath: /data
     persistentVolumeClaim:
-      claimName: longhorn-volv-pvc
+      claimName: longhorn-v2-replicated-pvc
 ----
 
 More examples are available xref:longhorn-system/examples-resources.adoc[examples section].
+
+[#_creating_v2_longhorn_volumes_with_kubectl_sharding]
+=== Creating V2 Longhorn Volumes with kubectl (sharding)
+
+[NOTE]
+====
+Sharding is an Experimental feature. It is intended for evaluation and testing, and is not recommended for production use.
+====
+
+Sharding distributes a volume's data across multiple nodes using erasure coding, allowing a volume to exceed the capacity of a single disk or node. It is an alternative to the default replicated layout and is only available with the V2 Data Engine. As with any V2 volume, ensure that the V2 Data Engine is enabled and Longhorn has available block-type disks. Besides that, each chunk is placed on a distinct node, so the cluster must have at least `dataChunks + parityChunks` schedulable nodes. For more information, see link:../nodes/multidisk/#add-a-block-type-disk[Add a Block-Type Disk].
+
+. Use the following command to create a StorageClass called `longhorn-v2-sharded`:
++
+[source,shell]
+----
+kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/sharding/storageclass.yaml
+----
++
+The following example StorageClass is created. It defines a `4 + 2` erasure-coded array (four data chunks and two parity chunks) that tolerates two simultaneous failures and requires at least six nodes:
++
+[source,yaml]
+----
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: longhorn-v2-sharded
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  dataEngine: "v2"
+  dataLayout.type: "sharded"
+  dataLayout.mode: "erasureCoding"
+  dataLayout.dataChunks: "4"        # k: data chunks
+  dataLayout.parityChunks: "2"      # m: parity chunks = failures tolerated
+  dataLayout.stripSizeKB: "64"      # strip size in KiB; power of two 4-1024, fixed at creation
+  numberOfReplicas: "1"             # must be 1; parity provides fault tolerance
+  dataLocality: "disabled"          # must be disabled; chunks span k+m nodes
+  fsType: "ext4"
+----
++
+The `dataLayout.*` parameters define the erasure-coded layout. See xref:volumes/storageclass-parameters.adoc[Storage Class Parameters] for the full list.
+
+. Create a Pod that uses the sharded volume by running this command:
++
+[source,shell]
+----
+kubectl create -f https://raw.githubusercontent.com/longhorn/longhorn/v{patch-version}/examples/v2/sharding/pod_with_pvc.yaml
+----
++
+A Pod named `longhorn-v2-sharded-test` is launched, along with a PersistentVolumeClaim named `longhorn-v2-sharded-pvc`. The PersistentVolumeClaim references the `longhorn-v2-sharded` StorageClass:
++
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: longhorn-v2-sharded-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-v2-sharded
+  resources:
+    requests:
+      storage: 2Gi
+----
++
+The Pod mounts the volume at `/data`, the same as the replicated example above.
+
+For information about data layout parameters, supported and unsupported features, and how sharding compares to replication, see xref:v2-data-engine/sharding.adoc[Sharding with Erasure Coding].
 
 == Binding Workloads to PVs without a Kubernetes StorageClass
 
