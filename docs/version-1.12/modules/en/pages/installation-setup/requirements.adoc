@@ -1,6 +1,6 @@
 = Requirements
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-07-21
+:revdate: 2026-08-05
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -314,7 +314,7 @@ Before you enable the V2 Data Engine, ensure that each Longhorn node that is goi
 * Raw block disks for V2 volumes
 ** Local NVMe disks are strongly recommended for best performance.
 
-When the V2 Data Engine is enabled, each V2 instance-manager pod typically consumes one dedicated CPU core because the `spdk_tgt` process uses intensive polling.
+When the V2 Data Engine is enabled, each V2 instance-manager pod requires one or more dedicated CPU cores because the `spdk_tgt` process uses intensive polling. It is necessary that the V2 instance manager pod CPU request reserve at least the same number of CPU cores based on the node's allocatable CPU capacity.
 
 After confirming these prerequisites, configure the V2 environment on each node and then enable the V2 Data Engine in {longhorn-product-name}.
 

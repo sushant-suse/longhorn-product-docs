@@ -81,6 +81,12 @@ Assigning 2 or more cores allows I/O and management tasks to run on separate rea
 
 For more information, see https://github.com/longhorn/longhorn/issues/13237[Issue #13237] and xref:v2-data-engine/configurable-cpu-cores.adoc[Configurable CPU Cores].
 
+=== V2 Dedicated CPU Requirements
+
+When assigning CPU cores to the V2 Data Engine, ensure that the V2 instance-manager pod has enough guaranteed CPU resources to cover the assigned cores. This provides dedicated CPU availability for SPDK reactors, prevents CPU contention, and helps maintain predictable performance and V2 Data Engine stability.
+
+You can verify that the guaranteed CPU resources match the CPU cores specified by `data-engine-cpu-mask` or `data-engine-number-of-cpu-cores`. For more details, see xref:longhorn-system/settings.adoc#_guaranteed_instance_manager_cpu[Guaranteed Instance Manager CPU], xref:longhorn-system/settings.adoc#_data_engine_number_of_cpu_cores[Data Engine CPU Mask].
+
 === IPv6 Support
 
 V2 volumes now support single-stack IPv6 Kubernetes clusters. For dual-stack cluster support and its limitations, see xref:_dualstack_cluster_support[Dual-Stack Cluster Support].
