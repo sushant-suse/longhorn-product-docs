@@ -1,6 +1,6 @@
 = StorageClass Parameters
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-07-21
+:revdate: 2026-08-05
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -414,6 +414,46 @@ ____
 Global setting: xref:longhorn-system/settings.adoc#_v2_data_engine[V2 Data Engine].
 More details in xref:longhorn-system/v2-data-engine/quick-start-guide.adoc#_create_a_storageclass[V2 Data Engine Quick Start].
 ____
+
+[discrete]
+==== Data Layout Type *(field: `parameters.dataLayout.type`)*
+
+____
+Default: `replicated`
+____
+
+It controls how volume data is distributed.
+
+* `replicated` (default): Each replica holds a full copy of the volume.
+* `sharded`: Data is split into `dataChunks` data chunks and `parityChunks` parity chunks, then distributed across different nodes using erasure coding. It requires the V2 Data Engine.
+
+The data layout is immutable after the volume is created.
+
+For more details, see xref:v2-data-engine/sharding.adoc[Sharding with Erasure Coding].
+
+[discrete]
+==== Data Layout Mode *(field: `parameters.dataLayout.mode`)*
+
+____
+Default: `erasureCoding` when `dataLayout.type` is `sharded`
+____
+
+The data protection mechanism: `raid1` for replicated volumes, or `erasureCoding` for sharded volumes. The parameter can usually be omitted: `erasureCoding` is set automatically when `dataLayout.type` is `sharded`, and replicated volumes always use RAID1.
+
+[discrete]
+==== Data Layout Data Chunks *(field: `parameters.dataLayout.dataChunks`)*
+
+The number of data chunks (`k`) in the erasure-coded array. Required when `dataLayout.type` is `sharded`. Must be at least 1.
+
+[discrete]
+==== Data Layout Parity Chunks *(field: `parameters.dataLayout.parityChunks`)*
+
+The number of parity chunks (`m`) in the erasure-coded array. Required when `dataLayout.type` is `sharded`. Must be at least 1. The volume tolerates up to `m` simultaneous chunk failures. The total number of chunks (`dataChunks + parityChunks`) must not exceed 32.
+
+[discrete]
+==== Data Layout Strip Size KB *(field: `parameters.dataLayout.stripSizeKB`)*
+
+The strip size, in KiB, of the erasure-coded array: the amount of contiguous data placed on one chunk before striping moves to the next. Required when `dataLayout.type` is `sharded`. Must be a power of two between 4 and 1024.
 
 [discrete]
 ==== Freeze Filesystem For Snapshot _(field: `parameters.freezeFilesystemForSnapshot`)_

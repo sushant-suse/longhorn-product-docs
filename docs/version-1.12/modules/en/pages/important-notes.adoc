@@ -1,14 +1,26 @@
 = Important Notes
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-07-27
+:revdate: 2026-08-05
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
-This page summarizes the key notes for {longhorn-product-name} v{patch-version}. 
+This page summarizes the key notes for {longhorn-product-name} v{patch-version}.
 
 For full release notes, see the {longhorn-product-name} v{patch-version} release notes.
 
-== Removal
+== Breaking Changes
+
+=== Deprecation of legacy v2 linked clone volumes
+
+V2 linked-clone volumes created in v1.12.0 or earlier are marked as legacy and deprecated starting in v{patch-version}. The new linked-clone architecture introduced in https://github.com/longhorn/longhorn/issues/12552[Ticket #12552] is not compatible with the legacy design.
+
+After upgrading to v{patch-version}, *legacy linked-clone volumes cannot be operated on except for detachment and deletion*.
+
+To replace, create new linked-clone volumes from the same source volumes that back the legacy ones. If a legacy volume exists, its source volume is guaranteed to still be present, so you can create a replacement linked clone directly - no data copy is required.
+
+For more information, see https://github.com/longhorn/longhorn/issues/12552[Ticket #12552].
+
+=== Removal of V2 Backing Images
 
 V2 Backing Images are removed in {longhorn-product-name} v{patch-version}. Use the Containerized Data Importer (CDI) to import images into {longhorn-product-name} for compatibility with the current engine.
 
@@ -16,7 +28,7 @@ V2 Backing Images are removed in {longhorn-product-name} v{patch-version}. Use t
 
 If you have V2 volumes that were created from backing images, you must migrate them before upgrading to v{patch-version}:
 
-. *Backup and recreate* (recommended): Create a backup of the V2 volume, delete the original volume, then restore from backup. The restored volume does not have a backing image dependency.
+. *Backup and re-create* (recommended): Create a backup of the V2 volume, delete the original volume, then restore from backup. The restored volume does not have a backing image dependency.
 . *Delete the volume*: If the data is not needed, delete the V2 volume directly.
 
 V2 volumes with backing image dependencies cannot be upgraded in-place. Attempting to upgrade without migration may result in volume attachment failures.
@@ -53,6 +65,14 @@ For more information, see https://github.com/longhorn/longhorn/issues/11977[Issu
 
 V2 volumes do not support live upgrades between {longhorn-product-name} v{current-version} patch releases and must be detached before upgrading. Support is planned when upgrading from a {longhorn-product-name} v{current-version} release to a {longhorn-product-name} v1.13 release.
 
+=== Storage Sharding (Experimental)
+
+{longhorn-product-name} v{patch-version} introduces storage sharding for the V2 Data Engine as an experimental feature. Instead of storing a full copy of the volume on each replica, sharding splits the volume into data and parity chunks using erasure coding and distributes them across multiple nodes. This allows a volume to grow beyond the capacity of a single disk or node while using less disk space to achieve the same level of fault tolerance.
+
+Because this feature is experimental, it is intended for evaluation and testing only and is not recommended for production use.
+
+For more information, see https://github.com/longhorn/longhorn/issues/1061[Issue #1061] and xref:v2-data-engine/sharding.adoc[Sharding with Erasure Coding].
+
 === Default CPU Allocation
 
 {longhorn-product-name} v{patch-version} changes the default `data-engine-cpu-mask` from `0x1` (1 CPU core) to `0x3` (2 CPU cores). V2 Data Engine uses a busy-polling reactor model where the master reactor handles both I/O polling and management RPCs. When only a single core is assigned, heavy I/O workloads can delay or starve RPC processing, resulting in increased latency, timeout events, and operational instability.
@@ -60,6 +80,12 @@ V2 volumes do not support live upgrades between {longhorn-product-name} v{curren
 Assigning 2 or more cores allows I/O and management tasks to run on separate reactors, improving responsiveness and operational stability.
 
 For more information, see https://github.com/longhorn/longhorn/issues/13237[Issue #13237] and xref:v2-data-engine/configurable-cpu-cores.adoc[Configurable CPU Cores].
+
+=== V2 Dedicated CPU Requirements
+
+When assigning CPU cores to the V2 Data Engine, ensure that the V2 instance-manager pod has enough guaranteed CPU resources to cover the assigned cores. This provides dedicated CPU availability for SPDK reactors, prevents CPU contention, and helps maintain predictable performance and V2 Data Engine stability.
+
+You can verify that the guaranteed CPU resources match the CPU cores specified by `data-engine-cpu-mask` or `data-engine-number-of-cpu-cores`. For more details, see xref:longhorn-system/settings.adoc#_guaranteed_instance_manager_cpu[Guaranteed Instance Manager CPU], xref:longhorn-system/settings.adoc#_data_engine_number_of_cpu_cores[Data Engine CPU Mask].
 
 === IPv6 Support
 
@@ -120,14 +146,14 @@ For more information, see https://github.com/longhorn/longhorn/issues/12807[Issu
 {longhorn-product-name} v{patch-version} pre-allocates the 16 MiB LUKS2 header in the replica back-end file for encrypted volumes (replica size = requested size + 16 MiB). As a result, the dm-crypt device now exposes the full requested size to workloads.
 
 * *Before v1.12*: The 16 MiB LUKS2 header was consumed from the usable volume space. For example, a 1 GiB encrypted volume yielded approximately 1008 MiB to the workload.
-* *After upgrading to v1.12*: Once the engine image is upgraded for an encrypted volume, {longhorn-product-name} automatically expands the back-end size by 16 MiB. The dm-crypt device then exposes the full requested size for the V1 encrypted volumes (for example, exactly 1 GiB for a 1 GiB volume). Existing data is not affected.
+* *After upgrading to v1.12*: Once the engine image is upgraded for an encrypted volume, {longhorn-product-name} automatically expands the back-end size by 16 MiB. The dm-crypt device then exposes the full requested size for v1 encrypted volumes (for example, exactly 1 GiB for a 1 GiB volume). Existing data is not affected.
 * *Live migration restriction*: Encrypted migratable volumes cannot be live-migrated when using an engine image with a CLI API version older than 12 (pre-v1.12 engine images). Upgrade the engine image to v1.12 or later before attempting live migration of encrypted volumes.
 
 For more information, see https://github.com/longhorn/longhorn/issues/9205[Issue #9205].
 
 ==== LUKS2 Header Overhead For Existing Encrypted Volumes
 
-Encrypted volumes use a LUKS2 header, a 16 MiB metadata region prepended to the replica backend file, to store the encryption configuration required by dm-crypt. This overhead is necessary because dm-crypt needs the header to unlock and present the volume, and reserving dedicated space for it prevents the header from consuming usable volume capacity.
+Encrypted volumes use a LUKS2 header, a 16 MiB metadata region prepended to the replica back-end file, to store the encryption configuration required by dm-crypt. This overhead is necessary because dm-crypt needs the header to unlock and present the volume, and reserving dedicated space for it prevents the header from consuming usable volume capacity.
 
 The extending overhead behavior after upgrading to {longhorn-product-name} v{patch-version} or later differs depending on the data engine and on when the volume was created:
 
@@ -206,4 +232,3 @@ For more information, see https://github.com/longhorn/longhorn/issues/13011[Issu
 The command can target a specific volume, all volumes on a specific node, or all volumes in the cluster. The checksum operation runs asynchronously in the background.
 
 For more information, see https://github.com/longhorn/longhorn/issues/11442[Issue #11442] and xref:data-integrity-recovery/on-demand-snapshot-data-integrity.adoc[On-Demand Snapshot Checksum Calculation].
-

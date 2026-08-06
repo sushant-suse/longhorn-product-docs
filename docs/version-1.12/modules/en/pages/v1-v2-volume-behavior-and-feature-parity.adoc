@@ -1,6 +1,6 @@
 = V1 and V2 Volume Behavior and Feature Parity
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-05-25
+:revdate: 2026-08-05
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -38,6 +38,11 @@ In V1, {longhorn-product-name} supports revision counters for tracking replica u
 In V2, revision counters are not supported. V2 volumes do not maintain revision-counter-based replica tracking, and V1-specific revision counter settings do not apply.
 
 == Feature Support Matrix
+
+[NOTE]
+====
+The V2 column assumes the default `replicated` data layout. V2 volumes that use the `sharded` (erasure-coding) data layout do not support several of the features listed below, including backup and restore, volume cloning, backing images, DR (standby) volumes, and live migration. See xref:v2-data-engine/sharding.adoc[Sharding with Erasure Coding] for more details.
+====
 
 === Data Protection
 

@@ -1,6 +1,6 @@
 = Best Practices
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-06-01
+:revdate: 2026-08-05
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -171,6 +171,21 @@ Referenced to https://endoflife.date/kubernetes.
 === CoreDNS Setup
 
 Ensure that CoreDNS runs with at least two replicas to maintain high availability. This setup minimizes interruptions in the DNS resolution when one CoreDNS pod experiences a temporary disruption.
+
+=== CNI Plug-in Compatibility
+
+{longhorn-product-name} v{patch-version} has been verified with https://github.com/longhorn/longhorn/blob/0c1d5ab907b0d7fa6232e05f9cb4ef6733cf7cbe/chart/values.yaml#L39[`restrictInternalTraffic`] enabled, which enforces network policies for internal {longhorn-product-name} components so that only authorized components can communicate with each other, against the following Kubernetes distribution and CNI plug-in combinations.
+
+[options="header"]
+|===
+| Kubernetes Distribution | CNI Plug-in 
+| K3s                     | Flannel 
+| K3s                     | Calico 
+| K3s                     | Cilium 
+| RKE2                    | Canal 
+| RKE2                    | Calico 
+| RKE2                    | Cilium 
+|===
 
 == Nodes and Disk Setup
 
