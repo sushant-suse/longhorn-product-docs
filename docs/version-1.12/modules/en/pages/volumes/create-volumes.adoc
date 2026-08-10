@@ -1,6 +1,6 @@
 = Create Volumes
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-08-05
+:revdate: 2026-08-10
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -232,7 +232,7 @@ More examples are available xref:longhorn-system/examples-resources.adoc[example
 Sharding is an Experimental feature. It is intended for evaluation and testing, and is not recommended for production use.
 ====
 
-Sharding distributes a volume's data across multiple nodes using erasure coding, allowing a volume to exceed the capacity of a single disk or node. It is an alternative to the default replicated layout and is only available with the V2 Data Engine. As with any V2 volume, ensure that the V2 Data Engine is enabled and Longhorn has available block-type disks. Besides that, each chunk is placed on a distinct node, so the cluster must have at least `dataChunks + parityChunks` schedulable nodes. For more information, see link:../nodes/multidisk/#add-a-block-type-disk[Add a Block-Type Disk].
+Sharding distributes a volume's data across multiple nodes using erasure coding, allowing a volume to exceed the capacity of a single disk or node. It is an alternative to the default replicated layout and is only available with the V2 Data Engine. As with any V2 volume, ensure that the V2 Data Engine is enabled and Longhorn has available block-type disks. Besides that, each chunk is placed on a distinct node, so the cluster must have at least `dataChunks + parityChunks` schedulable nodes. For more information, see xref:nodes/multiple-disks.adoc#_add_a_block_type_disk[Add a Block-Type Disk].
 
 . Use the following command to create a StorageClass called `longhorn-v2-sharded`:
 +
