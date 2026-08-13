@@ -1,6 +1,6 @@
 = Migrating to {longhorn-product-name}
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-01-28
+:revdate: 2026-08-13
 :page-revdate: {revdate}
 	
 [WARNING]
@@ -180,3 +180,11 @@ helm upgrade longhorn oci://dp.apps.rancher.io/charts/suse-storage \
 	--set global.imagePullSecrets=<PULL_IMAGE_SECRET> \
 	-f values.yaml
 ----
+
+== Migrating Volumes Between Data Engines (V1 to V2)
+
+If you need to migrate an existing volume from the V1 Data Engine to the V2 Data Engine, {longhorn-product-name} supports offline volume migration via the Backup and Restore process.
+
+By taking a backup of your V1 volume and explicitly selecting the V2 data engine during the restoration process (either via the UI or the Custom Resource), the data is restored directly into a new V2 volume. 
+
+For detailed, step-by-step instructions on performing this offline migration, refer to xref:snapshots-backups/volume-snapshots-backups/restore-volume-from-backup.adoc[Restore a Volume from a Backup].
