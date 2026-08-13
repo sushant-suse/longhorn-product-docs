@@ -1,5 +1,5 @@
 = Settings
-:revdate: 2025-12-22
+:revdate: 2026-08-13
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -921,9 +921,9 @@ This setting allows {longhorn-product-name} to use the storage network for RWX v
 
 [WARNING]
 ====
-This setting should change after all {longhorn-product-name} RWX volumes are detached because some pods that run {longhorn-product-name} components are recreated to apply the setting. When all RWX volumes are detached, {longhorn-product-name} attempts to restart all CSI plug-in pods immediately. When volumes are in use, pods that run {longhorn-product-name} components are not restarted, so the settings must be reconfigured after the remaining volumes are detached. If you are unable to manually reconfigure the settings, you can opt to wait because settings are synchronized hourly.
+This setting should change after all {longhorn-product-name} RWX volumes are detached because some pods that run {longhorn-product-name} components are recreated to apply the setting. When all RWX volumes are detached, {longhorn-product-name} attempts to restart all CSI plugin pods immediately. When volumes are in use, pods that run {longhorn-product-name} components are not restarted, so the settings must be reconfigured after the remaining volumes are detached. If you are unable to manually reconfigure the settings, you can opt to wait because settings are synchronized hourly.
 
-The RWX volumes are mounted with the storage network within the CSI plug-in pod container network namespace. As a result, restarting the CSI plug-in pod may lead to unresponsive RWX volume mounts. When this occurs, you must restart the workload pod to re-establish the mount connection. Alternatively, you can enable the <<_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly,Automatically Delete Workload Pod when The Volume Is Detached Unexpectedly>> setting.
+The RWX volumes are mounted with the storage network within the CSI plugin pod container network namespace. As a result, restarting the CSI plugin pod may lead to unresponsive RWX volume mounts. When this occurs, you must restart the workload pod to re-establish the mount connection. Alternatively, you can enable the <<_automatically_delete_workload_pod_when_the_volume_is_detached_unexpectedly,Automatically Delete Workload Pod when The Volume Is Detached Unexpectedly>> setting.
 ====
 
 For more information, see xref:longhorn-system/networking/storage-network.adoc[Storage Network].

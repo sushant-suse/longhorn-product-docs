@@ -1,6 +1,6 @@
 = Architecture and Concepts
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-06-01
+:revdate: 2026-08-13
 :page-revdate: {revdate}
 
 {longhorn-product-name} creates a dedicated storage controller for each volume and synchronously replicates the volume across multiple replicas stored on multiple nodes.
@@ -21,7 +21,7 @@ The design has two layers: the data plane and the control plane. The Longhorn En
 
 === 1.1. The Longhorn Manager and the Longhorn Engine
 
-The Longhorn Manager Pod runs on each node in the {longhorn-product-name} cluster as a Kubernetes https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/[DaemonSet]. It creates and manages volumes in the Kubernetes cluster and handles the API calls from the {longhorn-product-name} UI or the Longhorn CSI plug-in. It follows the Kubernetes controller pattern, which is sometimes called the operator pattern.
+The Longhorn Manager Pod runs on each node in the {longhorn-product-name} cluster as a Kubernetes https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/[DaemonSet]. It creates and manages volumes in the Kubernetes cluster and handles the API calls from the {longhorn-product-name} UI or the Longhorn CSI plugin. It follows the Kubernetes controller pattern, which is sometimes called the operator pattern.
 
 The Longhorn Manager communicates with the Kubernetes API server to create a new {longhorn-product-name} volume https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/[CR]. Then the Longhorn Manager watches the API server's response, and when it sees that the Kubernetes API server created a new {longhorn-product-name} volume CR, the Longhorn Manager creates a new volume.
 
@@ -64,11 +64,11 @@ To install {longhorn-product-name} in an air gapped environment, refer to xref:i
 
 === 1.4. CSI Plug-in
 
-{longhorn-product-name} is managed in Kubernetes via a https://kubernetes-csi.github.io/docs/[CSI Plug-in]. This allows for easy installation of the plug-in.
+{longhorn-product-name} is managed in Kubernetes via a https://kubernetes-csi.github.io/docs/[CSI Plug-in]. This allows for easy installation of the plugin.
 
-The Kubernetes CSI plug-in calls {longhorn-product-name} to create volumes to create persistent data for a Kubernetes workload. The CSI plug-in gives you the ability to create, delete, attach, detach, mount the volume, and take snapshots of the volume. All other functionality provided by {longhorn-product-name} is implemented through the UI.
+The Kubernetes CSI plugin calls {longhorn-product-name} to create volumes to create persistent data for a Kubernetes workload. The CSI plugin gives you the ability to create, delete, attach, detach, mount the volume, and take snapshots of the volume. All other functionality provided by {longhorn-product-name} is implemented through the UI.
 
-The Kubernetes cluster internally uses the CSI interface to communicate with the Longhorn CSI plug-in. And the Longhorn CSI plug-in communicates with the Longhorn Manager using the Longhorn API.
+The Kubernetes cluster internally uses the CSI interface to communicate with the Longhorn CSI plugin. And the Longhorn CSI plugin communicates with the Longhorn Manager using the Longhorn API.
 
 For v1 volumes, {longhorn-product-name} uses iSCSI, which may require additional configuration on your nodes:
 

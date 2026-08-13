@@ -1,6 +1,6 @@
 = Requirements
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-08-05
+:revdate: 2026-08-13
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -103,10 +103,10 @@ Below are the directories {longhorn-product-name} components requiring access wi
 * Longhorn CSI Plug-in
  ** `/`: For host checks via the NFS customer mounter (deprecated). *Note*: this is going be removed in the future release.
  ** `/dev`: Block devices created by Longhorn are under the `/dev` path.
- ** `/lib/modules`: Kernel modules required by Longhorn CSI plug-in.
+ ** `/lib/modules`: Kernel modules required by Longhorn CSI plugin.
  ** `/sys`: Support volume encryption by `cryptsetup`.
- ** `/var/lib/kubelet/plugins/kubernetes.io/csi`: The path where the Longhorn CSI plug-in creates the staging path (via `NodeStageVolume`) of a block device. The staging path is bind-mounted to the target path `/var/lib/kubelet/pods` (via `NodePublishVolume`) for support single volume could be mounted to multiple Pods.
- ** `/var/lib/kubelet/plugins_registry`: The path where the node-driver-registrar registers the CSI plug-in with kubelet.
+ ** `/var/lib/kubelet/plugins/kubernetes.io/csi`: The path where the Longhorn CSI plugin creates the staging path (via `NodeStageVolume`) of a block device. The staging path is bind-mounted to the target path `/var/lib/kubelet/pods` (via `NodePublishVolume`) for support single volume could be mounted to multiple Pods.
+ ** `/var/lib/kubelet/plugins_registry`: The path where the node-driver-registrar registers the CSI plugin with kubelet.
  ** `/var/lib/kubelet/plugins/driver.longhorn.io`: The path where the socket for the communication between kubelet Longhorn CSI driver.
  ** /var/lib/kubelet/pods: The path where the Longhorn CSI driver mounts volume from the target path (via `NodePublishVolume`).
 * Longhorn CSI Attacher/Provisioner/Resizer/Snapshotter
