@@ -1,6 +1,6 @@
 = ReadWriteMany (RWX) Volumes
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-06-01
+:revdate: 2026-08-13
 :page-revdate: {revdate}
 :doctype: book
 :current-version: {page-component-version}
@@ -179,7 +179,7 @@ To create PVCs for RWX volumes using the sample StorageClass, replace the `nfsOp
 
 . You must provide the complete set of desired options. Any options not supplied will use the NFS-server side defaults, not {longhorn-product-name}'s own.
 . {longhorn-product-name} does not validate the `nfsOptions` string, so erroneous values and typographical errors are not flagged. When the string is invalid, the mount is rejected by the NFS server and the volume is not created nor attached.
-. In {longhorn-product-name} v1.4.0 to 1.4.3 and v1.5.0 to v1.5.1, volumes within a share manager pod (specifically, in the `NodeStageVolume` step) are hard mounted by default by the Longhorn CSI plug-in. Hard mounting allows {longhorn-product-name} to persistently retry sending NFS requests, ensuring that IOs do not fail even when the NFS server becomes inaccessible for some time. IOs resume seamlessly when the server regains connectivity or a replacement server is created.
+. In {longhorn-product-name} v1.4.0 to 1.4.3 and v1.5.0 to v1.5.1, volumes within a share manager pod (specifically, in the `NodeStageVolume` step) are hard mounted by default by the Longhorn CSI plugin. Hard mounting allows {longhorn-product-name} to persistently retry sending NFS requests, ensuring that IOs do not fail even when the NFS server becomes inaccessible for some time. IOs resume seamlessly when the server regains connectivity or a replacement server is created.
 +
 This mechanism for guaranteeing data integrity, however, comes with some risk. To maintain stability, the Linux kernel does not allow unmounting of a file system until all pending IOs are completed. This is a concern because the system cannot shut down until all file systems are unmounted. If the NFS server is unable to recover, the client nodes must undergo a forced reboot.
 +
