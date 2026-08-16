@@ -1,0 +1,57 @@
+= {longhorn-product-name} v1.10.3 Release Notes
+:revdate: 2026-08-17
+:page-revdate: {revdate}
+
+This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/introduction.adoc[{longhorn-product-name} Documentation].
+
+[NOTE]
+====
+For more information about release-related terminology, see https://github.com/rancher/suse-storage/releases[Releases].
+====
+
+== Installation
+
+[IMPORTANT]
+====
+*Ensure that your cluster is running Kubernetes v1.25 or later before installing {longhorn-product-name} v1.10.3*.
+====
+
+You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:installation-setup/installation/installation.adoc[Installation] in the documentation.
+
+== Upgrade
+
+[IMPORTANT]
+====
+*Ensure that your cluster is running Kubernetes v1.25 or later before upgrading from {longhorn-product-name} v1.10.x (< v1.10.3) to v1.10.3. To upgrade from {longhorn-product-name} v1.9.x to {longhorn-product-name} v1.10.3, please refer to the Migration section*.
+====
+
+{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrade] in the documentation.
+
+== Migration
+
+To migrate {longhorn-product-name} to {longhorn-product-name}, please refer to the procedures described in the xref:migration/migration.adoc[Migrating to {longhorn-product-name}] documentation.
+
+== Post-release known issues
+
+For information about issues identified after this release, see https://github.com/longhorn/longhorn/wiki/Release-Known-Issues[Release-Known-Issues].
+
+== Resolved issues
+
+=== Improvement
+
+* https://github.com/longhorn/longhorn/issues/12712[#12712] [BACKPORT][v1.10.3][IMPROVEMENT] Relax `endpoint-network-for-rwx-volume` validation for migratable block-mode volumes
+
+=== Bug
+
+* https://github.com/longhorn/longhorn/issues/12715[#12715] [BACKPORT][v1.10.3][BUG] Backup to S3 fails at 95%
+* https://github.com/longhorn/longhorn/issues/12787[#12787] [BACKPORT][v1.10.3][BUG] Orphan controller does not cleanup the instance on the corresponding instance manager on a multiple IM node
+* https://github.com/longhorn/longhorn/issues/12931[#12931] [BACKPORT][v1.10.3][BUG] Replica Auto-Balance Causes Infinite Replica Scheduling Loop
+* https://github.com/longhorn/longhorn/issues/12946[#12946] [BACKPORT][v1.10.3][BUG] Node exhaustion caused by backup inspect buildup induced due to NFS latency
+* https://github.com/longhorn/longhorn/issues/12857[#12857] [BACKPORT][v1.10.3][BUG] "snapshot becomes not ready to use" Warning events emitted during expected auto-cleanup after backup
+* https://github.com/longhorn/longhorn/issues/12734[#12734] [BACKPORT][v1.10.3][BUG] Potential NEP in Volume Metrics Collector
+* https://github.com/longhorn/longhorn/issues/12781[#12781] [BACKPORT][v1.10.3][BUG] Backing image data source pod fails when HTTP proxy is enabled
+* https://github.com/longhorn/longhorn/issues/12747[#12747] [BACKPORT][v1.10.3][BUG] V2 Volume Clone Status is Changed Over Time
+* https://github.com/longhorn/longhorn/issues/12716[#12716] [BACKPORT][v1.10.3][BUG] Google Cloud Storage (GCS) backup target always fails with SignatureDoesNotMatch due to AWS SDK Go v2 CRC32 checksum incompatibility
+* https://github.com/longhorn/longhorn/issues/12662[#12662] [BACKPORT][v1.10.3][BUG] Incorrect storage double-counting causes scheduling failure when multiple replicas exist on the same node
+* https://github.com/longhorn/longhorn/issues/12617[#12617] [BACKPORT][v1.10.3][BUG] {longhorn-product-name} v1.10 Volume API is not compatible with the v1.8.1 manifest
+* https://github.com/longhorn/longhorn/issues/12616[#12616] [BACKPORT][v1.10.3][BUG] `Volume.Spec.CloneMode` is empty after upgrading to v1.10.x and following version

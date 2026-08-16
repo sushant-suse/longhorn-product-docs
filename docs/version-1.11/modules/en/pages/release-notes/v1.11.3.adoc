@@ -1,8 +1,8 @@
 = {longhorn-product-name} v1.11.3 Release Notes
-:revdate: 2026-08-03
+:revdate: 2026-08-17
 :page-revdate: {revdate}
 
-This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/overview.adoc[{longhorn-product-name} Documentation].
+This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/introduction.adoc[{longhorn-product-name} Documentation].
 
 [NOTE]
 ====
@@ -44,7 +44,7 @@ For more details, see https://github.com/longhorn/longhorn/issues/13424[#13424].
 *Due to the upgrade of the CSI external provisioner to v6.3.0, ensure that your cluster is running Kubernetes v1.34 or later before installing {longhorn-product-name} v1.11.3*.
 ====
 
-You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:deploy/install.adoc[Quick Installation] in the documentation.
+You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:installation-setup/installation/installation.adoc[Quick Installation] in the documentation.
 
 == Upgrade
 
@@ -55,7 +55,7 @@ You can install {longhorn-product-name} using a variety of tools, including {ran
 *Users on v1.11.0 who experienced the memory leaks of longhorn-instance-manager pods https://github.com/longhorn/longhorn/issues/12575[#12575] are highly encouraged to upgrade to v1.11.3 to receive the permanent fix for the proxy connection leaks*.
 ====
 
-{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:deploy/upgrade.adoc[Upgrade] in the documentation.
+{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:upgrades/upgrades.adoc[Upgrade] in the documentation.
 
 == Post-release Known Issues
 
@@ -70,18 +70,18 @@ For information about issues identified after this release, see https://github.c
 
 === Bug
 
-* https://github.com/longhorn/longhorn/issues/13411[#13411] [BACKPORT][v1.11.3][BUG] volume expansion stuck
-* https://github.com/longhorn/longhorn/issues/13413[#13413] [BACKPORT][v1.11.3][BUG] pvc resize fails after iscsid restart
-* https://github.com/longhorn/longhorn/issues/13383[#13383] [BACKPORT][v1.11.3][BUG] expanding the volume fails
+* https://github.com/longhorn/longhorn/issues/13411[#13411] [BACKPORT][v1.11.3][BUG] Volume expansion stuck
+* https://github.com/longhorn/longhorn/issues/13413[#13413] [BACKPORT][v1.11.3][BUG] PVC resize fails after iscsid restart
+* https://github.com/longhorn/longhorn/issues/13383[#13383] [BACKPORT][v1.11.3][BUG] Expanding the volume fails
 * https://github.com/longhorn/longhorn/issues/13133[#13133] [BACKPORT][v1.11.3][BUG] Migration Engine Can Be Unexpectedly Deleted If the Target Node Is Still in Readiness Transition
 * https://github.com/longhorn/longhorn/issues/13211[#13211] [BACKPORT][v1.11.3][BUG] System Backup RecurringJob retention prunes newest CR — sorts by `Status.CreatedAt` (zero for Error/racing CRs)
-* https://github.com/longhorn/longhorn/issues/13296[#13296] [BACKPORT][v1.11.3][BUG] when uploading backup to S3 storage (NetApp appliance) it fails
+* https://github.com/longhorn/longhorn/issues/13296[#13296] [BACKPORT][v1.11.3][BUG] When uploading backup to S3 storage (NetApp appliance) it fails
 * https://github.com/longhorn/longhorn/issues/13270[#13270] [BACKPORT][v1.11.3][BUG] spdk interrupt mode value is missing in `pass:[chart/values.yaml]`
-* https://github.com/longhorn/longhorn/issues/13129[#13129] [BACKPORT][v1.11.3][BUG] nil pointer dereference panic in instance-manager during replica rebuild.
+* https://github.com/longhorn/longhorn/issues/13129[#13129] [BACKPORT][v1.11.3][BUG] Nil pointer dereference panic in instance-manager during replica rebuild.
 * https://github.com/longhorn/longhorn/issues/13200[#13200] [BACKPORT][v1.11.3][BUG] Test Encrypted Volume Upgrade: Old-engine RWO volume shows 1008 MiB after expansion to 2 GiB instead of expected 2032 MiB
 * https://github.com/longhorn/longhorn/issues/13124[#13124] [BACKPORT][v1.11.3][BUG] HTTP response body leaks in support bundle status polling and webhook readiness checks
 * https://github.com/longhorn/longhorn/issues/13099[#13099] [BACKPORT][v1.11.3][BUG] `global.cattle.systemDefaultRegistry` is not applied as the image registry prefix in `108.2.1+up1.10.2`
-* https://github.com/longhorn/longhorn/issues/13080[#13080] [BACKPORT][v1.11.3][BUG] [longhorn-engine/dataserver] Handling EOF returned by `io.ReadFull` robustly
+* https://github.com/longhorn/longhorn/issues/13080[#13080] [BACKPORT][v1.11.3][BUG] [`longhorn-engine/dataserver`] Handling EOF returned by `io.ReadFull` robustly
 * https://github.com/longhorn/longhorn/issues/13088[#13088] [BACKPORT][v1.11.3][BUG] `PrometheusTimeseriesCardinality` for metric `longhorn_rest_client_rate_limiter_latency_seconds_bucket`
 * https://github.com/longhorn/longhorn/issues/13424[#13424] [BACKPORT][v1.11.3][BUG] Recurring trim job fails with deadlock
 

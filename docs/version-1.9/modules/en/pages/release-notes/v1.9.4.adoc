@@ -1,0 +1,43 @@
+= {longhorn-product-name} v1.9.4 Release Notes
+:revdate: 2026-08-17
+:page-revdate: {revdate}
+
+This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/introduction.adoc[{longhorn-product-name} Documentation].
+
+[NOTE]
+====
+For more information about release-related terminology, see https://github.com/rancher/suse-storage/releases[Releases].
+====
+
+== Installation
+
+[IMPORTANT]
+====
+*Ensure that your cluster is running Kubernetes v1.25 or later before installing {longhorn-product-name} v1.9.4*.
+====
+
+You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:installation-setup/installation/installation.adoc[Installation] in the documentation.
+
+== Upgrade
+
+[IMPORTANT]
+====
+*Ensure that your cluster is running Kubernetes v1.25 or later before upgrading from {longhorn-product-name} v1.9.x (< v1.9.4) to v1.9.4. To upgrade from {longhorn-product-name} v1.8.x to {longhorn-product-name} v1.9.4, please refer to the Migration section*.
+====
+
+{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrade] in the documentation.
+
+== Migration
+
+To migrate {longhorn-product-name} to {longhorn-product-name}, please refer to the procedures described in the xref:migration/migration.adoc[Migrating to {longhorn-product-name}] documentation.
+
+== Post-release known issues
+
+For information about issues identified after this release, see https://github.com/longhorn/longhorn/wiki/Release-Known-Issues[Release-Known-Issues].
+
+== Resolved issues
+
+=== Bug
+
+* https://github.com/longhorn/longhorn/issues/12327[#12327] [BACKPORT][v1.9.4][BUG] Block Mode Volume Migration Stuck
+* https://github.com/longhorn/longhorn/issues/12331[#12331] [BACKPORT][v1.9.4][BUG] Invalid memory address or nil pointer dereference (again)

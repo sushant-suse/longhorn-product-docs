@@ -1,6 +1,6 @@
 = Best Practices
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-08-13
+:revdate: 2026-08-17
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -220,7 +220,7 @@ Unlike the V1 Data Engine which uses `filesystem-type` disks, the V2 Data Engine
 * *Use local NVMe disks*: SPDK is equipped with a user space NVMe driver that provides zero-copy, highly parallel, direct access to SSDs. Using local NVMe disks is strongly recommended for V2 volumes.
 * *Ensure disk is clean before adding*: Starting with v1.11.0, {longhorn-product-name} prevents adding block disks that contain an existing file system or partition table. Run `wipefs -a /path/to/block/device` before adding a disk.
 * *IOMMU group isolation*: For SPDK to claim a disk via `vfio-pci`, the NVMe device must be in an isolatable IOMMU group. If the device shares an IOMMU group with a PCIe bridge, it cannot be used with the SPDK NVMe driver and must be used in **AIO mode** instead.
-* *Huge pages configuration*: Ensure 2 GiB of 2 MiB-sized huge pages (1024 pages) are configured persistently on each V2 node via kernel boot parameters. See xref:deploy/install.adoc#_enable_hugepages[Enable HugePages] for detailed instructions.
+* *Huge pages configuration*: Ensure 2 GiB of 2 MiB-sized huge pages (1024 pages) are configured persistently on each V2 node via kernel boot parameters. See xref:installation-setup/requirements.adoc#_enable_hugepages[Enable HugePages] for detailed instructions.
 * *Kernel modules*: Ensure `vfio_pci`, `uio_pci_generic`, and `nvme-tcp` modules are loaded and configured to load automatically at boot. See xref:installation-setup/requirements.adoc#_load_kernel_modules[Load Kernel Modules].
 
 For the complete V2 Data Engine setup guide, see xref:installation-setup/requirements.adoc#_v2_data_engine_requirements[V2 Data Engine Requirements].

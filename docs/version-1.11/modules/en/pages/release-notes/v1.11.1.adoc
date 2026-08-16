@@ -1,8 +1,8 @@
 = {longhorn-product-name} v1.11.1 Release Notes
-:revdate: 2026-08-03
+:revdate: 2026-08-17
 :page-revdate: {revdate}
 
-This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/overview.adoc[{longhorn-product-name} Documentation].
+This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/introduction.adoc[{longhorn-product-name} Documentation].
 
 [NOTE]
 ====
@@ -113,7 +113,7 @@ For more details, see https://github.com/longhorn/longhorn/issues/12689[#12689] 
 *Ensure that your cluster is running Kubernetes v1.25 or later before installing {longhorn-product-name} v1.11.1*.
 ====
 
-You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:deploy/install.adoc[Quick Installation] in the documentation.
+You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:installation-setup/installation/installation.adoc[Quick Installation] in the documentation.
 
 == Upgrade
 
@@ -124,7 +124,7 @@ You can install {longhorn-product-name} using a variety of tools, including {ran
 *Users on v1.11.0 who experienced the memory leaks of longhorn-instance-manager pods https://github.com/longhorn/longhorn/issues/12575[#12575] are highly encouraged to upgrade to v1.11.1 to receive the permanent fix for the proxy connection leaks*.
 ====
 
-{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:deploy/upgrade.adoc[Upgrade] in the documentation.
+{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:upgrades/upgrades.adoc[Upgrade] in the documentation.
 
 == Post-release Known Issues
 
@@ -148,7 +148,7 @@ For information about issues identified after this release, see https://github.c
 * https://github.com/longhorn/longhorn/issues/12738[#12738] [BACKPORT][v1.11.1][BUG] `spdk_tgt` encountered an assertion failure in `longhorn-spdk-helper` during a CI test run
 * https://github.com/longhorn/longhorn/issues/12688[#12688] [BACKPORT][v1.11.1][BUG] Google Cloud Storage (GCS) backup target always fails with SignatureDoesNotMatch due to AWS SDK Go v2 CRC32 checksum incompatibility
 * https://github.com/longhorn/longhorn/issues/12730[#12730] [BACKPORT][v1.11.1][BUG] Enable to set `defaultSettings.nodeDiskHealthMonitoring`
-* https://github.com/longhorn/longhorn/issues/12704[#12704] [BACKPORT][v1.11.1][BUG] stale name variable in nsmounter get_pid
+* https://github.com/longhorn/longhorn/issues/12704[#12704] [BACKPORT][v1.11.1][BUG] Stale name variable in nsmounter get_pid
 * https://github.com/longhorn/longhorn/issues/12665[#12665] [BACKPORT][v1.11.1][BUG] After upgrading to 1.11.0, new persistent volumes have nodeAffinity
 * https://github.com/longhorn/longhorn/issues/12661[#12661] [BACKPORT][v1.11.1][BUG] Incorrect storage double-counting causes scheduling failure when multiple replicas exist on the same node
 * https://github.com/longhorn/longhorn/issues/12641[#12641] [BACKPORT][v1.11.1][BUG] Recreated block disk with same name never becomes schedulable after volume and disk deletion
@@ -158,7 +158,7 @@ For information about issues identified after this release, see https://github.c
 * https://github.com/longhorn/longhorn/issues/12589[#12589] [BACKPORT][v1.11.1][BUG] {longhorn-product-name} validating webhook blocks k3s server node joins - flannel CNI fails to initialize
 * https://github.com/longhorn/longhorn/issues/12575[#12575] [BACKPORT][v1.11.1][BUG] V1.11.0 very high memory consumption for the instance manager
 * https://github.com/longhorn/longhorn/issues/12780[#12780] [BACKPORT][v1.11.1][BUG] Backing image data source pod fails when HTTP proxy is enabled
-* https://github.com/longhorn/longhorn/issues/12788[#12788] [BACKPORT][v1.11.1][BUG] orphan controller does not cleanup the instance on the corresponding instance manager on a multiple IM node
+* https://github.com/longhorn/longhorn/issues/12788[#12788] [BACKPORT][v1.11.1][BUG] Orphan controller does not cleanup the instance on the corresponding instance manager on a multiple IM node
 
 === Stability
 

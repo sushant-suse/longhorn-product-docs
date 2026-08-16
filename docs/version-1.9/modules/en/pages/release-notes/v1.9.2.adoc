@@ -1,8 +1,8 @@
 = {longhorn-product-name} v1.9.2 Release Notes
-:revdate: 2026-08-03
+:revdate: 2026-08-17
 :page-revdate: {revdate}
 
-This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/overview.adoc[{longhorn-product-name} Documentation].
+This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/introduction.adoc[{longhorn-product-name} Documentation].
 
 [NOTE]
 ====
@@ -16,7 +16,7 @@ For more information about release-related terminology, see https://github.com/l
 *Ensure that your cluster is running Kubernetes v1.25 or later before installing {longhorn-product-name} v1.9.2*.
 ====
 
-You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:deploy/install.adoc[Quick Installation] in the documentation.
+You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:installation-setup/installation/installation.adoc[Quick Installation] in the documentation.
 
 == Upgrade
 
@@ -25,7 +25,7 @@ You can install {longhorn-product-name} using a variety of tools, including {ran
 *Ensure that your cluster is running Kubernetes v1.25 or later before upgrading from {longhorn-product-name} v1.8.x or v1.9.x (< v1.9.2) to v1.9.2*.
 ====
 
-{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:deploy/upgrade.adoc[Upgrade] in the documentation.
+{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:upgrades/upgrades.adoc[Upgrade] in the documentation.
 
 == Post-release Known Issues
 
@@ -38,21 +38,21 @@ For information about issues identified after this release, see https://github.c
 * https://github.com/longhorn/longhorn/issues/11805[#11805] [BACKPORT][v1.9.2][IMPROVEMENT] Add usage metrics for Longhorn installation variant
 * https://github.com/longhorn/longhorn/issues/11782[#11782] [BACKPORT][v1.9.2][IMPROVEMENT] SAST Potential dereference of the null pointer in controller/volume_controller.go in longhorn-manager
 * https://github.com/longhorn/longhorn/issues/11726[#11726] [BACKPORT][v1.9.2][IMPROVEMENT] Collect mount table, process status and process table in support bundle
-* https://github.com/longhorn/longhorn/issues/11567[#11567] [BACKPORT][v1.9.2][IMPROVEMENT] rename the backing image manager to reduce the probability of CR name collision
+* https://github.com/longhorn/longhorn/issues/11567[#11567] [BACKPORT][v1.9.2][IMPROVEMENT] Rename the backing image manager to reduce the probability of CR name collision
 * https://github.com/longhorn/longhorn/issues/11604[#11604] [BACKPORT][v1.9.2][IMPROVEMENT] Improve log messages of longhorn-engine, tgt and liblonghorn for troubleshooting
 * https://github.com/longhorn/longhorn/issues/11501[#11501] [BACKPORT][v1.9.2][IMPROVEMENT] Misleading log message `Deleting orphans on evicted node ...`
 * https://github.com/longhorn/longhorn/issues/11324[#11324] [BACKPORT][v1.9.2][IMPROVEMENT] Check if the backup target is available before creating a backup, backup backing image, and system backup
-* https://github.com/longhorn/longhorn/issues/11310[#11310] [BACKPORT][v1.9.2][IMPROVEMENT] adjust the hardcoded timeout limitation for backing image downloading
+* https://github.com/longhorn/longhorn/issues/11310[#11310] [BACKPORT][v1.9.2][IMPROVEMENT] Adjust the hardcoded timeout limitation for backing image downloading
 * https://github.com/longhorn/longhorn/issues/11508[#11508] [BACKPORT][v1.9.2][IMPROVEMENT] Improve longhorn-engine controller log messages
 * https://github.com/longhorn/longhorn/issues/11506[#11506] [BACKPORT][v1.9.2][IMPROVEMENT] Make liveness probe parameters of instance-manager pod configurable
-* https://github.com/longhorn/longhorn/issues/11488[#11488] [BACKPORT][v1.9.2][IMPROVEMENT] backing image handle node disk deleting events
+* https://github.com/longhorn/longhorn/issues/11488[#11488] [BACKPORT][v1.9.2][IMPROVEMENT] Backing image handle node disk deleting events
 * https://github.com/longhorn/longhorn/issues/11327[#11327] [BACKPORT][v1.9.2][IMPROVEMENT] Handle credential secret containing mixed invalid conditions
 * https://github.com/longhorn/longhorn/issues/11193[#11193] [BACKPORT][v1.9.2][IMPROVEMENT] Improve the condition message of engine image check
 
 === Bug
 
 * https://github.com/longhorn/longhorn/issues/11788[#11788] [BACKPORT][v1.9.2][BUG] Potential Data Corruption During Volume Resizing When Created from Snapshot
-* https://github.com/longhorn/longhorn/issues/11744[#11744] [BUG] [v1.9.x] support bundle stuck at 33%
+* https://github.com/longhorn/longhorn/issues/11744[#11744] [BUG] [v1.9.x] Support bundle stuck at 33%
 * https://github.com/longhorn/longhorn/issues/11639[#11639] [BACKPORT][v1.9.2][BUG] Unable to disable v2-data-engine even though there is no V2 volumes, backing images or orphaned data
 * https://github.com/longhorn/longhorn/issues/11722[#11722] [BACKPORT][v1.9.2][BUG] {longhorn-product-name} pvcs are in pending state.
 * https://github.com/longhorn/longhorn/issues/11729[#11729] [BUG] Broken link in documentation
@@ -64,7 +64,7 @@ For information about issues identified after this release, see https://github.c
 * https://github.com/longhorn/longhorn/issues/11599[#11599] [BACKPORT][v1.9.2][BUG] longhorn-manager repeatedly emits `No instance manager for node xxx for update instance state of orphan instance orphan-xxx..`
 * https://github.com/longhorn/longhorn/issues/11692[#11692] [BACKPORT][v1.9.2][BUG] BackupBackingImage may be created from an unready BackingImageManager
 * https://github.com/longhorn/longhorn/issues/11570[#11570] [BACKPORT][v1.9.2][BUG] {longhorn-product-name} fails to create Backing Image Backup on ARM platform
-* https://github.com/longhorn/longhorn/issues/11614[#11614] [BACKPORT][v1.9.2][BUG] remaining unknown OS condition in node CR
+* https://github.com/longhorn/longhorn/issues/11614[#11614] [BACKPORT][v1.9.2][BUG] Remaining unknown OS condition in node CR
 * https://github.com/longhorn/longhorn/issues/11584[#11584] [BACKPORT][v1.9.2][BUG] Volumes fails to remount when they go read-only
 * https://github.com/longhorn/longhorn/issues/11590[#11590] [BACKPORT][v1.9.2][BUG] Dangling Volume State When Live Migration Terminates Unexpectedly
 * https://github.com/longhorn/longhorn/issues/11482[#11482] [BACKPORT][v1.9.2][BUG] Unable to setup backup target in storage network environment: cannot find a running instance manager for node

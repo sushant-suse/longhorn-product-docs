@@ -1,8 +1,8 @@
 = {longhorn-product-name} v1.10.2 Release Notes
-:revdate: 2026-08-03
+:revdate: 2026-08-17
 :page-revdate: {revdate}
 
-This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/overview.adoc[{longhorn-product-name} Documentation].
+This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/introduction.adoc[{longhorn-product-name} Documentation].
 
 [NOTE]
 ====
@@ -68,7 +68,7 @@ For more details, see https://github.com/longhorn/longhorn/issues/12251[#12251].
 *Ensure that your cluster is running Kubernetes v1.25 or later before installing {longhorn-product-name} v1.10.2*.
 ====
 
-You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:deploy/install.adoc[Quick Installation] in the documentation.
+You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:installation-setup/installation/installation.adoc[Quick Installation] in the documentation.
 
 == Upgrade
 
@@ -77,7 +77,7 @@ You can install {longhorn-product-name} using a variety of tools, including {ran
 *Ensure that your cluster is running Kubernetes v1.25 or later before upgrading from {longhorn-product-name} v1.9.x to v1.10.2*.
 ====
 
-{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:deploy/upgrade.adoc[Upgrade] in the documentation.
+{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:installation-setup/upgrade/upgrade-longhorn-manager.adoc[Upgrade] in the documentation.
 
 == Post-release known issues
 
@@ -108,14 +108,14 @@ For information about issues identified after this release, see https://github.c
 * https://github.com/longhorn/longhorn/issues/12476[#12476] [BACKPORT][v1.10.2][BUG] SnapshotBack proxy request might be sent to incorrect instance-manager pod
 * https://github.com/longhorn/longhorn/issues/12451[#12451] [BACKPORT][v1.10.2][BUG] Unknown OS condition in node CR is not properly removed during upgrade
 * https://github.com/longhorn/longhorn/issues/12231[#12231] [BACKPORT][v1.10.2][BUG] RWX volume becomes unavailable after drain node
-* https://github.com/longhorn/longhorn/issues/12382[#12382] [BACKPORT][v1.10.2][BUG] mounting error is not properly hanedled during CSI node publish volume
+* https://github.com/longhorn/longhorn/issues/12382[#12382] [BACKPORT][v1.10.2][BUG] Mounting error is not properly handled during CSI node publish volume
 * https://github.com/longhorn/longhorn/issues/12368[#12368] [BACKPORT][v1.10.2][BUG] Encrypted Volume Cannot Be Expanded Online
 * https://github.com/longhorn/longhorn/issues/12357[#12357] [BACKPORT][v1.10.2][BUG] The auo generated backing image pod name is complained by kubelet
 * https://github.com/longhorn/longhorn/issues/12342[#12342] [BACKPORT][v1.10.2][BUG] `tests.test_cloning.test_cloning_basic` fails at msater-head
 * https://github.com/longhorn/longhorn/issues/12208[#12208] [BACKPORT][v1.10.2][Bug] A cloned volume cannot be attached to a workload
 * https://github.com/longhorn/longhorn/issues/12312[#12312] [BACKPORT][v1.10.2][BUG] Block Mode Volume Migration Stuck
 * https://github.com/longhorn/longhorn/issues/12334[#12334] [BACKPORT][v1.10.2][BUG] Replica auto balance disk pressure threshold stalled with stopped volumes
-* https://github.com/longhorn/longhorn/issues/12270[#12270] [BACKPORT][v1.10.2][BUG] short name mode is enforcing, but image name longhornio/longhorn-manager:v1.10. │ │ 0 returns ambiguous list
+* https://github.com/longhorn/longhorn/issues/12270[#12270] [BACKPORT][v1.10.2][BUG] Short name mode is enforcing, but image name longhornio/longhorn-manager:v1.10. │ │ 0 returns ambiguous list
 * https://github.com/longhorn/longhorn/issues/12115[#12115] [BACKPORT][v1.10.2][BUG] Replicas accumulate during engine upgrade
 * https://github.com/longhorn/longhorn/issues/12195[#12195] [BACKPORT][v1.10.2][BUG] Potential BackingImageManagerClient Connection and Context Leak
 * https://github.com/longhorn/longhorn/issues/12251[#12251] [BACKPORT][v1.10.2][BUG] {longhorn-product-name} ignores `Replica Node Level Soft Anti-Affinity` when auto balance is set to `best-effort`

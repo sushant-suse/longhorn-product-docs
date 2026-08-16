@@ -1,8 +1,8 @@
 = {longhorn-product-name} v1.9.1 Release Notes
-:revdate: 2026-08-13
+:revdate: 2026-08-17
 :page-revdate: {revdate}
 
-This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/overview.adoc[{longhorn-product-name} Documentation].
+This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/introduction.adoc[{longhorn-product-name} Documentation].
 
 [NOTE]
 ====
@@ -13,13 +13,13 @@ For more information about release-related terminology, see https://github.com/l
 
 === Environment check script
 
-The `environment_check.sh` script, deprecated in v1.7.0, has been removed in v1.9.0. Use the xref:advanced-resources/longhornctl.adoc[{longhorn-product-name} Command Line Tool] (`longhornctl`) to check your environment for potential issues.
+The `environment_check.sh` script, deprecated in v1.7.0, has been removed in v1.9.0. Use the xref:longhorn-system/system-access/longhorn-cli.adoc[{longhorn-product-name} Command Line Tool] (`longhornctl`) to check your environment for potential issues.
 
 === Orphan resource auto-deletion
 
 The `orphan-auto-deletion` setting has been replaced by `orphan-resource-auto-deletion` in v1.9.0. To replicate the previous behavior, include `replica-data` in the `orphan-resource-auto-deletion` value. During the upgrade, the original `orphan-auto-deletion` setting is automatically migrated.
 
-For more information, see xref:advanced-resources/data-cleanup.adoc[Orphan Data Cleanup].
+For more information, see xref:data-integrity-recovery/orphaned-data-cleanup.adoc[Orphan Data Cleanup].
 
 === Deprecated fields in `longhorn.io/v1beta2` CRDs
 
@@ -63,13 +63,13 @@ While the V2 Data Engine remains experimental in this release, several core func
 
 Starting with {longhorn-product-name} v1.9.0, you can create a recurring job for system backup creation.
 
-xref:advanced-resources/system-backup-restore/backup-longhorn-system.adoc[Documentation] | https://github.com/longhorn/longhorn/issues/6534[#6534]
+xref:snapshots-backups/system-backups/create-system-backup.adoc[Documentation] | https://github.com/longhorn/longhorn/issues/6534[#6534]
 
 === Offline replica rebuilding
 
 {longhorn-product-name} introduces offline replica rebuilding, a feature that allows degraded volumes to automatically recover replicas even while the volume is detached. This capability minimizes the need for manual recovery steps, accelerates restoration, and ensures high data availability. By default, offline replica rebuilding is disabled. To enable it, set the `offline-replica-rebuilding` setting to `true` in the {longhorn-product-name} UI or CLI.
 
-xref:advanced-resources/rebuilding/offline-replica-rebuilding.adoc[Documentation] | https://github.com/longhorn/longhorn/issues/8443[#8443]
+xref:high-availability/offline-replica-rebuilding.adoc[Documentation] | https://github.com/longhorn/longhorn/issues/8443[#8443]
 
 === Orphaned instance deletion
 
@@ -77,7 +77,7 @@ xref:advanced-resources/rebuilding/offline-replica-rebuilding.adoc[Documentation
 
 To reduce resource usage and maintain system performance, {longhorn-product-name} supports both automatic and manual cleanup. By default, this feature is disabled. To enable it, set the `orphan-resource-auto-deletion` setting to `instance` in the {longhorn-product-name} UI or CLI.
 
-xref:advanced-resources/data-cleanup/orphaned-instance-cleanup.adoc[Documentation] | https://github.com/longhorn/longhorn/issues/6764[#6764]
+xref:data-integrity-recovery/orphaned-instance-cleanup.adoc[Documentation] | https://github.com/longhorn/longhorn/issues/6764[#6764]
 
 === Improved metrics for replica, engine, and rebuild status
 
@@ -92,7 +92,7 @@ For more information, see https://github.com/longhorn/longhorn/issues/10550[#105
 *Ensure that your cluster is running Kubernetes v1.25 or later before installing {longhorn-product-name} v1.9.1*.
 ====
 
-You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:deploy/install.adoc[Quick Installation] in the documentation.
+You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:installation-setup/installation/installation.adoc[Quick Installation] in the documentation.
 
 == Upgrade
 
@@ -101,7 +101,7 @@ You can install {longhorn-product-name} using a variety of tools, including {ran
 *Ensure that your cluster is running Kubernetes v1.25 or later before upgrading from {longhorn-product-name} v1.8.x or v1.9.x (< v1.9.1) to v1.9.1*.
 ====
 
-{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:deploy/upgrade.adoc[Upgrade] in the documentation.
+{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:upgrades/upgrades.adoc[Upgrade] in the documentation.
 
 == Post-release Known Issues
 
@@ -120,7 +120,7 @@ For information about issues identified after this release, see https://github.c
 * https://github.com/longhorn/longhorn/issues/11212[#11212] [BACKPORT][v1.9.1][IMPROVEMENT] Improve the disk space un-schedulable condition message
 * https://github.com/longhorn/longhorn/issues/11196[#11196] [BACKPORT][v1.9.1][IMPROVEMENT] Improve the condition message of engine image check
 * https://github.com/longhorn/longhorn/issues/11225[#11225] [BACKPORT][v1.9.1][IMPROVEMENT] Improve the logging when detecting multiple backup volumes of the same volume on the same backup target
-* https://github.com/longhorn/longhorn/issues/11168[#11168] [BACKPORT][v1.9.1][IMPROVEMENT] extra invalid BackupVolumeCR may be created during cluster split-brain
+* https://github.com/longhorn/longhorn/issues/11168[#11168] [BACKPORT][v1.9.1][IMPROVEMENT] Extra invalid BackupVolumeCR may be created during cluster split-brain
 * https://github.com/longhorn/longhorn/issues/11069[#11069] [BACKPORT][v1.9.1][IMPROVEMENT] Full replica rebuilding when a node goes down for a while and then comes back
 * https://github.com/longhorn/longhorn/issues/10914[#10914] [BACKPORT][v1.9.1][IMPROVEMENT] Adding retry logic for `longhorn-csi-plugin` when it trying to contact the longhorn-manager pods
 
@@ -128,18 +128,18 @@ For information about issues identified after this release, see https://github.c
 
 * https://github.com/longhorn/longhorn/issues/11266[#11266] [BACKPORT][v1.9.1][BUG] Incorrect value of `remove-snapshots-during-filesystem-trim` in longhorn chart/values.yaml
 * https://github.com/longhorn/longhorn/issues/11258[#11258] [BACKPORT][v1.9.1][BUG] `privateRegistry.registryUrl` does not work when overriding specific image registries
-* https://github.com/longhorn/longhorn/issues/11235[#11235] [BACKPORT][v1.9.1][BUG] system backup error
+* https://github.com/longhorn/longhorn/issues/11235[#11235] [BACKPORT][v1.9.1][BUG] System backup error
 * https://github.com/longhorn/longhorn/issues/11184[#11184] [BACKPORT][v1.9.1][BUG] Volume expansion fails with "unsupported disk encryption format Ext4"
 * https://github.com/longhorn/longhorn/issues/11217[#11217] [BACKPORT][v1.9.1][BUG] The Backup YAML example in the {longhorn-product-name} doc does not work
 * https://github.com/longhorn/longhorn/issues/11164[#11164] [BACKPORT][v1.9.1][BUG] CSI Plugin restart triggers unintended restart of migratable RWX volume workloads
-* https://github.com/longhorn/longhorn/issues/11180[#11180] [BACKPORT][v1.9.1][BUG] in the browser UI: Volume - Clone Volume results in the broken browser page
+* https://github.com/longhorn/longhorn/issues/11180[#11180] [BACKPORT][v1.9.1][BUG] In the browser UI: Volume - Clone Volume results in the broken browser page
 * https://github.com/longhorn/longhorn/issues/10917[#10917] [BACKPORT][v1.9.1][BUG] Test case `test_engine_image_not_fully_deployed_perform_volume_operations` failed: unable to detach a volume
 * https://github.com/longhorn/longhorn/issues/11170[#11170] [BACKPORT][v1.9.1][BUG] Creating support-bundle panic NPE
 * https://github.com/longhorn/longhorn/issues/11162[#11162] [BACKPORT][v1.9.1][BUG] Unable to Build Longhorn-Share-Manager Image Due to CMAKE Compatibility
 * https://github.com/longhorn/longhorn/issues/11020[#11020] [BACKPORT][v1.9.1][BUG] Recurring jobs fail when assigned to default group
 * https://github.com/longhorn/longhorn/issues/11047[#11047] [BACKPORT][v1.9.1][BUG] SPDK API `bdev_lvol_detach_parent` does not work as expected
-* https://github.com/longhorn/longhorn/issues/11056[#11056] [BACKPORT][v1.9.1][BUG] unable to clean up the backing image volume replica after node eviction
-* https://github.com/longhorn/longhorn/issues/11035[#11035] [BACKPORT][v1.9.1][BUG] backing image volume replica NPE crash during evicting node
+* https://github.com/longhorn/longhorn/issues/11056[#11056] [BACKPORT][v1.9.1][BUG] Unable to clean up the backing image volume replica after node eviction
+* https://github.com/longhorn/longhorn/issues/11035[#11035] [BACKPORT][v1.9.1][BUG] Backing image volume replica NPE crash during evicting node
 
 == Misc
 

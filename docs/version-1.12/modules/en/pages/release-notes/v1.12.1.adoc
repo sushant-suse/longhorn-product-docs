@@ -1,0 +1,336 @@
+= {longhorn-product-name} v1.12.1 Release Notes
+:revdate: 2026-08-17
+:page-revdate: {revdate}
+
+This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/introduction.adoc[{longhorn-product-name} Documentation].
+
+[NOTE]
+====
+For more information about release-related terminology, see https://github.com/rancher/suse-storage/releases[Releases].
+====
+
+== Removals
+
+=== V2 Backing Image removal
+
+V2 Backing Images are removed in {longhorn-product-name} v1.12.0. Suggest using the xref:volumes/containerized-data-importer.adoc[Containerized Data Importer (CDI)] to import VM disk images into V2 volumes to achieve the same purpose.
+
+If you have V2 volumes that were created from backing images, you must migrate them before upgrading to v1.12.0:
+
+. *Backup and recreate* (recommended): Create a backup of the V2 volume, delete the original volume, then restore from backup. The restored volume will not have a backing image dependency.
+. *Delete the volume*: If the data is not needed, delete the V2 volume directly.
+
+V2 volumes with backing image dependencies cannot be upgraded in-place. Attempting to upgrade without migration may result in volume attachment failures.
+
+https://github.com/longhorn/longhorn/issues/13181[#13181]
+
+== Breaking changes
+
+=== Deprecation of legacy V2 linked clone volumes
+
+V2 linked-clone volumes created in v1.12.0 or earlier are marked as legacy and deprecated starting in v1.12.1. The new linked-clone architecture introduced in https://github.com/longhorn/longhorn/issues/12552[#12552] is not compatible with the legacy design.
+
+After upgrading to v1.12.1, *legacy linked-clone volumes cannot be operated on except for detachment and deletion*.
+
+To replace, create new linked-clone volumes from the same source volumes that back the legacy ones. As long as a legacy volume exists, its source volume is guaranteed to still be present, so you can create a replacement linked clone directly; no data copy is required.
+
+For more information, see https://github.com/longhorn/longhorn/issues/12552[#12552].
+
+== Primary highlights
+
+=== V2 Data Engine
+
+==== Generally available
+
+We are pleased to announce that the V2 Data Engine has officially graduated to *General Availability* in {longhorn-product-name} v1.12.0.
+
+This milestone reflects major progress in stability, operational safety, networking support, and feature maturity. Compared with earlier releases, V2 volumes are better positioned for production use, combining GA readiness with modern networking support, more precise scheduling behavior, and clearer visibility into where V1 and V2 behavior match and where differences still matter.
+
+[IMPORTANT]
+====
+*V2 Live Upgrade*:
+
+V2 volumes do not support live upgrades between {longhorn-product-name} v1.12 patch releases and must be detached before upgrading. Support is planned when upgrading from a {longhorn-product-name} v1.12 release to a {longhorn-product-name} v1.13 release.
+
+*V2 Volume Attach Latency at Scale*:
+
+In environments with a growing number of attached V2 volumes, increased attach latency has been observed for subsequent volumes. Initial analysis suggests this may be related to NVMe-TCP connection handling at scale, though the precise layer, SPDK user-space or Linux kernel, has not yet been identified. Further investigation is in progress. For follow-up status, see https://github.com/longhorn/longhorn/issues/13241[#13241].
+
+*ARM64 NVMe-backed Block-Type Node Disk Limitation*:
+
+On ARM64 systems, V2 volumes may experience stuck I/O when SPDK is configured with two or more CPU cores and node disks use the NVMe driver. The root cause may lie in either the Linux kernel or SPDK itself, and further investigation is required. As a workaround, use xref:nodes/multiple-disk.adoc#_using_aio_disks[AIO-backed node disks] instead of xref:nodes/multiple-disk.adoc#_using_nvme_disks[NVMe-backed node disks] on ARM64 systems. For follow-up status, see https://github.com/longhorn/longhorn/issues/13243[#13243].
+
+*UBLK Frontend Kernel Limitation*:
+
+The UBLK front-end for V2 data engine volumes remains experimental and is only functional on Linux kernels below v6.17. On kernel v6.17.0 and above, UBLK fails due to upstream UBLK API changes that cause `EINVAL` errors when starting UBLK devices. For follow-up status, see https://github.com/longhorn/longhorn/issues/11977[#11977].
+====
+
+For a summary of the current V1 and V2 volume behavior differences and feature parity, see xref:v1-v2-volume-behavior-and-feature-parity.adoc[V1 and V2 Volume Feature Support].
+
+==== Fast volume cloning
+
+{longhorn-product-name} v1.12.1 enhances fast volume cloning for the V2 Data Engine. A `linked-clone` volume shares data blocks with its source instead of copying data. With the new architecture, a source replica can share its data blocks with multiple linked-clone volumes, and multiple clone replicas can be created in parallel.
+
+Linked-clone volumes now support most operations available to regular volumes, including snapshots, expansion, replica rebuilding, and use as the source of nested linked clones.
+
+For more information, see https://github.com/longhorn/longhorn/issues/12552[#12552] and xref:volumes/clone-volumes.adoc[CSI Volume Clone].
+
+[NOTE]
+====
+*Notice*: V2 fast cloning does not currently support volume backup and restore. This improvement is tracked in https://github.com/longhorn/longhorn/issues/13714[#13714].
+====
+
+==== Storage sharding (experimental)
+
+{longhorn-product-name} v1.12.1 introduces storage sharding as an experimental data protection and storage layout feature built on the V2 Data Engine. Instead of storing a full copy of the volume on each replica, sharding uses erasure coding to encode written data into data and parity chunks, which are distributed across multiple nodes. This allows a volume to grow beyond the capacity of a single disk or node while using less disk space to achieve the same level of fault tolerance.
+
+Because this feature is experimental, it is intended for evaluation and testing only and is not recommended for production use.
+
+For more information, see https://github.com/longhorn/longhorn/issues/1061[#1061] and xref:v2-data-engine/sharding.adoc[Sharding with Erasure Coding].
+
+=== Smarter provisioning and modern networking
+
+==== Topology-aware PV node affinity control
+
+{longhorn-product-name} v1.12.0 adds the `csi-allowed-topology-keys` setting and `strictTopology` StorageClass parameter for more precise control of PV `nodeAffinity`. These options allow users to limit which topology keys are propagated and, with `WaitForFirstConsumer`, pin the PV to the selected node topology when needed.
+
+https://github.com/longhorn/longhorn/issues/12684[#12684]
+
+==== IPv6 support for V2 volumes
+
+V2 volumes now support single-stack IPv6 Kubernetes clusters.
+
+https://github.com/longhorn/longhorn/issues/10928[#10928]
+
+==== Dual-stack cluster support
+
+{longhorn-product-name} now supports dual-stack Kubernetes clusters when all nodes are configured with their IP families in the same order, either all IPv4-first or all IPv6-first. This applies to both the V1 and V2 data engines.
+
+[WARNING]
+====
+Dual-stack clusters with mixed IP family ordering across nodes are not supported and may result in connectivity failures between replicas and the engine.
+====
+
+https://github.com/longhorn/longhorn/issues/11531[#11531]
+
+=== Better operations and observability
+
+==== Default CPU allocation
+
+{longhorn-product-name} v1.12.0 changes the default `data-engine-cpu-mask` from `0x1`, one CPU core, to `0x3`, two CPU cores. V2 Data Engine uses a busy-polling reactor model where the master reactor handles both I/O polling and management RPCs. When only a single core is assigned, heavy I/O workloads can delay or starve RPC processing, resulting in increased latency, timeout events, and operational instability.
+
+Assigning two or more cores allows I/O and management tasks to run on separate reactors, improving responsiveness and operational stability.
+
+https://github.com/longhorn/longhorn/issues/13237[#13237]
+
+==== On-demand snapshot checksum calculation
+
+{longhorn-product-name} v1.12.0 adds `longhornctl` support for triggering on-demand snapshot checksum calculation. The command can target a specific volume, all volumes on a specific node, or all volumes in the cluster, and the checksum operation runs asynchronously in the background.
+
+https://github.com/longhorn/longhorn/issues/11442[#11442]
+
+==== Toggle Kubernetes Metrics Server integration
+
+{longhorn-product-name} v1.12.0 adds the `Kubernetes Metrics Server Metrics Enabled` setting to disable metrics-server-dependent metrics when the Kubernetes Metrics Server API is unavailable. This reduces repeated scrape warnings and unnecessary API calls while preserving other {longhorn-product-name} metrics.
+
+https://github.com/longhorn/longhorn/issues/13011[#13011]
+
+==== {longhorn-product-name} Manager memory optimization
+
+{longhorn-product-name} v1.12.0 optimizes longhorn-manager informer caching to reduce memory usage, especially in large clusters with high pod counts. This lowers cluster-wide memory overhead caused by repeated caching of non-{longhorn-product-name} pod data on every manager instance.
+
+https://github.com/longhorn/longhorn/issues/12771[#12771]
+
+==== Configurable engine image pod liveness probe
+
+{longhorn-product-name} v1.12.0 adds settings to configure the engine-image DaemonSet liveness probe period, timeout and failure threshold. These settings help reduce unnecessary engine-image pod restarts on resource-constrained clusters, especially during upgrades or transient CPU spikes.
+
+https://github.com/longhorn/longhorn/issues/12846[#12846]
+
+=== Important improvements and fixes
+
+==== Internal network policies
+
+{longhorn-product-name} v1.12.1 enables ingress `NetworkPolicy` resources for internal component endpoints and RPCs by default to improve security by restricting access to {longhorn-product-name} internal services, including the instance-manager gRPC endpoint used for engine control. These policies only take effect when a `NetworkPolicy` provider is available in the cluster.
+
+{longhorn-product-name} has validated the internal network policies with the following Kubernetes distribution and CNI plugin combinations. See the xref:best-practices.adoc#_cni_plugin_compatibility[CNI Plugin Compatibility] table for the validated combinations. The minimum required Kubernetes version is v1.25.
+
+For more information and troubleshooting guidance, see xref:important-notes.adoc#_internal_network_policies[Internal Network Policies] and https://github.com/longhorn/longhorn/issues/13438[#13438].
+
+==== Instance Manager gRPC mTLS coverage
+
+In previous versions, mutual TLS (mTLS) for the instance-manager gRPC endpoint only covered the instance and proxy services when the `longhorn-grpc-tls` secret was configured. Other services, including the disk service and the SPDK service, accepted plaintext connections.
+
+{longhorn-product-name} v1.12.1 extends mTLS to all remaining instance-manager gRPC services, so every gRPC port now requires a valid client certificate when the `longhorn-grpc-tls` secret is configured.
+
+For more information, see https://github.com/longhorn/longhorn/issues/7787[#7787].
+
+==== CPU core allocation with the Kubernetes CPU Manager
+
+{longhorn-product-name} v1.12.1 can allocate exclusive CPU cores to the SPDK target daemon, which runs in each V2 Instance Manager pod, through the Kubernetes CPU Manager by using the `data-engine-number-of-cpu-cores` setting.
+
+The setting can be applied only when the kubelet CPU Manager policy is set to `static` on all worker nodes; otherwise, the update is rejected. When the value is positive, it takes precedence, and `data-engine-cpu-mask` is ignored.
+
+For more information, see https://github.com/longhorn/longhorn/issues/13248[#13248].
+
+==== Host CPU isolation
+
+The `data-engine-cpu-isolation-enabled` setting now also configures host network Receive Packet Steering (RPS) to steer RX softirq processing away from the CPU cores used by the SPDK target daemon, in addition to hardware IRQs and unbound kernel workqueue workers. Without this, the kernel can distribute incoming network packets to the SPDK reactor cores, and the resulting softirq work competes with the reactor's busy-poll loop, degrading volume I/O under network load.
+
+For more information, see https://github.com/longhorn/longhorn/issues/13483[#13483] and https://github.com/longhorn/longhorn/issues/13502[#13502].
+
+==== V2 Data Engine SPDK iobuf pool size configuration
+
+{longhorn-product-name} v1.12.1 allows tuning the SPDK iobuf buffer pools used by the V2 Data Engine. The `data-engine-iobuf-large-pool-size` and `data-engine-iobuf-small-pool-size` settings configure the large and 8 KiB small buffer pools, respectively. Increasing the small pool can relieve buffer exhaustion under high-queue-depth workloads with small I/O sizes. Because iobuf pools can only be sized at SPDK target startup, changing either setting recreates V2 Instance Manager pods that have no running instances.
+
+For more information, see https://github.com/longhorn/longhorn/issues/13322[#13322] and https://github.com/longhorn/longhorn/issues/13674[#13674].
+
+=== Critical stability fixes
+
+==== Instance Manager stability during replica rebuild storms
+
+{longhorn-product-name} v1.12.0 fixes an instance-manager panic that could occur during replica rebuild storms. In affected environments, the panic could terminate all iSCSI targets served by the instance-manager and trigger cascading volume detachments across multiple PVCs.
+
+https://github.com/longhorn/longhorn/issues/13087[#13087]
+
+==== Replica rebuild progress reporting
+
+{longhorn-product-name} v1.12.0 fixes a replica rebuild progress reporting bug that could display values greater than 100% after file-sync retries on unstable networks. Progress accounting is now reset correctly for retried files, so rebuild progress remains within the valid 0% to 100% range.
+
+https://github.com/longhorn/longhorn/issues/12949[#12949]
+
+==== Replica auto-balance scheduling loop
+
+{longhorn-product-name} v1.12.0 fixes a regression in replica auto-balance that could trigger a repeated replica create-and-delete loop when `Replica Auto Balance` was set to `best-effort`. In affected clusters, {longhorn-product-name} could keep scheduling an extra replica instead of stabilizing at the configured replica count.
+
+https://github.com/longhorn/longhorn/issues/12926[#12926]
+
+==== Replica CR leak during failed local scheduling
+
+{longhorn-product-name} v1.12.0 fixes a replica scheduling issue where large numbers of stopped Replica CRs could accumulate when `dataLocality` was set to `best-effort` and the node did not have enough eligible local disk space for another replica. In affected clusters, recurring reconciliation could keep creating placeholder Replica CRs instead of reusing a single failed-schedule placeholder.
+
+https://github.com/longhorn/longhorn/issues/13152[#13152]
+
+==== CSI storage capacity tracking
+
+{longhorn-product-name} v1.12.0 fixes a CSIStorageCapacity scheduling issue that could cause compute nodes without {longhorn-product-name} disks to report zero capacity and be rejected by `WaitForFirstConsumer` scheduling. In affected clusters with separated compute and storage nodes, new PVCs could remain pending even though eligible storage was available on storage nodes.
+
+https://github.com/longhorn/longhorn/issues/12807[#12807]
+
+==== Encrypted volume size correction
+
+{longhorn-product-name} reserves an additional 16 MiB of raw capacity for the LUKS2 metadata used by encrypted volumes, allowing the mapped device to expose the full capacity requested by the workload. Previously, the metadata was taken from usable capacity, so a requested 1 GiB encrypted volume exposed only 1008 MiB. This discrepancy could cause operations such as block-level copies between equally sized unencrypted and encrypted volumes to fail.
+
+* *V1 Data Engine*: This correction was introduced in {longhorn-product-name} v1.12.0. Existing encrypted V1 volumes created with v1.11.x or earlier receive the additional capacity automatically when their engine image is upgraded to v1.12.0 or later. Encrypted migratable V1 volumes cannot be live-migrated until they are upgraded to the version (>= v1.12.0).
+* *V2 Data Engine*: {longhorn-product-name} v1.12.1 applies the correction to newly created encrypted V2 volumes.
+
+[NOTE]
+====
+*Notice*: Encrypted V2 volumes created before v1.12.1, and volumes restored from the backup of such volumes, do not receive the additional 16 MiB of raw capacity and continue to expose 16 MiB less than requested. Existing data is preserved.
+====
+
+For more information, see https://github.com/longhorn/longhorn/issues/9205[#9205] and https://github.com/longhorn/longhorn/issues/13163[#13163].
+
+== Installation
+
+[IMPORTANT]
+====
+*Ensure that your cluster is running Kubernetes v1.25 or later before installing {longhorn-product-name} v1.12.1*.
+====
+
+You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:installation-setup/installation/installation.adoc[Installation] in the documentation.
+
+== Upgrade
+
+[IMPORTANT]
+====
+*Ensure that your cluster is running Kubernetes v1.25 or later before upgrading to {longhorn-product-name} v1.12.1. To upgrade from {longhorn-product-name} v1.11.x to {longhorn-product-name} v1.12.1, please refer to the Migration section*.
+====
+
+{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrade] in the documentation.
+
+== Migration
+
+To migrate {longhorn-product-name} to {longhorn-product-name}, please refer to the procedures described in the xref:migration/migration.adoc[Migrating to {longhorn-product-name}] documentation.
+
+== Post-release known issues
+
+For information about issues identified after this release, see https://github.com/longhorn/longhorn/wiki/Release-Known-Issues[Release-Known-Issues].
+
+== Resolved issues in this release
+
+=== Highlight
+
+* https://github.com/longhorn/longhorn/issues/13672[#13672] [BACKPORT][v1.12.1][UI][FEATURE] V2 Data Engine Fast Cloning
+* https://github.com/longhorn/longhorn/issues/13176[#13176] [BACKPORT][v1.12.1][FEATURE] V2 Data Engine Sharding - Experimental
+* https://github.com/longhorn/longhorn/issues/13174[#13174] [BACKPORT][v1.12.1][FEATURE] V2 Data Engine Fast Cloning
+
+=== Feature
+
+* https://github.com/longhorn/longhorn/issues/13320[#13320] [BACKPORT][v1.12.1][FEATURE] Support Kubernetes CPU Manager for Longhorn V2 instance-manager SPDK CPU assignment
+
+=== Improvement
+
+* https://github.com/longhorn/longhorn/issues/13675[#13675] [BACKPORT][v1.12.1][IMPROVEMENT] Allow configuring SPDK iobuf small pool size
+* https://github.com/longhorn/longhorn/issues/13621[#13621] [BACKPORT][v1.12.1][IMPROVEMENT] `go-common-libs: kill` the child process when command execution times out
+* https://github.com/longhorn/longhorn/issues/13439[#13439] [BACKPORT][v1.12.1][IMPROVEMENT] Always setup NetworkPolicy for the internal communication
+* https://github.com/longhorn/longhorn/issues/13502[#13502] [BACKPORT][v1.12.1][IMPROVEMENT] Steer host RPS away from SPDK reactor cores
+* https://github.com/longhorn/longhorn/issues/13480[#13480] [BACKPORT][v1.12.1][IMPROVEMENT] `updateBackupCompressionMethod` may write the Volume even when the method is unchanged
+* https://github.com/longhorn/longhorn/issues/13262[#13262] [BACKPORT][v1.12.1][IMPROVEMENT] Add metrics to collect information about V2 data engine usage
+* https://github.com/longhorn/longhorn/issues/13431[#13431] [BACKPORT][v1.12.1][IMPROVEMENT] Improving error transparency for volume attachment failure
+* https://github.com/longhorn/longhorn/issues/13415[#13415] [BACKPORT][v1.12.1][IMPROVEMENT] Allow configuring SPDK iobuf large pool size
+* https://github.com/longhorn/longhorn/issues/13310[#13310] [BACKPORT][v1.12.1][IMPROVEMENT] V2 volume write I/O stalls(~10s) when a replica is removed during migration
+* https://github.com/longhorn/longhorn/issues/13299[#13299] [BACKPORT][v1.12.1][IMPROVEMENT] Support mTLS encrypted communication for remaining gRPC services in instance manager
+* https://github.com/longhorn/longhorn/issues/13253[#13253] [BACKPORT][v1.12.1][IMPROVEMENT] Add metrics to collect information about `LONGHORN_DISTRO`
+
+=== Bug
+
+* https://github.com/longhorn/longhorn/issues/13660[#13660] [BACKPORT][v1.12.1][BUG] Host OS nvmf-autoconnect connects kernel initiators to V2 replica subsystems, stalling volume attach/detach for minutes
+* https://github.com/longhorn/longhorn/issues/13665[#13665] [BACKPORT][v1.12.1][BUG] Longhorn Helm Chart NetworkPolicies do not honor new RKE2 "rke2-traefik" ingress controller
+* https://github.com/longhorn/longhorn/issues/13640[#13640] [BACKPORT][v1.12.1][BUG] {longhorn-product-name} may try to attach volumes to a node without valid IM pod during the clone
+* https://github.com/longhorn/longhorn/issues/13656[#13656] [BACKPORT][v1.12.1][BUG] Test case `test_volume_scheduling_failure` fails on V2 volumes
+* https://github.com/longhorn/longhorn/issues/13612[#13612] [BACKPORT][v1.12.1][BUG] `Backup Listing With More Than 1000 Backups` fails on V2 volume due to an empty replica address in the backup status
+* https://github.com/longhorn/longhorn/issues/13539[#13539] [BACKPORT][v1.12.1][BUG] Incorrect Web Link in GUI
+* https://github.com/longhorn/longhorn/issues/13175[#13175] [BACKPORT][v1.12.1][BUG] Encrypted V2 volume size is 16MB short of the claimed size
+* https://github.com/longhorn/longhorn/issues/13548[#13548] [BACKPORT][v1.12.1][BUG] CSI pods do not respect anti-affinity preset update
+* https://github.com/longhorn/longhorn/issues/13475[#13475] [BACKPORT][v1.12.1][BUG] Failed to add v2 block disk with `virtio-scsi` BDF path
+* https://github.com/longhorn/longhorn/issues/13562[#13562] [BACKPORT][v1.12.1][BUG] V2 encrypted volume keeps switching between Attaching and Detaching state after expand operation
+* https://github.com/longhorn/longhorn/issues/13574[#13574] [BACKPORT][v1.12.1][BUG] GCS backup target: backup of large volume fails at final `.cfg` PUT with SignatureDoesNotMatch (residual of #12676 in v1.12.0)
+* https://github.com/longhorn/longhorn/issues/13538[#13538] [BACKPORT][v1.12.1][BUG] Fail to restore a volume from a full backup if a previous backup is corrupted
+* https://github.com/longhorn/longhorn/issues/13568[#13568] [BACKPORT][v1.12.1][BUG] Test case `Recurring Job Pod Should Not Crash` fails
+* https://github.com/longhorn/longhorn/issues/13478[#13478] [BACKPORT][v1.12.1][BUG] {longhorn-product-name} 1.12.0: AWS chunked encoding not supported with OCI S3 buckets
+* https://github.com/longhorn/longhorn/issues/13549[#13549] [BACKPORT][v1.12.1][BUG] Error logs in longhorn-uninstall job
+* https://github.com/longhorn/longhorn/issues/13274[#13274] [BACKPORT][v1.12.1][BUG] V2 Data Engine: UBLK fails with EINVAL on Linux kernel 6.17.0
+* https://github.com/longhorn/longhorn/issues/13495[#13495] [BACKPORT][v1.12.1][BUG] Kernel Workqueue Lockup and Unstable RKE2 Service After Enabling LH V2 in Harvester
+* https://github.com/longhorn/longhorn/issues/13380[#13380] [BACKPORT][v1.12.1][BUG] V2 expansion can report success while the engine remains at the old size
+* https://github.com/longhorn/longhorn/issues/13482[#13482] [BACKPORT][v1.12.1][BUG] FilesystemReadOnly never detected on kernel >= 6.12 — Ext4 reports emergency_ro, not ro; read-only auto-remount silently inoperative
+* https://github.com/longhorn/longhorn/issues/13465[#13465] [BACKPORT][v1.12.1][BUG] `csi.ReplicaCount Helm values silently no-op on existing csi - deployments` (only applied at first creation)
+* https://github.com/longhorn/longhorn/issues/13337[#13337] [BACKPORT][v1.12.1][BUG] V2 volume may crash again after the auto reattachment
+* https://github.com/longhorn/longhorn/issues/13490[#13490] [BACKPORT][v1.12.1][BUG] V2 Volume Cannot Be Attached When the Storage Network Is Enabled
+* https://github.com/longhorn/longhorn/issues/13336[#13336] [BACKPORT][v1.12.1][BUG] V2 volume repeated replica reuse failure
+* https://github.com/longhorn/longhorn/issues/13365[#13365] [BACKPORT][v1.12.1][BUG] V2 Encrypted Volume Restore Fails
+* https://github.com/longhorn/longhorn/issues/13332[#13332] [BACKPORT][v1.12.1][BUG] V2 backup/snapshot can leave NVMe/TCP front-end or dm device stale, causing pod EIO on attached volumes
+* https://github.com/longhorn/longhorn/issues/13446[#13446] [BACKPORT][v1.12.1][BUG] (chart) ArgoCD OutOfSync when using Gateway API
+* https://github.com/longhorn/longhorn/issues/13367[#13367] [BACKPORT][v1.12.1][BUG] Migration Engine Can Be Unexpectedly Deleted If the Target Node Is Still in Readiness Transition
+* https://github.com/longhorn/longhorn/issues/13425[#13425] [BACKPORT][v1.12.1][BUG] Recurring trim job fails with deadlock
+* https://github.com/longhorn/longhorn/issues/13368[#13368] [BACKPORT][v1.12.1][BUG] Volume expansion stuck
+* https://github.com/longhorn/longhorn/issues/13412[#13412] [BACKPORT][v1.12.1][BUG] PVC resize fails after iscsid restart
+* https://github.com/longhorn/longhorn/issues/13384[#13384] [BACKPORT][v1.12.1][BUG] Expanding the volume fails
+* https://github.com/longhorn/longhorn/issues/13226[#13226] [BACKPORT][v1.12.1][BUG] Test case `test_rwx_delete_share_manager_pod` fails because it is unable to find the exported volume in share manager pod after it is deleted and restarted
+* https://github.com/longhorn/longhorn/issues/13209[#13209] [BACKPORT][v1.12.1][BUG] System Backup RecurringJob retention prunes newest CR — sorts by `Status.CreatedAt` (zero for Error/racing CRs)
+* https://github.com/longhorn/longhorn/issues/13348[#13348] [BACKPORT][v1.12.1][BUG] CSI components may have 0 running replica during upgrade
+* https://github.com/longhorn/longhorn/issues/13357[#13357] [BACKPORT][v1.12.1][BUG] Node update forces a complete rebuild
+* https://github.com/longhorn/longhorn/issues/13191[#13191] [BACKPORT][v1.12.1][BUG] Creating backup for a V2 volume may fail
+* https://github.com/longhorn/longhorn/issues/13297[#13297] [BACKPORT][v1.12.1][BUG] When uploading backup to S3 storage (NetApp appliance) it fails
+* https://github.com/longhorn/longhorn/issues/13269[#13269] [BACKPORT][v1.12.1][BUG] spdk interrupt mode value is missing in `chart/values.yaml`
+
+=== Resilience
+
+* https://github.com/longhorn/longhorn/issues/13542[#13542] [BACKPORT][v1.12.1][BUG] Transient SPDK lvol metadata failure can permanently fault a healthy V2 replica
+
+=== Misc
+
+* https://github.com/longhorn/longhorn/issues/13622[#13622] [BACKPORT][v1.12.1][DOC] NetworkPolicy setup guidance
+* https://github.com/longhorn/longhorn/issues/13615[#13615] [BACKPORT][v1.12.1][DOC] Chart `values.yaml` still refers to Data Engine V2 as experimental
+* https://github.com/longhorn/longhorn/issues/13577[#13577] [BACKPORT][v1.12.1][DOC] Update the minimum Kubernetes version requirement to v1.34.
+* https://github.com/longhorn/longhorn/issues/13353[#13353] [BACKPORT][v1.12.1][BUG] V2 volume stuck `attaching` with Storage Network enabled because the `EngineFrontend` target uses the engine pod IP instead of `StorageIP`

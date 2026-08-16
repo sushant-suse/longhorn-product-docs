@@ -1,0 +1,59 @@
+= {longhorn-product-name} v1.10.4 Release Notes
+:revdate: 2026-08-17
+:page-revdate: {revdate}
+
+This release introduces several improvements and bug fixes that are intended to improve system quality, resilience, stability and security. The documentation is available at xref:introduction/introduction.adoc[{longhorn-product-name} Documentation].
+
+[NOTE]
+====
+For more information about release-related terminology, see https://github.com/rancher/suse-storage/releases[Releases].
+====
+
+== Installation
+
+[IMPORTANT]
+====
+*Ensure that your cluster is running Kubernetes v1.25 or later before installing {longhorn-product-name} v1.10.4*.
+====
+
+You can install {longhorn-product-name} using a variety of tools, including {rancher-product-name-tm}, Kubectl, and Helm. For more information about installation methods and requirements, see xref:installation-setup/installation/installation.adoc[Installation] in the documentation.
+
+== Upgrade
+
+[IMPORTANT]
+====
+*Ensure that your cluster is running Kubernetes v1.25 or later before upgrading from {longhorn-product-name} v1.9.x to v1.10.4. To upgrade from {longhorn-product-name} v1.9.x to {longhorn-product-name} v1.10.4, please refer to the Migration section*.
+====
+
+{longhorn-product-name} only allows upgrades from supported versions. For more information about upgrade paths and procedures, see xref:upgrades/longhorn-components/upgrade-longhorn-manager.adoc[Upgrade] in the documentation.
+
+== Migration
+
+To migrate {longhorn-product-name} to {longhorn-product-name}, please refer to the procedures described in the xref:migration/migration.adoc[Migrating to {longhorn-product-name}] documentation.
+
+== Post-release known issues
+
+For information about issues identified after this release, see https://github.com/longhorn/longhorn/wiki/Release-Known-Issues[Release-Known-Issues].
+
+== Resolved issues in this release
+
+=== Improvement
+
+* https://github.com/longhorn/longhorn/issues/13281[#13281] [BACKPORT][v1.10.4][IMPROVEMENT] Add metrics to collect information about `LONGHORN_DISTRO`
+
+=== Bug
+
+* https://github.com/longhorn/longhorn/issues/13298[#13298] [BACKPORT][v1.10.4][BUG] When uploading backup to S3 storage (NetApp appliance) it fails
+* https://github.com/longhorn/longhorn/issues/13130[#13130] [BACKPORT][v1.10.4][BUG] Nil pointer dereference panic in instance-manager during replica rebuild.
+* https://github.com/longhorn/longhorn/issues/13201[#13201] [BACKPORT][v1.10.4][BUG] Test Encrypted Volume Upgrade: Old-engine RWO volume shows 1008 MiB after expansion to 2 GiB instead of expected 2032 MiB
+* https://github.com/longhorn/longhorn/issues/13125[#13125] [BACKPORT][v1.10.4][BUG] HTTP response body leaks in support bundle status polling and webhook readiness checks
+* https://github.com/longhorn/longhorn/issues/13098[#13098] [BACKPORT][v1.10.4][BUG] `global.cattle.systemDefaultRegistry` is not applied as the image registry prefix in 108.2.1+up1.10.2
+* https://github.com/longhorn/longhorn/issues/13079[#13079] [BACKPORT][v1.10.4][BUG] [`longhorn-engine/dataserver`] Handling EOF returned by `io.ReadFull` robustly
+
+=== Stability
+
+* https://github.com/longhorn/longhorn/issues/13246[#13246] [BACKPORT][v1.10.4][BUG] longhorn-manager panic in `BackupController.setInprogressDeletionMap` during backup deletion
+
+=== Misc
+
+* https://github.com/longhorn/longhorn/issues/13280[#13280] [BACKPORT][v1.10.4][TASK] Add distro information to upgrade responder requests
