@@ -1,6 +1,6 @@
 = Settings
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-08-13
+:revdate: 2026-08-19
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -239,7 +239,7 @@ The `storageClassName` is used for persistent volumes (PVs) and persistent volum
 
 The default number of replicas when creating the volume from {longhorn-product-name} UI. For Kubernetes, update the `numberOfReplicas` in the StorageClass
 
-The recommended way of choosing the default replica count is: if you have three or more nodes for storage, use 3; otherwise use 2. Using a single replica on a single node cluster is also OK, but the high availability functionality would not be available. You can still take snapshots or backups of the volume.
+The recommended way of choosing the default replica count is: if you have three or more nodes for storage, use 3 otherwise use 2. Using a single replica on a single node cluster is also OK, but the high availability functionality would not be available. You can still take snapshots or backups of the volume.
 
 === Deleting Confirmation Flag
 
@@ -406,7 +406,7 @@ Notice that the new Image Pull Policy are only applied after the system managed 
 
 This setting definition is exactly the same as that of in Kubernetes. Here are the available options:
 
-* `always`. Every time the `kubelet` launches a container, the `kubelet` queries the container image registry to resolve the name to an image digest. If the `kubelet` has a container image with that exact digest cached locally, the `kubelet` uses its cached image; otherwise, the `kubelet` downloads (pulls) the image with the resolved digest, and uses that image to launch the container.
+* `always`. Every time the `kubelet` launches a container, the `kubelet` queries the container image registry to resolve the name to an image digest. If the `kubelet` has a container image with that exact digest cached locally, the `kubelet` uses its cached image otherwise, the `kubelet` downloads (pulls) the image with the resolved digest, and uses that image to launch the container.
 * `if-not-present`. The image is pulled only if it is not already present locally.
 * `never`. The image is assumed to exist locally. No attempt is made to pull the image.
 
@@ -1134,7 +1134,7 @@ By default, this setting applies only to Longhorn's data-plan traffic path. For 
 ``
 [WARNING]
 ====
-This setting should change after all Longhorn volumes are detached because some pods that run Longhorn system components are recreated to apply the setting. When all volumes are detached, {longhorn-product-name} attempts to restart all Instance Manager and Backing Image Manager pods immediately. When volumes are in use, {longhorn-product-name} components are not restarted, and you need to reconfigure the settings after detaching the remaining volumes; otherwise, you can wait for the setting change to be reconciled in an hour.
+This setting should change after all Longhorn volumes are detached because some pods that run Longhorn system components are recreated to apply the setting. When all volumes are detached, {longhorn-product-name} attempts to restart all Instance Manager and Backing Image Manager pods immediately. When volumes are in use, {longhorn-product-name} components are not restarted, and you need to reconfigure the settings after detaching the remaining volumes otherwise, you can wait for the setting change to be reconciled in an hour.
 ====
 
 See xref:longhorn-system/networking/storage-network.adoc[Storage Network] for details.
@@ -1279,7 +1279,13 @@ Applies only to the V2 Data Engine. It can be applied only when the kubelet CPU 
 
 *Default value*: `{"v2":"1024"}`
 
-Applies only to the V2 Data Engine. Sets the SPDK iobuf large buffer pool size (`large_pool_count`) on the SPDK target of the Instance Manager. The Instance Manager passes the value to `spdk_tgt` at startup through a generated JSON configuration file, since the iobuf pool can only be sized at startup and not changed at runtime. The default value 1024 keeps the built-in behavior of the SPDK; values not greater than 1024 are a no-op.
+Applies only to the V2 Data Engine. Sets the SPDK iobuf large buffer pool size (`large_pool_count`) on the SPDK target of the Instance Manager. The Instance Manager passes the value to `spdk_tgt` at startup through a generated JSON configuration file, since the iobuf pool can only be sized at startup and not changed at runtime. The default value 1024 keeps the built-in behavior of the SPDK. Values not greater than 1024 are a no-op.
+
+=== Data Engine iobuf Small Pool Size
+
+*Default value*: `{"v2":"8192"}`
+
+Applies only to the V2 Data Engine. Sets the SPDK iobuf small buffer pool size (`small_pool_count`) on the Instance Manager's SPDK target. The Instance Manager passes the value to `spdk_tgt` at startup through a generated JSON configuration file (`--json`), since the iobuf pool can only be sized at startup and not changed at runtime. The default value 8192 keeps built-in behaviour of SPDK. Values not greater than 8192 are a no-op. A larger value relieves NVMe-oF TCP small-buffer exhaustion (`small_pool` `retry` / `NEED_BUFFER` stalls) under workloads whose I/O size fits within the 8 KiB small buffer, such as 4 KiB random reads at high queue depth across many volumes. Each small buffer consumes 8 KiB of the SPDK target's fixed Data Engine Memory Size budget. For example, 8192 buffers use 64 MiB, 16384 use 128 MiB, and 65536 use 512 MiB. Increase the Data Engine Memory Size accordingly when increasing the pool size, or fewer volumes may fit on each node. Changing this setting recreates Instance Manager pods that have no running instances so the new pool size can take effect.
 
 === Data Engine Hugepage Enabled
 
@@ -1313,7 +1319,7 @@ It only applies to the *V2 Data Engine*.
 Steers host hardware IRQs, unbound kernel workqueue workers, and network Receive Packet Steering (RPS) away from the CPUs used by the Storage Performance Development Kit (SPDK) target daemon, so that interrupt handling, deferred kernel work, and network softirq processing do not preempt SPDK polling reactors.
 
 * When this setting is applied, {longhorn-product-name} tries to restart all V2 instance-manager pods if all volumes are detached and eventually restart the instance manager pod without instances running on the instance manager.
-* This value can be overridden per Instance Manager via `Spec.DataEngineSpec.V2.CPUIsolationEnabled` (set to `"true"` or `"false"` on a specific instance manager to force the value on that node; leave empty to inherit this setting).
+* This value can be overridden per Instance Manager via `Spec.DataEngineSpec.V2.CPUIsolationEnabled` (set to `"true"` or `"false"` on a specific instance manager to force the value on that node, leave it empty to inherit this setting).
 
 === Log Path
 
