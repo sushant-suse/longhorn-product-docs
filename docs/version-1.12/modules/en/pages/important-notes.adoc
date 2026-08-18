@@ -13,13 +13,13 @@ For full release notes, see the {longhorn-product-name} v{patch-version} release
 [#_deprecation_of_legacy_v2_linked_clone_volumes]
 === Deprecation of legacy v2 linked clone volumes
 
-V2 linked-clone volumes created in v1.12.0 or earlier are marked as legacy and deprecated starting in v{patch-version}. The new linked-clone architecture introduced in https://github.com/longhorn/longhorn/issues/12552[Ticket #12552] is not compatible with the legacy design.
+V2 linked-clone volumes created in v1.12.0 or earlier are marked as legacy and deprecated starting in v{patch-version}. The new linked-clone architecture introduced in https://github.com/longhorn/longhorn/issues/12552[#12552] is not compatible with the legacy design.
 
 After upgrading to v{patch-version}, *legacy linked-clone volumes cannot be operated on except for detachment and deletion*.
 
 To replace, create new linked-clone volumes from the same source volumes that back the legacy ones. If a legacy volume exists, its source volume is guaranteed to still be present, so you can create a replacement linked clone directly - no data copy is required.
 
-For more information, see https://github.com/longhorn/longhorn/issues/12552[Ticket #12552].
+For more information, see https://github.com/longhorn/longhorn/issues/12552[#12552].
 
 [#_removal_of_v2_backing_images]
 === Removal of V2 Backing Images
@@ -35,7 +35,7 @@ If you have V2 volumes that were created from backing images, you must migrate t
 
 V2 volumes with backing image dependencies cannot be upgraded in-place. Attempting to upgrade without migration may result in volume attachment failures.
 
-For more information, see https://github.com/longhorn/longhorn/issues/13181[13181] and xref:volumes/containerized-data-importer.adoc[{longhorn-product-name} with CDI Imports].
+For more information, see https://github.com/longhorn/longhorn/issues/13181[#13181] and xref:volumes/containerized-data-importer.adoc[{longhorn-product-name} with CDI Imports].
 
 == V2 Data Engine
 
@@ -45,23 +45,23 @@ The V2 Data Engine is generally available in {longhorn-product-name} v{patch-ver
 
 For a summary of the current V1 and V2 behavior differences and feature parity, see xref:v1-v2-volume-behavior-and-feature-parity.adoc[V1 and V2 Volume Behavior and Feature Parity].
 
-For more information, see https://github.com/longhorn/longhorn/issues/6229[6229].
+For more information, see https://github.com/longhorn/longhorn/issues/6229[#6229].
 
 === Important Note
 
 ==== Volume Attach Latency at Scale
 
-In environments with a growing number of attached V2 volumes, increased attach latency has been observed for subsequent volumes. Initial analysis suggests this may be related to NVMe-TCP connection handling at scale, though the precise layer (SPDK user-space or Linux kernel) has not yet been identified. Further investigation is in progress. For follow-up status, see https://github.com/longhorn/longhorn/issues/13241[13241].
+In environments with a growing number of attached V2 volumes, increased attach latency has been observed for subsequent volumes. Initial analysis suggests this may be related to NVMe-TCP connection handling at scale, though the precise layer (SPDK user-space or Linux kernel) has not yet been identified. Further investigation is in progress. For follow-up status, see https://github.com/longhorn/longhorn/issues/13241[#13241].
 
 ==== ARM64 NVMe-backed Block-Type Node Disk Limitation
 
-On ARM64 systems, V2 volumes may experience stuck I/O when SPDK is configured with two or more CPU cores and node disks use the NVMe driver. The root cause may lie in either the Linux kernel or SPDK itself, and further investigation is required. As a workaround, use [AIO-backed node disks](../nodes-and-volumes/nodes/multidisk#using-aio-disks) instead of [NVMe-backed node disks](../nodes-and-volumes/nodes/multidisk#using-nvme-disks) on ARM64 systems. For follow-up status, see https://github.com/longhorn/longhorn/issues/13243[13243].
+On ARM64 systems, V2 volumes may experience stuck I/O when SPDK is configured with two or more CPU cores and node disks use the NVMe driver. The root cause may lie in either the Linux kernel or SPDK itself, and further investigation is required. As a workaround, use [AIO-backed node disks](../nodes-and-volumes/nodes/multidisk#using-aio-disks) instead of [NVMe-backed node disks](../nodes-and-volumes/nodes/multidisk#using-nvme-disks) on ARM64 systems. For follow-up status, see https://github.com/longhorn/longhorn/issues/13243[#13243].
 
 ==== UBLK Frontend Kernel Limitation
 
-The UBLK frontend for V2 Data Engine volumes is experimental and only functional on Linux kernels below v6.17. On kernel v6.17.0 and above, UBLK fails due to upstream UBLK API changes that cause `EINVAL` errors when starting UBLK devices.
+This feature is experimental. The UBLK front-end works on all supported Linux kernels but may cause a kernel panic with kernel v6.17.
 
-For more information, see https://github.com/longhorn/longhorn/issues/11977[11977] and xref:v2-data-engine/ublk-frontend-support.adoc[UBLK Frontend Support].
+For more information, see https://github.com/longhorn/longhorn/issues/11977[#11977] and https://github.com/longhorn/longhorn/issues/13509[#13509].
 
 ==== {longhorn-product-name} System Upgrade
 
@@ -84,7 +84,7 @@ For more information, see https://github.com/longhorn/longhorn/issues/12552[#125
 
 Assigning 2 or more cores allows I/O and management tasks to run on separate reactors, improving responsiveness and operational stability.
 
-For more information, see https://github.com/longhorn/longhorn/issues/13237[13237] and xref:v2-data-engine/configurable-cpu-cores.adoc[Configurable CPU Cores].
+For more information, see https://github.com/longhorn/longhorn/issues/13237[#13237] and xref:v2-data-engine/configurable-cpu-cores.adoc[Configurable CPU Cores].
 
 === V2 Dedicated CPU Requirements
 
@@ -138,31 +138,31 @@ This release includes critical stability fixes.
 
 {longhorn-product-name} v{patch-version} fixes an instance-manager panic that could occur during replica rebuild storms. In affected environments, the panic could terminate all iSCSI targets served by the instance-manager and trigger cascading volume detachments across multiple PVCs.
 
-For more information, see https://github.com/longhorn/longhorn/issues/13087[13087].
+For more information, see https://github.com/longhorn/longhorn/issues/13087[#13087].
 
 === Replica Rebuild Progress Reporting
 
 {longhorn-product-name} v{patch-version} fixes a replica rebuild progress reporting bug that could display values greater than 100% after file-sync retries on unstable networks. Progress accounting is now reset correctly for retried files, so rebuild progress remains within the valid 0% to 100% range.
 
-For more information, see https://github.com/longhorn/longhorn/issues/12949[12949].
+For more information, see https://github.com/longhorn/longhorn/issues/12949[#12949].
 
 === Replica Auto-Balance Scheduling Loop
 
 {longhorn-product-name} v{patch-version} fixes a regression in replica auto-balance that could trigger a repeated replica create-and-delete loop when `Replica Auto Balance` was set to `best-effort`. In affected clusters, {longhorn-product-name} could keep scheduling an extra replica instead of stabilizing at the configured replica count.
 
-For more information, see https://github.com/longhorn/longhorn/issues/12926[12926].
+For more information, see https://github.com/longhorn/longhorn/issues/12926[#12926].
 
 === Replica CR Leak During Failed Local Scheduling
 
 {longhorn-product-name} v{patch-version} fixes a replica scheduling issue where large numbers of stopped Replica CRs could accumulate when `dataLocality` was set to `best-effort` and the node did not have enough eligible local disk space for another replica. In affected clusters, recurring reconciliation could keep creating placeholder Replica CRs instead of reusing a single failed-schedule placeholder.
 
-For more information, see https://github.com/longhorn/longhorn/issues/13152[13152].
+For more information, see https://github.com/longhorn/longhorn/issues/13152[#13152].
 
 === CSI Storage Capacity Tracking
 
 {longhorn-product-name} v{patch-version} fixes a CSIStorageCapacity scheduling issue that could cause compute nodes without Longhorn disks to report zero capacity and be rejected by `WaitForFirstConsumer` scheduling. In affected clusters with separated compute and storage nodes, new PVCs could remain pending even though eligible storage was available on storage nodes.
 
-For more information, see https://github.com/longhorn/longhorn/issues/12807[12807] and xref:longhorn-system/settings.adoc#_csi_storage_capacity_tracking[Settings].
+For more information, see https://github.com/longhorn/longhorn/issues/12807[#12807] and xref:longhorn-system/settings.adoc#_csi_storage_capacity_tracking[Settings].
 
 === Encrypted Volume Size Correction
 
@@ -207,7 +207,7 @@ For more information, see https://github.com/longhorn/longhorn/issues/12684[1268
 
 {longhorn-product-name} v{patch-version} adds settings to configure the engine-image DaemonSet liveness probe period, timeout and failure threshold. These settings help reduce unnecessary engine-image pod restarts on resource-constrained clusters, especially during upgrades or transient CPU spikes.
 
-For more information, see https://github.com/longhorn/longhorn/issues/12846[12846] and xref:longhorn-system/settings.adoc#_engine_image_pod_liveness_probe_period[Settings].
+For more information, see https://github.com/longhorn/longhorn/issues/12846[#12846] and xref:longhorn-system/settings.adoc#_engine_image_pod_liveness_probe_period[Settings].
 
 == Resource Efficiency
 
@@ -215,7 +215,7 @@ For more information, see https://github.com/longhorn/longhorn/issues/12846[1284
 
 {longhorn-product-name} v{patch-version} optimizes longhorn-manager informer caching to reduce memory usage, especially in large clusters with high pod counts. This lowers cluster-wide memory overhead caused by repeated caching of non-Longhorn pod data on every manager instance.
 
-For more information, see https://github.com/longhorn/longhorn/issues/12771[12771].
+For more information, see https://github.com/longhorn/longhorn/issues/12771[#12771].
 
 == Networking
 
@@ -239,14 +239,14 @@ For manifest installations, delete only these six internal NetworkPolicy resourc
 
 These resources are defined in `longhorn.yaml` and `longhorn-okd.yaml`. Do not use `kubectl delete -f` on an entire Longhorn manifest or delete the Longhorn installation. Applying either unmodified manifest later recreates the policies.
 
-If an upgrade fails because these policies block required traffic, disable or remove the internal policies as appropriate and retry the same upgrade. For policy behavior, Kubernetes API server source restrictions, and Helm values, see xref:longhorn-system/networking/network-policy.adoc[Network Policies]. For more information, see https://github.com/longhorn/longhorn/issues/13438[13438].
+If an upgrade fails because these policies block required traffic, disable or remove the internal policies as appropriate and retry the same upgrade. For policy behavior, Kubernetes API server source restrictions, and Helm values, see xref:longhorn-system/networking/network-policy.adoc[Network Policies]. For more information, see https://github.com/longhorn/longhorn/issues/13438[#13438].
 
 [#_instance_manager_grpc_mtls_coverage]
 === Instance Manager gRPC mTLS Coverage
 
 When the `longhorn-grpc-tls` secret is configured, the remaining instance-manager gRPC services now also require mutual TLS. Plaintext clients and clients without a valid certificate are rejected.
 
-For more information, see https://github.com/longhorn/longhorn/issues/7787[7787] and xref:longhorn-system/mtls-support.adoc[MTLS Support].
+For more information, see https://github.com/longhorn/longhorn/issues/7787[#7787] and xref:longhorn-system/mtls-support.adoc[MTLS Support].
 
 [#_dualstack_cluster_support]
 === Dual-Stack Cluster Support
@@ -258,7 +258,7 @@ For more information, see https://github.com/longhorn/longhorn/issues/7787[7787]
 Dual-stack clusters with mixed IP family ordering across nodes are not supported and may result in connectivity failures between replicas and the engine.
 ====
 
-For more information, see https://github.com/longhorn/longhorn/issues/11531[11531].
+For more information, see https://github.com/longhorn/longhorn/issues/11531[#11531].
 
 == Monitoring
 
@@ -266,7 +266,7 @@ For more information, see https://github.com/longhorn/longhorn/issues/11531[1153
 
 {longhorn-product-name} v{patch-version} adds the `Kubernetes Metrics Server Metrics Enabled` setting to disable metrics-server-dependent metrics when the Kubernetes Metrics Server API is unavailable. This reduces repeated scrape warnings and unnecessary API calls while preserving other {longhorn-product-name} metrics.
 
-For more information, see https://github.com/longhorn/longhorn/issues/13011[13011] and xref:longhorn-system/settings.adoc#_kubernetes_metrics_server_metrics_enabled[Settings].
+For more information, see https://github.com/longhorn/longhorn/issues/13011[#13011] and xref:longhorn-system/settings.adoc#_kubernetes_metrics_server_metrics_enabled[Settings].
 
 == Command-Line Tool
 
@@ -276,4 +276,4 @@ For more information, see https://github.com/longhorn/longhorn/issues/13011[1301
 
 The command can target a specific volume, all volumes on a specific node, or all volumes in the cluster. The checksum operation runs asynchronously in the background.
 
-For more information, see https://github.com/longhorn/longhorn/issues/11442[11442] and xref:data-integrity-recovery/on-demand-snapshot-data-integrity.adoc[On-Demand Snapshot Checksum Calculation].
+For more information, see https://github.com/longhorn/longhorn/issues/11442[#11442] and xref:data-integrity-recovery/on-demand-snapshot-data-integrity.adoc[On-Demand Snapshot Checksum Calculation].
