@@ -1,6 +1,6 @@
 = Important Notes
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-08-05
+:revdate: 2026-08-19
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -202,6 +202,28 @@ For more information, see https://github.com/longhorn/longhorn/issues/12846[Issu
 For more information, see https://github.com/longhorn/longhorn/issues/12771[Issue #12771].
 
 == Networking
+
+[#_internal_network_policies]
+=== Internal Network Policies
+
+{longhorn-product-name} v{patch-version} enables network policy by default. It protects inbound access to internal component endpoints and RPCs, including the instance-manager gRPC endpoint used for engine control. For more details, see xref:longhorn-system/networking/network-policy.adoc[Network Policy].
+
+For Helm installations, opt out by explicitly setting `networkPolicies.restrictInternalTraffic=false` in the values file or passing `--set networkPolicies.restrictInternalTraffic=false` when running or retrying `helm upgrade`. Use `--reuse-values` with `helm upgrade` when appropriate to retain previous release settings. Keep this separate from `networkPolicies.enabled`, which controls only the UI front-end policy. See the https://helm.sh/docs/helm/helm_upgrade/[Helm upgrade documentation] for command behavior.
+
+After a successful upgrade with `networkPolicies.restrictInternalTraffic=false`, the six internal NetworkPolicy templates render nothing (they are excluded from the output), and policies owned by the Helm release are removed. Preview the rendered output with `helm upgrade --dry-run` or `helm template`. Do not add `--reuse-values` to `helm template`. If installed, `helm diff` can optionally compare the changes.
+
+For manifest installations, delete only these six internal NetworkPolicy resources:
+
+* `backing-image-data-source`
+* `backing-image-manager`
+* `instance-manager`
+* `longhorn-manager`
+* `longhorn-recovery-backend`
+* `longhorn-webhook`
+
+These resources are defined in `longhorn.yaml` and `longhorn-okd.yaml`. Do not use `kubectl delete -f` on an entire Longhorn manifest or delete the Longhorn installation. Applying either unmodified manifest later recreates the policies.
+
+If an upgrade fails because these policies block required traffic, set `networkPolicies.restrictInternalTraffic=false` and retry the same upgrade.
 
 [#_dualstack_cluster_support]
 === Dual-Stack Cluster Support
