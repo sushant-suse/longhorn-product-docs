@@ -1,6 +1,6 @@
 = Configure Prometheus and Grafana to Monitor SUSE® Storage
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-06-01
+:revdate: 2026-08-19
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -86,6 +86,18 @@ helm upgrade longhorn longhorn/longhorn --namespace longhorn-system -f values.ya
 ----
 
 Longhorn ServiceMonitor is a https://prometheus-operator.dev/[Prometheus Operator] custom resource. This setup allows the Prometheus server to discover all Longhorn Manager pods and their respective endpoints.
+
+[NOTE]
+====
+ServiceMonitor provides endpoint discovery, but does not automatically authorize network traffic to Longhorn Manager pods.
+====
+
+[IMPORTANT]
+.Changes in v1.12.1:
+====
+* `networkPolicies.restrictInternalTraffic` operates independently and defaults to `true` (which may block monitoring traffic if not explicitly permitted).
+* `networkPolicies.enabled` now controls _only_ the UI front-end policy.
+====
 
 You can use the label selector `app: longhorn-manager` to select the `longhorn-backend` service, which points to the set of Longhorn Manager pods.
 
