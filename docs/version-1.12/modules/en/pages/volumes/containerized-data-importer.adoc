@@ -1,6 +1,6 @@
 = {longhorn-product-name} with CDI Imports
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2025-12-24
+:revdate: 2026-08-20
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -49,7 +49,7 @@ Cloning a base image PVC in {longhorn-product-name} is performed in full copy mo
 
 The following example shows how to create a cloned PVC:
 
-[source,yaml]
+[,yaml]
 ----
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -69,6 +69,71 @@ spec:
 ----
 
 You can create multiple clones from the same base image. Each clone is a full, independent copy that ensures workload isolation.
+
+== Volume Migration using CDI
+
+Containerized Data Importer (CDI) is the standard and preferred method for data migration. You can use CDI to migrate volumes from other (non-{longhorn-product-name}) storage systems into {longhorn-product-name}, or to perform offline volume migrations between {longhorn-product-name} data engines (for example, migrating from the V1 Data Engine to the V2 Data Engine).
+
+=== Migration Procedure
+
+The following guide demonstrates how to migrate data from a Longhorn V1 volume to a Longhorn V2 volume (SPDK/NVMe-oF) using CDI. The same exact procedure applies when migrating from an external storage system's StorageClass into a Longhorn StorageClass.
+
+==== 1. Prerequisites
+
+Before starting the migration process, ensure the following requirements are met:
+
+1. *CDI Installed*: Ensure Containerized Data Importer (CDI) is installed and running in your Kubernetes cluster.
+2. *Target StorageClass*: Verify that your target StorageClass is available. For a V1 to V2 migration, verify that a StorageClass configured for the Longhorn V2 Data Engine (`dataEngine: v2`) is available (for example, `longhorn-v2`).
+3. *Scale Down Workload*: Scale down your application's Deployment, StatefulSet, or Pod to `0` replicas to detach the source PVC. *This step is critical to prevent `Multi-Attach` (RWO) volume conflicts during cloning.*
+
+==== 2. Create the DataVolume Manifest
+
+Create a `DataVolume` custom resource (CR) specifying your existing PVC as the source and your target StorageClass for the new PVC.
+
+[,yaml]
+----
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: app-data-v2
+  namespace: default
+spec:
+  source:
+    pvc:
+      name: app-data-v1 # Existing source PVC (e.g., Longhorn V1 or external storage)
+      namespace: default
+  pvc:
+    storageClassName: longhorn-v2 # Target StorageClass
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 20Gi # Must be equal to or greater than the source size
+----
+
+==== 3. Apply Manifest and Monitor Migration
+
+Apply the `DataVolume` resource and monitor the cloning progress:
+
+[,bash]
+----
+kubectl apply -f datavolume.yaml
+kubectl get dv app-data-v2 -n default -w
+----
+
+Wait until the `PHASE` displays *`Succeeded`* and `PROGRESS` reaches *`100.0%`*.
+
+==== 4. Reattach Workload to New PVC
+
+Once completed, CDI generates a target PVC named `app-data-v2`. Update your application's workload manifest to reference this new PVC, then scale your application back up.
+
+[,yaml]
+----
+volumes:
+  - name: storage-volume
+    persistentVolumeClaim:
+      claimName: app-data-v2
+----
 
 == References
 
