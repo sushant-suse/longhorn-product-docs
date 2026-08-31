@@ -1,6 +1,6 @@
 = Upgrade Longhorn Manager
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-07-21
+:revdate: 2026-08-11
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -18,6 +18,8 @@ For airgap upgrades when {longhorn-product-name} is installed as a Rancher app, 
 For air-gapped upgrades when {longhorn-product-name} is installed as a Rancher app, you need to modify the image names and remove the registry URL part. For example, the image `registry.example.com/longhorn/longhorn-manager:v{patch-version}` is changed to `longhorn/longhorn-manager:v{patch-version}` in Longhorn images section. For more information, see the air gap installation steps xref:installation-setup/installation/airgapped-environment.adoc#_using_a_rancher_app[here].
 
 === Preparing for the Upgrade
+
+If {longhorn-product-name} was installed using a Helm Chart, or if it was installed as Rancher catalog app, check to make sure the parameters in the default StorageClass were not changed. Changing the default StorageClass's parameter might result in a chart upgrade failure. To reconfigure the parameters in the StorageClass, you can copy the default StorageClass's configuration to create another StorageClass.
 
 The current default StorageClass has the following parameters:
 
@@ -236,3 +238,21 @@ longhorn-csi-plugin-b2zzj                             2/2     Running   0       
 ----
 
 Next, xref:upgrades/longhorn-components/manually-upgrade-engine.adoc[upgrade Longhorn engine].
+
+=== Upgrading from Unsupported Versions
+
+We only support upgrading to v{patch-version} from v{previous-version}.x. For other versions, please upgrade to v{previous-version}.x first.
+
+If you attempt to upgrade from an unsupported version, the upgrade would fail. When encountering an upgrade failure, please consider the following scenarios to recover the state based on different upgrade methods.
+
+== TroubleShooting
+
+*Error*: `"longhorn" is invalid: provisioner: Forbidden: updates to provisioner are forbidden.`
+
+* This means there are certain modifications applied to the default storageClass and you need to clean up the old one before upgrade.
+* To clean up the deprecated StorageClass, run this command:
++
+[,bash]
+----
+kubectl delete -f https://raw.githubusercontent.com/longhorn/longhorn/v{{< current-version >}}/examples/storageclass.yaml
+----
