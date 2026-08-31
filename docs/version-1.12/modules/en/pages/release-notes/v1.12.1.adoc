@@ -58,7 +58,7 @@ In environments with a growing number of attached V2 volumes, increased attach l
 
 *ARM64 NVMe-backed Block-Type Node Disk Limitation*:
 
-On ARM64 systems, V2 volumes may experience stuck I/O when SPDK is configured with two or more CPU cores and node disks use the NVMe driver. The root cause may lie in either the Linux kernel or SPDK itself, and further investigation is required. As a workaround, use xref:nodes/multiple-disk.adoc#_using_aio_disks[AIO-backed node disks] instead of xref:nodes/multiple-disk.adoc#_using_nvme_disks[NVMe-backed node disks] on ARM64 systems. For follow-up status, see https://github.com/longhorn/longhorn/issues/13243[#13243].
+On ARM64 systems, V2 volumes may experience stuck I/O when SPDK is configured with two or more CPU cores and node disks use the NVMe driver. The root cause may lie in either the Linux kernel or SPDK itself, and further investigation is required. As a workaround, use xref:nodes/multiple-disks.adoc#_using_aio_disks[AIO-backed node disks] instead of xref:nodes/multiple-disks.adoc#_using_nvme_disks[NVMe-backed node disks] on ARM64 systems. For follow-up status, see https://github.com/longhorn/longhorn/issues/13243[#13243].
 
 *UBLK Frontend Kernel Limitation*:
 
@@ -153,7 +153,7 @@ https://github.com/longhorn/longhorn/issues/12846[#12846]
 
 {longhorn-product-name} v1.12.1 enables ingress `NetworkPolicy` resources for internal component endpoints and RPCs by default to improve security by restricting access to {longhorn-product-name} internal services, including the instance-manager gRPC endpoint used for engine control. These policies only take effect when a `NetworkPolicy` provider is available in the cluster.
 
-{longhorn-product-name} has validated the internal network policies with the following Kubernetes distribution and CNI plugin combinations. See the xref:best-practices.adoc#_cni_plugin_compatibility[CNI Plugin Compatibility] table for the validated combinations. The minimum required Kubernetes version is v1.25.
+{longhorn-product-name} has validated the internal network policies with the following Kubernetes distribution and CNI plugin combinations. See the xref:installation-setup/best-practices.adoc#_cni_plugin_compatibility[CNI Plugin Compatibility] table for the validated combinations. The minimum required Kubernetes version is v1.25.
 
 For more information and troubleshooting guidance, see xref:important-notes.adoc#_internal_network_policies[Internal Network Policies] and https://github.com/longhorn/longhorn/issues/13438[#13438].
 

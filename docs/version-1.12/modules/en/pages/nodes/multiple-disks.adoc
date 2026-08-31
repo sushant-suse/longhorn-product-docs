@@ -1,6 +1,6 @@
 = Multiple Disks
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-08-05
+:revdate: 2026-08-31
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -94,7 +94,7 @@ Block-type disks are used for V2 volumes. The V2 Data Engine requires raw block 
 
 ==== Prerequisites
 
-* The V2 Data Engine must be enabled. See xref:longhorn-system/v2-data-engine/quick-start-guide.adoc[V2 Data Engine Quick Start].
+* The V2 Data Engine must be enabled.
 * {longhorn-product-name} prevents adding block disks that contain an existing file system or partition table. Clean the disk first:
 +
 [,shell]
@@ -105,7 +105,6 @@ wipefs -a /path/to/block/device
 [WARNING]
 ====
 Do not use a V2 Longhorn volume or a block device backed by a V2 Longhorn volume as a Longhorn block-type disk. For example, do not add `/dev/longhorn/<volume-name>` or a device-mapper path created from a Longhorn volume as a disk path.
-
 
 Although such a nested volume may appear as a valid block device on the node and may be technically allowed by the system, Longhorn does not recommend or support this configuration. This is a risky operation because it creates a nested I/O dependency and may lead to cascading failures, including stalled I/O, NVMe keep-alive timeouts, replica disconnections, and disk or `lvstore` creation failures.
 ====

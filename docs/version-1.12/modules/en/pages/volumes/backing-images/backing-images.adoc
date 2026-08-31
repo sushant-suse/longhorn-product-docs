@@ -1,6 +1,6 @@
 = Backing Images
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-06-01
+:revdate: 2026-08-31
 :page-revdate: {revdate}
 :experimental:
 :current-version: {page-component-version}
@@ -258,7 +258,7 @@ You can prepare a V2 Data Engine backing image using any of the supported data s
 . Once a backing image file is prepared by the backing image manager for a disk, the file is shared among all volume replicas in this disk.
 . When a backing image is created, {longhorn-product-name} launches a backing image data source pod to prepare the initial file. The file data comes from a source specified by the user—such as a download from a remote location, an upload from a local file, or an export from an existing volume. Once preparation is done, the backing image manager pod on the same disk takes over the file, and {longhorn-product-name} stops the data source pod.
 . Once a new backing image is used by a volume, the backing image manager pods in the disks that the volume replicas reside on will be asked to sync the file from the backing image manager pods that already contain the file.
-. As mentioned in the section xref:clean_up_backing_images_in_disks[clean up backing images in disks], the file is cleaned up automatically if all replicas in one disk do not use one backing image file.
+. As mentioned in the section xref:_clean_up_backing_images_in_disks[clean up backing images in disks], the file is cleaned up automatically if all replicas in one disk do not use one backing image file.
 
 == Concurrent Limit of Backing Image Syncing
 
@@ -267,7 +267,7 @@ You can prepare a V2 Data Engine backing image using any of the supported data s
 
 == Warning
 
-* The download URL of the backing image should be public. We will improve this part in the future.
+* The download URL of the backing image should be public. It will be improved in future.
 * If there is high memory usage of one backing image manager pod after xref:_download_a_backing_image_file[file download] this is caused by the system cache or buffer. The memory usage will decrease automatically hence you do not need to worry about it. See https://github.com/longhorn/longhorn/issues/4055[the GitHub ticket] for more details.
 
 == History
