@@ -1,0 +1,55 @@
+= Surveillance de l'état de santé du disque
+:page-languages: [en, de, es, fr, ja, pt, zh]
+:revdate: 2025-11-29
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+== Métriques de santé du disque
+
+À partir de {longhorn-product-name} v1.11.0, les métriques de surveillance de la santé du disque sont disponibles pour les moteurs de données V1 et V2. Ces métriques fournissent des informations sur l'état de santé du disque.
+
+[NOTE]
+====
+* {longhorn-product-name} collecte des données de santé toutes les 10 minutes.
+* Certains environnements virtualisés ou cloud (par exemple, AWS EBS) n'exposent pas toutes les données SMART, ce qui entraîne des valeurs nulles pour certains attributs.
+* Les attributs de santé disponibles varient en fonction du type de disque et du matériel.
+* L'ensemble complet des données de santé collectées est disponible dans les `nodes.longhorn.io` ressources personnalisées (CR).
+====
+
+=== Sources de données
+
+* *Moteur de données V1*: Les données de santé sont collectées à l'aide de l'outil de surveillance SMART (`smartctl`).
+* *Moteur de données V2*:
+** *Disques NVMe*: Les données de santé sont récupérées via SPDK.
+** *Disques AIO*: Les données de santé sont collectées à l'aide de l'outil de surveillance SMART (`smartctl`).
+
+[NOTE]
+====
+Les données de santé sont obtenues différemment selon le type de disque{nbsp}:
+
+* Disques V1 et disques AIO V2{nbsp}: via SMART
+* Disques NVMe V2{nbsp}: via SPDK
+
+Les attributs et formats disponibles varient selon le type de disque et le matériel. Pour plus de détails{nbsp}:
+
+* Attributs SMART{nbsp}: https://www.smartmontools.org/wiki/TocDoc[documentation smartmontools]
+* Données de santé SPDK NVMe{nbsp}: https://github.com/spdk/spdk/blob/v25.09/doc/jsonrpc.md.jinja2#L4805-L4856[`bdev_nvme_get_controller_health_info` JSON-RPC]
+====
+
+=== Attributs de santé
+
+La métrique `longhorn_disk_health_attribute_raw` expose les valeurs d'attribut brutes avec les étiquettes suivantes{nbsp}:
+
+* `attribute` : Nom de l'attribut.
+* `attribute_id` : ID d'attribut, lorsqu'il est fourni par la méthode de collecte.
+* `disk` : Identifiant de disque Longhorn.
+* `node` : Nom du nœud.
+
+[NOTE]
+====
+Les données SMART peuvent ne pas être disponibles sur toutes les plateformes, en particulier chez les fournisseurs de cloud. Si SMART n'est pas pris en charge, les métriques de santé apparaissent comme `0`.
+====
+
+=== Références
+
+* Problème GitHub associé https://github.com/longhorn/longhorn/issues/12016[#12016].
