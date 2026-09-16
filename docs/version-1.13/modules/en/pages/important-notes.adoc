@@ -1,6 +1,6 @@
 = Important Notes
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-09-02
+:revdate: 2026-09-16
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -249,6 +249,11 @@ For more information, see https://github.com/longhorn/longhorn/issues/12771[#127
 === Internal Network Policies
 
 {longhorn-product-name} v1.12.1 enables ingress `NetworkPolicy` resources for internal component endpoints and RPCs by default, including the instance-manager gRPC endpoint used for engine control. These policies are enforced only when the cluster has a network plugin that supports and enforces Kubernetes `NetworkPolicy`. Without such a provider, the resources are created but do not affect traffic and do not need to be removed.
+
+{longhorn-product-name} v{patch-version} resolves these CNI compatibility issues by providing two new Helm values to manage the affected traffic paths:
+
+* *`networkPolicies.v1DataEngineInitiatorSourceCIDRs`*: Controls source filtering for V1 iSCSI on TCP port 3260. An empty list leaves this port without source filtering, allowing any source that can reach instance-manager to connect to TCP/3260. If populated, the CIDRs restrict connections to the effective sources observed by the CNI, so the required values are CNI-specific.
+* *`networkPolicies.recoveryBackendAdditionalIngressPorts`*: Adds TCP ingress ports to the recovery backend (defaults to an empty list). Add `15008` when using Istio Ambient, which uses HTTP-Based Overlay Network Environment (HBONE) on this port. This should only be configured for applicable mesh transports.
 
 The xref:installation-setup/best-practices.adoc#_cni_plugin_compatibility[CNI Plugin Compatibility] table lists the Kubernetes distribution and CNI combinations that the {longhorn-product-name} project has validated with `networkPolicies.restrictInternalTraffic` enabled. If your CNI enforces `NetworkPolicy` but your distribution and CNI combination is not listed, test the policies in your target environment before upgrading. For policy behavior and configuration details, see xref:longhorn-system/networking/network-policy.adoc[Network Policies].
 
