@@ -1,6 +1,6 @@
 = Glossary/Terminologies
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-08-31
+:revdate: 2026-09-16
 :page-revdate: {revdate}
 
 * xref:_attachreattach[Attach/Reattach]
@@ -20,6 +20,7 @@
 * xref:_instance_manager[Instance Manager]
 * xref:_longhorn_engine[Longhorn Engine]
 * xref:_longhorn_manager[Longhorn Manager]
+* xref:_longhorn_global_manager[Longhorn Global Manager]
 * xref:_longhorn_volume[Longhorn Volume]
 * xref:_maintenance_mode[Maintenance Mode]
 * xref:_mount[Mount]
@@ -155,7 +156,13 @@ It is a per-volume storage controller responsible for synchronously replicating 
 == Longhorn Manager
 
 The Longhorn Manager is the control plane component of {longhorn-product-name}.
-It runs as a Kubernetes DaemonSet and is responsible for managing volumes, handling API requests, and orchestrating Longhorn Engines, Replicas, and other custom resources.
+
+It runs as a Kubernetes DaemonSet. It is responsible for managing volumes, handling API requests, and orchestrating Longhorn Engines, Replicas, and other custom resources (CRs).
+
+[#_longhorn_global_manager]
+== Longhorn Global Manager
+
+The Longhorn Global Manager runs the Longhorn Manager's cluster-wide controllers as a Kubernetes Deployment. One elected leader runs these controllers.
 
 [#_longhorn_volume]
 == Longhorn Volume

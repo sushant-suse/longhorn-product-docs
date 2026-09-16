@@ -1,6 +1,6 @@
 = Taints and Tolerations
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-06-01
+:revdate: 2026-09-16
 :page-revdate: {revdate}
 :doctype: book
 :experimental:
@@ -33,11 +33,17 @@ global:
     effect: "NoSchedule"
 ----
 
- ** You can also specify the tolerations for each user-deployed component and it will override the global setting.
+** You can also specify the tolerations for each user-deployed component and it will override the global setting.
 +
 [,yaml]
 ----
 longhornManager:
+  tolerations:
+  - key: "key"
+    operator: "Equal"
+    value: "value"
+    effect: "NoSchedule"
+longhornGlobalManager:
   tolerations:
   - key: "key"
     operator: "Equal"
@@ -57,9 +63,8 @@ longhornUI:
     effect: "NoSchedule"
 ----
 
- ** If you install {longhorn-product-name} by using `kubectl` to apply https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}.x/deploy/longhorn.yaml[the deployment YAML], you need to modify the taint tolerations section for Longhorn Manager, Longhorn UI, and Longhorn Driver Deployer.
- Then apply the YAML files.
- ** If you install {longhorn-product-name} using Helm, you can change the Helm values for `global.tolerations`, `longhornManager.tolerations`, `longhornUI.tolerations`, `longhornDriver.tolerations` in the `values.yaml` file before installing the chart.
+** If you install {longhorn-product-name} by using `kubectl` to apply https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}.x/deploy/longhorn.yaml[the deployment YAML], you need to modify the taint tolerations section for Longhorn Manager, Longhorn Global Manager, Longhorn UI, and Longhorn Driver Deployer. Then apply the YAML files.
+ ** If you install {longhorn-product-name} using Helm, you can change the Helm values for `global.tolerations`, `longhornManager.tolerations`, `longhornGlobalManager.tolerations`, `longhornUI.tolerations`, `longhornDriver.tolerations` in the `values.yaml` file before installing the chart.
 . Set taint tolerations for system-managed components (for example, Instance Manager, CSI Driver, and Engine images)
 +
 Follow the xref:longhorn-system/customize-default-settings.adoc[Customize default settings] to set taint tolerations by changing the value for the `taint-toleratio` default setting
@@ -97,7 +102,7 @@ Do not operate the Longhorn system while toleration settings are updated and Lon
 To ensure that your preferred settings are immediately applied, stop all workloads and detach all Longhorn volumes before configuring the settings.
 
 . Set taint tolerations for user-deployed components (for example, Longhorn Manager, Longhorn Driver, and Longhorn UI).
- ** If you install {longhorn-product-name} through Rancher, you must copy and paste the following parameters into the YAML on the Rancher UI (click *Edit as YAML* during the upgrade) to apply the value to all user-deployed components.
+** If you install {longhorn-product-name} through Rancher, you must copy and paste the following parameters into the YAML on the Rancher UI (click *Edit as YAML* during the upgrade) to apply the value to all user-deployed components.
 +
 [,yaml]
 ----
@@ -109,11 +114,17 @@ global:
     effect: "NoSchedule"
 ----
 
- ** You can also specify the tolerations for each user-deployed component and it will override the global setting.
+** You can also specify the tolerations for each user-deployed component and it will override the global setting.
 +
 [,yaml]
 ----
 longhornManager:
+  tolerations:
+  - key: "key"
+    operator: "Equal"
+    value: "value"
+    effect: "NoSchedule"
+longhornGlobalManager:
   tolerations:
   - key: "key"
     operator: "Equal"
@@ -133,9 +144,8 @@ longhornUI:
     effect: "NoSchedule"
 ----
 
- ** If you install {longhorn-product-name} by using `kubectl` to apply https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}.x/deploy/longhorn.yaml[the deployment YAML], you need to modify the taint tolerations section for Longhorn Manager, Longhorn UI, and Longhorn Driver Deployer.
-Then reapply the YAML files.
- ** If you install {longhorn-product-name} using Helm, you can change the Helm values for `global.tolerations`, `longhornManager.tolerations`, `longhornUI.tolerations`, `longhornDriver.tolerations` in the `values.yaml` file, and then run `helm upgrade` to upgrade to the new version of the chart.
+** If you install {longhorn-product-name} by using `kubectl` to apply https://raw.githubusercontent.com/longhorn/longhorn/v{current-version}.x/deploy/longhorn.yaml[the deployment YAML], you need to modify the taint tolerations section for Longhorn Manager, Longhorn Global Manager, Longhorn UI, and Longhorn Driver Deployer. Then reapply the YAML files.
+** If you install {longhorn-product-name} using Helm, you can change the Helm values for `global.tolerations`, `longhornManager.tolerations`, `longhornGlobalManager.tolerations`, `longhornUI.tolerations`, `longhornDriver.tolerations` in the `values.yaml` file, and then run `helm upgrade` to upgrade to the new version of the chart.
 . Set taint tolerations for system-managed components (for example, Instance Manager, Backing Image Manager, Share Manager, CSI Driver, and Engine Image).
 +
 The taint toleration setting can be found at {longhorn-product-name} UI under menu:Settings[Kubernetes Taint Toleration].
