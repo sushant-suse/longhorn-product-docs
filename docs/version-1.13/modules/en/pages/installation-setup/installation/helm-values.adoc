@@ -1,6 +1,6 @@
 = Helm Values
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-09-02
+:revdate: 2026-09-16
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -349,6 +349,9 @@ The `values.yaml` file contains items used to tweak a deployment of this chart.
 
 | csi.snapshotterReplicaCount
 | Replica count of the CSI Snapshotter. When unspecified, {longhorn-product-name} uses the default value ("3").
+
+| csi.volumeGroupSnapshotEnabled
+| Enables CSI VolumeGroupSnapshot support by turning on the `CSIVolumeGroupSnapshot` feature gate of the CSI Snapshotter. *Prerequisite*: The VolumeGroupSnapshot CRDs (`groupsnapshot.storage.k8s.io`) must be installed first.
 |===
 
 === Longhorn Manager Settings

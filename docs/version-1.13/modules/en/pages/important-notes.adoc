@@ -227,6 +227,24 @@ Automated pre-upgrade checks do not cover all scenarios. Manual checks via kubec
 
 For more information, see https://github.com/longhorn/longhorn/issues/12684[12684] and xref:nodes/topology-aware-provisioning.adoc[Topology-Aware Provisioning].
 
+== Snapshots and Backups
+
+=== Volume Group Snapshot Support
+
+{longhorn-product-name} v{patch-version} can snapshot a set of volumes as one group with a single request. You can create snapshot groups from the Longhorn UI, with kubectl, or by creating Kubernetes `VolumeGroupSnapshot` objects through CSI. The CSI path also supports group backups.
+
+The UI and kubectl paths work out of the box. The CSI path is disabled by default: it requires the VolumeGroupSnapshot CRDs, the `CSIVolumeGroupSnapshot` feature gate on the snapshot-controller, and a Longhorn toggle. For the setup steps, see xref:snapshots-backups/csi-snapshots/enable-csi-volume-group-snapshot-support.adoc[Enable CSI Volume Group Snapshot Support].
+
+[IMPORTANT]
+====
+*Snapshot Consistency*: Each member volume is snapshotted independently, meaning the group is *not* captured at a single point in time. Application-level consistency across the group is future work built on top of this feature (https://github.com/longhorn/longhorn/issues/2128[#2128]).
+====
+
+For more information, see:
+* https://github.com/longhorn/longhorn/issues/13349[#13349]
+* xref:xref:snapshots-backups/snapshot-groups.adoc[Create a Snapshot Group]
+* xref:xref:snapshots-backups/csi-snapshots/csi-volume-group-snapshot.adoc[CSI VolumeGroupSnapshot Associated with Longhorn Snapshot Group]
+
 == Stability
 
 === Configurable Engine Image Pod Liveness Probe
