@@ -1,6 +1,6 @@
 = Upgrade Longhorn Manager
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-08-11
+:revdate: 2026-09-16
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -12,6 +12,8 @@ It is recommended to create a xref:snapshots-backups/system-backups/create-syste
 == Upgrading from v{previous-version}.x
 
 {longhorn-product-name} only supports upgrading to v{current-version} from v{previous-version}.x. For other versions, please upgrade to v{previous-version}.x first.
+
+Starting with v1.13.0, upgrading {longhorn-product-name} also creates the xref:glossary/glossary.adoc#_longhorn_global_manager[Longhorn Global Manager] Deployment. Make sure that at least one of its Pods can be scheduled. For Helm installations, review the xref:installation-setup/installation/helm-values.adoc#_longhorn_global_manager_settings[Longhorn Global Manager Settings]; for manifest installations, review the Deployment's scheduling configuration in the deployment YAML.
 
 For airgap upgrades when {longhorn-product-name} is installed as a Rancher app, you need to modify the image names and remove the registry URL part.
 
