@@ -1,0 +1,121 @@
+= CSI Volume Group Snapshot
+:page-languages: [en, de, es, fr, ja, pt, zh]
+:revdate: 2026-09-16
+:page-revdate: {revdate}
+:current-version: {page-component-version}
+
+
+A `VolumeGroupSnapshot` takes snapshots of a set of Longhorn volumes as one group with a single request. {longhorn-product-name} tracks each group in a `SnapshotGroup` custom resource in the `longhorn-system` namespace and creates one Longhorn snapshot per member volume. Kubernetes then returns one `VolumeSnapshot` per member PVC, all bound to the same group, so at restore time it is clear which snapshots belong together.
+
+Snapshot groups can also be created and managed without CSI, from the {longhorn-product-name} UI or with kubectl. For details, see xref:snapshots-backups/snapshot-groups.adoc[Create a Snapshot Group].
+
+[IMPORTANT]
+====
+*Consistency boundary*: Longhorn snapshots each member volume independently, so member snapshots are taken at slightly different times, not at one instant. A group snapshot is crash-consistent per volume; it does not guarantee application consistency across volumes. To get a recoverable set, include every volume the application needs (for example data, log, and metadata volumes) and quiesce or pause the application while the group snapshot is taken. See xref:https://github.com/longhorn/longhorn/issues/2128[#2128] for the planned application-consistent snapshot work that builds on this feature.
+====
+
+== Prerequisites
+
+CSI Volume Group Snapshot support must be enabled on your cluster and in {longhorn-product-name}. See xref:snapshots-backups/csi-snapshots/enable-csi-volume-group-snapshot-support.adoc[Enable CSI Volume Group Snapshot Support].
+
+== Create a CSI VolumeGroupSnapshot Associated with a Longhorn Snapshot Group
+
+First, label the PVCs that should be snapshotted together:
+
+[,shell]
+----
+kubectl label pvc test-vol-1 test-vol-2 app-group=demo
+----
+
+Create a `VolumeGroupSnapshotClass` with the parameter `type` set to `snap`:
+
+[,yaml]
+----
+apiVersion: groupsnapshot.storage.k8s.io/v1
+kind: VolumeGroupSnapshotClass
+metadata:
+  name: longhorn-group-snap-vgsc
+driver: driver.longhorn.io
+deletionPolicy: Delete
+parameters:
+  type: snap
+----
+
+Then create a `VolumeGroupSnapshot` in the application namespace with a selector matching the PVC labels:
+
+[,yaml]
+----
+apiVersion: groupsnapshot.storage.k8s.io/v1
+kind: VolumeGroupSnapshot
+metadata:
+  name: test-group-snapshot
+spec:
+  volumeGroupSnapshotClassName: longhorn-group-snap-vgsc
+  source:
+    selector:
+      matchLabels:
+        app-group: demo
+----
+
+*Result*: {longhorn-product-name} creates one `SnapshotGroup` custom resource and one snapshot per member volume. Once the group is ready, the snapshot-controller creates one `VolumeSnapshot` per member PVC, each bound to the group. The `VolumeGroupSnapshotContent` records the group as `snap://group-name` in its `volumeGroupSnapshotHandle` field; each member `VolumeSnapshotContent` uses the existing `snap://volume-name/snapshot-name` format.
+
+You can observe the group's progress with kubectl:
+
+[,shell]
+----
+kubectl -n longhorn-system get snapshotgroups
+NAME                                                 PHASE   READYTOUSE   CREATIONTIME           AGE
+groupsnapshot-59e29b09-2661-4faf-9862-1571f8e68e94   Ready   true         2026-08-25T02:11:05Z   1m
+----
+
+The group starts in `InProgress` and becomes `Ready` when every member snapshot is taken, or `Failed` if the completion deadline (300 seconds by default) passes first. A failed CSI-created group is cleaned up automatically, and the snapshot-controller retries with a fresh group.
+
+== Create a CSI VolumeGroupSnapshot Associated with Longhorn Backups
+
+A `VolumeGroupSnapshotClass` with the parameter `type` set to `bak` requests a group backup instead: the same group snapshot is taken first, then each member snapshot is uploaded to the backup target.
+
+[,yaml]
+----
+apiVersion: groupsnapshot.storage.k8s.io/v1
+kind: VolumeGroupSnapshotClass
+metadata:
+  name: longhorn-group-bak-vgsc
+driver: driver.longhorn.io
+deletionPolicy: Delete
+parameters:
+  type: bak
+----
+
+The group reports ready only when every member backup completes. The group handle uses the `bak://group-name` format, and each member uses the existing `bak://volume-name/backup-name` format.
+
+The group label is stored in each member backup's metadata on the backup target, so a restore from another cluster can find the whole set of backups belonging to one group.
+
+The optional `backupMode` parameter sets the backup mode for the member backups: `incremental` (default) or `full`. For more information about `backupMode`, see xref:snapshots-backups/system-backups/create-system-backup.adoc[Create A Backup].
+
+[NOTE]
+====
+The `type` parameter must be `snap` or `bak`. All other class parameters (except the reserved `backupMode`) are applied to every member snapshot as Longhorn snapshot labels.
+====
+
+== Restore a Member PVC
+
+Each member `VolumeSnapshot` is a normal `VolumeSnapshot`. Restore it on its own by creating a PVC whose `dataSource` points to it, exactly as for a per-volume snapshot. For details, see xref:snapshots-backups/csi-snapshots/csi-snapshot-longhorn-snapshot.adoc#_restore_pvc_from_csi_volumesnapshot_associated_with_longhorn_snapshot[CSI VolumeSnapshot Associated with Longhorn Snapshot] and xref:snapshots-backups/csi-snapshots/csi-snapshot-longhorn-backup.adoc[CSI VolumeSnapshot Associated with Longhorn Backup].
+
+== Delete a CSI VolumeGroupSnapshot
+
+Delete the `VolumeGroupSnapshot` object. With a `Delete` deletion policy, this deletes the `VolumeGroupSnapshotContent`, the Longhorn `SnapshotGroup`, and all of its member snapshots (for a `bak` group, the member backups as well). Kubernetes does not allow deleting the member `VolumeSnapshot` objects individually while they belong to a group.
+
+== Limitations
+
+* A group is capped at 64 member volumes.
+* The group name is at most 54 characters, because member snapshots are named `<group-name>-<8-character-suffix>` and the result must fit the 63-character name limit.
+* `deadlineSeconds` sets the time allowed for taking all member snapshots; the default is 300 and the valid range is 10 to 3600. It does not limit the backup uploads of a `bak` group.
+* A snapshot group cannot be edited after creation: a group is a point-in-time request.
+* Member volumes must be eligible for a snapshot at creation time: standby (DR), restoring, and faulted volumes are rejected. Detached volumes are eligible and are automatically attached.
+* After a group becomes `Ready`, deleting one of its member snapshots marks the group `Degraded`. {longhorn-product-name} does not take a replacement snapshot, because it would not match the group's point in time.
+
+== History
+
+* https://github.com/longhorn/longhorn/issues/13349[#13349]
+
+Available since v1.13.0.
