@@ -1,7 +1,7 @@
 = Best Practices
 :description: Learn best practices for setting up production environments with hardware, storage, and kernel requirements for SUSE Storage
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-07-21
+:revdate: 2026-09-23
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -232,6 +232,11 @@ Refer to xref:longhorn-system/settings.adoc#_guaranteed_instance_manager_cpu[Gua
 === V2 Data Engine
 
 The `Guaranteed Instance Manager CPU for V2 Data Engine` setting allows you to reserve a specific number of milli-CPUs on each node for each instance manager pod when the V2 Data Engine is enabled. By default, the Storage Performance Development Kit (SPDK) target daemon within each instance manager pod uses 1 CPU core. Configuring a minimum CPU usage value is essential for maintaining engine and replica stability, especially during periods of high node workload. The default value is 1250.
+
+[WARNING]
+====
+If you are using AWS EC2 Burstable Performance Instances (such as AWS EC2 T-series), it is highly recommended to set `CpuCredits=unlimited`. The V2 Data Engine's SPDK target process is CPU-intensive. Exhausting CPU credits can lead to severe CPU throttling, which may cause I/O operations to become severely delayed or stuck, making V2 volumes unresponsive. If you are using burstable VMs on other cloud providers, ensure equivalent CPU credit or bursting settings are carefully configured to prevent CPU throttling.
+====
 
 == StorageClass
 

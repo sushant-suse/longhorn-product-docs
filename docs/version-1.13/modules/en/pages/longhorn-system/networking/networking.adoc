@@ -1,7 +1,7 @@
 = Networking
 :description: Write Kubernetes NetworkPolicy rules to control traffic between SUSE Storage components and protect the in-cluster network
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-08-05
+:revdate: 2026-09-16
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -58,13 +58,30 @@ Depending on your CNI for cluster network, there might be some delay when Kubern
 | `Kubernetes API server` | `Kubernetes API server port` | TCP
 |===
 
+=== Longhorn Global Manager
+
+==== Ingress:
+[options="header"]
+|===
+| From | Port | Protocol
+| `Kubelet (health probes)` | 9505 | TCP
+|===
+
+==== Egress:
+
+[options="header"]
+|===
+| To | Port | Protocol
+| `Kubernetes API server` | `Kubernetes API server port` | TCP
+|===
+
 == UI
 
-=== ingress:
+=== Ingress:
 
 Users defined
 
-=== egress:
+=== Egress:
 
 [options="header"]
 |===
@@ -74,7 +91,7 @@ Users defined
 
 == Instance Manager
 
-=== ingress
+=== Ingress
 
 [options="header"]
 |===
@@ -85,7 +102,7 @@ Users defined
 | `Backing Image Data Source` | 10000-30000 | TCP
 |===
 
-=== egress:
+=== Egress:
 
 [options="header"]
 |===
@@ -97,11 +114,11 @@ Users defined
 
 == Longhorn CSI Plug-in
 
-=== ingress
+=== Ingress
 
 None
 
-=== egress:
+=== Egress:
 
 [options="header"]
 |===
@@ -115,11 +132,11 @@ None
 
 == CSI sidecar (csi-attacher, csi-provisioner, csi-resizer, csi-snapshotter)
 
-=== ingress:
+=== Ingress:
 
 None
 
-=== egress:
+=== Egress:
 
 [options="header"]
 |===
@@ -133,11 +150,11 @@ None
 
 == Driver deployer
 
-=== ingress:
+=== Ingress:
 
 None
 
-=== egress:
+=== Egress:
 
 [options="header"]
 |===
@@ -148,17 +165,17 @@ None
 
 == Engine Image
 
-=== ingress:
+=== Ingress:
 
 None
 
-=== egress:
+=== Egress:
 
 None
 
 == Backing Image Manager
 
-=== ingress:
+=== Ingress:
 
 [options="header"]
 |===
@@ -167,7 +184,7 @@ None
 | `Other Backing Image Manager` | 30001-31000 | TCP
 |===
 
-=== egress:
+=== Egress:
 
 [options="header"]
 |===
@@ -179,7 +196,7 @@ None
 
 == Backing Image Data Source
 
-=== ingress:
+=== Ingress:
 
 [options="header"]
 |===
@@ -189,7 +206,7 @@ None
 | `Backing Image Manager` | 8000 | TCP
 |===
 
-=== egress:
+=== Egress:
 
 [options="header"]
 |===
@@ -200,7 +217,7 @@ None
 
 == Share Manager
 
-=== ingress
+=== Ingress:
 
 [options="header"]
 |===
@@ -208,17 +225,17 @@ None
 | `Node in the cluster` | 2049  | TCP
 |===
 
-=== egress:
+=== Egress:
 
 None
 
 == Backup/Snapshot Recurring Job Pod
 
-=== ingress:
+=== Ingress:
 
 None
 
-=== egress:
+=== Egress:
 
 [options="header"]
 |===
@@ -228,11 +245,11 @@ None
 
 == Uninstaller
 
-=== ingress:
+=== Ingress:
 
 None
 
-=== egress:
+=== Egress:
 
 [options="header"]
 |===
@@ -242,12 +259,12 @@ None
 
 == Discover Proc Kubelet Cmdline
 
-=== ingress:
+=== Ingress:
 
 None
 
-=== egress:
+=== Egress:
 
 None
 
-https://github.com/longhorn/longhorn/issues/1805[Original GitHub issue]
+https://github.com/longhorn/longhorn/issues/1805[#1805#]

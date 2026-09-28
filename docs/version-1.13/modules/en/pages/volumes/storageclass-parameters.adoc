@@ -1,7 +1,7 @@
 = StorageClass Parameters
 :description: Configure StorageClass parameters to define how persistent volumes are created, managed, and optimized in your environment
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-08-13
+:revdate: 2026-09-22
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -48,6 +48,8 @@ parameters:
 #  nfsOptions: "soft,timeo=150,retrans=3"
 #  dataEngine: "v1"
 #  freezeFSForSnapshot: "ignored"
+#  strictTopology: "false"
+#  volumeTopology: "any"
 # allowedTopologies:
 #   - matchLabelExpressions:
 #       - key: topology.kubernetes.io/zone
@@ -477,6 +479,43 @@ Default: `default`
 ____
 
 * More details are available in xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_default_backup_target[default backup target] and xref:volumes/create-volumes.adoc[Create Volumes].
+
+[discrete]
+==== Strict Topology _(field: `parameters.strictTopology`)_
+
+____
+Default: `"false"`
+____
+
+When set to `"true"`, the PV is pinned to the topology of the exact node selected by the Kubernetes scheduler. This is only effective when `volumeBindingMode` is set to `WaitForFirstConsumer`.
+
+* `"false"` (default): The PV `nodeAffinity` includes all topology segments matching the `allowedTopologies` (or all segments if `allowedTopologies` is not set).
+* `"true"`: The PV `nodeAffinity` is restricted to only the topology segment of the node where the pod was scheduled.
+
+This parameter controls only Kubernetes PV `nodeAffinity`. It does not persist a Longhorn replica or shard placement constraint. Use xref:_volume_topology[`volumeTopology`] when {longhorn-product-name} data placement must stay in the same zone or region as the PV.
+
+It requires `csi-allowed-topology-keys` to be configured. See xref:longhorn-system/settings.adoc#_csi_allowed_topology_keys[CSI Allowed Topology Keys].
+
+[discrete]
+==== Volume Topology _(field: `parameters.volumeTopology`)_
+____
+Default: `"any"`
+____
+
+Controls whether {longhorn-product-name} stores a topology requirement on newly provisioned volumes and enforces it during the placement of replicas, rebuilds, auto-balancing candidates, and erasure-coded shards.
+
+*Options*:
+
+* `"any"` (default): {longhorn-product-name} does not store a topology requirement. Data placement remains unconstrained by CSI topology.
+* `"zonal"`: {longhorn-product-name} resolves a single zone during volume creation. Both the PV `nodeAffinity` and all {longhorn-product-name} data placement are strictly confined to that zone.
+* `"regional"`: {longhorn-product-name} resolves a single region during volume creation. The PV `nodeAffinity` and all {longhorn-product-name} data placement are confined to that region (though replicas can still spread across multiple zones *within* that region).
+
+*Requirements and Constraints*:
+
+* *Affinity Settings*: When using `"zonal"`, `replicaZoneSoftAntiAffinity` must be `"enabled"`. If it is unset or set to `"ignored"`, {longhorn-product-name} records `"enabled"` on the volume instead of following the global setting. {longhorn-product-name} will reject `volumeTopology: "zonal"` if this is set to `"disabled"`, as all replicas of a zonal volume must reside in the same zone.
+* *CSI Topology Keys*: You must include the corresponding topology key in xref:longhorn-system/settings.adoc#_csi_allowed_topology_keys[`csi-allowed-topology-keys`] (`topology.kubernetes.io/zone` for `"zonal"`, or `topology.kubernetes.io/region` for `"regional"`). If nodes report the requested key but your setting filters it out, provisioning will be rejected rather than falling back to an unconstrained volume.
+
+* *Recommendation*: Use `volumeBindingMode: WaitForFirstConsumer` alongside `volumeTopology`. This ensures the resolved failure domain follows the scheduling decision of the first consumer pod. For more details, see xref:nodes/topology-aware-provisioning.adoc[Topology-Aware Provisioning].
 
 [discrete]
 ==== Backup Block Size _(field: `parameters.backupBlockSize`)_

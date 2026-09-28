@@ -1,7 +1,7 @@
 = Configure Default Node and Disk Settings
 :description: Configure default node and disk settings using Kubernetes labels and annotations to automatically customize new nodes
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2025-07-11
+:revdate: 2026-09-23
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -97,6 +97,9 @@ node.longhorn.io/default-disks-config:
 ====
 If the same name is specified for different disks, the configuration will be treated as invalid.
 ====
++
+** *File system-type disks*: {longhorn-product-name} creates a file system disk when `path` is an absolute directory path. If `storageReserved` is not specified, {longhorn-product-name} calculates the reserved space using the *Storage Reserved Percentage For Default Disk* setting.
+** *Block-type disks*: {longhorn-product-name} creates a block disk when `diskType` is `block`. The `path` can be a BDF (such as `0000:05:00.0`) or a stable device path under `/dev/disk/by-id/...`. {longhorn-product-name} does not access the block device while creating the default disk configuration. If `storageReserved` is not specified, the initial reserved space defaults to `0` (you can update `storageReserved` after the disk is created).
 
 . Wait for {longhorn-product-name} to create the customized default disks automatically, according to the annotation.
 

@@ -1,7 +1,7 @@
 = Settings
 :description: Configure settings to define value formats, system images, and policies for data engines in SUSE Storage
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-09-02
+:revdate: 2026-09-23
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -1389,15 +1389,15 @@ Updating resource limits restarts the affected CSI components. During the restar
 
 *Default value*: `""`
 
-*Example*: `topology.kubernetes.io/zone`
+*Example*: `topology.kubernetes.io/zone,topology.kubernetes.io/region`
 
-A comma-separated list of topology keys that the Longhorn CSI driver should report in `NodeGetInfo` and use when building PV `nodeAffinity`. When empty (the default), no topology information is passed through and PVs are created without `nodeAffinity`.
+A comma-separated list of topology keys that the Longhorn CSI driver should use when building PV `nodeAffinity`. When empty (the default), PVs are created without topology-based `nodeAffinity`.
 
-Set this to one or more https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone[well-known Kubernetes topology labels] (for example, `topology.kubernetes.io/zone`) so that StorageClass `allowedTopologies` and the `strictTopology` parameter can take effect.
+Set this to one or more https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone[well-known Kubernetes topology labels] so that StorageClass `allowedTopologies` and `volumeTopology` can take effect. Use `topology.kubernetes.io/zone` for zonal placement and `topology.kubernetes.io/region` for regional placement. The PV-only `strictTopology` parameter also uses this setting.
 
 [NOTE]
 ====
-Changing this setting restarts the CSI components. During the restart, new volume provisioning, expansion, snapshot, or attach/detach operations may be temporarily delayed. Existing mounted volumes remain usable.
+Changing this setting does not restart any component; it takes effect for newly provisioned volumes. When adding a custom topology key (other than the well-known zone, region, and hostname labels), restart the `longhorn-csi-plugin` DaemonSet so the nodes register the key in CSINode.
 
-More details in xref:nodes/topology-aware-provisioning.adoc[Topology-Aware Provisioning].
+See xref:nodes/topology-aware-provisioning.adoc[Topology-Aware Provisioning] for details.
 ====

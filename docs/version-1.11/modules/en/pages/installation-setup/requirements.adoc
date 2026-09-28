@@ -1,7 +1,7 @@
 = Requirements
 :description: What must be met before installing SUSE Storage on a Kubernetes cluster, including required software versions, hardware specifications, and system
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-07-21
+:revdate: 2026-09-23
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -145,7 +145,17 @@ Please ensure iscsi_tcp module has been loaded before iscsid service starts. Gen
 modprobe iscsi_tcp
 ----
 
-IMPORTANT: On SUSE and openSUSE, the `iscsi_tcp` module is included only in the `kernel-default` package. If the `kernel-default-base` package is installed on your system, you must replace it with `kernel-default`.
+[IMPORTANT]
+====
+On SUSE and openSUSE, the `iscsi_tcp` module is included only in the `kernel-default` package. If the `kernel-default-base` package is installed on your system, you must replace it with `kernel-default`.
+====
+
+[WARNING]
+====
+*Critical Incompatibility with `open-iscsi` 2.1.12*
+
+Do not install or upgrade host nodes to `open-iscsi 2.1.12`. A breaking configuration change in the upstream `open-iscsi 2.1.12` causes volume attachment failures. Use `open-iscsi \<= 2.1.11` or `>= 2.1.13` instead. For more information, see upstream issue https://github.com/open-iscsi/open-iscsi/issues/540[issue] and {longhorn-product-name} https://github.com/longhorn/longhorn/issues/13733[#13733].
+====
 
 We also provide an `iscsi` installer to make it easier for users to install `open-iscsi` automatically. You can use the xref:longhorn-system/system-access/longhorn-cli.adoc[Longhorn CLI] to install the prerequisites.
 

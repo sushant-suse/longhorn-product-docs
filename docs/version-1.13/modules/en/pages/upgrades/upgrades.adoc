@@ -1,7 +1,7 @@
 = Upgrades
 :description: Upgrade SUSE Storage to the next consecutive minor version using the supported upgrade path and follow the steps to upgrade Longhorn Manager and Engine
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-07-21
+:revdate: 2026-09-23
 :page-revdate: {revdate}
 :doctype: book
 :current-version: {page-component-version}
@@ -58,7 +58,7 @@ The following table outlines the supported upgrade paths.
 
 Automated checks are only performed on some upgrade paths, and the pre-upgrade checker may not cover some scenarios. Manual checks, performed using either kubectl or the UI, are recommended for these scenarios. You can take mitigating actions or defer the upgrade until issues are addressed.
 
-* Ensure that all V2 Data Engine volumes are detached and the replicas are stopped. The V2 Data Engine currently does not support live upgrades.
+* For V2 Data Engine volumes, check the V2 Data Engine live upgrade prerequisites. If your deployment does not meet these prerequisites, detach all V2 volumes and ensure their replicas are stopped before upgrading.
 * Avoid upgrading when volumes are in the "Faulted" status. If all the replicas are deemed unusable, they may be deleted and data may be permanently lost (if no usable backups exist).
 * Avoid upgrading if a failed BackingImage exists. For more information, see xref:volumes/backing-images/backing-images.adoc[Backing Image].
 * Create a Longhorn system backup before you perform the upgrade. Refer to xref:snapshots-backups/system-backups/create-system-backup.adoc[Longhorn System Backup] for instructions. A system backup ensures that all critical resources, such as volumes and backing images, are backed up and can be restored if any issues occur.
@@ -79,7 +79,11 @@ After Longhorn Manager is upgraded, Longhorn Engine also needs to be upgraded xr
 
 Since {longhorn-product-name} v1.1.1, we provide an option to help you xref:upgrades/longhorn-components/auto-upgrade-engine.adoc[automatically upgrade engines].
 
-=== 4. Automatically Migrate Recurring Jobs
+=== 4. Upgrade V2 Data Engine
+
+V2 instance managers need to be upgraded separately. see xref:upgrades/longhorn-components/v2-instance-upgrade.adoc[V2 Data Engine Instance Manager Upgrade Page] for offline and live upgrade options.
+
+=== 5. Automatically Migrate Recurring Jobs
 
 With the introduction of the new label-driven `Recurring Job` feature, {longhorn-product-name} has removed the `RecurringJobs` field in the Volume Spec and planned to deprecate `RecurringJobs` in the StorageClass.
 
