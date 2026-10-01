@@ -1,7 +1,7 @@
 = Architecture and Concepts
 :description: Learn about the architecture and key components of SUSE Storage, including the Longhorn Manager, Longhorn Engine, and how volumes and replicas are managed
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-09-23
+:revdate: 2026-10-01
 :page-revdate: {revdate}
 
 {longhorn-product-name} creates a dedicated storage controller for each volume and synchronously replicates the volume across multiple replicas stored on multiple nodes.
@@ -15,6 +15,14 @@ For the installation requirements, go to xref:installation-setup/requirements.ad
 ____
 This section assumes familiarity with Kubernetes persistent storage concepts. For more information on these concepts, refer to the xref:_appendix_how_persistent_storage_works_in_kubernetes[appendix]. For help with the terminology used in this page, refer to xref:introduction/terminology.adoc[this section].
 ____
+
+== Component Naming Convention
+
+As noted in the xref:longhorn-documentation.adoc[Overview], {longhorn-product-name} is derived from the upstream open-source Longhorn project. While this documentation refers to its conceptual components as {longhorn-product-name}, the underlying codebase, Kubernetes resources, and command-line tools intentionally retain the `longhorn` nomenclature to ensure technical stability and seamless upgrades.
+
+When interacting with the system via `kubectl`, Helm charts, YAML manifests, or the CLI, you will continually see terms such as `longhorn-manager`, `longhorn-engine`, the `longhorn.io` API group, and the `longhorn-system` namespace. 
+
+For a complete mapping of {longhorn-product-name} concepts to their underlying technical identifiers, refer to the xref:glossary/glossary.adoc[Glossary].
 
 == 1. Design
 
