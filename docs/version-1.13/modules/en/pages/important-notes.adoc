@@ -1,7 +1,7 @@
 = Important Notes
 :description: Read the important notes to learn about changes, limitations, and migration steps for SUSE Storage v1.13.0
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-09-30
+:revdate: 2026-10-06
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -46,7 +46,7 @@ The V2 Data Engine became generally available in {longhorn-product-name} v1.12.0
 
 {longhorn-product-name} v1.13.0 builds on that GA foundation with xref:_live_upgrade[live upgrade] support for V2 volumes and refined V2 linked-clone feature. It also continues to improve V2 volume stability.
 
-For a summary of the current V1 and V2 behavior differences and feature parity, see xref:v1-v2-volume-behavior-and-feature-parity.adoc[V1 and V2 Volume Behavior and Feature Parity].
+For a summary of the current V1 and V2 behavior differences and feature parity, see xref:data-engine-comparison.adoc[Data Engine Comparison].
 
 For more information, see https://github.com/longhorn/longhorn/issues/6229[#6229].
 
@@ -103,13 +103,13 @@ For more information, see:
 * https://github.com/longhorn/longhorn/issues/13973[#13973]
 * xref:longhorn-system/settings.adoc#_data_engine_cpu_isolation_enabled[Data Engine CPU Isolation Enabled]
 
-== Storage Sharding (Experimental)
+== Sharding Storage (Experimental)
 
 {longhorn-product-name} v1.12.1 introduces storage sharding for the V2 Data Engine as an experimental feature. Instead of storing a full copy of the volume on each replica, sharding splits the volume into data and parity chunks using erasure coding and distributes them across multiple nodes. This allows a volume to grow beyond the capacity of a single disk or node while using less disk space to achieve the same level of fault tolerance.
 
 Because this feature is experimental, it is intended for evaluation and testing only and is not recommended for production use.
 
-For more information, see https://github.com/longhorn/longhorn/issues/1061[#1061] and xref:v2-data-engine/sharding.adoc[Sharding with Erasure Coding].
+For more information, see https://github.com/longhorn/longhorn/issues/1061[#1061] and xref:v2-data-engine/sharding.adoc[Sharding Storage].
 
 == Important Fixes
 
