@@ -1,15 +1,13 @@
 = StorageClass Parameters
 :description: Configure StorageClass parameters to define how persistent volumes are created, managed, and optimized in your environment
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-08-13
+:revdate: 2026-10-06
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 == Overview
 
-StorageClass as a resource object has several configurable parameters.  
-
-Example:
+Storage Class as a resource object has a number of settable parameters. Here's a sample YAML:
 
 [,yaml]
 ----
@@ -61,71 +59,68 @@ parameters:
 Certain fields are common to all Kubernetes storage classes.
 See also https://kubernetes.io/docs/concepts/storage/storage-classes[Kubernetes Storage Class].
 
-[discrete]
-==== Provisioner _(field: `provisioner`)_
+=== Provisioner _(field: `provisioner`)_
 
-Specifies the plugin that will be used for dynamic creation of persistent volumes. For {longhorn-product-name}, that is always `driver.longhorn.io`.
+Specifies the plugin that will be used for dynamic creation of persistent volumes. For {longhorn-product-name}, that is always `"driver.longhorn.io"`.
 
-____
-See https://kubernetes.io/docs/concepts/storage/storage-classes/#provisioner[Kubernetes Storage Class: Provisioner].
-____
+For more details, see https://kubernetes.io/docs/concepts/storage/storage-classes/#provisioner[Kubernetes Storage Class: Provisioner].
 
-[discrete]
-==== Allow Volume Expansion _(field: `allowVolumeExpansion`)_
+=== Allow Volume Expansion _(field: `allowVolumeExpansion`)_
 
 ____
 Default: `true`
-See https://kubernetes.io/docs/concepts/storage/storage-classes/#allow-volume-expansion[Kubernetes Storage Class: Allow Volume Expansion].
 ____
 
-[discrete]
-==== Reclaim Policy _(field: `reclaimPolicy`)_
+For more details, see https://kubernetes.io/docs/concepts/storage/storage-classes/#allow-volume-expansion[Kubernetes Storage Class: Allow Volume Expansion].
+
+=== Reclaim Policy _(field: `reclaimPolicy`)_
 
 ____
 Default: `Delete`
-See https://kubernetes.io/docs/concepts/storage/storage-classes/#reclaim-policy[Kubernetes Storage Class: Reclaim Policy].
 ____
 
-[discrete]
-==== Mount Options _(field: `mountOptions`)_
+For more details, see https://kubernetes.io/docs/concepts/storage/storage-classes/#reclaim-policy[Kubernetes Storage Class: Reclaim Policy].
+
+=== Mount Options _(field: `mountOptions`)_
 
 ____
 Default `[]`
-See https://kubernetes.io/docs/concepts/storage/storage-classes/#mount-options[Kubernetes Storage Class - Mount Options].
 ____
 
-[discrete]
-==== Volume Binding Mode _(field: `volumeBindingMode`)_
+For more details, see https://kubernetes.io/docs/concepts/storage/storage-classes/#mount-options[Kubernetes Storage Class - Mount Options].
+
+=== Volume Binding Mode _(field: `volumeBindingMode`)_
 
 ____
 Default `Immediate`
-See https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode[Kubernetes Storage Class - Volume Binding Mode].
 ____
 
+For more details, see https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode[Kubernetes Storage Class - Volume Binding Mode].
 
-[discrete]
-==== Allowed Topologies _(field: `allowedTopologies`)_
+`Immediate` provisions the volume immediately upon PVC creation. When using `strictTopology`, `WaitForFirstConsumer` is strongly recommended so the volume's PV `nodeAffinity` follows the scheduled node of the first consumer pod.
 
-____
-See the Kubernetes reference https://kubernetes.io/docs/concepts/storage/storage-classes/#allowed-topologies[StorageClass — Allowed Topologies].
-____
+=== Allowed Topologies _(field: `allowedTopologies`)_
+
+For more details, see the Kubernetes reference https://kubernetes.io/docs/concepts/storage/storage-classes/#allowed-topologies[StorageClass — Allowed Topologies].
 
 It specifies the set of nodes where volumes may be provisioned by matching node labels.
 {longhorn-product-name} uses this field to populate the `nodeAffinity` of PV via the CSI `accessibleTopology` field.
 
 For `allowedTopologies` to take effect, the {longhorn-product-name} setting xref:longhorn-system/settings.adoc#_csi_allowed_topology_keys[`csi-allowed-topology-keys`] must be configured with the corresponding topology keys (for example, `topology.kubernetes.io/zone`). Without this setting, no topology information is passed through and the PV will have no `nodeAffinity`.
 
-Do *not* use `allowedTopologies` together with `parameters.dataLocality: strict-local`. The resulting PV `nodeAffinity` becomes immutable and it would conflict with strict-local volume pinning of {longhorn-product-name}.
+[NOTE]
+====
+For volumes with `dataLocality: strict-local`, `allowedTopologies` is not written to the PV. {longhorn-product-name} ignores the CSI topology for these volumes and places the data directly on the workload node.
+====
 
 For a complete walkthrough with examples, see the xref:nodes/topology-aware-provisioning.adoc[Topology-Aware Provisioning].
 
 == {longhorn-product-name}-specific Parameters
 
-Note that some of these parameters also exist and may be specified in global settings. When a volume is provisioned with Kubernetes against a particular StorageClass, StorageClass parameters override the global settings.
-These fields will be applied for new volume creation only. If a StorageClass is modified, neither {longhorn-product-name} nor Kubernetes handles propagating changes to its parameters back to volumes previously created with it.
+* *Parameter overrides*: Some of these parameters also exist and may be specified in global settings. When a volume is provisioned with Kubernetes against a particular `StorageClass`, the `StorageClass` parameters override the global settings.
+* *New volumes only*: These fields will be applied for new volume creation only. If a `StorageClass` is modified, neither {longhorn-product-name} nor Kubernetes is responsible for propagating changes to its parameters back to volumes previously created with it.
 
-[discrete]
-==== Number Of Replicas _(field: `parameters.numberOfReplicas`)_
+=== Number Of Replicas _(field: `parameters.numberOfReplicas`)_
 
 ____
 Default: `3`
@@ -134,23 +129,21 @@ ____
 The desired number of copies (replicas) for redundancy.
 
 * Must be between 1 and 20.
+* When `dataLocality` is set to `strict-local`, `numberOfReplicas` must be `1`.
 * Replicas will be placed across the widest possible set of zones, nodes, and disks in a cluster, subject to other constraints, such as NodeSelector.
 
-____
 Global setting - xref:longhorn-system/settings.adoc#_default_replica_count[Default Replica Count].
+
+
+=== Stale Replica Timeout _(field: `parameters.staleReplicaTimeout`)_
+
+____
+Default: `2880`
 ____
 
-[discrete]
-==== Stale Replica Timeout _(field: `parameters.staleReplicaTimeout`)_
+The number of minutes after a replica is marked unhealthy before it is deemed useless for rebuilds and is deleted. The default value `2880` corresponds to 48 hours.
 
-____
-Default: `30`
-____
-
-Minutes after a replica is marked unhealthy before it is deemed useless for rebuilds and is just deleted.
-
-[discrete]
-==== From Backup _(field: `parameters.fromBackup`)_
+=== From Backup _(field: `parameters.fromBackup`)_
 
 ____
 Default: `""`
@@ -159,24 +152,48 @@ ____
 
 URL of a backup to be restored from.
 
-[discrete]
-==== FS Type _(field: `parameters.fsType`)_
+=== Backup Target Name _(field: `parameters.backupTargetName`)_
 
 ____
-Default: `ext4`
-For more details, please check the xref:volumes/create-volumes.adoc#creating_longhorn_volumes_with_kubectl[Creating Longhorn Volumes with Kubernetes].
+Default: `default`
 ____
 
-[discrete]
-==== Mkfs Params _(field: `parameters.mkfsParams`)_
+The name of the backup target to use for backups or restores.
+
+For more details, see xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_default_backup_target[default backup target] and xref:volumes/create-volumes.adoc[Create Volumes].
+
+=== Backup Block Size _(field: `parameters.backupBlockSize`)_
 
 ____
 Default: `""`
-For more details, please check the xref:volumes/create-volumes.adoc#creating_longhorn_volumes_with_kubectl[Creating Longhorn Volumes with Kubernetes].
+Example: `"2Mi"` or `"16Mi"`
 ____
 
-[discrete]
-==== Migratable _(field: `parameters.migratable`)_
+Kubernetes quantity string for the backup block size. Specify the empty string `""` to use the global setting.
+
+____
+Global setting: xref:longhorn-system/settings.adoc#_default_backup_block_size[default backup block size].
+For more details, see xref:snapshots-backups/volume-snapshots-backups/configure-backup-block-size.adoc[Configure The Block Size Of Backup].
+____
+
+=== FS Type _(field: `parameters.fsType`)_
+
+The filesystem used to format the volume. Supported filesystems are `ext4` and `xfs`.
+____
+Default: `ext4`
+____
+
+For more details, see xref:volumes/create-volumes.adoc#creating_longhorn_volumes_with_kubectl[Creating Longhorn Volumes with Kubernetes].
+
+=== Mkfs Params _(field: `parameters.mkfsParams`)_
+
+____
+Default: `""`
+____
+
+For more details, see xref:volumes/create-volumes.adoc#creating_longhorn_volumes_with_kubectl[Creating Longhorn Volumes with Kubernetes].
+
+=== Migratable _(field: `parameters.migratable`)_
 
 ____
 Default: `false`
@@ -191,19 +208,18 @@ Enables live migration capabilities for a Longhorn volume, allowing it to be mig
 
 [NOTE]
 ====
-For more details, please check the xref:/volumes/rwx-volumes.adoc[ReadWriteMany (RWX) Volume].
+If specified on non-RWX volumes, {longhorn-product-name} proceeds with non-migratable RWO volume creation. For more details, see xref:volumes/rwx-volumes.adoc[ReadWriteMany (RWX) Volumes].
 ====
 
-[discrete]
-==== Encrypted _(field: `parameters.encrypted`)_
+=== Encrypted _(field: `parameters.encrypted`)_
 
 ____
 Default: `false`
-For more details, please check the xref:volumes/volume-encryption.adoc[Encrypted Volumes].
 ____
 
-[discrete]
-==== Data Locality _(field: `parameters.dataLocality`)_
+For more details, see xref:volumes/volume-encryption.adoc[Encrypted Volumes].
+
+=== Data Locality _(field: `parameters.dataLocality`)_
 
 ____
 Default: `disabled`
@@ -211,17 +227,14 @@ ____
 
 If enabled, try to keep the data on the same node as the workload for better performance.
 
-* For `best-effort`, a replica would be co-located if possible, but is permitted to find another node if not.
-* For `strict-local` the Replica count should be 1, or volume creation would fail with a parameter validation error.
-* If `strict-local` is not possible for whatever other reason, volume creation would be failed. A `strict-local` replica that becomes displaced from its workload would be marked as `"Stopped"`.
+* `"disabled"`: No co-location requirement.
+* `"best-effort"`: A replica will be co-located if possible, but is permitted to find another node if not.
+* `"strict-local"`: The replica count must be 1, or volume creation fails with a validation error. Longhorn places the volume data on the workload node and ignores CSI topology/accessibility requirements; `allowedTopologies` is not written to the PV `nodeAffinity`. A displaced `strict-local` replica will be marked as "Stopped".
 
-____
 Global setting - xref:longhorn-system/settings.adoc#_default_data_locality[Default Data Locality].
-For more details, please check xref:high-availability/data-locality.adoc[Data Locality].
-____
+For more details, see xref:high-availability/data-locality.adoc[Data Locality].
 
-[discrete]
-==== Replica Auto Balance _(field: `parameters.replicaAutoBalance`)_
+=== Replica Auto Balance _(field: `parameters.replicaAutoBalance`)_
 
 ____
 Default: `ignored`
@@ -229,232 +242,290 @@ ____
 
 If enabled, move replicas to more lightly loaded nodes.
 
-* `ignored` means use the global setting.
-* Other options are `disabled`, `least-effort`, `best-effort`.
+* `"ignored"`: Use the global setting.
+* Other options are `"disabled"`, `"least-effort"`, `"best-effort"`.
 
-____
 Global setting - xref:longhorn-system/settings.adoc#_replica_auto_balance[Replica Auto Balance].
-For more details, please check the xref:high-availability/automatic-replica-balancing.adoc[Auto Balance Replicas].
-____
+For more details, see xref:high-availability/automatic-replica-balancing.adoc[Auto Balance Replicas].
 
-[discrete]
-==== Disk Selector _(field: `parameters.diskSelector`)_
+=== Disk Selector _(field: `parameters.diskSelector`)_
 
 ____
 Default: `""`
 Example: `"ssd,fast"`
 ____
 
-A list of tags to select which disks are candidates for replica placement.
+A comma-separated list of disk tags to select which disks are candidates for replica placement.
 
-____
-For more details, please check the xref:nodes/storage-tags.adoc[Storage Tags].
-____
+For more details, see xref:nodes/storage-tags.adoc[Storage Tags].
 
-[discrete]
-==== Node Selector _(field: `parameters.nodeSelector`)_
+=== Node Selector _(field: `parameters.nodeSelector`)_
 
 ____
 Default: `""`
 Example: `"storage,fast"`
 ____
 
-A list of tags to select which nodes are candidates for replica placement.
+A comma-separated list of node tags to select which nodes are candidates for replica placement.
 
-____
-For more details, please check the xref:nodes/storage-tags.adoc[Storage Tags].
-____
+For more details, see xref:nodes/storage-tags.adoc[Storage Tags].
 
-[discrete]
-==== Recurring Job Selector _(field: `parameters.recurringJobSelector`)_
+=== Recurring Job Selector _(field: `parameters.recurringJobSelector`)_
 
 ____
 Default: `""`
-Example:  `[{"name":"backup", "isGroup":true}]`
+Example:  `[{"name":"snap-group", "isGroup":true}, {"name":"backup", "isGroup":false}]`
 ____
 
-A list of recurring jobs that are to be run on a volume.
+A JSON array of recurring job or group specifications to attach to the volume.
 
-____
-For more details, please check xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[Create Recurring Backup/Snapshot Job].
-____
+For more details, see xref:snapshots-backups/volume-snapshots-backups/create-recurring-backup-snapshot-job.adoc[Recurring Snapshot and Backups].
 
-[discrete]
-==== Backing Image Name _(field: `parameters.backingImageName`)_
+=== Backing Image _(field: `parameters.backingImage`)_
 
 ____
 Default: `""`
-See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
 ____
 
-[discrete]
-==== Backing Image Checksum _(field: `parameters.backingImageChecksum`)_
+The name of the backing image to use for the volume.
 
-____
-Default: `""`
-See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
-____
+For more details, see xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
 
-[discrete]
-==== Backing Image Data Source Type _(field: `parameters.backingImageDataSourceType`)_
+=== Backing Image Data Source Type _(field: `parameters.backingImageDataSourceType`)_
 
 ____
 Default: `""`
-See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
 ____
 
-[discrete]
-==== Backing Image Data Source Parameters _(field: `parameters.backingImageDataSourceParameters`)_
+The data source type if Longhorn must create a missing backing image during CSI volume provisioning.
+
+* *Supported via CSI*: `download` and `export-from-volume`.
+* *Unsupported (`upload`)*: `upload` is a valid Longhorn backing image source type, but it is rejected when creating a missing backing image through CSI provisioning.
+* *Unsupported (`clone`)*: `clone` is a valid Longhorn backing image source type, but it is not created through this CSI StorageClass path.
+
+If `backingImage` refers to an existing `backingImage`, this parameter is usually unnecessary. If specified, it must match the existing `backingImage` source type and source parameters.
+
+For more details, see xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
+
+=== Backing Image Data Source Parameters _(field: `parameters.backingImageDataSourceParameters`)_
 
 ____
 Default: `""`
-See xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
+Example: `'{"url": "https://backing-image-example.s3-region.amazonaws.com/test-backing-image"}'`
 ____
 
-[discrete]
-==== Unmap Mark Snap Chain Removed _(field: `parameters.unmapMarkSnapChainRemoved`)_
+A JSON string representing the parameters required by the specified `backingImageDataSourceType`.
+
+For more details, see xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
+
+=== Backing Image Checksum _(field: `parameters.backingImageChecksum`)_
+
+Expected SHA512 checksum of the backing image file.
+
+____
+Default: `""`
+____
+
+For more details, see xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
+
+=== Backing Image Min Number Of Copies _(field: `parameters.backingImageMinNumberOfCopies`)_
+
+____
+Default: `""`
+Example: `"2"`
+____
+
+The minimum number of backing image copies Longhorn will automatically maintain on different disks.
+
+For more details, see xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
+
+=== Backing Image Node Selector _(field: `parameters.backingImageNodeSelector`)_
+
+____
+Default: `""`
+Example: `"storage,fast"`
+____
+
+A comma-separated list of node tags where copies of the backing image are allowed to be placed.
+
+For more details, see xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
+
+=== Backing Image Disk Selector _(field: `parameters.backingImageDiskSelector`)_
+
+____
+Default: `""`
+Example: `"ssd"`
+____
+
+A comma-separated list of disk tags where copies of the backing image are allowed to be placed.
+
+For more details, see xref:volumes/backing-images/backing-images.adoc#_create_and_use_a_backing_image_via_storageclass_and_pvc[Backing Image].
+
+=== Unmap Mark Snap Chain Removed _(field: `parameters.unmapMarkSnapChainRemoved`)_
 
 ____
 Default: `ignored`
 ____
 
-* `ignored` means use the global setting.
-* Other values are `enabled` and `disabled`.
+* `"ignored"`: Use the global setting.
+* Other values are `"enabled"` and `"disabled"`.
 
-____
+[NOTE]
+====
+For V2 Data Engine volumes, this parameter must be `"disabled"` (or left unset).
+====
+
 Global setting - xref:longhorn-system/settings.adoc#_remove_snapshots_during_filesystem_trim[Remove Snapshots During Filesystem Trim].
-For more details, please check the xref:volumes/trim-filesystem.adoc[Trim Filesystem].
-____
+For more details, see xref:volumes/trim-filesystem.adoc[Trim Filesystem].
 
-[discrete]
-==== Disable Revision Counter _(field: `parameters.disableRevisionCounter`)_
+=== Disable Revision Counter _(field: `parameters.disableRevisionCounter`)_
 
 ____
 Default: `true`
 ____
 
-____
+Controls whether to disable the volume revision counter. When set to `false`, Longhorn tracks revision counts to detect split-brain scenarios. When set to `true` (default), the revision counter is disabled.
+
+[NOTE]
+====
+Revision counters do not apply to V2 Data Engine volumes.
+====
+
 Global setting - xref:longhorn-system/settings.adoc#_disable_revision_counter[Disable Revision Counter].
-For more details, please check the xref:high-availability/revision_counter.adoc[Revision Counter].
-____
+For more details, see xref:high-availability/revision_counter.adoc[Revision Counter].
 
-[discrete]
-==== Replica Soft Anti-Affinity _(field: `parameters.replicaSoftAntiAffinity`)_
+=== Replica Soft Anti-Affinity _(field: `parameters.replicaSoftAntiAffinity`)_
 
 ____
 Default: `ignored`
 ____
 
-* `ignored` means use the global setting.
-* Other values are `enabled` and `disabled`.
+* `"ignored"`: Use the global setting.
+* Other values are `"enabled"` and `"disabled"`.
 
-____
 Global setting - xref:longhorn-system/settings.adoc#_replica_node_level_soft_anti_affinity[Replica Node Level Soft Anti-Affinity].
-For more details, please check the xref:nodes/scheduling.adoc[Scheduling] and xref:installation-setup/best-practices.adoc#_replica_node_level_soft_anti_affinity[Best Practices].
-____
+For more details, see xref:nodes/scheduling.adoc[Scheduling] and xref:installation-setup/best-practices.adoc#_replica_node_level_soft_anti_affinity[Best Practices].
 
-[discrete]
-==== Replica Zone Soft Anti-Affinity _(field: `parameters.replicaZoneSoftAntiAffinity`)_
+=== Replica Zone Soft Anti-Affinity _(field: `parameters.replicaZoneSoftAntiAffinity`)_
 
 ____
 Default: `ignored`
 ____
 
-* `ignored` means use the global setting.
-* Other values are `enabled` and `disabled`.
+* `"ignored"`: Use the global setting.
+* Other values are `"enabled"` and `"disabled"`.
 
-____
 Global setting - xref:longhorn-system/settings.adoc#_replica_zone_level_soft_anti_affinity[Replica Zone Level Soft Anti-Affinity].
-For more details, please check xref:nodes/scheduling.adoc[Scheduling].
-____
+For more details, see xref:nodes/scheduling.adoc[Scheduling].
 
-[discrete]
-==== Replica Disk Soft Anti-Affinity _(field: `parameters.replicaDiskSoftAntiAffinity`)_
+=== Replica Disk Soft Anti-Affinity _(field: `parameters.replicaDiskSoftAntiAffinity`)_
 
 ____
 Default: `ignored`
 ____
 
-* `ignored` means use the global setting.
-* Other values are `enabled` and `disabled`.
+* `"ignored"`: Use the global setting.
+* Other values are `"enabled"` and `"disabled"`.
 
-____
 Global setting - xref:longhorn-system/settings.adoc#_replica_disk_level_soft_anti_affinity[Replica Disk Level Soft Anti-Affinity].
-For more details, please check xref:nodes/scheduling.adoc[Scheduling].
-____
+For more details, see xref:nodes/scheduling.adoc[Scheduling] and xref:installation-setup/best-practices.adoc#_replica_disk_level_soft_anti_affinity[Best Practices].
 
-[discrete]
-==== NFS Options _(field: `parameters.nfsOptions`)_
+=== NFS Options _(field: `parameters.nfsOptions`)_
 
 ____
 Default: `""`
 Example: `"hard,sync"`
 ____
 
-* Overrides for NFS mount of RWX volumes to the share-manager. Use this field with caution.
-+
+Overrides for NFS mount of RWX volumes to the share-manager. Use this field with caution.
+
 [NOTE]
 ====
 Built-in options vary by release. Check your release details before setting this.
 ====
 
-____
-For more details, please check the xref:volumes/rwx-volumes.adoc#_configuring_volume_mount_options_for_generic_non_migratable_rwx_volumes[RWX Workloads].
-____
+For more details, see xref:volumes/rwx-volumes.adoc#_configuring_volume_mount_options_for_generic_non_migratable_rwx_volumes[RWX Workloads].
 
-[discrete]
-==== Data Engine _(field: `parameters.dataEngine`)_
+=== Data Engine _(field: `parameters.dataEngine`)_
 
 ____
 Default: `"v1"`
 ____
 
-* Specify "v2" to enable the V2 Data Engine (Technical Preview feature). When unspecified, {longhorn-product-name} uses the default value ("v1").
+Specifies the data engine for the volume: `"v1"` or `"v2"`. When unspecified, {longhorn-product-name} uses `"v1"`.
 
-____
 Global setting: xref:longhorn-system/settings.adoc#_v2_data_engine[V2 Data Engine].
-More details in xref:longhorn-system/v2-data-engine/quick-start-guide.adoc#_create_a_storageclass[V2 Data Engine Quick Start].
+
+=== Frontend _(field: `parameters.frontend`)_
+
+____
+Default: `"blockdev"`
 ____
 
-[discrete]
-==== Freeze Filesystem For Snapshot _(field: `parameters.freezeFilesystemForSnapshot`)_
+Specifies the frontend exposure mechanism for the volume:
+
+* For V1 Data Engine: `"blockdev"` or `"iscsi"`.
+* For V2 Data Engine: `"blockdev"`, `"nvmf"`, or `"ublk"`.
+
+=== Ublk Number of Queues _(field: `parameters.ublkNumberOfQueue`)_
+
+____
+Default: `0`
+____
+
+The number of queues for the ublk frontend.
+
+* `0` means unspecified and uses the global setting.
+* Explicit values must be at least `1`.
+* Applies only to volumes using the V2 Data Engine with `ublk` frontend.
+
+Global setting - xref:longhorn-system/settings.adoc#_default_ublk_number_of_queue[Default Ublk Number Of Queue].
+
+=== Ublk Queue Depth _(field: `parameters.ublkQueueDepth`)_
+
+____
+Default: `0`
+____
+
+The queue depth of each queue for the ublk frontend.
+
+* `0` means unspecified and uses the global setting.
+* Explicit values must be at least `32`.
+* Applies only to volumes using the V2 Data Engine with `ublk` frontend.
+
+Global setting - xref:longhorn-system/settings.adoc#_default_ublk_queue_depth[Default Ublk Queue Depth].
+
+=== Freeze Filesystem For Snapshot _(field: `parameters.freezeFilesystemForSnapshot`)_
 
 ____
 Default: `ignored`
 ____
 
-* `ignored` instructs {longhorn-product-name} to use the global setting.
-* Other values are `enabled` and `disabled`.
+* `"ignored"` instructs {longhorn-product-name} to use the global setting.
+* Other values are `"enabled"` and `"disabled"`.
+
+Global setting - xref:longhorn-system/settings.adoc#_freeze_file_system_for_snapshot[Freeze File System For Snapshot].
+
+=== Strict Topology _(field: `parameters.strictTopology`)_
 
 ____
-Global setting - xref:longhorn-system/settings.adoc#_freeze_filesystem_for_snapshot[Freeze File System For Snapshot].
+Default: `"false"`
 ____
 
-[discrete]
-==== Backup Target Name _(field: `parameters.backupTargetName`)_
+When set to `"true"`, the PV is pinned to the topology of the exact node selected by the Kubernetes scheduler. This is only effective when `volumeBindingMode` is set to `WaitForFirstConsumer`.
 
-____
-Default: `default`
-____
+* `"false"` (default): The PV `nodeAffinity` includes all topology segments matching the `allowedTopologies` (or all segments if `allowedTopologies` is not set).
+* `"true"`: The PV `nodeAffinity` is restricted to only the topology segment of the node where the pod was scheduled.
 
-* More details are available in xref:snapshots-backups/volume-snapshots-backups/configure-backup-target.adoc#_default_backup_target[default backup target] and xref:volumes/create-volumes.adoc[Create Volumes].
+This parameter controls only Kubernetes PV `nodeAffinity`. It does not persist a Longhorn replica placement constraint.
 
-[discrete]
-==== Backup Block Size _(field: `parameters.backupBlockSize`)_
+[NOTE]
+====
+It requires `csi-allowed-topology-keys` to be configured. See xref:longhorn-system/settings.adoc#_csi_allowed_topology_keys[`csi-allowed-topology-keys`] (CSI Allowed Topology Keys).
+====
 
-____
-Default: `""`
-____
-
-Example: `"2Mi"` or `"16Mi"`
-
-A Kubernetes quantity string. Use an empty string "" to apply the global setting.
-
-For more information, see:
-
-* xref:longhorn-system/settings.adoc[default backup block size]
-* xref:snapshots-backups/volume-snapshots-backups/configure-backup-block-size.adoc[Configure the Block Size of a Backup]
+For more details, see xref:nodes/topology-aware-provisioning.adoc[Topology-Aware Provisioning].
 
 == Helm Installs
 
-If {longhorn-product-name} is installed via Helm, values in the default storage class can be set by editing the corresponding item in https://github.com/longhorn/longhorn/blob/v{patch-version}/chart/values.yaml[`values.yaml`].  All the Storage Class parameters have a prefix of `persistence`.  For example, `persistence.defaultNodeSelector`.
+If {longhorn-product-name} is installed via Helm, values in the default storage class can be set by editing the corresponding item in the chart `values.yaml` file. All of the Storage Class parameters have a prefix of "persistence". For example, `persistence.defaultNodeSelector`.
