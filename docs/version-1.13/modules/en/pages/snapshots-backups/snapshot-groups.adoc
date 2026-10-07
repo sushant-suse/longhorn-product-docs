@@ -1,13 +1,13 @@
 = Snapshot Groups
 :description: Create a snapshot group in SUSE Storage to take snapshots of a set of volumes in one request and restore the matching snapshots together
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-09-16
+:revdate: 2026-10-07
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
 A snapshot group takes snapshots of a set of volumes with a single request. {longhorn-product-name} creates one snapshot per member volume and tracks them together in a `SnapshotGroup` resource, so at restore time it is clear which snapshots belong together.
 
-You can manage snapshot groups from the {longhorn-product-name} UI or with kubectl regardless of whether [CSI VolumeGroupSnapshot support](../csi-snapshot-support/csi-volume-group-snapshot) is enabled. Groups created through CSI appear on the *Snapshot Groups* page as well.
+You can manage snapshot groups from the {longhorn-product-name} UI or with kubectl regardless of whether xref:snapshots-backups/csi-snapshots/csi-volume-group-snapshot.adoc[CSI VolumeGroupSnapshot support] is enabled. Groups created through CSI appear on the *Snapshot Groups* page as well.
 
 [IMPORTANT]
 ====
