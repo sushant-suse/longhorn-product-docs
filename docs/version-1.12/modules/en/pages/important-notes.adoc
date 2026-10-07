@@ -1,7 +1,7 @@
 = Important Notes
 :description: Read the important notes to learn about changes, limitations, and migration steps for SUSE Storage v1.13.0
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-10-06
+:revdate: 2026-10-07
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -49,7 +49,7 @@ sha256sum /dev/source /dev/target
 ----
 +
 . *Back up the temporary V1 volume*: Detach the migration pod and create a Longhorn backup of the temporary V1 volume in the configured backup target.
-. *Test the standalone backup*: Verify that the backup does not list a backing image, restore it to a new volume, and validate the restored data before deleting any source data.
+. *Test the stand-alone backup*: Verify that the backup does not list a backing image, restore it to a new volume, and validate the restored data before deleting any source data.
 . *Remove the dependency*: After the test restore succeeds, delete the original V2 volume and backing image. The temporary V1 volume can also be deleted after confirming that its backup is available.
 
 For more information, see https://github.com/longhorn/longhorn/issues/13181[#13181] and xref:volumes/containerized-data-importer.adoc[{longhorn-product-name} with CDI Imports].
@@ -60,7 +60,7 @@ For more information, see https://github.com/longhorn/longhorn/issues/13181[#131
 
 The V2 Data Engine is generally available in {longhorn-product-name} v1.12.0. This milestone reflects improvements in stability, operational safety, networking support, and feature maturity, making V2 volumes suitable for production use in supported environments.
 
-For a summary of the current data engine behavior differences and feature support, see [Data Engine Comparison](../data-engine-comparison).
+For a summary of the current data engine behavior differences and feature support, see xref:data-engine-comparison.adoc[Data Engine Comparison].
 
 For more information, see https://github.com/longhorn/longhorn/issues/6229[#6229].
 
@@ -72,7 +72,7 @@ In environments with a growing number of attached V2 volumes, increased attach l
 
 ==== ARM64 NVMe-backed Block-Type Node Disk Limitation
 
-On ARM64 systems, V2 volumes may experience stuck I/O when SPDK is configured with two or more CPU cores and node disks use the NVMe driver. The root cause may lie in either the Linux kernel or SPDK itself, and further investigation is required. As a workaround, use [AIO-backed node disks](../nodes-and-volumes/nodes/multidisk#using-aio-disks) instead of [NVMe-backed node disks](../nodes-and-volumes/nodes/multidisk#using-nvme-disks) on ARM64 systems. For follow-up status, see https://github.com/longhorn/longhorn/issues/13243[#13243].
+On ARM64 systems, V2 volumes may experience stuck I/O when SPDK is configured with two or more CPU cores and node disks use the NVMe driver. The root cause may lie in either the Linux kernel or SPDK itself, and further investigation is required. As a workaround, use xref:nodes/multiple-disks.adoc#_aio_backed_node_disks[AIO-backed node disks] on ARM64 systems. For follow-up status, see https://github.com/longhorn/longhorn/issues/13243[#13243].
 
 ==== UBLK Frontend Kernel Limitation
 
