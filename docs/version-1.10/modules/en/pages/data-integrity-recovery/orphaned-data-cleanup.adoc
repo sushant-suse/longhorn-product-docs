@@ -25,37 +25,37 @@ The following example demonstrate how to manage orphaned replica directories ide
 +
 [,console]
 ----
- # ls /mnt/disk/replicas/
- pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
+# ls /mnt/disk/replicas/
+pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
 ----
 
- ** Orphaned replica directories on Node `worker2` disks
+** Orphaned replica directories on Node `worker2` disks
 +
 [,console]
 ----
 # ls /var/lib/longhorn/replicas/
- pvc-28255b31-161f-5621-eea3-a1cbafb4a12a-866aa0a5
+pvc-28255b31-161f-5621-eea3-a1cbafb4a12a-866aa0a5
 
 # ls /mnt/disk/replicas/
- pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-a86771c0
+pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-a86771c0
 ----
 
 . {longhorn-product-name} detects the orphaned replica directories and creates an `orphan` resources describing the directories.
 +
 [,console]
 ----
- # kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
- NAME                                                                      TYPE      NODE
- orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272   replica   rancher60-worker1
- orphan-637f6c01660277b5333f9f942e4b10071d89379dbe7b4164d071f4e1861a1247   replica   rancher60-worker2
- orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
+# kubectl -n longhorn-system get orphans -l "longhorn.io/orphan-type=replica"
+NAME                                                                      TYPE      NODE
+orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272   replica   rancher60-worker1
+orphan-637f6c01660277b5333f9f942e4b10071d89379dbe7b4164d071f4e1861a1247   replica   rancher60-worker2
+orphan-6360f22930d697c74bec4ce4056c05ac516017b908389bff53aca0657ebb3b4a   replica   rancher60-worker2
 ----
 
 . Retrieve a list of orphaned resources created by {longhorn-product-name} using the command `kubectl -n longhorn-system get orphan`.
 +
 [,console]
 ----
- kubectl -n longhorn-system get orphan
+kubectl -n longhorn-system get orphan
 ----
 
 . Get the detailed information of one of the orphaned replica directories in `spec.parameters` by `kubectl -n longhorn-system get orphan <name>`.
