@@ -63,45 +63,45 @@ kubectl -n longhorn-system get orphan
 +
 [,yaml]
 ----
- # kubectl -n longhorn-system get orphans orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272 -o yaml
- apiVersion: longhorn.io/v1beta2
- kind: Orphan
- metadata:
- creationTimestamp: "2022-04-29T10:17:40Z"
- finalizers:
- ** longhorn.io
- generation: 1
- labels:
-  longhorn.io/component: orphan
-  longhorn.io/managed-by: longhorn-manager
-  longhorn.io/orphan-type: replica
-  longhornnode: rancher60-worker1
+# kubectl -n longhorn-system get orphans orphan-fed8c6c20965c7bdc3e3bbea5813fac52ccd6edcbf31e578f2d8bab93481c272 -o yaml
+apiVersion: longhorn.io/v1beta2
+kind: Orphan
+metadata:
+creationTimestamp: "2022-04-29T10:17:40Z"
+finalizers:
+- longhorn.io
+generation: 1
+labels:
+    longhorn.io/component: orphan
+    longhorn.io/managed-by: longhorn-manager
+    longhorn.io/orphan-type: replica
+    longhornnode: rancher60-worker1
 
 ......
 
 spec:
- nodeID: rancher60-worker1
- orphanType: replica
- parameters:
-     DataName: pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
-     DiskName: disk-1
-     DiskPath: /mnt/disk/
-     DiskUUID: 90f00e61-d54e-44b9-a095-35c2b56a0462
- status:
- conditions:
- ** lastProbeTime: ""
-  lastTransitionTime: "2022-04-29T10:17:40Z"
-  message: ""
-  reason: ""
-  status: "True"
-  type: DataCleanable
- ** lastProbeTime: ""
-  lastTransitionTime: "2022-04-29T10:17:40Z"
-  message: ""
-  reason: ""
-  status: "False"
-  type: Error
- ownerID: rancher60-worker1
+nodeID: rancher60-worker1
+orphanType: replica
+parameters:
+    DataName: pvc-19c45b11-28ee-4802-bea4-c0cabfb3b94c-15a210ed
+    DiskName: disk-1
+    DiskPath: /mnt/disk/
+    DiskUUID: 90f00e61-d54e-44b9-a095-35c2b56a0462
+status:
+conditions:
+- lastProbeTime: ""
+    lastTransitionTime: "2022-04-29T10:17:40Z"
+    message: ""
+    reason: ""
+    status: "True"
+    type: DataCleanable
+- lastProbeTime: ""
+    lastTransitionTime: "2022-04-29T10:17:40Z"
+    message: ""
+    reason: ""
+    status: "False"
+    type: Error
+ownerID: rancher60-worker1
 ----
 
 . One can delete the `orphan` resource by `kubectl -n longhorn-system delete orphan <name>` and then the corresponding orphaned replica directory will be deleted.
