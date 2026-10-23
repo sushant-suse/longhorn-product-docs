@@ -1,7 +1,7 @@
 = Create a Recurring Snapshot or Backup Job
 :description: Create a recurring snapshot or backup job using the SUSE Storage UI or by configuring a RecurringJob custom resource
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2026-09-23
+:revdate: 2026-10-23
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -35,7 +35,7 @@ You can set recurring jobs on a Longhorn Volume, Kubernetes Persistent Volume Cl
 
 [NOTE]
 ====
-When the PVC has recurring job labels, they will override all recurring job labels of the associated Volume.
+When the PVC has recurring job labels, they will override all recurring job labels of the associated VolumeRecurring job labels on a PVC override all recurring job labels of the associated Volume only when the PVC is labeled as the recurring job source (`recurring-job.longhorn.io/source=enabled`). Without this source label, Longhorn does not sync recurring job labels from the PVC to the Volume, and recurring jobs are selected using the recurring job labels on the Volume. For details, see xref:_with_persistentvolumeclaim_using_kubectl[With PersistentVolumeClaim Using the `kubectl` command].
 ====
 
 For more information on how snapshots and backups work, refer to the xref:introduction/concepts.adoc[concepts] section.
@@ -299,4 +299,7 @@ Note that during the time the volume was attached automatically, the volume is n
 {longhorn-product-name} performs delta backups by default, which means that only data that was changed since the last backup is uploaded. However, when a data block in the backupstore becomes corrupted, {longhorn-product-name} does not replace that data block with a healthy one during subsequent backup operations. Corrupted data blocks in the backupstore may cause restoration operations to fail.
 When a non-zero `full-backup-interval` parameter is set, {longhorn-product-name} performs a full backup every `full-backup-interval` incremental backups. During a full backup, {longhorn-product-name} uploads all data blocks in the volume. Data blocks that exist in the backupstore, including corrupted ones, are overwritten.
 
-IMPORTANT: Performing a full backup might take longer and generate higher network throughput and costs than the default incremental backup.
+[IMPORTANT]
+====
+Performing a full backup might take longer and generate higher network throughput and costs than the default incremental backup.
+====

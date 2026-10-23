@@ -1,7 +1,7 @@
 = Create a Recurring Snapshot or Backup Job
 :description: Create a recurring snapshot or backup job using the SUSE Storage UI or by configuring a RecurringJob custom resource
 :page-languages: [en, de, es, fr, ja, pt, zh]
-:revdate: 2025-06-27
+:revdate: 2026-10-23
 :page-revdate: {revdate}
 :current-version: {page-component-version}
 
@@ -35,14 +35,14 @@ You can set recurring jobs on a Longhorn Volume, Kubernetes Persistent Volume Cl
 
 [NOTE]
 ====
-When the PVC has recurring job labels, they will override all recurring job labels of the associated Volume.
+When the PVC has recurring job labels, they will override all recurring job labels of the associated VolumeRecurring job labels on a PVC override all recurring job labels of the associated Volume only when the PVC is labeled as the recurring job source (`recurring-job.longhorn.io/source=enabled`). Without this source label, Longhorn does not sync recurring job labels from the PVC to the Volume, and recurring jobs are selected using the recurring job labels on the Volume. For details, see xref:_with_persistentvolumeclaim_using_kubectl[With PersistentVolumeClaim Using the `kubectl` command].
 ====
 
 For more information on how snapshots and backups work, refer to the xref:introduction/concepts.adoc[concepts] section.
 
 [NOTE]
 ====
-To avoid the problem that recurring jobs may overwrite the old backups/snapshots with identical backups and empty snapshots when the volume doesn't have new data for a long time, Longhorn does the following:
+To avoid the problem that recurring jobs may overwrite the old backups/snapshots with identical backups and empty snapshots when the volume does not have new data for a long time, Longhorn does the following:
 
 . Recurring backup job only takes a new backup when the volume has new data since the last backup.
 . Recurring snapshot job only takes a new snapshot when the volume has new data in the volume head (the live data).
@@ -82,15 +82,18 @@ The following parameters should be specified for each recurring job selector:
 
 * `name`: Name of the recurring job. Do not use duplicate names. And the length of `name` should be no more than 40 characters.
 * `task`: Type of the job. {longhorn-product-name} supports the following:
- ** `backup`: periodically create snapshots then do backups after cleaning up outdated snapshots
- ** `backup-force-create`: periodically create snapshots then do backups
- ** `snapshot`: periodically create snapshots after cleaning up outdated snapshots
- ** `snapshot-force-create`: periodically create snapshots
- ** `snapshot-cleanup`: periodically purge removable snapshots and system snapshots
+** `backup`: periodically create snapshots then do backups after cleaning up outdated snapshots
+** `backup-force-create`: periodically create snapshots then do backups
+** `snapshot`: periodically create snapshots after cleaning up outdated snapshots
+** `snapshot-force-create`: periodically create snapshots
+** `snapshot-cleanup`: periodically purge removable snapshots and system snapshots
 +
-NOTE: retain value has no effect for this task, {longhorn-product-name} automatically mutates the `retain` value to 0.
+[NOTE]
+====
+Retain value has no effect for this task, {longhorn-product-name} automatically mutates the `retain` value to 0.
+====
 
- ** `snapshot-delete`: periodically remove and purge all kinds of snapshots that exceed the retention count.
+** `snapshot-delete`: periodically remove and purge all kinds of snapshots that exceed the retention count.
 +
 [NOTE]
 ====
@@ -104,7 +107,7 @@ Using a volume with 2 recurring jobs as an example:
 Eventually, there will be 2 snapshots retained after a complete `snapshot-delete` task execution.
 ====
 
- ** `filesystem-trim`: periodically trim filesystem to reclaim disk space
+** `filesystem-trim`: periodically trim filesystem to reclaim disk space
 * `cron`: Cron expression. It tells the execution time of the job.
 * `retain`: How many snapshots/backups {longhorn-product-name} will retain for each volume job. It should be no less than 1.
 * `concurrency`: The number of jobs to run concurrently. It should be no less than 1.
@@ -159,7 +162,7 @@ kubectl -n longhorn-system label volume/<VOLUME-NAME> <RECURRING-JOB-LABEL>-
 # kubectl -n longhorn-system label volume/pvc-8b9cd514-4572-4eb2-836a-ed311e804d2f recurring-job.longhorn.io/backup-
 ----
 
-== With a PersistentVolumeClaim Using kubectl
+== With PersistentVolumeClaim Using kubectl
 
 By default, applying a recurring job to a Persistent Volume Claim (PVC) does not have any effect. You can enable or disable this feature using the recurring job source label.
 
@@ -251,4 +254,7 @@ Note that during the time the volume was attached automatically, the volume is n
 {longhorn-product-name} performs delta backups by default, which means that only data that was changed since the last backup is uploaded. However, when a data block in the backupstore becomes corrupted, {longhorn-product-name} does not replace that data block with a healthy one during subsequent backup operations. Corrupted data blocks in the backupstore may cause restoration operations to fail.
 When a non-zero `full-backup-interval` parameter is set, {longhorn-product-name} performs a full backup every `full-backup-interval` incremental backups. During a full backup, {longhorn-product-name} uploads all data blocks in the volume. Data blocks that exist in the backupstore, including corrupted ones, are overwritten.
 
-IMPORTANT: Performing a full backup might take longer and generate higher network throughput and costs than the default incremental backup.
+[IMPORTANT]
+====
+Performing a full backup might take longer and generate higher network throughput and costs than the default incremental backup.
+====
